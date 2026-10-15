@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="./doc-page.js"></script>
+<style>
+doc-page:not(:defined){visibility:hidden}
+body{margin:0;font-family:'Noto Sans JP',system-ui,sans-serif;color:#15202b;font-size:14px;line-height:1.7}
+a{color:#0a7f8e}a:hover{color:#065c67}
+h1{font-size:28px;line-height:1.3;margin:0 0 6px}
+h2{font-size:19px;margin:34px 0 10px;padding-bottom:6px;border-bottom:2px solid #0a7f8e}
+h3{font-size:15px;margin:20px 0 6px;color:#0a4c55}
+p{margin:0 0 10px;text-wrap:pretty}
+ul,ol{margin:0 0 10px;padding-left:22px}
+li{margin:2px 0}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 14px}
+th,td{border:1px solid #cfd8dd;padding:7px 9px;text-align:left;vertical-align:top}
+th{background:#e9f3f5;font-weight:700}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;background:#eef2f4;padding:1px 5px;border-radius:3px}
+pre{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.55;background:#0f1a24;color:#dde8ee;padding:14px 16px;border-radius:6px;overflow-x:auto;margin:8px 0 14px;break-inside:avoid}
+figcaption{font-size:12px;color:#5b6b76;margin:-8px 0 14px}
+.callout{background:#f1f8f9;border:1px solid #bfe0e5;border-radius:6px;padding:10px 14px;margin:10px 0 14px;break-inside:avoid;orphans:3;widows:3}
+.meta{color:#5b6b76;font-size:13px;margin-bottom:18px}
+</style>
+</helmet>
+<doc-page size="a4" margin="0.8in">
+<h1>RGCS — ArduPilot 複数機体対応 GCS<br>Rust アーキテクチャ設計書</h1>
+<div class="meta">v0.1 ドラフト · 2026-10-14 · 対象 OS: macOS / Windows / Ubuntu · GUI: Tauri 2 (Rust バックエンド + Web UI)</div>
+
+<h2>1. 目的と設計方針</h2>
+<p>RGCS は ArduPilot(Copter / Rover)を同時に多数(20 機超)監視・制御する地上局アプリである。オフライン運用、日英切替、2 系統ジョイスティック(機体・ジンバル)を必須要件とし、プロトタイプ(<a href="RGCS%20Prototype.dc.html">RGCS Prototype</a>)の 10 画面を実装対象とする。</p>
+<ul>
+  <li><b>安全最優先</b> — 機体への送信は必ず Rust 側のコマンドキューを経由し、確認・レート制限・操作履歴記録を一元化する。UI から MAVLink を直接触らない。</li>
+  <li><b>コアを UI から分離</b> — <code>rgcs-core</code> 群は Tauri に依存しない純 Rust クレートとして設計し、CLI・SITL テスト・将来の別 UI から再利用できる。</li>
+  <li><b>オフライン前提</b> — 地図タイル(MBTiles)、地形、パラメータ定義、AI モデルの全てをローカルに持ち、ネットワークは「あれば使う」扱い。</li>
+  <li><b>多機体スケール</b> — 機体ごとの状態はロックフリーな <code>watch</code> チャネルで配信し、UI は 10 Hz に間引いた差分のみ受け取る。</li>
+</ul>
+
+<h2>2. 技術スタック</h2>
+<table>
+<thead><tr><th>領域</th><th>選定</th><th>理由</th></tr></thead>
+<tbody>
+<tr><td>GUI シェル</td><td>Tauri 2 + WebView(WKWebView / WebView2 / WebKitGTK)</td><td>3 OS を単一コードで配布、バイナリ軽量、Rust との IPC が型安全</td></tr>
+<tr><td>フロントエンド</td><td>TypeScript + Solid.js(または React)、MapLibre GL JS、i18next</td><td>プロトタイプ HTML をほぼそのまま移植可能。MapLibre は 2D/3D(pitch + 地形)を同一エンジンで扱える</td></tr>
+<tr><td>非同期ランタイム</td><td>tokio</td><td>シリアル・UDP・TCP・映像・AI を 1 ランタイムで統合</td></tr>
+<tr><td>MAVLink</td><td><code>mavlink</code> クレート(rust-mavlink, ardupilotmega dialect)</td><td>コード生成済み、MAVLink 2 署名対応</td></tr>
+<tr><td>シリアル / ネットワーク</td><td><code>tokio-serial</code>, <code>tokio::net</code></td><td>USB テレメトリ・UDP(SITL/中継)・TCP</td></tr>
+<tr><td>映像</td><td>GStreamer(<code>gstreamer-rs</code>)→ 低遅延 RTSP/RTP H.264/H.265 をデコード、<code>appsink</code> でフレーム取得</td><td>3 OS 対応・ハードウェアデコード。WebView へは WebRTC(ローカル)または共有テクスチャで転送</td></tr>
+<tr><td>地図タイル</td><td>MBTiles(SQLite, <code>rusqlite</code>)をローカル HTTP(<code>axum</code>)で配信</td><td>オフライン完結。オンライン時はタイルを透過キャッシュ</td></tr>
+<tr><td>DataFlash ログ</td><td>自前パーサ(<code>rgcs-log</code>)+ <code>polars</code> で時系列処理</td><td>.bin の FMT/FMTU 自己記述形式を解析、VIBE/RCOU 等を高速抽出</td></tr>
+<tr><td>ジョイスティック</td><td><code>gilrs</code>(SDL2 不要)</td><td>複数デバイス列挙・軸/ボタン ID 取得、3 OS 対応</td></tr>
+<tr><td>永続化</td><td>SQLite(<code>sqlx</code>)— 操作履歴・設定・パラメータ変更履歴</td><td>単一ファイル、監査ログ向き</td></tr>
+<tr><td>AI</td><td>ローカル LLM(<code>llama.cpp</code> 系 / <code>candle</code>)+ ルールベース解析。オンライン時はリモート API に切替可</td><td>オフライン要件。ツール呼び出し(状態取得・ログ検索)は Rust 側で実装</td></tr>
+<tr><td>i18n</td><td>UI: i18next(ja/en JSON)。Rust 側メッセージ: <code>fluent-rs</code></td><td>STATUSTEXT 等の機体メッセージは原文保持 + 翻訳辞書</td></tr>
+</tbody>
+</table>
+
+<h2>3. ワークスペース構成</h2>
+<pre>rgcs/
+├─ Cargo.toml                 # workspace
+├─ crates/
+│  ├─ rgcs-core      # ドメインモデル: Vehicle, Telemetry, Command, Event, Operator
+│  ├─ rgcs-mavlink   # リンク管理・多機体ルーティング・コマンド送信/ACK・パラメータ同期
+│  ├─ rgcs-mission   # ミッション(WP)の読込/書込、Guided 移動、ジオフェンス
+│  ├─ rgcs-video     # GStreamer パイプライン、録画(AUTO REC)、スナップショット
+│  ├─ rgcs-map       # MBTiles 配信、タイルプリフェッチ、地形(SRTM)サンプリング
+│  ├─ rgcs-log       # DataFlash(.bin)/tlog パーサ、時系列抽出、フライト経路生成
+│  ├─ rgcs-ai        # 解析ルール、LLM アダプタ、ツール定義(状態取得/ログ検索/区間ジャンプ)
+│  ├─ rgcs-input     # gilrs ラッパ: デバイス割当(機体/ジンバル)、軸マップ、MANUAL_CONTROL 生成
+│  ├─ rgcs-store     # SQLite: 設定、操作履歴、パラメータ変更履歴、オペレータ
+│  └─ rgcs-i18n      # fluent リソース、言語切替
+├─ apps/
+│  ├─ rgcs-desktop   # Tauri アプリ(コマンド/イベント境界、ウィンドウ、トレイ)
+│  │  └─ ui/         # TypeScript フロントエンド(画面 10 種)
+│  └─ rgcs-cli       # ヘッドレス: ログ解析・SITL 接続テスト・タイル生成
+└─ tests/            # SITL 統合テスト(ArduCopter/ArduRover × N 台)</pre>
+<figcaption>図 1. クレート構成。<code>crates/*</code> は Tauri 非依存。</figcaption>
+
+<h2>4. ランタイム構造とデータフロー</h2>
+<pre>┌──────────────── WebView (TypeScript UI) ────────────────┐
+│ 運用マップ / 全機体映像 / メンテナンス / AI チャット        │
+│   ▲ emit: telemetry(10Hz, diff) / events / video frames   │
+│   │ invoke: send_command / set_param / guided_goto ...     │
+└───┼────────────────────────────────────────────────────────┘
+    │ Tauri IPC (serde, 型は rgcs-core から ts-rs で生成)
+┌───┴──────────────── rgcs-desktop (tokio) ─────────────────┐
+│ AppState { vehicles: DashMap&lt;SysId, VehicleHandle&gt; }     │
+│   VehicleHandle { state: watch::Sender&lt;VehicleState&gt;,     │
+│                   cmd_tx: mpsc::Sender&lt;Command&gt; }         │
+│ ┌ LinkManager ─┐ ┌ CommandQueue ┐ ┌ VideoHub ┐ ┌ InputHub ┐│
+│ │ serial/udp/  │ │ 確認・レート │ │ GStreamer│ │ gilrs    ││
+│ │ tcp × N      │ │ 制限・ACK待ち│ │ × N      │ │ × 2 dev  ││
+│ └──────┬───────┘ └──────┬───────┘ └────┬─────┘ └────┬─────┘│
+│        └─ Router(sysid/compid) ─┘   AuditLog(SQLite)      │
+└────────────────────────────────────────────────────────────┘</pre>
+<figcaption>図 2. 1 機体 = 1 <code>VehicleHandle</code>。UI は watch チャネルの最新値だけを見る。</figcaption>
+
+<h3>4.1 多機体ルーティング</h3>
+<ul>
+  <li>リンク(シリアル / UDP / TCP)と機体は多対多。<code>Router</code> が受信フレームの <code>(system_id, component_id)</code> で <code>VehicleHandle</code> に振り分け、未知の sysid は自動登録して <code>VehicleDiscovered</code> イベントを発火。</li>
+  <li>送信は <code>Command { target, msg, policy }</code> を <code>CommandQueue</code> に投入。<code>policy</code> で「ACK 必須・再送 3 回・1.5 s タイムアウト」等を宣言し、結果は <code>CommandResult</code> として UI とメッセージ欄へ返す。</li>
+  <li>HEARTBEAT 欠落 3 s で <code>CommsDelay</code>(黄)、10 s で <code>LinkLost</code>(赤)を機体メッセージに積む。プロトタイプの「通信遅延」はこのイベント。</li>
+</ul>
+
+<h3>4.2 テレメトリ配信</h3>
+<p>受信は最大レート(50 Hz 超)で <code>VehicleState</code> を更新し、UI 向けには 10 Hz のタイマで直前値との差分(位置・姿勢・バッテリ・モード)のみ <code>telemetry:{sysid}</code> イベントで emit する。20 機 × 10 Hz でも IPC 量は数十 KB/s に収まる。</p>
+
+<h3>4.3 コマンド安全策</h3>
+<ul>
+  <li>ARM / DISARM / RTL / LAND / モード変更は UI で確認ダイアログ、Rust 側でも <code>requires_confirm</code> を検査し、確認トークン無しの呼び出しは拒否。</li>
+  <li>全送信を <code>audit_log(operator, vehicle, command, result, ts)</code> に記録。オペレータ未登録時は送信系コマンドを無効化(プロトタイプの「未登録」状態)。</li>
+  <li>Guided 移動は <code>SET_POSITION_TARGET_GLOBAL_INT</code>。高度は「現在維持 / 指定(ホーム相対)」の 2 択で、ジオフェンス上限を超える値は送信前に弾く。</li>
+</ul>
+
+<h2>5. サブシステム設計</h2>
+<h3>5.1 映像(rgcs-video)</h3>
+<ul>
+  <li>機体ごとに GStreamer パイプライン(<code>rtspsrc → decodebin → tee → [appsink | filesink(mp4)]</code>)。ARM 検知で AUTO REC 開始、DISARM で停止。</li>
+  <li>WebView への表示: 第 1 候補はローカル WebRTC(<code>webrtcsink</code>)、代替として <code>appsink</code> → 共有メモリ → <code>canvas</code> 描画。6 面同時でも GPU デコードで CPU 負荷を抑える。</li>
+  <li>未接続は <code>VideoState::Disconnected</code> を UI に通知(「映像未接続」タイル)。</li>
+</ul>
+<h3>5.2 地図(rgcs-map)</h3>
+<ul>
+  <li><code>axum</code> で <code>http://127.0.0.1:{port}/tiles/{z}/{x}/{y}</code> を提供。MBTiles を優先し、無ければオンラインソースから取得してキャッシュに書き戻す(「地図キャッシュを更新」)。</li>
+  <li>3D 表示は MapLibre の <code>terrain</code>(ローカル Terrain-RGB タイル)+ pitch。機体マーカは高度に応じて地表からの引出線を描画。</li>
+  <li>運用エリアの事前ダウンロード(ズーム範囲・矩形指定)は <code>rgcs-cli tiles fetch</code> と UI の両方から実行可能。</li>
+</ul>
+<h3>5.3 ログ・AI 解析(rgcs-log / rgcs-ai)</h3>
+<ul>
+  <li>DataFlash .bin を FMT/FMTU に基づきストリーミング解析し、<code>polars</code> DataFrame 化。VIBE, RCOU, ATT, GPS, BAT, MODE, ERR を標準抽出。</li>
+  <li>ルール解析(例: VIBE ピークと RCOU 分散の同時発生 → 「モーターバランス/プロペラ」候補)を先に実行し、LLM には抽出済みの根拠データだけを渡して説明文を生成。根拠は「VIBE」「モーター出力」のようにチップ化して UI に返す。</li>
+  <li>「該当区間にジャンプ」は <code>LogCursor { t_start, t_end }</code> イベントで全チャート・経路地図を同期。</li>
+  <li>運用中の AI チャットはツール呼び出し(<code>get_vehicle_status</code>, <code>list_recent_messages</code>, <code>search_log</code>)のみ許可。<b>機体への送信ツールは提供しない</b>。</li>
+</ul>
+<h3>5.4 ジョイスティック(rgcs-input)</h3>
+<ul>
+  <li><code>gilrs</code> で複数デバイスを列挙し、「機体操作」「ジンバル操作」に別デバイス(同一デバイス可)を割当。設定は <code>input_profiles</code> テーブルに保存。</li>
+  <li>機体操作: 軸 → <code>MANUAL_CONTROL</code>(50 Hz)または RC_CHANNELS_OVERRIDE(設定で選択)。対象は「選択中の機体」のみ、切替時は 0.5 s ニュートラル送信。</li>
+  <li>ジンバル操作: <code>GIMBAL_MANAGER_SET_PITCHYAW</code> / <code>DO_MOUNT_CONTROL</code>。デッドゾーン・感度・反転はプロファイル単位。</li>
+  <li>デバイス切断を検知したら即座に機体へニュートラルを送り、メッセージ欄に警告。</li>
+</ul>
+<h3>5.5 ミッション作成(rgcs-mission)</h3>
+<ul>
+  <li>ミッションは <code>Mission { name, vehicle, items: Vec&lt;MissionItem&gt; }</code> として保持。<code>MissionItem</code> は <code>MAV_CMD</code>(TAKEOFF / WAYPOINT / LOITER_TIME / DO_SET_ROI / LAND / RTL)+ 座標・高度(ホーム相対)・待機秒・半径。UI の編集は全てこの構造体への純粋な差分操作(追加・並べ替え・ドラッグ移動)で、Undo/Redo はスナップショットで実装。</li>
+  <li>機体への書込は MAVLink Mission Protocol(<code>MISSION_COUNT → MISSION_REQUEST_INT → MISSION_ITEM_INT → MISSION_ACK</code>)を状態機械で実装し、タイムアウト再送と途中失敗時のロールバックを行う。読込は逆方向。</li>
+  <li>保存形式は QGC/Mission Planner 互換の <code>.waypoints</code>(テキスト)と、RGCS 独自メタ(名前・対象機体・既定高度)を含む <code>.rgcsmission</code>(JSON)の 2 種。</li>
+  <li>検証: 高度上限(FENCE_ALT_MAX)・ジオフェンス外・総距離に対するバッテリ余裕・最初の項目が TAKEOFF でない等を書込前に警告し、致命的なものは送信を拒否。</li>
+</ul>
+<h3>5.6 パラメータ / メンテナンス(rgcs-mavlink)</h3>
+<ul>
+  <li>接続時に <code>PARAM_REQUEST_LIST</code> で全取得し機体別キャッシュ。UI の「推進・モーター」等の分類は同梱の <code>apm.pdef.xml</code> から生成。</li>
+  <li>変更はドラフト → 「機体に書き込む」で <code>PARAM_SET</code> + 読み戻し検証。差分と担当オペレータを <code>param_history</code> に保存(「変更履歴」タブ)。</li>
+  <li>校正(加速度計・コンパス・RC・ESC)は <code>MAV_CMD_PREFLIGHT_CALIBRATION</code> と進捗 STATUSTEXT を状態機械で追跡。</li>
+</ul>
+
+<h2>6. Tauri IPC 境界(抜粋)</h2>
+<table>
+<thead><tr><th>種別</th><th>名前</th><th>引数 / ペイロード</th><th>備考</th></tr></thead>
+<tbody>
+<tr><td>invoke</td><td><code>list_vehicles</code></td><td>—</td><td>起動時・再接続時</td></tr>
+<tr><td>invoke</td><td><code>send_command</code></td><td><code>{sysid, cmd, confirm_token?}</code></td><td>全コマンド画面</td></tr>
+<tr><td>invoke</td><td><code>guided_goto</code></td><td><code>{sysid, lat, lon, alt_mode, alt_rel?}</code></td><td>Guided 移動</td></tr>
+<tr><td>invoke</td><td><code>set_params</code> / <code>get_params</code></td><td><code>{sysid, [{name, value}]}</code></td><td>機体設定</td></tr>
+<tr><td>invoke</td><td><code>register_operator</code></td><td><code>{name_or_id}</code></td><td>以降の監査ログに紐付け</td></tr>
+<tr><td>invoke</td><td><code>open_log</code> / <code>analyze_log</code></td><td><code>{path}</code></td><td>ログ・AI 解析</td></tr>
+<tr><td>invoke</td><td><code>set_input_profile</code></td><td><code>{role: vehicle|gimbal, device_id, axes…}</code></td><td>アプリ設定</td></tr>
+<tr><td>event</td><td><code>telemetry:{sysid}</code></td><td>差分 <code>VehicleState</code></td><td>10 Hz</td></tr>
+<tr><td>event</td><td><code>vehicle_message</code></td><td><code>{sysid, severity, text, ts}</code></td><td>右パネルのメッセージ</td></tr>
+<tr><td>event</td><td><code>command_result</code></td><td><code>{id, ok, reason}</code></td><td>フッターのログ</td></tr>
+<tr><td>event</td><td><code>video_state:{sysid}</code></td><td><code>connected|recording|disconnected</code></td><td>タイル表示</td></tr>
+</tbody>
+</table>
+<p>型は <code>rgcs-core</code> の構造体に <code>#[derive(Serialize, TS)]</code> を付け、<code>ts-rs</code> で TypeScript 定義を自動生成する。</p>
+
+<h2>7. スレッド / タスクモデル</h2>
+<ul>
+  <li>tokio マルチスレッドランタイム 1 つ。リンク受信・コマンドキュー・テレメトリ間引き・映像状態監視は各タスク。</li>
+  <li>GStreamer と gilrs はブロッキング API のため <code>spawn_blocking</code> または専用 OS スレッドで駆動し、チャネルで tokio 側へ渡す。</li>
+  <li>ログ解析(数百 MB)は <code>rayon</code> 並列で別スレッドプール。進捗を <code>analyze_progress</code> イベントで通知。</li>
+</ul>
+
+<h2>8. 配布・OS 差分</h2>
+<table>
+<thead><tr><th></th><th>macOS</th><th>Windows</th><th>Ubuntu</th></tr></thead>
+<tbody>
+<tr><td>パッケージ</td><td>.dmg(署名 + notarize)</td><td>.msi / NSIS(WebView2 ブートストラップ同梱)</td><td>.deb / AppImage</td></tr>
+<tr><td>シリアル</td><td>/dev/cu.usbmodem*</td><td>COMx(ドライバ不要の CDC)</td><td>/dev/ttyACM*(dialout グループ案内)</td></tr>
+<tr><td>GStreamer</td><td>公式 pkg を同梱(bundle)</td><td>MSVC 版ランタイム同梱</td><td>apt 依存 or AppImage 内包</td></tr>
+<tr><td>HW デコード</td><td>VideoToolbox</td><td>D3D11 / NVDEC</td><td>VA-API</td></tr>
+<tr><td>データ保存先</td><td colspan="3"><code>~/RGCS/</code> 配下に tiles / logs / recordings / rgcs.db(設定で変更可)</td></tr>
+</tbody>
+</table>
+
+<h2>9. テスト戦略</h2>
+<ul>
+  <li><b>単体</b>: MAVLink ルータ、コマンドポリシー、DataFlash パーサ(実ログのフィクスチャ)、解析ルール。</li>
+  <li><b>統合</b>: ArduPilot SITL を docker で N 台(Copter 4 + Rover 2)起動し、接続・モード変更・Guided・パラメータ往復・リンク喪失を自動化。</li>
+  <li><b>UI</b>: Playwright で 10 画面の遷移とオフライン(ネットワーク遮断)時の地図表示を検証。</li>
+  <li><b>負荷</b>: 30 機 × 50 Hz テレメトリ + 6 映像で CPU/メモリ/IPC レイテンシを計測し、UI 更新 10 Hz を維持できることを確認。</li>
+</ul>
+
+<h2>10. 実装ロードマップ</h2>
+<ol>
+  <li><b>M1 コア接続</b>(4 週): rgcs-core / rgcs-mavlink / 運用 2D マップ / 機体リスト / 全コマンド / 操作履歴。SITL 2 機で動作。</li>
+  <li><b>M2 多機体・映像</b>(4 週): 20 機ルーティング、Guided 移動、全機体映像 + 最大化、AUTO REC、オペレータ登録。</li>
+  <li><b>M3 メンテナンス</b>(4 週): パラメータ UI、校正、変更履歴、DataFlash 解析 + ルール AI、3D 地図(地形)。</li>
+  <li><b>M4 入力・運用品質</b>(3 週): ジョイスティック 2 系統、オフラインタイル管理、i18n 完成、3 OS パッケージング、負荷試験。</li>
+  <li><b>M5 AI チャット</b>(3 週): ローカル LLM 統合、ツール呼び出し、ログ Q&amp;A。</li>
+</ol>
+<div class="callout"><b>未決事項</b>: ① 映像の WebView 転送方式(WebRTC か共有テクスチャ)は M2 冒頭で PoC 比較。② ローカル LLM のモデル規模は対象 PC の GPU 有無で決定。③ MAVLink 署名鍵の配布・保管方法。</div>
+</doc-page>
+</x-dc>
+</body>
+</html>
