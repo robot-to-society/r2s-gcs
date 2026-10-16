@@ -1,0 +1,71 @@
+{
+  "$comment": "Validation ranges shared by rgcs-store (Rust TryFrom) and the UI (zod). Source of truth: docs/spec/60-data-model.md.",
+  "camera_profiles": {
+    "kind": { "enum": ["none", "mavlink", "siyi_mt11"], "default": "none" },
+    "host": { "pattern": "^(25[0-5]|2[0-4]\\d|1?\\d?\\d)(\\.(25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}$", "default": "192.168.144.25" },
+    "port": { "min": 1, "max": 65535, "default": 37260 },
+    "rtsp_url": { "pattern": "^rtsp://", "default": "rtsp://{host}:8554/video1" },
+    "comp_id": { "min": 1, "max": 255, "default": 100 },
+    "video_source_mode": { "enum": ["auto", "mt11", "android"], "default": "auto" },
+    "android_url": { "pattern": "^(https?://.*)?$", "default": "http://127.0.0.1:8080" },
+    "encoding_preset": { "enum": ["h264_720p", "h264_1080p", "h264_4k", "h265_1080p", "h265_4k"], "default": "h264_1080p" },
+    "thermal_palette": { "enum": [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "default": 3 },
+    "thermal_overlay": { "type": "bool", "default": true },
+    "ai_box_px": { "min": 32, "max": 600, "default": 100 },
+    "clock_sync": { "type": "bool", "default": true },
+    "auto_record": { "type": "bool", "default": true }
+  },
+  "roi_targets": {
+    "id": { "pattern": "^roi_(10|[1-9])$" },
+    "name": { "maxLength": 64, "default": "" },
+    "lat": { "min": -90, "max": 90, "default": 0 },
+    "lon": { "min": -180, "max": 180, "default": 0 },
+    "alt_msl": { "min": -500, "max": 9000, "default": 0 }
+  },
+  "roi_control": {
+    "control_mode": { "enum": ["rate", "angle"], "default": "rate" },
+    "rate_hz": { "exclusiveMin": 0, "max": 50, "default": 10 },
+    "target_rate_hz": { "min": 0.2, "max": 10, "default": 2 },
+    "smoothing_tau_s": { "min": 0, "max": 10, "default": 0.8 },
+    "deadband_deg": { "min": 0, "max": 5, "default": 0.3 },
+    "pid_kp": { "min": 0, "max": 50, "default": 2.0 },
+    "pid_ki": { "min": 0, "max": 20, "default": 0.2 },
+    "pid_kd": { "min": 0, "max": 10, "default": 0 },
+    "max_speed": { "min": 1, "max": 100, "default": 60 },
+    "yaw_offset_deg": { "min": -180, "max": 180, "default": 0 }
+  },
+  "gimbal_input_profile": {
+    "enabled": { "type": "bool", "default": false },
+    "device_name": { "maxLength": 128, "default": "" },
+    "max_pan_speed": { "min": 1, "max": 100, "default": 30 },
+    "max_tilt_speed": { "min": 1, "max": 100, "default": 20 },
+    "zoom_step_hz": { "min": 0.5, "max": 10, "default": 2.0 },
+    "axes": {
+      "axis_id": { "min": 0, "max": 15, "unique": true },
+      "function": { "enum": ["none", "pan", "tilt", "zoom_abs", "zoom_speed", "zoom_step"] },
+      "deadzone": { "min": 0, "max": 0.5 },
+      "invert": { "type": "bool" },
+      "scale": { "min": 0.1, "max": 2 }
+    },
+    "buttons": {
+      "button_id": { "min": 0, "max": 31, "unique": true },
+      "function": {
+        "enum": ["none", "shutter", "record_toggle", "center_gimbal", "thermal_toggle", "thermal_gain_toggle",
+                 "focus_near", "focus_far", "ai_tracking_toggle", "gimbal_stop", "zoom_in_step", "zoom_out_step", "zoom_1x",
+                 "mode_lock", "mode_follow", "mode_fpv", "mode_cycle",
+                 "roi_1", "roi_2", "roi_3", "roi_4", "roi_5", "roi_6", "roi_7", "roi_8", "roi_9", "roi_10", "roi_stop"]
+      }
+    }
+  },
+  "ws_input": {
+    "gimbal_rate": { "yaw": { "min": -100, "max": 100 }, "pitch": { "min": -100, "max": 100 }, "max_hz": 25 },
+    "manual": { "x": { "min": -1000, "max": 1000 }, "y": { "min": -1000, "max": 1000 }, "z": { "min": 0, "max": 1000 }, "r": { "min": -1000, "max": 1000 }, "max_hz": 60 },
+    "input_hb": { "timeout_s": 1.5 }
+  },
+  "auth": {
+    "username": { "pattern": "^[A-Za-z0-9_.-]{1,32}$" },
+    "lockout": { "failures": 5, "seconds": 60 },
+    "session_hours": 12,
+    "confirm_token_seconds": 30
+  }
+}
