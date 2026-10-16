@@ -1,0 +1,54 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { VehicleStore } from './store'
+
+class FakeSocket {
+  static last: FakeSocket | null = null
+  readyState = 0
+  onopen: (() => void) | null = null
+  onmessage: ((ev: MessageEvent<string>) => void) | null = null
+  onclose: (() => void) | null = null
+  onerror: (() => void) | null = null
+  constructor() {
+    FakeSocket.last = this
+  }
+  send() {}
+  close() {
+    this.readyState = 3
+    this.onclose?.()
+  }
+}
+
+describe('VehicleStore', () => {
+  beforeEach(() => {
+    vi.stubGlobal('WebSocket', FakeSocket)
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('tracks link state and reduces frames, notifying subscribers once per change', () => {
+    const store = new VehicleStore()
+    const seen: string[] = []
+    store.subscribe(() => seen.push(store.getState().link))
+    store.connect('ws://x/ws')
+    const s = FakeSocket.last!
+    s.readyState = 1
+    s.onopen?.()
+    expect(store.getState().link).toBe('open')
+    s.onmessage?.({ data: '{"t":"vehicle_discovered","sysid":4}' } as MessageEvent<string>)
+    expect(store.getState().vehicles.get(4)?.name).toBe('UAV-04')
+    s.onmessage?.({ data: 'garbage' } as MessageEvent<string>)
+    expect(seen).toEqual(['open', 'open'])
+    store.disconnect()
+    expect(store.getState().link).toBe('closed')
+  })
+
+  it('connect is idempotent', () => {
+    const store = new VehicleStore()
+    store.connect('ws://x/ws')
+    const first = FakeSocket.last
+    store.connect('ws://x/ws')
+    expect(FakeSocket.last).toBe(first)
+    store.disconnect()
+  })
+})

@@ -1,0 +1,21 @@
+# /etc/rgcs/config.toml — only what rgcs-server needs to start.
+# Camera, ROI and joystick settings live in the SQLite database and are edited from the UI.
+
+# HTTP + WebSocket listen address (browser connects here).
+listen = "0.0.0.0:8000"
+
+# MAVLink link: udpin|udpout|udp|tcp:<host>:<port> or /dev/tty*[,baud].
+# On a Pi with Rpanion-server add 127.0.0.1:15555 to its telemetry destinations.
+mavlink_url = "udpin:127.0.0.1:15555"
+
+# Database, logs and recordings.
+data_dir = "/var/lib/rgcs"
+
+# standalone (1 Pi = 1 vehicle) | edge (forward to a hub) | hub (aggregate edges)
+role = "standalone"
+
+# Built UI (apps/rgcs-server/ui/dist). Omit to serve a placeholder page.
+ui_dir = "/opt/rgcs/ui"
+
+# Telemetry diff interval for the WebSocket, in milliseconds (10 Hz).
+telemetry_interval_ms = 100

@@ -1,0 +1,17 @@
+[package]
+name = "rgcs-mavlink"
+description = "MAVLink link management, routing and ArduPilot telemetry decoding for RGCS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rgcs-core = { workspace = true }
+mavlink = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

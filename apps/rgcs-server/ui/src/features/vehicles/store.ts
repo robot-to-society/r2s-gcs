@@ -1,0 +1,47 @@
+import { useSyncExternalStore } from 'react'
+import { WsClient, defaultWsUrl } from '../../shared/ws/client'
+import { initialState, reduce, setLink, type VehiclesState } from './reducer'
+
+type Listener = () => void
+
+/** Single source of truth for vehicle state, fed by the WebSocket. */
+export class VehicleStore {
+  private state: VehiclesState = initialState
+  private readonly listeners = new Set<Listener>()
+  private client: WsClient | null = null
+
+  getState = (): VehiclesState => this.state
+
+  subscribe = (listener: Listener): (() => void) => {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
+  connect(url: string = defaultWsUrl()): void {
+    if (this.client) return
+    this.client = new WsClient(url, {
+      onMessage: (msg) => this.set(reduce(this.state, msg)),
+      onOpen: () => this.set(setLink(this.state, 'open')),
+      onClose: () => this.set(setLink(this.state, 'closed')),
+    })
+    this.client.start()
+  }
+
+  disconnect(): void {
+    this.client?.stop()
+    this.client = null
+    this.set(setLink(this.state, 'closed'))
+  }
+
+  private set(next: VehiclesState): void {
+    if (next === this.state) return
+    this.state = next
+    this.listeners.forEach((l) => l())
+  }
+}
+
+export const vehicleStore = new VehicleStore()
+
+export function useVehicles(store: VehicleStore = vehicleStore): VehiclesState {
+  return useSyncExternalStore(store.subscribe, store.getState, store.getState)
+}

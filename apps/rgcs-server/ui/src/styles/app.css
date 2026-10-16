@@ -1,0 +1,96 @@
+/* Application shell: the stage fills the window, panels float over it (spec 20 §4). */
+.shell {
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+  background: var(--base);
+}
+.shell > .frame {
+  min-width: 1280px;
+  min-height: 720px;
+  height: 100%;
+  position: relative;
+}
+.header {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 10px;
+  height: 52px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 8px 0 18px;
+}
+.header .brand {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.header .counts {
+  gap: 16px;
+  font-size: 15px;
+  color: var(--text-2);
+}
+.header .counts span {
+  color: var(--text);
+}
+.header .counts .warn {
+  color: var(--caution);
+}
+.header .link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.header .link .dot.ok {
+  background: var(--ok);
+}
+.header .link .dot.off {
+  background: var(--danger);
+}
+.vlist-search {
+  padding: 0 12px 8px;
+}
+.vlist-search .in {
+  width: 100%;
+}
+.vlist-body {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+.vrow .nm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  min-width: 0;
+}
+.vrow .nm > span {
+  flex: none;
+}
+.vrow .stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.vrow .icon {
+  color: var(--text-2);
+  display: grid;
+  place-items: center;
+}
+.empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+}

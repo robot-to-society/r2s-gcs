@@ -1,0 +1,214 @@
+//! Async link task: connect, feed every frame to the [`Router`], ask for missing streams,
+//! reconnect after errors. One task per link URL.
+//!
+//! Receiving runs in its own task and hands frames over a channel, so the `select!` below
+//! never cancels an in-flight `recv()` (which could drop half a frame on TCP / serial).
+
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use mavlink::dialects::ardupilotmega::{MavCmd, MavMessage, COMMAND_LONG_DATA};
+use mavlink::{AsyncMavConnection, MavHeader};
+use rgcs_core::SysId;
+use tokio::sync::{mpsc, Mutex};
+use tracing::{info, warn};
+
+use crate::heartbeat::is_flight_controller;
+use crate::interval::IntervalRequester;
+use crate::link::LinkUrl;
+use crate::router::{Clock, Router, RouterEvent};
+
+pub const GCS_SYSTEM_ID: u8 = 255;
+pub const GCS_COMPONENT_ID: u8 = 190;
+const RECONNECT_WAIT: Duration = Duration::from_secs(2);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const FRAME_QUEUE: usize = 256;
+
+type Conn = Arc<dyn AsyncMavConnection<MavMessage> + Sync + Send>;
+
+/// Wall + monotonic clock for the router, anchored at task start.
+#[derive(Clone, Copy)]
+struct TaskClock {
+    started: Instant,
+}
+
+impl TaskClock {
+    fn now(&self) -> Clock {
+        let mono_ms = self.started.elapsed().as_millis() as u64;
+        let unix_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        Clock { mono_ms, unix_ms }
+    }
+}
+
+/// Per-link mutable state: stream requesters per flight controller and the outgoing sequence.
+#[derive(Default)]
+struct LinkState {
+    requesters: HashMap<SysId, IntervalRequester>,
+    sequence: u8,
+}
+
+/// Runs until the `events` receiver is dropped. Reconnects after any link error.
+pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, events: mpsc::Sender<RouterEvent>) {
+    let address = url.mavlink_address();
+    let clock = TaskClock {
+        started: Instant::now(),
+    };
+    let mut link = LinkState::default();
+    loop {
+        match tokio::time::timeout(CONNECT_TIMEOUT, mavlink::connect_async::<MavMessage>(&address)).await {
+            Ok(Ok(conn)) => {
+                info!(link = %url, "mavlink link connected");
+                let conn: Conn = Arc::from(conn);
+                if receive_loop(conn, &router, &events, clock, &mut link)
+                    .await
+                    .is_err()
+                {
+                    return;
+                }
+            }
+            Ok(Err(e)) => warn!(link = %url, error = %e, "mavlink connect failed"),
+            Err(_) => warn!(link = %url, "mavlink connect timed out"),
+        }
+        if events.is_closed() {
+            return;
+        }
+        tokio::time::sleep(RECONNECT_WAIT).await;
+    }
+}
+
+/// Reads frames until the link errors; dropping the receiver stops it.
+fn spawn_reader(conn: Conn) -> mpsc::Receiver<(MavHeader, MavMessage)> {
+    let (tx, rx) = mpsc::channel(FRAME_QUEUE);
+    tokio::spawn(async move {
+        loop {
+            match conn.recv().await {
+                Ok(frame) => {
+                    if tx.send(frame).await.is_err() {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    warn!(error = %e, "mavlink receive error");
+                    break;
+                }
+            }
+        }
+    });
+    rx
+}
+
+/// Returns `Err` only when the event channel is gone (shutdown); link errors return `Ok`.
+async fn receive_loop(
+    conn: Conn,
+    router: &Arc<Mutex<Router>>,
+    events: &mpsc::Sender<RouterEvent>,
+    clock: TaskClock,
+    link: &mut LinkState,
+) -> Result<(), ()> {
+    let mut frames = spawn_reader(conn.clone());
+    let mut ticker = tokio::time::interval(Duration::from_secs(1));
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        tokio::select! {
+            frame = frames.recv() => match frame {
+                Some((header, msg)) => {
+                    let now = clock.now();
+                    let evs = router.lock().await.on_message(&header, &msg, now);
+                    forward(events, evs).await?;
+                    if let MavMessage::HEARTBEAT(hb) = &msg {
+                        if is_flight_controller(hb.autopilot) {
+                            request_streams(&conn, router, link, &header, now).await;
+                        }
+                    }
+                }
+                None => return Ok(()),
+            },
+            _ = ticker.tick() => {
+                let evs = router.lock().await.tick(clock.now());
+                forward(events, evs).await?;
+            }
+        }
+    }
+}
+
+/// `Updated` is high-rate and consumed through the `watch` channels, not the event queue.
+async fn forward(events: &mpsc::Sender<RouterEvent>, evs: Vec<RouterEvent>) -> Result<(), ()> {
+    for ev in evs.into_iter().filter(|e| !matches!(e, RouterEvent::Updated(_))) {
+        events.send(ev).await.map_err(|_| ())?;
+    }
+    Ok(())
+}
+
+async fn request_streams(
+    conn: &Conn,
+    router: &Arc<Mutex<Router>>,
+    link: &mut LinkState,
+    fc: &MavHeader,
+    now: Clock,
+) {
+    let last_seen: HashMap<u32, u64> = router.lock().await.last_seen(fc.system_id);
+    let requester = link.requesters.remove(&fc.system_id).unwrap_or_default();
+    let (next, requests) = requester.on_heartbeat(now.mono_ms, &last_seen);
+    link.requesters.insert(fc.system_id, next);
+    for r in requests {
+        let cmd = MavMessage::COMMAND_LONG(COMMAND_LONG_DATA {
+            param1: r.msg_id as f32,
+            param2: r.interval_us as f32,
+            command: MavCmd::MAV_CMD_SET_MESSAGE_INTERVAL,
+            target_system: fc.system_id,
+            target_component: fc.component_id,
+            ..COMMAND_LONG_DATA::DEFAULT
+        });
+        let header = next_header(link);
+        match conn.send(&header, &cmd).await {
+            Ok(_) => info!(
+                sysid = fc.system_id,
+                msg_id = r.msg_id,
+                interval_us = r.interval_us,
+                "requested stream"
+            ),
+            Err(e) => warn!(error = %e, msg_id = r.msg_id, "SET_MESSAGE_INTERVAL send failed"),
+        }
+    }
+}
+
+fn next_header(link: &mut LinkState) -> MavHeader {
+    let sequence = link.sequence;
+    link.sequence = link.sequence.wrapping_add(1);
+    MavHeader {
+        system_id: GCS_SYSTEM_ID,
+        component_id: GCS_COMPONENT_ID,
+        sequence,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn outgoing_sequence_increments_and_wraps() {
+        let mut link = LinkState {
+            sequence: 254,
+            ..LinkState::default()
+        };
+        assert_eq!(next_header(&mut link).sequence, 254);
+        assert_eq!(next_header(&mut link).sequence, 255);
+        assert_eq!(next_header(&mut link).sequence, 0);
+        assert_eq!(next_header(&mut link).system_id, GCS_SYSTEM_ID);
+    }
+
+    #[tokio::test]
+    async fn forward_drops_updated_events() {
+        let (tx, mut rx) = mpsc::channel(4);
+        forward(&tx, vec![RouterEvent::Updated(1), RouterEvent::Discovered(1)])
+            .await
+            .unwrap();
+        assert_eq!(rx.try_recv().unwrap(), RouterEvent::Discovered(1));
+        assert!(rx.try_recv().is_err());
+    }
+}

@@ -1,0 +1,57 @@
+//! `rgcs-server`: MAVLink link → router → WebSocket telemetry, plus the static UI.
+
+mod api;
+mod app;
+mod config;
+mod telemetry;
+mod ws;
+
+use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
+
+use rgcs_mavlink::{LinkUrl, Router};
+use tokio::sync::{broadcast, mpsc, Mutex};
+use tracing::info;
+use tracing_subscriber::EnvFilter;
+
+use crate::app::{AppState, BROADCAST_CAPACITY};
+use crate::config::Config;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+        .init();
+    let config_path = std::env::var("RGCS_CONFIG").unwrap_or_else(|_| config::DEFAULT_PATH.into());
+    let config = Config::load(Path::new(&config_path))?;
+    let link: LinkUrl = config
+        .mavlink_url
+        .parse()
+        .map_err(|e| anyhow::anyhow!("mavlink_url: {e}"))?;
+    info!(config = %config_path, listen = %config.listen, link = %link, "starting rgcs-server");
+
+    let router = Arc::new(Mutex::new(Router::default()));
+    let (tx, _) = broadcast::channel(BROADCAST_CAPACITY);
+    let (events_tx, events_rx) = mpsc::channel(256);
+    tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), events_tx));
+    tokio::spawn(telemetry::pump_events(events_rx, tx.clone()));
+    tokio::spawn(telemetry::diff_loop(
+        router.clone(),
+        tx.clone(),
+        Duration::from_millis(config.telemetry_interval_ms.max(20)),
+    ));
+
+    let state = AppState::new(router, tx);
+    let app = app::build(state, config.ui_dir.clone());
+    let listener = tokio::net::TcpListener::bind(config.listen).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+    Ok(())
+}
+
+async fn shutdown_signal() {
+    let _ = tokio::signal::ctrl_c().await;
+    info!("shutting down");
+}

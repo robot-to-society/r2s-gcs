@@ -1,0 +1,16 @@
+//! Domain types shared by every RGCS crate and exported to TypeScript with `ts-rs`.
+//!
+//! Nothing here depends on MAVLink, tokio or the web framework: these are the
+//! values that cross the WebSocket / HTTP boundary (`docs/spec/50-api.md`).
+
+pub mod command;
+pub mod operator;
+pub mod vehicle;
+pub mod ws;
+
+pub use command::{CommandResult, VehicleCommand};
+pub use operator::Operator;
+pub use vehicle::{
+    diff, Battery, Gps, LinkStatus, SysId, VehicleKind, VehicleState, VehicleStateDiff, VehicleSummary,
+};
+pub use ws::{ClientMessage, ServerMessage, VehicleMessage};
