@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+/* ---- tokens ---- */
+:root{
+  --base:#11161e;
+  --glass:rgba(20,26,34,.56); --glass-strong:rgba(18,23,31,.8);
+  --line:rgba(255,255,255,.09); --line-hi:rgba(255,255,255,.16); --line-soft:rgba(255,255,255,.06);
+  --text:#f2f5f8; --text-2:#b3bfcc; --text-3:#8a97a5; --text-4:#687582;
+  --accent:#9cc9ff; --accent-deep:#4f8fdc; --on-accent:#0b1b2e; --accent-tint:rgba(156,201,255,.14); --accent-line:rgba(156,201,255,.45);
+  --caution:#f2b544; --on-caution:#1f1500; --caution-tint:rgba(242,181,68,.16); --caution-line:rgba(242,181,68,.45);
+  --danger:#ff6961; --rec:#e5484d; --danger-tint:rgba(255,105,97,.14); --danger-line:rgba(255,105,97,.45);
+  --ok:#5fd39b; --alt-hi:#d8a8ff;
+  --r-panel:18px; --r-ctl:12px; --r-sm:8px;
+  --blur:22px; --shadow:0 12px 40px rgba(0,0,0,.35);
+  --aside-w:296px; --right-w:372px; --gap:12px; --top:72px;
+  --font:'IBM Plex Sans JP','Noto Sans JP',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+html,body{margin:0;height:100%;background:var(--base);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:var(--accent)}
+input,select,button,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.45}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+input::placeholder{color:var(--text-4)}
+.num{font-variant-numeric:tabular-nums}
+.mono,.rg-mono{font-family:var(--mono);letter-spacing:-.01em}
+.t2{color:var(--text-2)}.t3{color:var(--text-3)}.t4{color:var(--text-4)}
+.row{display:flex;align-items:center;gap:8px;min-width:0}
+.grow{flex:1}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.h1{font-size:17px;font-weight:500}
+.h2{font-size:15px;font-weight:500}
+.big{font-size:22px;font-weight:300;letter-spacing:-.01em}
+.unit{font-size:12px;font-weight:500;color:var(--text-2);margin-left:3px}
+
+/* ---- glass material ---- */
+.g{background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02)),var(--glass);-webkit-backdrop-filter:blur(var(--blur)) saturate(1.35);backdrop-filter:blur(var(--blur)) saturate(1.35);border:1px solid var(--line);box-shadow:inset 0 1px 0 var(--line-hi),var(--shadow);border-radius:var(--r-panel)}
+.g-strong{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.015)),var(--glass-strong);-webkit-backdrop-filter:blur(32px) saturate(1.4);backdrop-filter:blur(32px) saturate(1.4);border:1px solid var(--line-hi);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 24px 60px rgba(0,0,0,.5);border-radius:var(--r-panel)}
+.g-ctl{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02)),var(--glass);-webkit-backdrop-filter:blur(18px) saturate(1.3);backdrop-filter:blur(18px) saturate(1.3);border:1px solid var(--line);box-shadow:inset 0 1px 0 var(--line-hi),0 6px 20px rgba(0,0,0,.3);border-radius:var(--r-ctl)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.g,.g-ctl{background:rgba(20,26,34,.94)}.g-strong{background:rgba(18,23,31,.97)}}
+.surface{background:rgba(255,255,255,.035);border:1px solid var(--line-soft);border-radius:var(--r-panel)}
+.inset{background:rgba(0,0,0,.22);border:1px solid var(--line-soft);border-radius:var(--r-ctl)}
+.aurora{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.aurora::before,.aurora::after{content:'';position:absolute;border-radius:50%;filter:blur(90px);opacity:.16}
+.aurora::before{width:60vw;height:60vw;left:-18vw;top:-28vw;background:#4f8fdc}
+.aurora::after{width:50vw;height:50vw;right:-14vw;bottom:-26vw;background:#3fa9a6}
+
+/* ---- stage layout: full-bleed map with floating panels ---- */
+.stage{position:relative;min-height:0}
+.stage.mission{--aside-w:320px;--right-w:360px}
+.stage.rail{--aside-w:60px}
+.stage.noright{--right-w:0px}
+.stage.video{--aside-w:0px;--right-w:0px}
+.stage.maint{--right-w:0px}
+.map{position:absolute;inset:0}
+.float{position:absolute;z-index:2}
+.float-l{left:var(--gap);top:var(--top);bottom:var(--gap);width:var(--aside-w)}
+.float-r{right:var(--gap);top:var(--top);bottom:var(--gap);width:var(--right-w)}
+.top1{top:var(--top)}
+.top2{top:calc(var(--top) + 54px)}
+.map-l{left:calc(var(--aside-w) + 2*var(--gap))}
+.map-r{right:calc(var(--right-w) + 2*var(--gap))}
+.map-r2{right:calc(var(--right-w) + 2*var(--gap) + 160px)}
+.map-c{left:calc(50% + (var(--aside-w) - var(--right-w))/2);transform:translateX(-50%)}
+.panel{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:10px;padding:12px 10px 10px 18px;min-height:56px}
+.sec{padding:14px 16px;border-bottom:1px solid var(--line-soft)}
+.sec:last-child{border-bottom:none}
+.sec-title{font-size:15px;font-weight:500;margin-bottom:10px}
+.hair{border-bottom:1px solid var(--line-soft)}
+.hair-t{border-top:1px solid var(--line-soft)}
+.form{display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center}
+.maplibregl-ctrl-scale{background:var(--glass)!important;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:var(--text-2)!important;border:1px solid var(--line-hi)!important;border-top:none!important;font-size:11px!important;border-radius:0 0 6px 6px;font-family:var(--font)}
+.maplibregl-ctrl-bottom-left{bottom:62px;left:calc(var(--aside-w) + 2*var(--gap))}
+.maplibregl-ctrl-bottom-right{bottom:60px;right:calc(var(--right-w) + 2*var(--gap))}
+.stage.elev .maplibregl-ctrl-bottom-left,.stage.elev .maplibregl-ctrl-bottom-right{bottom:272px}
+.stage.video .maplibregl-ctrl-bottom-left,.stage.maint .maplibregl-ctrl-bottom-left{left:12px;bottom:12px}
+.stage.video .maplibregl-ctrl-bottom-right,.stage.maint .maplibregl-ctrl-bottom-right{right:12px;bottom:12px}
+.maplibregl-ctrl-attrib{background:var(--glass)!important;color:var(--text-3)!important;border-radius:999px!important;font-family:var(--font)}
+.maplibregl-ctrl-attrib a{color:var(--text-2)!important}
+.maplibregl-ctrl-attrib.maplibregl-compact-show:not(:hover){padding:2px 24px 2px 0}
+.maplibregl-ctrl-attrib.maplibregl-compact-show:not(:hover) .maplibregl-ctrl-attrib-inner{display:none}
+.maplibregl-ctrl-attrib.maplibregl-compact:hover{padding:2px 28px 2px 8px}
+.maplibregl-ctrl-attrib.maplibregl-compact:hover .maplibregl-ctrl-attrib-inner{display:block}
+.maplibregl-ctrl-attrib-button{filter:invert(1) opacity(.6)}
+.maplibregl-marker{cursor:pointer}
+
+/* ---- controls ---- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 14px;border-radius:var(--r-ctl);border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);font-size:13px;font-weight:500;white-space:nowrap;transition:background .15s,border-color .15s}
+.btn:hover:not(:disabled){background:rgba(255,255,255,.09);border-color:var(--line-hi)}
+.btn.on{background:var(--accent-tint);border-color:var(--accent-line);color:var(--accent)}
+.btn-primary{background:var(--accent);border-color:transparent;color:var(--on-accent);font-weight:600}
+.btn-primary:hover:not(:disabled){background:#b3d6ff;border-color:transparent}
+.btn-danger{background:transparent;border-color:var(--danger-line);color:var(--danger)}
+.btn-danger:hover:not(:disabled){background:var(--danger-tint);border-color:var(--danger)}
+.btn-ghost{background:transparent;border-color:transparent}
+.btn-ghost:hover:not(:disabled){background:rgba(255,255,255,.07);border-color:transparent}
+.btn-lg{height:46px;font-size:15px;border-radius:14px}
+.btn-sm{height:32px;padding:0 10px;font-size:12px;border-radius:10px}
+.btn-icon{width:36px;height:36px;padding:0;display:grid;place-items:center;border-radius:10px;border:none;background:transparent;color:var(--text);flex:none}
+.btn-icon:hover:not(:disabled){background:rgba(255,255,255,.08)}
+.btn-icon.on{background:var(--accent-tint);color:var(--accent)}
+.btn-icon.sm{width:30px;height:30px;border-radius:8px}
+.btn-icon.lg{width:42px;height:42px}
+.ctl{width:44px;height:44px;display:grid;place-items:center;padding:0;color:var(--text)}
+.ctl.on{color:var(--accent);background:linear-gradient(180deg,rgba(156,201,255,.22),rgba(156,201,255,.1)),var(--glass)}
+.tile-btn{height:56px;display:grid;place-items:center;border-radius:var(--r-ctl);border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text)}
+.tile-btn:hover{background:rgba(255,255,255,.08)}
+.tile-btn.on{background:var(--accent-tint);border-color:var(--accent-line);color:var(--accent)}
+.cmd-btn{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:var(--r-ctl);color:var(--text);font-size:13px;text-align:left}
+.cmd-btn:hover:not(:disabled){background:var(--accent-tint);border-color:var(--accent-line)}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;height:36px;padding:0 10px;background:none;border:none;border-radius:8px;color:var(--text);font-size:13px;text-align:left}
+.menu-item:hover{background:rgba(255,255,255,.08)}
+.menu-item.danger{color:var(--danger)}
+.in,.rg-sel,.rg-num{height:38px;padding:0 12px;border-radius:var(--r-ctl);border:1px solid var(--line);background:rgba(0,0,0,.22);color:var(--text);outline:none;min-width:0;font-size:13px}
+.in:focus,.rg-sel:focus,.rg-num:focus{border-color:var(--accent-line)}
+.rg-num,.in.num{font-variant-numeric:tabular-nums}
+select.in,.rg-sel{padding:0 8px}
+.in.lg{height:46px;font-size:15px;border-radius:14px}
+.in.bare{background:none;border:none;padding:0;height:auto;border-radius:0}
+.rg-sel:disabled,.rg-num:disabled,.in:disabled{opacity:.4;cursor:not-allowed}
+.seg{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:3px;border-radius:var(--r-ctl);background:rgba(255,255,255,.06);border:1px solid var(--line);height:38px}
+.seg .lens{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/2);border-radius:9px;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.1));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 2px 8px rgba(0,0,0,.25);transition:transform .22s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+.seg.n5 .lens{width:calc((100% - 6px)/5)}
+.seg button{position:relative;z-index:1;border:none;background:transparent;color:var(--text-2);font-weight:500;font-size:13px;border-radius:9px;padding:0 12px;white-space:nowrap;display:grid;place-items:center}
+.seg button.on{color:var(--text)}
+.seg.lg{height:46px;border-radius:14px}
+.seg.lg .lens{border-radius:11px}
+.seg.lg button{font-size:15px;border-radius:11px}
+.rg-seg{display:flex;padding:3px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:var(--r-ctl);height:38px}
+.rg-seg button{min-width:52px;border:none;border-radius:9px;font-size:12px;font-weight:500;background:transparent;color:var(--text-2)}
+.rg-seg button.on{background:rgba(255,255,255,.16);color:var(--text)}
+.spin{display:flex;align-items:center;border:1px solid var(--line);border-radius:var(--r-ctl);overflow:hidden;background:rgba(0,0,0,.22)}
+.spin input{width:66px;height:42px;background:none;border:none;padding:0 10px;font-size:15px;outline:none;font-variant-numeric:tabular-nums}
+.spin>div{display:flex;flex-direction:column;border-left:1px solid var(--line-soft)}
+.spin>div button{width:26px;height:21px;background:none;border:none;color:var(--text-2);font-size:9px}
+.spin>div button+button{border-top:1px solid var(--line-soft)}
+.spin>div button:hover{color:var(--text);background:rgba(255,255,255,.06)}
+@media (prefers-reduced-motion:reduce){.seg .lens,.btn,.vrow,.wrow,.rg-mid,.rg-elev-pt{transition:none}}
+
+/* ---- badges / pills ---- */
+.badge{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid currentColor;white-space:nowrap;flex:none}
+.pill{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill-rec{background:var(--rec);color:#fff}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.count{min-width:24px;height:24px;padding:0 7px;border-radius:999px;display:grid;place-items:center;font-size:12px;font-weight:600;background:var(--caution);color:var(--on-caution)}
+.chip-ev{padding:6px 14px;border:1px solid var(--accent-line);border-radius:999px;font-size:12px;color:var(--accent)}
+.hint{padding:7px 14px;border-radius:999px;font-size:12px;font-weight:500;text-align:center;pointer-events:none;color:var(--text);border:1px solid var(--line-hi);background:var(--glass);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.hint.accent{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.hint.caution{background:var(--caution);color:var(--on-caution);border-color:transparent}
+.warnbox{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border:1px solid var(--caution-line);background:var(--caution-tint);border-radius:var(--r-ctl);color:var(--caution);font-size:12px}
+.batt{position:relative;width:22px;height:11px;border:1.5px solid var(--text-2);border-radius:3px;flex:none}
+.batt::after{content:'';position:absolute;right:-4px;top:2.5px;width:2px;height:4px;background:var(--text-2)}
+.batt>span{position:absolute;left:1px;top:1px;bottom:1px;background:var(--text)}
+.batt.low>span{background:var(--caution)}
+
+/* ---- list rows ---- */
+.vrow{display:grid;grid-template-columns:28px 1fr;row-gap:4px;column-gap:10px;padding:10px 12px;margin:2px 8px;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:background .15s}
+.vrow:hover{background:rgba(255,255,255,.05)}
+.vrow.sel{background:var(--accent-tint);border-color:var(--accent-line)}
+.vtile{position:relative;min-height:0;border-radius:var(--r-panel);overflow:hidden;border:1px solid var(--line);cursor:pointer;background:#141b26 center/cover}
+.vtile.sel{border-color:var(--caution);box-shadow:0 0 0 1px var(--caution)}
+.wrow{display:grid;grid-template-columns:28px 1fr auto;gap:2px 10px;align-items:center;padding:7px 10px;margin:2px 8px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:background .15s}
+.wrow:hover{background:rgba(255,255,255,.05)}
+.wrow.sel{background:var(--caution-tint);border-color:var(--caution-line)}
+.wrow.pri{border-color:var(--caution)}
+.wbadge{width:28px;height:28px;display:grid;place-items:center;font-weight:600;font-size:12px;border:1.5px solid transparent}
+.updown{width:24px;height:16px;background:none;border:1px solid var(--line-soft);border-radius:5px;color:var(--text-3);font-size:7px;padding:0}
+.updown:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.secrow{display:flex;align-items:center;gap:12px;height:60px;padding:0 14px;margin:2px 8px;border:1px solid transparent;border-radius:12px;font-size:14px;cursor:pointer;text-align:left;background:transparent;color:var(--text-2)}
+.secrow:hover{background:rgba(255,255,255,.05)}
+.secrow.on{background:var(--accent-tint);border-color:var(--accent-line);color:var(--text)}
+.secrow .gl{width:28px;height:28px;border-radius:50%;border:1.5px solid currentColor;display:grid;place-items:center;font-size:11px;font-weight:600;flex:none}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:500;color:var(--text-3);text-align:left}
+.tbl td{padding:12px 16px;border-bottom:1px solid var(--line-soft)}
+.bubble{padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5}
+.bubble.user{background:var(--accent-tint);border:1px solid rgba(156,201,255,.25);border-bottom-right-radius:4px}
+.bubble.bot{background:rgba(255,255,255,.06);border:1px solid var(--line-soft);border-bottom-left-radius:4px}
+
+/* ---- map markers ---- */
+.rg-mk{display:flex;align-items:center;gap:6px;white-space:nowrap;font-family:var(--font);font-weight:500;font-size:12px;color:var(--text)}
+.rg-mk .lbl{background:rgba(20,26,34,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--line-hi);border-radius:999px;padding:3px 9px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.rg-mk .alt{background:rgba(20,26,34,.6);border-radius:999px;padding:1px 7px;font-size:11px;font-weight:400;color:var(--text-2);margin-top:2px;font-variant-numeric:tabular-nums}
+.rg-mk .arrow{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:transparent;transition:transform .9s linear}
+.rg-mk.sel .arrow{background:var(--caution);box-shadow:0 0 0 4px rgba(242,181,68,.22)}
+.rg-mk.sel .lbl{border-color:var(--caution-line);color:var(--caution)}
+.rg-mk .rov{width:34px;height:34px;border-radius:50%;background:#fff;color:#141b26;display:grid;place-items:center;border:2px solid #141b26}
+@keyframes rgpulse{0%{opacity:.6;transform:scale(.9)}100%{opacity:0;transform:scale(1.8)}}
+.rg-tgt{width:34px;height:34px;border-radius:50%;background:var(--accent);display:grid;place-items:center;color:var(--on-accent);font-weight:600;border:2px solid #fff;position:relative}
+.rg-tgt:after{content:'';position:absolute;inset:-6px;border:2px dashed #fff;border-radius:50%;animation:rgpulse 1.6s infinite}
+@keyframes rgblink{50%{opacity:.35}}
+.rg-rec{animation:rgblink 1.2s infinite}
+.rg-wp{display:flex;align-items:flex-start;gap:4px;font-family:var(--font)}
+.rg-wp .dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:12px;background:var(--accent);color:var(--on-accent);border:2px solid rgba(15,24,36,.9);box-shadow:0 2px 8px rgba(0,0,0,.45);cursor:grab;flex:none}
+.rg-wp .dot.roi{background:var(--ok);border-radius:8px}
+.rg-wp.sel .dot{background:var(--caution);color:var(--on-caution);border-color:#fff}
+.rg-wp.pri .dot{box-shadow:0 0 0 4px rgba(242,181,68,.3),0 2px 8px rgba(0,0,0,.45)}
+.rg-wp .chips{display:flex;flex-direction:column;gap:2px;margin-top:4px;position:relative;z-index:3}
+.maplibregl-marker:has(.rg-mid){z-index:1}
+.maplibregl-marker:has(.rg-wp){z-index:2}
+.rg-wp .chip{font-size:10px;font-weight:500;color:var(--text);background:rgba(20,26,34,.8);border:1px solid var(--line-hi);border-radius:999px;padding:1px 7px;white-space:nowrap;cursor:pointer}
+.rg-wp .chip.sel{border-color:var(--caution);color:var(--caution)}
+.rg-wp .chip.altc{cursor:default;font-variant-numeric:tabular-nums;border-color:var(--accent-line);color:var(--accent)}
+.rg-ptag{display:inline-grid;place-items:center;min-width:22px;height:16px;padding:0 4px;margin-right:6px;border-radius:4px;background:var(--accent-tint);border:1px solid var(--accent-line);color:var(--accent);font:500 9px/1 var(--mono);vertical-align:middle}
+.rg-natag{display:inline-block;padding:1px 6px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line-hi);color:var(--text-3);font-size:10px;white-space:nowrap}
+.rg-elev-pt{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;border:2px solid #141b26;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.6);transition:transform .12s}
+.rg-elev-pt:hover{transform:scale(1.35)}
+.rg-elev-pt.sel{box-shadow:0 0 0 4px rgba(242,181,68,.35),0 1px 4px rgba(0,0,0,.6)}
+.rg-elev-pt .tip{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);white-space:nowrap;background:rgba(20,26,34,.95);border:1px solid var(--line-hi);border-radius:999px;padding:2px 8px;font-size:10px;color:var(--text);pointer-events:none;opacity:0;transition:opacity .12s}
+.rg-elev-pt:hover .tip,.rg-elev-pt.sel .tip{opacity:1}
+.rg-mid{width:20px;height:20px;border-radius:50%;background:rgba(20,26,34,.75);border:1.5px dashed var(--accent-line);color:var(--accent);font:600 14px/18px sans-serif;text-align:center;cursor:copy;opacity:.75;transition:transform .15s,opacity .15s}
+.rg-mid:hover{opacity:1;transform:scale(1.25);background:var(--accent);color:var(--on-accent);border-style:solid}
+/* ---- composition overrides (later rules win) ---- */
+.seg.float{position:absolute}
+.seg.onmap{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02)),var(--glass);-webkit-backdrop-filter:blur(18px) saturate(1.3);backdrop-filter:blur(18px) saturate(1.3);border-color:var(--line-hi);box-shadow:inset 0 1px 0 var(--line-hi),0 6px 20px rgba(0,0,0,.3)}
+.btn-icon.g-ctl{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02)),var(--glass);border:1px solid var(--line)}
+.btn-icon.g-ctl:hover{background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06)),var(--glass)}
+.form>span:nth-child(odd){color:var(--text-2)}
+</style>
+</helmet>
+
+
+<div style="position:fixed;inset:0;overflow:auto;background:var(--base)"><div style="min-width:1280px;min-height:720px;height:100%;position:relative">
+
+<!-- ===== HEADER (floating glass bar over the stage) ===== -->
+<header class="g" style="position:absolute;left:12px;right:12px;top:10px;height:52px;z-index:5;display:flex;align-items:center;gap:14px;padding:0 8px 0 18px">
+  <div class="row" style="gap:10px;min-width:150px">
+    <span style="font-size:19px;font-weight:600;letter-spacing:.02em;line-height:1">RGCS</span>
+    <sc-if value="{{ isMaint }}" hint-placeholder-val="{{ false }}"><span style="width:1px;height:18px;background:var(--line-hi)"></span><span class="t2" style="font-size:14px">{{ t.maintenance }}</span></sc-if>
+  </div>
+  <div class="row num" style="gap:16px;font-size:15px;color:var(--text-2)">
+    <span class="row" style="gap:6px" title="Copters"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l4 4M19 5l-4 4M5 19l4-4M19 19l-4-4"/><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg><span style="color:var(--text)">{{ copterCount }}</span></span>
+    <span class="row" style="gap:6px" title="Rovers"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5h14l2 5v5H3z"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg><span style="color:var(--text)">{{ roverCount }}</span></span>
+    <span class="row" style="gap:6px;color:var(--caution)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><span>{{ warnCount }}</span></span>
+  </div>
+  <div class="grow"></div>
+  <nav class="seg n5" style="width:290px;height:40px;flex:none">
+    <span class="lens" style="transform:{{ navLens }}"></span>
+    <button class="{{ navOpsCls }}" onClick="{{ goOps }}" title="{{ t.navMap }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></button>
+    <button class="{{ navVideoCls }}" onClick="{{ goVideo }}" title="{{ t.navVideo }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 5v14M16 5v14M3 10h5M3 14h5M16 10h5M16 14h5"/></svg></button>
+    <button class="{{ navMissionCls }}" onClick="{{ goMission }}" title="{{ t.navMission }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="12" cy="12" r="2"/><path d="M7 17.5l3.5-4M13.5 10.5L17 7"/></svg></button>
+    <button class="{{ navAiCls }}" onClick="{{ toggleAi }}" title="{{ t.navAi }}" style="position:relative"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H9l-5 4z"/></svg><span style="position:absolute;top:6px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--accent)"></span></button>
+    <button class="{{ navMaintCls }}" onClick="{{ goMaint }}" title="{{ t.navSettings }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button>
+  </nav>
+  <div class="grow"></div>
+  <button class="btn btn-ghost" onClick="{{ openOperator }}" title="{{ t.operatorReg }}" style="height:36px;padding:0 10px 0 8px;font-weight:400;font-size:13px"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{{ operatorLabel }}</button>
+  <span class="num t2" style="font-size:13px;padding:0 8px">{{ clock }}</span>
+  <sc-if value="{{ isMaint }}" hint-placeholder-val="{{ false }}"><button class="btn-icon" onClick="{{ goOps }}" title="Close"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></sc-if>
+</header>
+
+<!-- ===== STAGE: the map fills the window; panels float on top of it ===== -->
+<main class="{{ stageCls }}" style="position:absolute;inset:0">
+
+  <!-- ===== OPS: MAP ===== -->
+  <sc-if value="{{ isOps }}" hint-placeholder-val="{{ true }}">
+  <section style="position:absolute;inset:0">
+    <div ref="{{ mapRef }}" class="map"></div>
+    <div class="g-ctl float map-l top1" style="width:44px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;transform:rotate({{ compassRot }})"><span style="font-size:10px;font-weight:600;line-height:1;color:var(--text-2)">N</span><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 3l6 16-6-4-6 4z"/></svg></div>
+    <sc-if value="{{ isFollowing }}" hint-placeholder-val="{{ false }}"><div class="g-ctl float map-c top1" style="display:flex;align-items:center;gap:8px;height:38px;padding:0 6px 0 12px;color:var(--caution);font-size:13px;font-weight:500;white-space:nowrap;border-radius:999px;border-color:var(--caution-line)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><span>{{ t.following }} {{ followName }}</span><button class="btn-icon sm" onClick="{{ stopFollow }}" title="{{ t.stopFollow }}" style="width:26px;height:26px;border-radius:999px;color:var(--text);font-size:12px">✕</button></div></sc-if>
+    <div class="seg onmap float map-r top1" style="width:148px;height:40px">
+      <span class="lens" style="transform:{{ mapLens }}"></span>
+      <button class="{{ btn2dCls }}" onClick="{{ set2d }}" style="font-size:14px">2D</button>
+      <button class="{{ btn3dCls }}" onClick="{{ set3d }}" style="font-size:14px">3D</button>
+    </div>
+    <sc-if value="{{ guidedHint }}" hint-placeholder-val="{{ false }}">
+      <div class="hint accent float map-c top2" style="max-width:calc(100% - 28px)">{{ t.guidedHint }}</div>
+    </sc-if>
+
+    <!-- All commands sheet -->
+    <sc-if value="{{ modalCommands }}" hint-placeholder-val="{{ false }}">
+    <div class="g-strong panel float map-r top2" style="bottom:12px;width:380px;z-index:6">
+      <div class="panel-h"><span class="h1">{{ selName }}</span><span class="h1 t2" style="font-weight:300">{{ t.allCommands }}</span><div class="grow"></div><button class="btn-icon" onClick="{{ closeModal }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div style="padding:0 14px 10px"><div class="in row" style="gap:8px;color:var(--text-4)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input class="in bare grow" value="{{ cmdSearch }}" onChange="{{ setCmdSearch }}" placeholder="{{ t.searchCommands }}"></div></div>
+      <div style="flex:1;overflow-y:auto;padding:0 14px 14px;display:flex;flex-direction:column;gap:14px">
+        <sc-for list="{{ cmdGroups }}" as="g" hint-placeholder-count="4">
+          <div>
+            <div class="t3" style="font-size:12px;padding:2px 0 8px">{{ g.title }}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+              <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="4">
+                <button class="cmd-btn" onClick="{{ c.run }}" disabled="{{ c.disabled }}" style="grid-column:{{ c.span }}">
+                  <span class="t2" style="width:20px;height:20px;display:grid;place-items:center;font-size:15px">{{ c.glyph }}</span><span class="ell">{{ c.label }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- Guided move dialog -->
+    <sc-if value="{{ modalGuided }}" hint-placeholder-val="{{ false }}">
+    <div class="g-strong float map-r" style="bottom:12px;width:400px;padding:14px 16px 16px;z-index:6">
+      <div class="row" style="margin-bottom:8px;gap:10px"><span class="h1">{{ selName }}</span><span class="h1 t2" style="font-weight:300">{{ t.guidedMove }}</span><div class="grow"></div><button class="btn-icon" onClick="{{ closeModal }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="t3 num" style="font-size:12px;margin-bottom:10px">{{ guidedTargetText }}</div>
+      <label class="row" onClick="{{ setGuidedKeep }}" style="gap:12px;height:44px;cursor:pointer;font-size:15px"><span style="width:20px;height:20px;border-radius:50%;border:2px solid {{ keepRingColor }};display:grid;place-items:center;flex:none"><span style="width:10px;height:10px;border-radius:50%;background:{{ keepDotColor }}"></span></span>{{ t.keepAlt }}<span class="num t2">{{ selAltText }}</span></label>
+      <label class="row" onClick="{{ setGuidedSet }}" style="gap:12px;height:52px;cursor:pointer;font-size:15px"><span style="width:20px;height:20px;border-radius:50%;border:2px solid {{ setRingColor }};display:grid;place-items:center;flex:none"><span style="width:10px;height:10px;border-radius:50%;background:{{ setDotColor }}"></span></span>{{ t.setAlt }}<input type="number" class="in num" value="{{ guidedAlt }}" onChange="{{ setGuidedAlt }}" style="width:90px;height:40px;margin-left:auto;font-size:15px"><span class="unit">m</span></label>
+      <div class="t3" style="font-size:12px;margin:0 0 14px 32px">{{ t.relAltNote }}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button class="btn btn-lg" onClick="{{ closeModal }}">{{ t.cancel }}</button>
+        <button class="btn btn-lg btn-primary" onClick="{{ startGuided }}" disabled="{{ guidedDisabled }}"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>{{ t.startMove }}</button>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- Operator dialog -->
+    <sc-if value="{{ modalOperator }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:7;display:grid;place-items:center;background:rgba(6,9,14,.45)">
+      <div class="g-strong" style="width:min(440px,calc(100% - 24px));padding:18px 20px 20px">
+        <div class="row" style="margin-bottom:14px"><span class="h1">{{ t.operatorReg }}</span><div class="grow"></div><button class="btn-icon" onClick="{{ closeModal }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="t2" style="font-size:13px;margin-bottom:8px">{{ t.nameOrId }}</div>
+        <input class="in lg" value="{{ opDraft }}" onChange="{{ setOpDraft }}" style="width:100%;font-size:17px;border-color:var(--accent-line)">
+        <div class="t3" style="font-size:12px;margin:8px 0 16px">{{ t.opNote }}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <button class="btn btn-lg" onClick="{{ closeModal }}">{{ t.cancel }}</button>
+          <button class="btn btn-lg btn-primary" onClick="{{ registerOperator }}">{{ t.register }}</button>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+  </section>
+  </sc-if>
+
+  <!-- Vehicle list (ops + maint) -->
+  <sc-if value="{{ showList }}" hint-placeholder-val="{{ true }}">
+  <aside class="g panel float float-l">
+    <sc-if value="{{ listOpen }}" hint-placeholder-val="{{ true }}">
+    <div class="panel-h">
+      <span class="h1">{{ t.vehicles }}</span><span class="h1 t2" style="font-weight:300">{{ vehicleCount }}</span>
+      <div class="grow"></div>
+      <button class="btn-icon" title="Pin"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M9 3h6l-1 7 3 3v1H7v-1l3-3z"/><path d="M11 14h2v7h-2z"/></svg></button>
+      <button class="btn-icon" onClick="{{ toggleList }}" title="Collapse"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg></button>
+    </div>
+    <div style="padding:0 12px 10px">
+      <input class="in" value="{{ search }}" onChange="{{ setSearch }}" placeholder="{{ t.filterVehicles }}" style="width:100%;height:34px">
+    </div>
+    <div style="flex:1;overflow-y:auto;min-height:0;padding:2px 0 8px">
+      <sc-for list="{{ vehicles }}" as="v" hint-placeholder-count="6">
+        <div class="{{ v.rowCls }}" onClick="{{ v.select }}" onDoubleClick="{{ v.follow }}" title="{{ t.followHint }}">
+          <div style="grid-row:1/3;display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:3px;color:var(--text-2)">
+            <sc-if value="{{ v.isCopter }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l4 4M19 5l-4 4M5 19l4-4M19 19l-4-4"/><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg></sc-if>
+            <sc-if value="{{ v.isRover }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5h14l2 5v5H3z"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg></sc-if>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="opacity:.7"><path d="M12 4l7 16H5z"/></svg>
+          </div>
+          <div class="row">
+            <span class="dot" style="background:{{ v.dot }}"></span>
+            <span style="font-size:15px;font-weight:500;white-space:nowrap">{{ v.name }}</span>
+            <span class="badge" style="color:{{ v.modeColor }}">{{ v.modeLabel }}</span>
+            <sc-if value="{{ v.following }}" hint-placeholder-val="{{ false }}"><span title="{{ t.following }}" style="width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--caution-tint);color:var(--caution);flex:none"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></span></sc-if>
+            <div class="grow"></div>
+            <span class="{{ v.battCls }}"><span style="width:{{ v.battW }}"></span></span>
+            <span class="num" style="font-size:13px;min-width:34px;text-align:right">{{ v.battText }}</span>
+          </div>
+          <div class="row num" style="gap:8px;font-size:13px;color:var(--text-2)">
+            <span style="min-width:48px">{{ v.altText }}</span>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/></svg>
+            <span style="min-width:58px">{{ v.spdText }}</span>
+            <div class="grow"></div>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="var(--text-3)"><rect x="2" y="16" width="3" height="6"/><rect x="7" y="12" width="3" height="10"/><rect x="12" y="8" width="3" height="14"/><rect x="17" y="4" width="3" height="18" fill="{{ v.sigTop }}"/></svg>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+    <sc-if value="{{ listClosed }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0">
+      <button class="btn-icon" onClick="{{ toggleList }}" title="Expand"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <sc-for list="{{ vehicles }}" as="v" hint-placeholder-count="6">
+        <button class="btn-icon" onClick="{{ v.select }}" title="{{ v.name }}" style="width:44px;height:44px;flex-direction:column;gap:3px;color:var(--text-2)">
+          <sc-if value="{{ v.isCopter }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l4 4M19 5l-4 4M5 19l4-4M19 19l-4-4"/><circle cx="12" cy="12" r="3"/></svg></sc-if>
+          <sc-if value="{{ v.isRover }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5h14l2 5v5H3z"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg></sc-if>
+          <span class="dot" style="width:7px;height:7px;background:{{ v.dot }}"></span>
+        </button>
+      </sc-for>
+    </div>
+    </sc-if>
+  </aside>
+  </sc-if>
+
+  <!-- ===== OPS: RIGHT PANEL ===== -->
+  <sc-if value="{{ isOps }}" hint-placeholder-val="{{ true }}">
+  <sc-if value="{{ rightDetail }}" hint-placeholder-val="{{ true }}">
+  <aside class="g panel float float-r">
+    <div class="panel-h">
+      <span class="dot" style="width:11px;height:11px;background:{{ selDot }}"></span>
+      <span class="h1">{{ selName }}</span>
+      <div class="grow"></div>
+      <button class="btn-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M9 3h6l-1 7 3 3v1H7v-1l3-3z"/><path d="M11 14h2v7h-2z"/></svg></button>
+      <button class="btn-icon" onClick="{{ closeRight }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div style="overflow-y:auto;min-height:0;flex:1">
+      <div style="position:relative;margin:0 12px;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#0d1219 url({{ selFeed }}) center/cover">
+        <sc-if value="{{ selHasFeed }}" hint-placeholder-val="{{ true }}">
+          <div class="pill pill-rec" style="position:absolute;left:10px;top:10px;height:28px"><span class="rg-rec" style="width:8px;height:8px;border-radius:50%;background:#fff"></span>AUTO REC <span class="num">{{ recTime }}</span></div>
+        </sc-if>
+        <sc-if value="{{ selNoFeed }}" hint-placeholder-val="{{ false }}">
+          <div class="t3" style="position:absolute;inset:0;display:grid;place-items:center;font-size:13px">{{ t.noVideo }}</div>
+        </sc-if>
+        <button class="g-ctl btn-icon" onClick="{{ maximizeSel }}" style="position:absolute;right:10px;top:10px;width:34px;height:34px;color:#fff"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+      </div>
+      <div class="num" style="display:grid;grid-template-columns:repeat(3,1fr);padding:14px 12px 12px">
+        <span style="display:flex;flex-direction:column;align-items:center;gap:2px;border-right:1px solid var(--line-soft)"><span class="big">{{ selAltText }}</span><span class="t3" style="font-size:11px">{{ t.altitude }}</span></span>
+        <span style="display:flex;flex-direction:column;align-items:center;gap:2px;border-right:1px solid var(--line-soft)"><span class="big">{{ selSpdText }}</span><span class="t3" style="font-size:11px">{{ t.fields.speed.0 }}</span></span>
+        <span style="display:flex;flex-direction:column;align-items:center;gap:2px"><span class="big">{{ selBattText }}</span><span class="batt" style="margin-top:4px"><span style="width:{{ selBattW }}"></span></span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 12px 14px" class="hair">
+        <button class="tile-btn" onClick="{{ openMaintSel }}" title="{{ t.maintenance }}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 0 0 5 5L10 21l-3-3L16.7 7.3z"/><path d="M14.7 6.3L17 4a4 4 0 0 1 3 3l-2.3 2.3"/></svg></button>
+        <button class="tile-btn" onClick="{{ toggleMsgs }}" title="{{ t.history }}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
+        <button class="tile-btn {{ cmdBtnCls }}" onClick="{{ openCommands }}" title="{{ t.allCommands }}"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
+      </div>
+      <div class="row" style="gap:10px;padding:14px 16px 6px">
+        <span class="h2">{{ t.messages }}</span>
+        <div class="grow"></div>
+        <sc-if value="{{ selUnread }}" hint-placeholder-val="{{ true }}"><span class="count">{{ selUnreadCount }}</span></sc-if>
+        <button class="btn-icon sm" onClick="{{ toggleMsgs }}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+      <sc-for list="{{ selMsgs }}" as="m" hint-placeholder-count="1">
+        <div style="display:grid;grid-template-columns:12px 1fr auto;gap:10px;align-items:start;padding:6px 16px 12px">
+          <span class="dot" style="margin-top:5px;background:{{ m.color }}"></span>
+          <div><div class="row" style="gap:10px;font-size:14px"><span class="num t2">{{ m.time }}</span><span style="font-weight:500">{{ m.title }}</span></div><div class="t3" style="font-size:12px;margin-top:2px">{{ m.body }}</div></div>
+          <div class="row" style="gap:6px">
+            <button class="btn-icon" onClick="{{ m.ack }}" style="background:{{ m.ackBg }};border:1px solid {{ m.ackBorder }};color:{{ m.ackColor }}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5 9-10"/></svg></button>
+            <button class="btn-icon" style="border:1px solid var(--line)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </aside>
+  </sc-if>
+
+  <sc-if value="{{ rightAi }}" hint-placeholder-val="{{ false }}">
+  <aside class="g panel float float-r">
+    <div class="panel-h">
+      <span class="h1">AI</span>
+      <span class="t3" style="font-size:12px;margin-left:6px">{{ t.target }}</span>
+      <select class="in" ref="{{ aiSelRef }}" value="{{ selectedId }}" onChange="{{ selectFromEvent }}" style="height:34px;min-width:110px">
+        <sc-for list="{{ allVehicles }}" as="v" hint-placeholder-count="6"><option value="{{ v.name }}">{{ v.name }}</option></sc-for>
+      </select>
+      <div class="grow"></div>
+      <button class="btn-icon" onClick="{{ closeRight }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:4px 14px 14px;display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ chat }}" as="c" hint-placeholder-count="3">
+        <sc-if value="{{ c.isUser }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:10px;align-items:flex-end;justify-content:flex-end"><span class="t4 num" style="font-size:11px">{{ c.time }}</span><div class="bubble user" style="max-width:78%">{{ c.text }}</div></div>
+        </sc-if>
+        <sc-if value="{{ c.isBot }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:10px;align-items:flex-end"><span style="width:30px;height:30px;flex:none;border-radius:50%;background:var(--accent-tint);display:grid;place-items:center;color:var(--accent)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="7" width="16" height="12" rx="3"/><circle cx="9" cy="13" r="1.5" fill="currentColor"/><circle cx="15" cy="13" r="1.5" fill="currentColor"/><path d="M12 3v4"/></svg></span><div class="bubble bot" style="max-width:80%">{{ c.text }}</div><span class="t4 num" style="font-size:11px">{{ c.time }}</span></div>
+        </sc-if>
+        <sc-if value="{{ c.isTool }}" hint-placeholder-val="{{ false }}">
+          <div class="inset" style="margin-left:40px;padding:10px 12px;font-size:13px">
+            <div class="num" style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;padding-bottom:8px;border-bottom:1px solid var(--line-soft)"><span class="t2">{{ t.lastRx }}</span><span>{{ c.rx }}</span><span class="t2">{{ t.video }}</span><span>{{ c.vid }}</span></div>
+            <div class="t3" style="font-size:11px;margin:8px 0 4px">{{ t.toolHistory }}</div>
+            <div class="row"><span style="color:var(--ok);display:grid"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></span><span>{{ c.tool }}</span><span class="t4 num" style="margin-left:auto;font-size:11px">{{ c.time }}</span></div>
+            <div class="t3" style="font-size:11px;margin:4px 0 0 24px">{{ t.target }}: {{ c.subject }}</div>
+          </div>
+        </sc-if>
+      </sc-for>
+    </div>
+    <div class="row hair-t" style="gap:8px;padding:12px">
+      <input class="in lg grow" value="{{ chatDraft }}" onChange="{{ setChatDraft }}" onKeyDown="{{ chatKey }}" placeholder="{{ t.typeMessage }}" style="font-size:14px">
+      <button class="btn btn-lg btn-primary" onClick="{{ sendChat }}" style="width:52px;padding:0"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 12l18-8-6 18-3-7z"/></svg></button>
+    </div>
+  </aside>
+  </sc-if>
+  </sc-if>
+
+
+  <!-- ===== VIDEO GRID ===== -->
+  <sc-if value="{{ isVideoGrid }}" hint-placeholder-val="{{ false }}">
+  <div class="aurora"></div>
+  <section class="float top1" style="left:12px;right:12px;bottom:64px;display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));grid-auto-rows:minmax(0,1fr);gap:12px;z-index:1">
+    <sc-for list="{{ vehicles }}" as="v" hint-placeholder-count="6">
+      <div class="{{ v.tileCls }}" onClick="{{ v.select }}" style="background-image:url({{ v.feed }})">
+        <div style="position:absolute;inset:0;background:linear-gradient(rgba(10,14,20,.82),rgba(10,14,20,0) 96px)"></div>
+        <div style="position:absolute;left:14px;top:12px;right:12px;display:flex;flex-direction:column;gap:6px;color:#fff">
+          <div class="row" style="gap:10px">
+            <sc-if value="{{ v.isCopter }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l4 4M19 5l-4 4M5 19l4-4M19 19l-4-4"/><circle cx="12" cy="12" r="3"/></svg></sc-if>
+            <sc-if value="{{ v.isRover }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5h14l2 5v5H3z"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg></sc-if>
+            <span style="font-size:17px;font-weight:500">{{ v.name }}</span>
+            <span class="badge" style="color:{{ v.modeColor }}">{{ v.modeLabel }}</span>
+            <sc-if value="{{ v.warn }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--caution)" stroke-width="2"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg></sc-if>
+            <div class="grow"></div>
+            <sc-if value="{{ v.rec }}" hint-placeholder-val="{{ true }}"><span class="pill pill-rec" style="height:28px"><span class="rg-rec" style="width:8px;height:8px;border-radius:50%;background:#fff"></span>AUTO REC <span class="num">{{ recTime }}</span></span></sc-if>
+            <button class="g-ctl btn-icon" onClick="{{ v.maximize }}" style="width:34px;height:34px;color:#fff"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+          </div>
+          <div class="row num" style="gap:18px;font-size:14px;padding-left:32px;color:var(--text-2)"><span>▲ {{ v.altText }}</span><span>◔ {{ v.spdText }}</span><span>▮ {{ v.battText }}</span></div>
+        </div>
+        <sc-if value="{{ v.noFeed }}" hint-placeholder-val="{{ false }}"><div class="t3" style="position:absolute;inset:0;display:grid;place-items:center;font-size:14px;background:#1a2230"><div style="text-align:center"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3M3 3l18 18"/></svg><div>{{ t.noVideo }}</div></div></div></sc-if>
+      </div>
+    </sc-for>
+  </section>
+  </sc-if>
+
+  <!-- ===== VIDEO MAXIMIZED ===== -->
+  <sc-if value="{{ isVideoMax }}" hint-placeholder-val="{{ false }}">
+  <div class="aurora"></div>
+  <section class="float top1" style="left:12px;right:12px;bottom:64px;display:grid;grid-template-columns:minmax(0,2.6fr) minmax(300px,1fr);gap:12px;z-index:1">
+    <div class="vtile" style="cursor:default;background-image:url({{ maxFeed }})">
+      <div style="position:absolute;left:14px;top:14px;display:flex;flex-direction:column;gap:8px;color:#fff;align-items:flex-start">
+        <div class="g-ctl row" style="gap:12px;padding:8px 14px;border-radius:999px">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l4 4M19 5l-4 4M5 19l4-4M19 19l-4-4"/><circle cx="12" cy="12" r="3"/></svg>
+          <span style="font-size:19px;font-weight:500">{{ maxName }}</span>
+          <sc-if value="{{ maxWarn }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--caution)" stroke-width="2"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg></sc-if>
+          <span class="badge" style="color:{{ maxModeColor }}">{{ maxMode }}</span>
+        </div>
+        <div class="g-ctl row num" style="gap:18px;font-size:14px;padding:6px 14px;border-radius:999px;color:var(--text-2)"><span>▲ {{ vidAlt }}</span><span>◔ {{ maxSpd }}</span><span>▮ {{ maxBatt }}</span></div>
+        <sc-if value="{{ maxRec }}" hint-placeholder-val="{{ true }}"><span class="pill pill-rec"><span class="rg-rec" style="width:8px;height:8px;border-radius:50%;background:#fff"></span>AUTO REC <span class="num">{{ recTime }}</span></span></sc-if>
+      </div>
+      <button class="g-ctl btn-icon lg" onClick="{{ unmaximize }}" style="position:absolute;right:14px;top:14px;color:#fff"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5"/></svg></button>
+    </div>
+    <div class="surface" style="position:relative;min-height:0;overflow:hidden">
+      <div ref="{{ mapRef }}" class="map"></div>
+      <div class="g-ctl" style="position:absolute;left:12px;top:12px;width:40px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px"><span style="font-size:10px;font-weight:600;line-height:1;color:var(--text-2)">N</span><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 3l6 16-6-4-6 4z"/></svg></div>
+      <div class="seg onmap" style="position:absolute;right:12px;top:12px;width:128px;height:36px">
+        <span class="lens" style="transform:{{ mapLens }}"></span>
+        <button class="{{ btn2dCls }}" onClick="{{ set2d }}">2D</button>
+        <button class="{{ btn3dCls }}" onClick="{{ set3d }}">3D</button>
+      </div>
+    </div>
+  </section>
+  </sc-if>
+
+  <!-- ===== MISSION PLANNER ===== -->
+  <sc-if value="{{ isMission }}" hint-placeholder-val="{{ false }}">
+  <section onClick="{{ closeCtx }}" onMouseDown="{{ mapMouseDown }}" style="position:absolute;inset:0">
+    <div ref="{{ mapRef }}" class="map" style="cursor:{{ mapCursor }}"></div>
+    <!-- Shift+drag rubber-band selection -->
+    <sc-if value="{{ boxOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:{{ boxX }};top:{{ boxY }};width:{{ boxW }};height:{{ boxH }};border:1.5px dashed var(--caution);background:var(--caution-tint);pointer-events:none;z-index:4"></div></sc-if>
+    <!-- Elevation profile toggle -->
+    <button class="g-ctl ctl float map-r {{ elevBtnCls }}" onClick="{{ toggleElev }}" title="{{ t.elevToggle }}" style="bottom:{{ mapBarBottom }};z-index:3"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M3 19h18"/><path d="M3 16l4-7 3 4 4-8 4 6 3-3"/><path d="M4 11.5h16" stroke-dasharray="2 2" opacity=".6"/></svg></button>
+    <!-- Elevation profile sheet (floats over the bottom of the map, between the two panels) -->
+    <sc-if value="{{ elevOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="g float map-l map-r" style="bottom:60px;height:{{ elevH }};display:flex;flex-direction:column;z-index:3">
+      <div class="row" style="gap:12px;padding:10px 16px 2px;font-size:12px">
+        <span class="h2" style="white-space:nowrap">{{ t.elevProfile }}</span>
+        <span class="t3">{{ elevTerrainText }}</span>
+        <div class="grow"></div>
+        <span class="row t3" style="gap:6px"><span>{{ t.legendAlt }}</span><span class="mono num" style="color:var(--text)">{{ elevLegendLo }}</span><span style="width:70px;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--alt-hi))"></span><span class="mono num" style="color:var(--text)">{{ elevLegendHi }}</span></span>
+        <span class="row t3" style="gap:6px"><span style="width:14px;height:8px;background:rgba(140,160,130,.45);border-top:1.5px solid #b7c9a8"></span>{{ t.ground }}</span>
+        <button class="btn-icon sm" onClick="{{ toggleElev }}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div style="flex:1;position:relative;margin:4px 16px 8px 60px;min-height:0">
+        <div class="mono num t3" style="position:absolute;left:-50px;top:-2px;font-size:10px;text-align:right;width:44px">{{ elevYMax }}</div>
+        <div class="mono num t3" style="position:absolute;left:-50px;bottom:12px;font-size:10px;text-align:right;width:44px">{{ elevYMin }}</div>
+        <div style="position:absolute;left:0;right:0;top:0;bottom:14px;border-left:1px solid var(--line-hi);border-bottom:1px solid var(--line-hi)">
+          <svg viewBox="0 0 1000 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;display:block">
+            <path d="{{ elevGroundD }}" fill="rgba(140,160,130,.3)" stroke="#b7c9a8" stroke-width="1.2" vector-effect="non-scaling-stroke"/>
+            <path d="{{ elevPostsD }}" fill="none" stroke="rgba(156,201,255,.35)" stroke-width="1" vector-effect="non-scaling-stroke" stroke-dasharray="3 3"/>
+            <path d="{{ elevPathD }}" fill="none" stroke="var(--accent)" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+          </svg>
+          <sc-for list="{{ elevPts }}" as="ep" hint-placeholder-count="4"><div onClick="{{ ep.select }}" class="rg-elev-pt {{ ep.cls }}" style="left:{{ ep.x }};top:{{ ep.y }};background:{{ ep.color }}"><span class="tip">{{ ep.tip }}</span></div></sc-for>
+        </div>
+        <div class="mono num t3" style="position:absolute;left:0;bottom:0;font-size:10px">0 m</div>
+        <div class="mono num t3" style="position:absolute;right:0;bottom:0;font-size:10px">{{ elevXMax }}</div>
+      </div>
+    </div>
+    </sc-if>
+    <div class="g-ctl float map-l top1" style="width:44px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;transform:rotate({{ compassRot }})"><span style="font-size:10px;font-weight:600;line-height:1;color:var(--text-2)">N</span><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 3l6 16-6-4-6 4z"/></svg></div>
+    <div class="seg onmap float map-r top1" style="width:148px;height:40px">
+      <span class="lens" style="transform:{{ mapLens }}"></span>
+      <button class="{{ btn2dCls }}" onClick="{{ set2d }}" style="font-size:14px">2D</button>
+      <button class="{{ btn3dCls }}" onClick="{{ set3d }}" style="font-size:14px">3D</button>
+    </div>
+    <sc-if value="{{ mapStatusShow }}" hint-placeholder-val="{{ false }}"><div class="{{ hintCls }} float map-c top2" style="max-width:calc(100% - 28px);z-index:3">{{ mapHint }}</div></sc-if>
+    <!-- Help toggle: map operation guide -->
+    <button class="g-ctl ctl float map-r2 top1 {{ helpBtnCls }}" onClick="{{ toggleHelp }}" title="{{ t.helpTitle }}" style="width:40px;height:40px;z-index:3"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7"/><path d="M12 17v.5"/></svg></button>
+    <sc-if value="{{ helpOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="g-strong float map-r top2" style="width:330px;padding:12px 14px 14px;z-index:4;font-size:12px">
+      <div class="row" style="margin-bottom:8px"><span class="h2">{{ t.helpTitle }}</span><div class="grow"></div><button class="btn-icon sm" onClick="{{ toggleHelp }}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:baseline">
+        <sc-for list="{{ helpItems }}" as="hi" hint-placeholder-count="8"><span class="mono" style="white-space:nowrap;color:var(--accent);font-size:11px">{{ hi.key }}</span><span class="t2" style="line-height:1.4">{{ hi.text }}</span></sc-for>
+      </div>
+      <div class="t3 hair-t" style="margin-top:10px;padding-top:8px;line-height:1.5">{{ t.shortcuts }}</div>
+    </div>
+    </sc-if>
+    <div class="g-ctl float map-c num" style="bottom:{{ mapBarBottom }};display:flex;gap:18px;padding:8px 16px;font-size:13px;z-index:3;border-radius:999px;white-space:nowrap">
+      <span><span class="t3" style="margin-right:6px">{{ t.totalDist }}</span>{{ totalDist }}</span>
+      <span><span class="t3" style="margin-right:6px">{{ t.estTime }}</span>{{ estTime }}</span>
+      <span><span class="t3" style="margin-right:6px">{{ t.maxAlt }}</span>{{ maxAlt }}</span>
+    </div>
+    <!-- Context menu -->
+    <sc-if value="{{ ctxOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="g-strong" style="position:absolute;left:{{ ctxX }};top:{{ ctxY }};min-width:200px;padding:6px;z-index:5;border-radius:14px">
+      <div class="t3 num" style="font-size:11px;padding:4px 10px 6px">{{ ctxTitle }}</div>
+      <sc-for list="{{ ctxItems }}" as="ci" hint-placeholder-count="4">
+        <button class="menu-item" onClick="{{ ci.run }}" style="color:{{ ci.color }}"><span class="t3" style="width:16px;text-align:center">{{ ci.glyph }}</span>{{ ci.label }}</button>
+      </sc-for>
+    </div>
+    </sc-if>
+  </section>
+
+  <aside class="g panel float float-l">
+    <div class="panel-h" style="gap:6px">
+      <span class="h1" style="white-space:nowrap">{{ t.missionItems }}</span><span class="h1 t2" style="font-weight:300">{{ wpCount }}</span>
+      <div class="grow"></div>
+      <button class="btn-icon" onClick="{{ undo }}" disabled="{{ noUndo }}" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+      <button class="btn-icon" onClick="{{ redo }}" disabled="{{ noRedo }}" title="Redo (Ctrl+Shift+Z)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+      <button class="btn-icon" onClick="{{ reverseWps }}" title="{{ t.reverse }}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>
+      <button class="btn-icon" onClick="{{ clearWps }}" title="{{ t.clearAll }}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button>
+    </div>
+    <div class="hair" style="display:grid;grid-template-columns:1fr auto;gap:8px;padding:0 12px 10px">
+      <div class="seg" style="height:36px">
+        <span class="lens" style="transform:{{ toolLens }}"></span>
+        <button class="{{ toolAddCls }}" onClick="{{ toolAdd }}">{{ t.addByClick }}</button>
+        <button class="{{ toolSelCls }}" onClick="{{ toolSelect }}">{{ t.selectMode }}</button>
+      </div>
+      <button class="btn {{ paletteCls }}" onClick="{{ togglePalette }}" style="height:36px;padding:0 12px 0 10px;gap:6px"><span style="font-size:17px;line-height:1;font-weight:300">+</span>{{ t.insertCmd }}</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;min-height:0;padding:4px 0">
+      <sc-if value="{{ wpEmpty }}" hint-placeholder-val="{{ false }}"><div class="t3" style="padding:24px 16px;font-size:12px;line-height:1.6;text-align:center">{{ t.noWp }}</div></sc-if>
+      <sc-for list="{{ wpRows }}" as="w" hint-placeholder-count="5">
+        <div class="{{ w.rowCls }}" onClick="{{ w.select }}" onContextMenu="{{ w.ctx }}" style="padding-left:{{ w.indent }}">
+          <span class="wbadge" style="border-radius:{{ w.badgeRadius }};background:{{ w.badgeBg }};color:{{ w.badgeColor }};border-color:{{ w.badgeBorder }}">{{ w.badge }}</span>
+          <div style="min-width:0">
+            <div class="row" style="align-items:baseline;gap:8px"><span class="ell" style="flex:1;min-width:0;font-size:13px;font-weight:500">{{ w.cmdLabel }}</span><span class="mono t3" title="{{ w.mav }} (#{{ w.mavId }})" style="flex:none;font-size:{{ w.mavSize }};line-height:1">{{ w.mav }}</span></div>
+            <div class="t3 num ell" style="font-size:11px">{{ w.sub }}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <button class="updown" onClick="{{ w.up }}">▲</button>
+            <button class="updown" onClick="{{ w.down }}">▼</button>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="t4 hair-t" style="padding:6px 14px;font-size:10px;line-height:1.5">{{ t.shortcuts }}</div>
+    <div class="hair-t" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px 12px 12px">
+      <button class="btn" onClick="{{ downloadMission }}">{{ t.download }}</button>
+      <button class="btn" onClick="{{ loadMissionFile }}">{{ t.loadFile }}</button>
+    </div>
+    <!-- Command palette -->
+    <sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="g-strong" style="position:absolute;left:0;right:0;top:104px;bottom:0;display:flex;flex-direction:column;border-radius:0 0 18px 18px;border-left:none;border-right:none;border-bottom:none;z-index:3">
+      <div class="row hair" style="padding:10px 14px"><span class="h2">{{ t.insertCmd }}</span><span class="t3" style="font-size:12px;margin-left:10px">{{ insertPosText }}</span><div class="grow"></div><button class="btn-icon sm" onClick="{{ togglePalette }}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div style="flex:1;overflow-y:auto;padding:8px 10px 12px;display:flex;flex-direction:column;gap:10px">
+        <sc-for list="{{ paletteGroups }}" as="pg" hint-placeholder-count="3">
+          <div><div class="t3" style="font-size:12px;padding:4px 4px 6px">{{ pg.title }}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <sc-for list="{{ pg.items }}" as="pi" hint-placeholder-count="4"><button class="cmd-btn" onClick="{{ pi.insert }}" title="{{ pi.mav }}" style="height:46px;padding:0 10px;gap:8px;font-size:12px"><span style="width:16px;height:16px;border-radius:{{ pi.radius }};background:{{ pi.color }};flex:none"></span><span style="min-width:0;display:flex;flex-direction:column;gap:2px"><span class="ell">{{ pi.label }}</span><span class="mono t4 ell" style="font-size:9px">{{ pi.mavShort }}</span></span></button></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+  </aside>
+
+  <aside class="g panel float float-r">
+    <div style="flex:1;overflow-y:auto;min-height:0">
+      <div class="sec">
+        <div class="h1" style="margin-bottom:12px">{{ t.mission }}</div>
+        <div class="form">
+          <span>{{ t.missionName }}</span><input class="in" value="{{ missionName }}" onChange="{{ setMissionName }}">
+          <span>{{ t.targetVehicle }}</span><select class="in" ref="{{ msSelRef }}" value="{{ missionVehicle }}" onChange="{{ setMissionVehicle }}"><sc-for list="{{ allVehicles }}" as="v" hint-placeholder-count="6"><option value="{{ v.name }}">{{ v.name }}</option></sc-for></select>
+          <span>{{ t.defaultAlt }}</span><div class="row"><select class="rg-sel" value="{{ missionFrame }}" onChange="{{ setMissionFrame }}" title="{{ missionFrameDesc }}" style="width:74px;padding:0 6px;font-weight:500;font-size:12px"><sc-for list="{{ frameOptions }}" as="fo" hint-placeholder-count="3"><option value="{{ fo.value }}">{{ fo.label }}</option></sc-for></select><input type="number" class="rg-num" value="{{ missionAlt }}" onChange="{{ setMissionAlt }}" style="width:90px"><span class="unit">m</span></div>
+          <span>{{ t.cruiseSpeed }}</span><div class="row"><input type="number" class="rg-num" value="{{ missionSpeed }}" onChange="{{ setMissionSpeed }}" style="width:90px"><span class="unit">m/s</span></div>
+        </div>
+      </div>
+      <!-- Multi-select bulk edit -->
+      <sc-if value="{{ multiSel }}" hint-placeholder-val="{{ false }}">
+      <div class="sec">
+        <div class="row" style="gap:10px;margin-bottom:10px"><span class="count">{{ selCount }}</span><span class="h1">{{ t.multiSelected }}</span><div class="grow"></div><button class="btn btn-sm" onClick="{{ clearSel }}">{{ t.deselect }}</button></div>
+        <div class="t3" style="font-size:12px;margin-bottom:10px">{{ t.multiNote }}</div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-bottom:10px">
+          <span class="t2">{{ t.altitude }}</span><div class="row" style="gap:6px"><select class="rg-sel" value="{{ bulkFrame }}" onChange="{{ setBulkFrame }}" style="width:70px;padding:0 6px;font-weight:500;font-size:12px"><sc-for list="{{ frameOptions }}" as="fo" hint-placeholder-count="3"><option value="{{ fo.value }}">{{ fo.label }}</option></sc-for></select><input type="number" class="rg-num" value="{{ bulkAlt }}" onChange="{{ setBulkAlt }}" style="flex:1;min-width:0"></div><button class="btn" onClick="{{ applyBulkAlt }}" style="padding:0 12px">{{ t.applyAll }}</button>
+          <span class="t2">{{ t.bulkDelay }}</span><div class="row"><input type="number" class="rg-num" min="0" step="1" value="{{ bulkDelay }}" onChange="{{ setBulkDelay }}" style="flex:1;min-width:0"><span class="unit">s</span></div><button class="btn" onClick="{{ applyBulkDelay }}" style="padding:0 12px">{{ t.applyAll }}</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
+          <button class="btn" onClick="{{ nudgeN }}" style="height:34px;padding:0">▲ N</button>
+          <button class="btn" onClick="{{ nudgeS }}" style="height:34px;padding:0">▼ S</button>
+          <button class="btn" onClick="{{ nudgeW }}" style="height:34px;padding:0">◀ W</button>
+          <button class="btn" onClick="{{ nudgeE }}" style="height:34px;padding:0">▶ E</button>
+        </div>
+        <button class="btn btn-danger" onClick="{{ deleteSel }}" style="width:100%">{{ t.deleteSel }}</button>
+      </div>
+      </sc-if>
+      <!-- Single item editor -->
+      <sc-if value="{{ singleSel }}" hint-placeholder-val="{{ true }}">
+      <div class="sec">
+        <div class="row" style="gap:10px;margin-bottom:12px"><span class="count" style="min-width:26px;height:26px;padding:0 8px">{{ wpSelBadge }}</span><span class="h1">{{ t.wpEdit }}</span><div class="grow"></div><button class="btn btn-sm btn-danger" onClick="{{ deleteSel }}">{{ t.deleteWp }}</button></div>
+        <div class="form">
+          <span>{{ t.command }}</span><div style="min-width:0"><select class="rg-sel" ref="{{ wpCmdRef }}" value="{{ wpSelCmd }}" onChange="{{ setWpCmd }}" style="width:100%"><sc-for list="{{ wpCmdOptions }}" as="o" hint-placeholder-count="6"><option value="{{ o.value }}">{{ o.label }}</option></sc-for></select><div class="row" style="gap:8px;margin-top:5px"><span class="mono ell" style="font-size:11px;color:var(--accent)">{{ wpSelMav }}</span><span class="mono t4" style="font-size:10px;flex:none">{{ t.mavId }} {{ wpSelMavId }}</span><sc-if value="{{ wpSelDeprecated }}" hint-placeholder-val="{{ false }}"><span class="rg-natag" style="color:var(--caution);border-color:var(--caution-line)">{{ t.deprecatedTag }}</span></sc-if></div></div>
+          <sc-if value="{{ wpSelHasPos }}" hint-placeholder-val="{{ true }}">
+            <span>{{ t.latitude }}</span><input class="rg-num" value="{{ wpSelLat }}" onChange="{{ setWpLat }}" style="min-width:0">
+            <span>{{ t.longitude }}</span><input class="rg-num" value="{{ wpSelLng }}" onChange="{{ setWpLng }}" style="min-width:0">
+          </sc-if>
+          <sc-if value="{{ wpSelHasAlt }}" hint-placeholder-val="{{ true }}">
+            <span>{{ t.altitude }}</span><div class="row"><select class="rg-sel" value="{{ wpSelFrame }}" onChange="{{ setWpFrame }}" title="{{ wpSelFrameDesc }}" style="width:74px;padding:0 6px;font-weight:500;font-size:12px"><sc-for list="{{ frameOptions }}" as="fo" hint-placeholder-count="3"><option value="{{ fo.value }}">{{ fo.label }}</option></sc-for></select><input type="number" class="rg-num" step="1" value="{{ wpSelAlt }}" onChange="{{ setWpAlt }}" style="width:90px;border-color:{{ wpSelAltBorder }}"><span class="unit">m</span></div>
+            <span></span><div class="t4" style="font-size:11px;line-height:1.4;margin-top:-6px">{{ wpSelFrameDesc }}<sc-if value="{{ wpSelAglShow }}" hint-placeholder-val="{{ false }}"> · {{ t.agl }} {{ wpSelAgl }}</sc-if></div>
+          </sc-if>
+          <sc-for list="{{ wpFields }}" as="f" hint-placeholder-count="3">
+            <span style="white-space:nowrap"><span class="rg-ptag">{{ f.ptag }}</span>{{ f.label }}</span>
+            <div class="row">
+              <sc-if value="{{ f.isNum }}" hint-placeholder-val="{{ true }}"><input type="number" class="rg-num" min="{{ f.min }}" max="{{ f.max }}" step="{{ f.step }}" value="{{ f.value }}" onChange="{{ f.set }}" disabled="{{ f.na }}" style="width:100px;border-color:{{ f.border }}"><span class="unit">{{ f.unit }}</span></sc-if>
+              <sc-if value="{{ f.isSel }}" hint-placeholder-val="{{ false }}"><select class="rg-sel" value="{{ f.value }}" onChange="{{ f.set }}" disabled="{{ f.na }}" style="flex:1"><sc-for list="{{ f.opts }}" as="fo" hint-placeholder-count="2"><option value="{{ fo.value }}">{{ fo.label }}</option></sc-for></select></sc-if>
+              <sc-if value="{{ f.isTog }}" hint-placeholder-val="{{ false }}"><div class="rg-seg"><button onClick="{{ f.setOff }}" class="{{ f.offCls }}" disabled="{{ f.na }}">{{ t.opts.tog.0 }}</button><button onClick="{{ f.setOn }}" class="{{ f.onCls }}" disabled="{{ f.na }}">{{ t.opts.tog.1 }}</button></div></sc-if>
+              <sc-if value="{{ f.na }}" hint-placeholder-val="{{ false }}"><span class="rg-natag" title="{{ f.naTitle }}">{{ t.naTag }}</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div class="t3" style="font-size:12px;margin-top:10px;line-height:1.5">{{ wpSelHelp }}</div>
+      </div>
+      </sc-if>
+      <div class="sec">
+        <div class="h1" style="margin-bottom:8px">{{ t.summary }}</div>
+        <div class="num" style="display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:13px"><span class="t2">{{ t.waypoints }}</span><span>{{ posCount }}</span><span class="t2">{{ t.commands }}</span><span>{{ cmdCount }}</span><span class="t2">{{ t.totalDist }}</span><span>{{ totalDist }}</span><span class="t2">{{ t.estTime }}</span><span>{{ estTime }}</span><span class="t2">{{ t.maxAlt }}</span><span>{{ maxAlt }}</span></div>
+        <sc-for list="{{ warnings }}" as="wn" hint-placeholder-count="0"><div class="warnbox"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg>{{ wn.text }}</div></sc-for>
+      </div>
+    </div>
+    <div class="hair-t" style="display:grid;gap:8px;padding:12px">
+      <button class="btn btn-lg btn-primary" onClick="{{ uploadMission }}" disabled="{{ wpEmpty }}">{{ t.upload }}</button>
+      <button class="btn" onClick="{{ saveMissionFile }}">{{ t.saveFile }}</button>
+    </div>
+  </aside>
+  </sc-if>
+
+
+  <!-- ===== MAINTENANCE ===== -->
+  <sc-if value="{{ isMaint }}" hint-placeholder-val="{{ false }}">
+  <div class="aurora"></div>
+  <section class="float map-l top1" style="right:12px;bottom:64px;display:flex;flex-direction:column;gap:12px;min-width:0;z-index:1">
+    <div class="row" style="gap:14px;flex-wrap:wrap;padding:0 4px">
+      <span class="t2" style="font-size:14px">{{ t.connected }}</span>
+      <select class="in lg" ref="{{ mvSelRef }}" value="{{ maintVehicle }}" onChange="{{ setMaintVehicle }}" style="min-width:150px;font-size:15px;font-weight:500">
+        <sc-for list="{{ allVehicles }}" as="v" hint-placeholder-count="6"><option value="{{ v.name }}">{{ v.name }}</option></sc-for>
+      </select>
+      <span class="t2" style="display:grid"><sc-if value="{{ mvIsCopter }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l4 4M19 5l-4 4M5 19l4-4M19 19l-4-4"/><circle cx="12" cy="12" r="3"/></svg></sc-if>
+      <sc-if value="{{ mvIsRover }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5h14l2 5v5H3z"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg></sc-if></span>
+      <span class="badge" style="color:var(--text-2)">{{ mvModeLabel }}</span>
+      <span class="t3 num" style="font-size:13px">{{ mvArm }}</span>
+    </div>
+    <div class="seg n5 lg g-ctl" style="height:46px;flex:none">
+      <span class="lens" style="transform:{{ maintLens }}"></span>
+      <sc-for list="{{ maintTabs }}" as="tb" hint-placeholder-count="5">
+        <button class="{{ tb.cls }}" onClick="{{ tb.go }}" style="font-size:14px">{{ tb.label }}</button>
+      </sc-for>
+    </div>
+
+    <!-- Tab: params -->
+    <sc-if value="{{ tabParams }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:220px minmax(0,1fr) minmax(300px,1.3fr);gap:12px;min-height:0;flex:1">
+      <div class="surface" style="display:flex;flex-direction:column;overflow:hidden;padding:6px 0">
+        <sc-for list="{{ maintSections }}" as="s" hint-placeholder-count="6">
+          <button class="{{ s.cls }}" onClick="{{ s.go }}"><span class="gl">{{ s.glyph }}</span>{{ s.label }}</button>
+        </sc-for>
+      </div>
+      <div class="surface" style="position:relative;overflow:hidden;display:grid;place-items:center;min-height:0;container-type:size">
+        <div style="position:absolute;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;pointer-events:none"><span class="h2 t2">{{ t.schemTitle }}</span><span class="t4" style="font-size:11px">{{ t.schemNote }}</span></div>
+        <div style="position:relative;aspect-ratio:1/1;width:min(92%,84cqh);margin-top:4%">
+          <svg viewBox="0 0 560 560" style="position:absolute;inset:0;width:100%;height:100%">
+            <circle cx="{{ schemCx }}" cy="{{ schemCy }}" r="{{ schemR }}" fill="none" stroke="rgba(156,201,255,.18)" stroke-width="1.5" stroke-dasharray="4 6"/>
+            <path d="{{ schemHeading }}" fill="rgba(179,191,204,.5)"/>
+            <sc-for list="{{ schemNodes }}" as="n" hint-placeholder-count="9">
+              <path d="{{ n.spoke }}" fill="none" stroke="{{ n.color }}" stroke-width="{{ n.sw }}" opacity="{{ n.op }}" stroke-linecap="round"/>
+              <circle cx="{{ n.x }}" cy="{{ n.y }}" r="20" fill="{{ n.color }}" opacity="{{ n.glow }}"/>
+              <circle cx="{{ n.x }}" cy="{{ n.y }}" r="10" fill="#141b26" stroke="{{ n.color }}" stroke-width="{{ n.sw }}" opacity="{{ n.op }}"/>
+            </sc-for>
+            <path d="{{ schemHub }}" fill="#1b2432" stroke="var(--accent)" stroke-width="2"/>
+            <path d="{{ schemHubInner }}" fill="none" stroke="rgba(156,201,255,.35)" stroke-width="1"/>
+          </svg>
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:12px;font-weight:500;text-align:center;line-height:1.2;pointer-events:none">{{ t.controller }}</div>
+          <sc-for list="{{ schemNodes }}" as="n" hint-placeholder-count="9">
+            <div style="position:absolute;left:{{ n.lx }};top:{{ n.ly }};transform:translate(-50%,-50%);padding:4px 10px;border:1px solid {{ n.lBorder }};border-radius:999px;background:{{ n.lBg }};color:{{ n.lColor }};font-size:12px;font-weight:{{ n.lWeight }};white-space:nowrap;pointer-events:none">{{ n.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+      <div class="surface" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);overflow:hidden;min-height:0">
+        <div style="padding:18px;border-right:1px solid var(--line-soft);overflow-y:auto">
+          <div class="h1" style="margin-bottom:12px">{{ sectionTitle }}</div>
+          <sc-for list="{{ params }}" as="p" hint-placeholder-count="3">
+            <div class="row hair" style="gap:10px;padding:14px 0">
+              <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500">{{ p.label }}</div><div class="mono t3" style="font-size:11px">{{ p.key }}</div></div>
+              <div class="spin"><input value="{{ p.value }}" onChange="{{ p.set }}"><div><button onClick="{{ p.inc }}">▲</button><button onClick="{{ p.dec }}">▼</button></div></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:12px">
+          <div class="h1">{{ t.thrustResp }}</div>
+          <div class="t2" style="font-size:12px;line-height:1.6">{{ t.thrustDesc }}</div>
+          <svg viewBox="0 0 300 200" style="width:100%;max-width:320px;height:auto"><path d="M40 20v150h240" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/><path d="M40 170 C 150 170, 220 120, 270 40" fill="none" stroke="#8a97a5" stroke-width="2" stroke-dasharray="6 5"/><path d="{{ thrustPath }}" fill="none" stroke="var(--accent)" stroke-width="2.5"/><text x="12" y="100" fill="#8a97a5" font-size="11" transform="rotate(-90 12 100)">{{ t.thrust }}</text><text x="130" y="192" fill="#8a97a5" font-size="11">{{ t.motorOut }}</text><line x1="200" y1="24" x2="222" y2="24" stroke="var(--accent)" stroke-width="2.5"/><text x="228" y="28" fill="#b3bfcc" font-size="11">{{ t.current }}</text><line x1="200" y1="42" x2="222" y2="42" stroke="#8a97a5" stroke-width="2" stroke-dasharray="4 3"/><text x="228" y="46" fill="#b3bfcc" font-size="11">{{ t.sample }}</text></svg>
+          <div class="inset row" style="gap:0;font-size:13px;overflow:hidden;align-self:flex-start"><span class="t2" style="padding:9px 12px;border-right:1px solid var(--line-soft);white-space:nowrap">{{ t.sample }}</span><span class="num" style="padding:9px 12px">0.65 / 0.10 / 0.12</span></div>
+          <button class="btn btn-lg" onClick="{{ resetParams }}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/></svg>{{ t.resetDefault }}</button>
+          <sc-if value="{{ paramsDirty }}" hint-placeholder-val="{{ false }}"><button class="btn btn-lg btn-primary" onClick="{{ writeParams }}">{{ t.writeParams }}</button></sc-if>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- Tab: calibration -->
+    <sc-if value="{{ tabCalib }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;align-content:start;overflow-y:auto">
+      <sc-for list="{{ calibItems }}" as="ci" hint-placeholder-count="6">
+        <div class="surface" style="padding:18px;display:flex;flex-direction:column;gap:10px">
+          <div class="row" style="gap:10px"><span class="dot" style="background:{{ ci.color }}"></span><span class="h2">{{ ci.label }}</span></div>
+          <div class="t3 num" style="font-size:12px">{{ ci.status }}</div>
+          <button class="btn" onClick="{{ ci.run }}" style="align-self:flex-start">{{ t.startCalib }}</button>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+
+    <!-- Tab: log / AI -->
+    <sc-if value="{{ tabLog }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr) minmax(280px,1fr);gap:12px;min-height:0;flex:1">
+      <div class="surface panel">
+        <div class="row hair" style="gap:12px;padding:12px 16px"><span class="t2" style="font-size:13px">{{ t.logFile }}</span><span class="in row mono" style="gap:8px;min-width:220px;font-size:13px"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>flight_014.bin</span><button class="btn" style="width:42px;padding:0"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h6l2 2h10v11H3z"/></svg></button><span class="t3" style="font-size:12px">DataFlash</span></div>
+        <div style="flex:1;display:grid;grid-template-rows:1fr 1fr;min-height:0">
+          <div class="hair" style="padding:12px 16px;display:flex;flex-direction:column;min-height:0">
+            <div class="row" style="gap:14px;font-size:12px"><span class="h2">{{ t.vibe }}</span><div class="grow"></div><span style="color:#9cc9ff">— X</span><span style="color:#f2b544">— Y</span><span style="color:#5fd39b">— Z</span></div>
+            <svg viewBox="0 0 600 160" preserveAspectRatio="none" style="flex:1;width:100%;min-height:0"><g stroke="rgba(255,255,255,.07)"><line x1="0" y1="40" x2="600" y2="40"/><line x1="0" y1="80" x2="600" y2="80"/><line x1="0" y1="120" x2="600" y2="120"/></g><polyline points="{{ vibeX }}" fill="none" stroke="#9cc9ff" stroke-width="1.2"/><polyline points="{{ vibeY }}" fill="none" stroke="#f2b544" stroke-width="1.2"/><polyline points="{{ vibeZ }}" fill="none" stroke="#5fd39b" stroke-width="1.2"/><line x1="{{ eventX }}" y1="0" x2="{{ eventX }}" y2="160" stroke="#ff6961" stroke-width="1.5" stroke-dasharray="4 3"/></svg>
+            <div class="t4 num" style="display:flex;justify-content:space-between;font-size:10px"><span>08:35</span><span>08:39</span><span>08:43</span><span>08:47</span><span>08:51</span></div>
+          </div>
+          <div style="padding:12px 16px;display:flex;flex-direction:column;min-height:0">
+            <div class="row" style="gap:14px;font-size:12px"><span class="h2">{{ t.motorOutput }}</span><div class="grow"></div><span style="color:#9cc9ff">— M1</span><span style="color:#f2b544">— M2</span><span style="color:#5fd39b">— M3</span><span style="color:#ff6961">— M4</span></div>
+            <svg viewBox="0 0 600 160" preserveAspectRatio="none" style="flex:1;width:100%;min-height:0"><g stroke="rgba(255,255,255,.07)"><line x1="0" y1="40" x2="600" y2="40"/><line x1="0" y1="80" x2="600" y2="80"/><line x1="0" y1="120" x2="600" y2="120"/></g><polyline points="{{ m1 }}" fill="none" stroke="#9cc9ff" stroke-width="1.2"/><polyline points="{{ m2 }}" fill="none" stroke="#f2b544" stroke-width="1.2"/><polyline points="{{ m3 }}" fill="none" stroke="#5fd39b" stroke-width="1.2"/><polyline points="{{ m4 }}" fill="none" stroke="#ff6961" stroke-width="1.2"/><line x1="{{ eventX }}" y1="0" x2="{{ eventX }}" y2="160" stroke="#ff6961" stroke-width="1.5" stroke-dasharray="4 3"/></svg>
+            <div class="t4 num" style="display:flex;justify-content:space-between;font-size:10px"><span>08:35</span><span>08:39</span><span>08:43</span><span>08:47</span><span>08:51</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="surface panel">
+        <div class="h2 hair" style="padding:14px 16px">{{ t.flightPath }}</div>
+        <div style="position:relative;flex:1;min-height:0"><div ref="{{ mapRef }}" class="map"></div><div class="pill pill-rec num" style="position:absolute;right:10px;top:10px;height:26px;padding:0 10px">08:42</div></div>
+      </div>
+      <div class="surface panel">
+        <div class="row hair h2" style="gap:10px;padding:14px 16px"><svg viewBox="0 0 24 24" width="18" height="18" fill="var(--accent)"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>{{ t.aiAnalysis }}</div>
+        <div style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px;font-size:13px;line-height:1.6">
+          <div class="h2">{{ t.aiTitle }}</div>
+          <ul class="t2" style="margin:0;padding-left:18px"><li>{{ t.aiP1 }}</li><li>{{ t.aiP2 }}</li></ul>
+          <div class="h2" style="margin-top:6px">{{ t.evidence }}</div>
+          <div class="row" style="gap:8px;flex-wrap:wrap"><span class="chip-ev">VIBE</span><span class="chip-ev">{{ t.motorOutput }}</span></div>
+          <button class="btn" onClick="{{ jumpEvent }}" style="height:auto;min-height:42px;padding:9px 12px;white-space:normal;line-height:1.35;border-color:var(--accent-line)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18V6l8 6-8 6M14 6h2v12h-2"/></svg>{{ t.jumpRange }}</button>
+          <sc-for list="{{ logChat }}" as="lc" hint-placeholder-count="0">
+            <div class="{{ lc.cls }}" style="font-size:13px">{{ lc.text }}</div>
+          </sc-for>
+        </div>
+        <div class="row hair-t" style="gap:8px;padding:12px">
+          <input class="in lg grow" value="{{ logDraft }}" onChange="{{ setLogDraft }}" onKeyDown="{{ logKey }}" placeholder="{{ t.askLog }}" style="min-width:0;font-size:13px">
+          <button class="btn btn-lg btn-primary" onClick="{{ sendLog }}" style="width:46px;padding:0"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 12l18-8-6 18-3-7z"/></svg></button>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- Tab: history -->
+    <sc-if value="{{ tabHistory }}" hint-placeholder-val="{{ false }}">
+    <div class="surface" style="overflow:auto;min-height:0">
+      <table class="tbl">
+        <thead><tr><th>{{ t.time }}</th><th>{{ t.operator }}</th><th>{{ t.vehicle }}</th><th>{{ t.change }}</th></tr></thead>
+        <tbody>
+          <sc-for list="{{ history }}" as="h" hint-placeholder-count="5">
+            <tr><td class="num t2">{{ h.time }}</td><td>{{ h.who }}</td><td>{{ h.vehicle }}</td><td class="num">{{ h.text }}</td></tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    </sc-if>
+
+    <!-- Tab: app settings (language, joystick) -->
+    <sc-if value="{{ tabApp }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-content:start;overflow-y:auto">
+      <div class="surface" style="padding:18px;display:flex;flex-direction:column;gap:12px">
+        <div class="h1">{{ t.language }}</div>
+        <div class="seg" style="width:240px;height:40px">
+          <span class="lens" style="transform:{{ langLens }}"></span>
+          <button class="{{ jaCls }}" onClick="{{ setJa }}" style="font-size:14px">日本語</button>
+          <button class="{{ enCls }}" onClick="{{ setEn }}" style="font-size:14px">English</button>
+        </div>
+        <div class="h1" style="margin-top:10px">{{ t.offline }}</div>
+        <div class="num" style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:13px"><span class="t2">{{ t.tileCache }}</span><span>region_tone.mbtiles · 1.8 GB · z8–z17</span><span class="t2">{{ t.terrain }}</span><span>SRTM 30 m · 420 MB</span><span class="t2">{{ t.logDir }}</span><span class="mono">~/RGCS/logs</span></div>
+        <button class="btn" onClick="{{ refreshCache }}" style="align-self:flex-start">{{ t.updateCache }}</button>
+      </div>
+      <div class="surface" style="padding:18px;display:flex;flex-direction:column;gap:14px">
+        <div class="h1">{{ t.joystick }}</div>
+        <div class="t3" style="font-size:12px">{{ t.joystickNote }}</div>
+        <div class="form" style="font-size:14px">
+          <span>{{ t.joyVehicle }}</span>
+          <select class="in" value="{{ joyVehicle }}" onChange="{{ setJoyVehicle }}" style="height:42px"><option>Xbox Wireless Controller</option><option>Logitech Extreme 3D Pro</option><option>FrSky Taranis (USB)</option><option>—</option></select>
+          <span>{{ t.joyGimbal }}</span>
+          <select class="in" value="{{ joyGimbal }}" onChange="{{ setJoyGimbal }}" style="height:42px"><option>Logitech Extreme 3D Pro</option><option>Xbox Wireless Controller</option><option>FrSky Taranis (USB)</option><option>—</option></select>
+        </div>
+        <div class="hair-t t2" style="padding-top:12px;display:grid;grid-template-columns:1fr auto;gap:8px 16px;font-size:13px">
+          <span>Roll / Pitch</span><span class="mono">Axis 0 / 1</span>
+          <span>Throttle / Yaw</span><span class="mono">Axis 3 / 2</span>
+          <span>{{ t.gimbalPan }}</span><span class="mono">Axis 0 / 1 (dev 2)</span>
+          <span>RTL</span><span class="mono">Button 7 (hold 1 s)</span>
+        </div>
+        <button class="btn" onClick="{{ calibJoy }}" style="align-self:flex-start">{{ t.calibJoy }}</button>
+      </div>
+    </div>
+    </sc-if>
+  </section>
+  </sc-if>
+
+  <!-- ===== FOOTER: floating log pill ===== -->
+  <footer class="g-ctl float map-c" style="bottom:12px;height:40px;display:flex;align-items:center;gap:12px;padding:0 16px;max-width:min(720px,calc(100% - var(--aside-w) - var(--right-w) - 72px));z-index:3;font-size:12px;border-radius:999px;white-space:nowrap">
+    <sc-if value="{{ footerLead }}" hint-placeholder-val="{{ true }}"><span style="font-weight:500">{{ footerLead }}</span></sc-if>
+    <sc-for list="{{ footerLogs }}" as="f" hint-placeholder-count="2">
+      <span class="row ell" style="gap:8px;padding-left:12px;border-left:1px solid var(--line-hi)">
+        <span style="width:18px;height:18px;border-radius:50%;background:{{ f.iconBg }};color:{{ f.iconColor }};display:grid;place-items:center;font-weight:600;font-size:11px;flex:none">{{ f.glyph }}</span>
+        <span class="num t2">{{ f.time }}</span>
+        <span class="ell">{{ f.text }}</span>
+      </span>
+    </sc-for>
+    <span class="num t3" style="padding-left:12px;border-left:1px solid var(--line-hi)">{{ clockShort }}</span>
+  </footer>
+</main>
+</div></div>
+
+<script type="text/x-dc" data-dc-script data-props="{&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ja&quot;,&quot;en&quot;],&quot;default&quot;:&quot;ja&quot;,&quot;tsType&quot;:&quot;'ja'|'en'&quot;,&quot;section&quot;:&quot;App&quot;}}">
+const I18N = {
+  ja: {maintenance:'メンテナンス',navMap:'運用マップ',navVideo:'全機体映像',navAi:'AIチャット',navSettings:'メンテナンス・設定',vehicles:'機体',filterVehicles:'機体を絞り込み (名前・モード)',allCommands:'全コマンド',searchCommands:'コマンドを検索',guidedMove:'Guided移動',guidedHint:'地図上をクリックして移動先を指定',guidedPick:'移動先: 地図上をクリックしてください',guidedTo:'移動先',keepAlt:'現在の高度を維持',setAlt:'高度を指定',relAltNote:'ホーム基準の相対高度',cancel:'キャンセル',startMove:'移動開始',operatorReg:'オペレータ登録',nameOrId:'氏名またはID',opNote:'操作履歴に記録する名前またはID',register:'登録',unregistered:'未登録',noVideo:'映像未接続',history:'履歴',messages:'メッセージ',target:'対象',lastRx:'最終受信',video:'映像',toolHistory:'ツール実行履歴',typeMessage:'メッセージを入力',connected:'接続機体',ground:'地上',tabParams:'機体設定',tabCalib:'点検・校正',tabLog:'ログ・AI解析',tabHistory:'変更履歴',tabApp:'アプリ設定',secMotor:'推進・モーター',secAtt:'姿勢・安定性',secPos:'位置・航法',secPower:'電源',secComm:'通信',secSafety:'安全',thrustResp:'全モーターの推力応答',thrustDesc:'送信したモーター出力に対する推力の応答特性を調整します。',thrust:'推力',motorOut:'モーター出力',current:'現在の設定',sample:'サンプル値',resetDefault:'デフォルトに戻す',writeParams:'機体に書き込む',startCalib:'校正を開始',logFile:'ログファイル',vibe:'機体の振動 (VIBE)',motorOutput:'モーター出力',flightPath:'飛行経路',aiAnalysis:'AI解析',aiTitle:'振動増加の要因候補',aiP1:'VIBEの増加とモーター出力の変動が同時に発生しています。',aiP2:'モーターのバランス不良、プロペラの損傷、汚れなどの可能性が考えられます。',evidence:'根拠となるデータ',jumpRange:'該当区間 (08:41:30 - 08:43:30) にジャンプ',askLog:'このログについて質問…',time:'時刻',operator:'オペレータ',vehicle:'機体',change:'変更内容',language:'表示言語',offline:'オフライン運用',tileCache:'地図タイル',terrain:'地形データ',logDir:'ログ保存先',updateCache:'地図キャッシュを更新',joystick:'ジョイスティック',joystickNote:'機体操作とジンバル操作に別々のデバイスを割り当てられます。',joyVehicle:'機体操作',joyGimbal:'ジンバル操作',gimbalPan:'ジンバル パン / チルト',calibJoy:'軸を校正',all:'全体',noChange:'変更なし',paramsLoaded:'パラメータ読込完了',
+    navMission:'ミッション作成',mission:'ミッション',waypoints:'ウェイポイント',addByClick:'追加',selectMode:'選択',addHint:'地図をクリックしてウェイポイントを追加 · ドラッグで移動',clearAll:'全削除',reverse:'逆順',missionName:'ミッション名',targetVehicle:'対象機体',defaultAlt:'既定高度',cruiseSpeed:'巡航速度',wpEdit:'ウェイポイント編集',command:'コマンド',latitude:'緯度',longitude:'経度',altitude:'高度',delay:'待機 (s)',radius:'半径 (m)',altFrame:'高度基準',frames:{REL:'Rel',ABS:'Abs',TER:'Ter'},frameDesc:{REL:'Rel: ホーム基準の相対高度 (MAV_FRAME_GLOBAL_RELATIVE_ALT)',ABS:'Abs: 海抜高度 AMSL (MAV_FRAME_GLOBAL)',TER:'Ter: 地表基準の対地高度 (MAV_FRAME_GLOBAL_TERRAIN_ALT) — 地形データ必須'},elevProfile:'標高プロファイル',elevToggle:'標高プロファイルの表示 / 非表示',terrainNone:'地形: DEM タイル読込中… (DSM 読込で置き換え可)',terrainOk:'地形: AWS Terrain Tiles z13 (概算 DEM · DSM 読込で置き換え可)',ground:'地表',agl:'対地',legendAlt:'高度 (ホーム基準)',naTag:'未使用',naTitle:'選択中の機体種別では無視されるパラメータです',deprecatedTag:'非推奨',mavId:'ID',bulkDelay:'待機時間',frameMixWarn:'高度基準 (Abs / Rel / Ter) が混在しています',terNoDemWarn:'Ter 指定の項目がありますが地形データが未読込です',belowGroundWarn:'地表より低い高度の項目があります',helpTitle:'マップ操作ガイド',helpItems:[['クリック','項目を選択'],['Shift + クリック','選択に追加 / 解除'],['Shift + ドラッグ','矩形で範囲選択 (地図上の WP)'],['⌘ / Ctrl + クリック','リスト順で範囲選択'],['ドラッグ','WP を移動 (複数選択中は一括移動)'],['線上の +','レグの途中に WP を挿入 (ドラッグで位置指定)'],['右クリック','WP / 地図のコンテキストメニュー'],['追加モード + クリック','末尾に WP を追加'],['2D / 3D','3D では地形・空中経路・ピラーを表示']],summary:'サマリ',totalDist:'総距離',estTime:'推定時間',maxAlt:'最大高度',upload:'機体に書き込む',download:'機体から読込',saveFile:'ファイルに保存',loadFile:'ファイルから読込',noWp:'ウェイポイントがありません。地図をクリックして追加してください。',altWarn:'150 m を超える高度があります',deleteWp:'削除',dragNote:'地図上のマーカーをドラッグして位置を変更できます。',
+    wpCmd:{TAKEOFF:'離陸',WAYPOINT:'ウェイポイント',SPLINE_WAYPOINT:'スプラインWP',LOITER_TIME:'待機 (時間)',LOITER_TURNS:'周回待機',LOITER_UNLIM:'無期限待機',LAND:'着陸',RTL:'帰還 (RTL)',NAV_DELAY:'遅延 (時刻指定可)',DO_SET_ROI:'注視点 (ROI)',DO_CHANGE_SPEED:'速度変更',DO_SET_CAM_TRIGG_DIST:'距離トリガ撮影',DO_DIGICAM_CONTROL:'シャッター',DO_GIMBAL_MANAGER_PITCHYAW:'ジンバル角度',DO_MOUNT_CONTROL:'ジンバル制御 (旧)',DO_SET_SERVO:'サーボ設定',DO_REPEAT_SERVO:'サーボ反復',DO_SET_RELAY:'リレー設定',DO_REPEAT_RELAY:'リレー反復',DO_GRIPPER:'グリッパ',DO_AUX_FUNCTION:'補助機能実行',DO_FENCE_ENABLE:'フェンス切替',DO_LAND_START:'着陸開始点',CONDITION_DELAY:'遅延条件',CONDITION_DISTANCE:'距離条件',CONDITION_YAW:'ヨー条件',DO_JUMP:'ジャンプ'},
+    fields:{alt:['高度','m'],delay:['待機時間','s'],acceptRadius:['到達半径','m'],passRadius:['通過半径','m'],time:['滞留時間','s'],turns:['周回数',''],radius:['半径','m'],abortAlt:['中止高度','m'],secs:['遅延','s'],hourUtc:['時 (UTC)',''],minUtc:['分 (UTC)',''],secUtc:['秒 (UTC)',''],speedType:['速度種別',''],speed:['速度','m/s'],throttle:['スロットル','%'],dist:['距離','m'],triggerNow:['即時トリガ',''],shoot:['シャッター',''],session:['セッション',''],zoomStep:['ズーム段',''],focusLock:['フォーカス',''],servo:['サーボ出力 #',''],pwm:['PWM','µs'],cycles:['回数',''],cycleTime:['周期','s'],relay:['リレー #',''],relayState:['出力',''],gripperNo:['グリッパ #',''],gripperAction:['動作',''],pitch:['ピッチ','°'],roll:['ロール','°'],yaw:['ヨー','°'],pitchRate:['ピッチ速度','°/s'],yawRate:['ヨー速度','°/s'],gimbalFlags:['ヨー基準',''],gimbalId:['ジンバル ID',''],mountMode:['マウントモード',''],angle:['方位角','°'],rate:['回頭速度','°/s'],dir:['回転方向',''],relative:['基準',''],seq:['ジャンプ先 #',''],repeat:['繰り返し',''],auxFn:['RCx_OPTION 番号',''],switchPos:['スイッチ位置',''],fenceEnable:['フェンス','']},
+    opts:{speedType:{0:'空速 (Plane)',1:'対地速度',2:'上昇率',3:'下降率'},focusLock:{0:'無視',1:'解除',2:'ロック'},gripperAction:{0:'開放 (Release)',1:'把持 (Grab)'},mountMode:{0:'格納',1:'中立',2:'MAVLink 指定',3:'RC 指定',4:'GPS 地点'},gimbalFlags:{0:'機体座標 (Body)',16:'地球座標 (Earth)'},dir:{'-1':'反時計回り (CCW)',0:'最短',1:'時計回り (CW)'},relative:{0:'絶対方位',1:'相対'},switchPos:{0:'Low',1:'Middle',2:'High'},fenceEnable:{0:'無効',1:'有効',2:'フロアのみ無効'},tog:{0:'Off',1:'On'}},
+    cmdHelp:{TAKEOFF:'ミッション先頭に置きます。現在地から指定高度まで垂直上昇します。',WAYPOINT:'直線で移動し、到達後に待機時間 (P1) だけ停止します。到達半径 (P2)・通過半径 (P3) は Plane / Rover 用で、Copter は WP_RADIUS_M を使用します。',SPLINE_WAYPOINT:'前後の WP と滑らかな曲線で接続します。引数は WAYPOINT と同じ (待機時間のみ)。',LOITER_TIME:'到達後、滞留時間 (P1) 秒だけその場で待機します。半径 (P3) は Plane 用です。',LOITER_TURNS:'指定半径で周回します。半径 0 でその場回頭、負値で反時計回り。1 未満の端数回も可。',LOITER_UNLIM:'到達後、無期限に待機します。ミッションはここで停止します。',LAND:'指定地点 (0,0 なら現在地) に着陸します。高度は使用しません。',RTL:'RTL_ALT_M まで上昇後ホームへ帰還します。引数はありません。通常は最後に置きます。',NAV_DELAY:'指定秒数、または UTC 時刻まで現在地で待機します。使わない欄は -1。',DO_SET_ROI:'以降の WP で機首 / ジンバルが注視点を向き続けます。Lat / Lon / Alt を全て 0 にすると解除。',DO_CHANGE_SPEED:'以降の最大速度を変更します。種別は通常 1 (対地速度)。スロットル -1 で変更なし。',DO_SET_CAM_TRIGG_DIST:'指定距離ごとにシャッターを切ります。0 で停止。P3 = On で直ちに 1 回撮影。',DO_DIGICAM_CONTROL:'シャッターを 1 回切ります (P5 = On)。セッション / ズーム / フォーカスはカメラ側が対応する場合のみ有効。',DO_SET_SERVO:'指定出力チャンネルのサーボを PWM 値へ動かします (通常 1000–2000 µs)。',DO_REPEAT_SERVO:'サーボを中立と指定 PWM の間で、指定回数・周期で往復させます。',DO_SET_RELAY:'リレー出力を On / Off します (0 = 1 番目のリレー)。',DO_REPEAT_RELAY:'リレーを指定回数・周期でトグルします。',DO_GRIPPER:'グリッパを開放 / 把持します。グリッパ # は現状無視されます。',DO_GIMBAL_MANAGER_PITCHYAW:'ジンバルをピッチ / ヨー角へ向けます (推奨)。ヨー基準 0 = 機体座標, 16 = 地球座標。レート指定時は CONDITION_DELAY 後に再送して停止。',DO_MOUNT_CONTROL:'ジンバルのロール / ピッチ / ヨーを設定します。非推奨: DO_GIMBAL_MANAGER_PITCHYAW を使用してください。',DO_LAND_START:'着陸シーケンスの開始点を示します (Plane)。引数はありません。',DO_AUX_FUNCTION:'補助機能 (RCx_OPTION 値) を指定スイッチ位置で実行します。',DO_FENCE_ENABLE:'ジオフェンスを有効 / 無効にします。',CONDITION_DELAY:'次の DO コマンドの開始を指定秒数だけ遅らせます。機体は停止しません。',CONDITION_DISTANCE:'次の WP まで指定距離以内に入るまで、次の DO コマンドを待ちます。',CONDITION_YAW:'指定方位 (絶対) または変化量 (相対) へ機首を向けます。回頭速度 0 で既定値。',DO_JUMP:'指定番号へジャンプします。繰り返し -1 で無限。1 ミッションに 100 個まで。'},
+    missionItems:'項目',commands:'コマンド',insertCmd:'コマンドを挿入',insertHere:'ここにWPを挿入',palPos:'位置コマンド(地図上に配置)',palDo:'動作コマンド(直前のWPに付随)',palCond:'条件・制御',afterItem:'挿入位置:',atEnd:'挿入位置: 末尾',selectHint:'クリック選択 · Shift+クリック / Shift+ドラッグで複数選択 · ⌘クリックで範囲 · 線上の + で挿入 · 右クリックでメニュー',multiSelected:'件を選択中',multiHint:'いずれかをドラッグで一括移動',multiNote:'選択中の全項目に適用されます。矢印キーでも移動できます(Shiftで大きく)。',deselect:'選択解除',applyAll:'一括適用',deleteSel:'選択項目を削除',ctxInsertBefore:'前にWPを挿入',ctxInsertAfter:'後にWPを挿入',ctxSpeed:'速度変更を追加',ctxCam:'シャッターを追加',ctxRoi:'注視点 (ROI) を追加',ctxAddHere:'ここにWPを追加',ctxRoiHere:'ここを注視点 (ROI) に',ctxLandHere:'ここに着陸',noTakeoffWarn:'先頭が離陸 (TAKEOFF) ではありません',jumpWarn:'ジャンプ先の番号が範囲外です',shortcuts:'Del 削除 · ⌘Z 取消 · ⇧⌘Z やり直し · ⌘A 全選択 · 矢印 移動 · Esc 解除',
+    cmd:{flight:'飛行',pause:'一時停止',resume:'再開',rtl:'帰還',land:'着陸',move:'移動',guided:'Guided移動',alt:'高度変更',speed:'速度変更',mode:'モード・ミッション',modeChange:'モード変更',missionStart:'ミッション開始',missionResume:'ミッション再開',payload:'機体・ペイロード',arm:'アーム',disarm:'ディスアーム',camera:'カメラ・ジンバル',other:'その他の対応コマンド'},
+    motor:'モーター',controller:'コントローラー',battery:'バッテリー',output:'出力',imu:'IMU・姿勢',gnss:'GPS・コンパス',radio:'テレメトリ',failsafe:'フェイルセーフ',schemTitle:'システム構成',follow:'追従',following:'追従中',followHint:'ダブルクリックで機体を追従 / 解除',stopFollow:'追従を解除',schemNote:'機種共通の抽象図 (コプター / ローバー / 固定翼 / VTOL)',
+    msg:{sent:'を送信しました',guidedStart:'Guided移動を開始しました',opReg:'オペレータを登録しました',ack:'通信遅延を確認済みにしました',missionUp:'ミッションを書き込みました',missionDown:'ミッションを読み込みました',missionSaved:'ミッションをファイルに保存しました',missionLoaded:'ミッションをファイルから読み込みました',cacheUpd:'地図キャッシュを更新しました',logSaved:'ログ保存先に保存しました',sysOk:'システムの正常動作を確認しました',commDelay:'通信遅延',commDelayBody:'通信の応答が遅延しています。',paramsWritten:'パラメータを書き込みました',calibStarted:'校正を開始しました',joyCalib:'ジョイスティックの軸校正を開始しました'},
+    ai:{q1:'通信状態を確認して',a1:'のテレメトリ更新が遅れています。',tool:'状態取得・完了',ago:'秒前',reply:'の最新テレメトリを確認しました。高度・速度は正常範囲です。'},
+    logReply:'08:42前後の振動ピークはM1/M4の出力変動と相関しています。プロペラの点検を推奨します。'},
+  en: {maintenance:'Maintenance',navMap:'Operations map',navVideo:'All vehicle video',navAi:'AI chat',navSettings:'Maintenance & settings',vehicles:'Vehicles',filterVehicles:'Filter vehicles (name, mode)',allCommands:'All commands',searchCommands:'Search commands',guidedMove:'Guided move',guidedHint:'Click the map to set the destination',guidedPick:'Destination: click on the map',guidedTo:'Destination',keepAlt:'Keep current altitude',setAlt:'Set altitude',relAltNote:'Relative to home',cancel:'Cancel',startMove:'Start move',operatorReg:'Operator registration',nameOrId:'Name or ID',opNote:'Recorded in the operation history',register:'Register',unregistered:'Not registered',noVideo:'No video',history:'History',messages:'Messages',target:'Target',lastRx:'Last RX',video:'Video',toolHistory:'Tool runs',typeMessage:'Type a message',connected:'Connected',ground:'GROUND',tabParams:'Parameters',tabCalib:'Checks & calibration',tabLog:'Logs & AI analysis',tabHistory:'Change history',tabApp:'App settings',secMotor:'Propulsion / Motors',secAtt:'Attitude / Stability',secPos:'Position / Navigation',secPower:'Power',secComm:'Comms',secSafety:'Safety',thrustResp:'Thrust response (all motors)',thrustDesc:'Adjust how thrust responds to the commanded motor output.',thrust:'Thrust',motorOut:'Motor output',current:'Current',sample:'Sample',resetDefault:'Reset to default',writeParams:'Write to vehicle',startCalib:'Start calibration',logFile:'Log file',vibe:'Vibration (VIBE)',motorOutput:'Motor output',flightPath:'Flight path',aiAnalysis:'AI analysis',aiTitle:'Likely causes of increased vibration',aiP1:'The VIBE increase coincides with motor output fluctuation.',aiP2:'Possible motor imbalance, propeller damage or contamination.',evidence:'Supporting data',jumpRange:'Jump to 08:41:30 – 08:43:30',askLog:'Ask about this log…',time:'Time',operator:'Operator',vehicle:'Vehicle',change:'Change',language:'Language',offline:'Offline operation',tileCache:'Map tiles',terrain:'Terrain',logDir:'Log folder',updateCache:'Refresh map cache',joystick:'Joystick',joystickNote:'Assign separate devices for vehicle and gimbal control.',joyVehicle:'Vehicle control',joyGimbal:'Gimbal control',gimbalPan:'Gimbal pan / tilt',calibJoy:'Calibrate axes',all:'ALL',noChange:'No changes',paramsLoaded:'Parameters loaded',
+    navMission:'Mission planner',mission:'Mission',waypoints:'Waypoints',addByClick:'Add',selectMode:'Select',addHint:'Click the map to add a waypoint · drag to move',clearAll:'Clear all',reverse:'Reverse',missionName:'Mission name',targetVehicle:'Target vehicle',defaultAlt:'Default altitude',cruiseSpeed:'Cruise speed',wpEdit:'Edit waypoint',command:'Command',latitude:'Latitude',longitude:'Longitude',altitude:'Altitude',delay:'Delay (s)',radius:'Radius (m)',altFrame:'Altitude frame',frames:{REL:'Rel',ABS:'Abs',TER:'Ter'},frameDesc:{REL:'Rel: relative to home (MAV_FRAME_GLOBAL_RELATIVE_ALT)',ABS:'Abs: above mean sea level (MAV_FRAME_GLOBAL)',TER:'Ter: above terrain (MAV_FRAME_GLOBAL_TERRAIN_ALT) — needs terrain data'},elevProfile:'Elevation profile',elevToggle:'Show / hide elevation profile',terrainNone:'Terrain: loading DEM tiles… (a DSM can replace it)',terrainOk:'Terrain: AWS Terrain Tiles z13 (approx. DEM · a DSM can replace it)',ground:'Ground',agl:'AGL',legendAlt:'Altitude (above home)',naTag:'unused',naTitle:'Ignored by the selected vehicle type',deprecatedTag:'deprecated',mavId:'ID',bulkDelay:'Delay',frameMixWarn:'Mixed altitude frames (Abs / Rel / Ter)',terNoDemWarn:'Ter items present but no terrain data loaded',belowGroundWarn:'Some items are below ground level',helpTitle:'Map controls',helpItems:[['Click','Select an item'],['Shift + click','Add to / remove from selection'],['Shift + drag','Rubber-band select WPs on the map'],['⌘ / Ctrl + click','Select a range in list order'],['Drag','Move a WP (moves all when multi-selected)'],['+ on a leg','Insert a WP mid-leg (drag to place)'],['Right-click','Context menu for WP / map'],['Add mode + click','Append a WP at the end'],['2D / 3D','3D shows terrain, the airborne path and pillars']],summary:'Summary',totalDist:'Total distance',estTime:'Est. time',maxAlt:'Max altitude',upload:'Write to vehicle',download:'Read from vehicle',saveFile:'Save to file',loadFile:'Load from file',noWp:'No waypoints. Click the map to add one.',altWarn:'Some altitudes exceed 150 m',deleteWp:'Delete',dragNote:'Drag markers on the map to reposition.',
+    wpCmd:{TAKEOFF:'Takeoff',WAYPOINT:'Waypoint',SPLINE_WAYPOINT:'Spline WP',LOITER_TIME:'Loiter (time)',LOITER_TURNS:'Loiter (turns)',LOITER_UNLIM:'Loiter (unlimited)',LAND:'Land',RTL:'Return to launch',NAV_DELAY:'Delay (or until time)',DO_SET_ROI:'Set ROI',DO_CHANGE_SPEED:'Change speed',DO_SET_CAM_TRIGG_DIST:'Camera trigger distance',DO_DIGICAM_CONTROL:'Trigger shutter',DO_GIMBAL_MANAGER_PITCHYAW:'Gimbal pitch / yaw',DO_MOUNT_CONTROL:'Mount control (legacy)',DO_SET_SERVO:'Set servo',DO_REPEAT_SERVO:'Repeat servo',DO_SET_RELAY:'Set relay',DO_REPEAT_RELAY:'Repeat relay',DO_GRIPPER:'Gripper',DO_AUX_FUNCTION:'Aux function',DO_FENCE_ENABLE:'Fence enable',DO_LAND_START:'Land start',CONDITION_DELAY:'Condition: delay',CONDITION_DISTANCE:'Condition: distance',CONDITION_YAW:'Condition: yaw',DO_JUMP:'Jump'},
+    fields:{alt:['Altitude','m'],delay:['Delay','s'],acceptRadius:['Accept radius','m'],passRadius:['Pass radius','m'],time:['Loiter time','s'],turns:['Turns',''],radius:['Radius','m'],abortAlt:['Abort altitude','m'],secs:['Delay','s'],hourUtc:['Hour (UTC)',''],minUtc:['Minute (UTC)',''],secUtc:['Second (UTC)',''],speedType:['Speed type',''],speed:['Speed','m/s'],throttle:['Throttle','%'],dist:['Distance','m'],triggerNow:['Trigger now',''],shoot:['Shutter',''],session:['Session',''],zoomStep:['Zoom step',''],focusLock:['Focus',''],servo:['Servo output #',''],pwm:['PWM','µs'],cycles:['Cycles',''],cycleTime:['Cycle time','s'],relay:['Relay #',''],relayState:['Output',''],gripperNo:['Gripper #',''],gripperAction:['Action',''],pitch:['Pitch','°'],roll:['Roll','°'],yaw:['Yaw','°'],pitchRate:['Pitch rate','°/s'],yawRate:['Yaw rate','°/s'],gimbalFlags:['Yaw frame',''],gimbalId:['Gimbal ID',''],mountMode:['Mount mode',''],angle:['Heading','°'],rate:['Turn rate','°/s'],dir:['Direction',''],relative:['Reference',''],seq:['Jump to #',''],repeat:['Repeat',''],auxFn:['RCx_OPTION value',''],switchPos:['Switch position',''],fenceEnable:['Fence','']},
+    opts:{speedType:{0:'Airspeed (Plane)',1:'Ground speed',2:'Climb rate',3:'Descent rate'},focusLock:{0:'Ignore',1:'Unlock',2:'Lock'},gripperAction:{0:'Release',1:'Grab'},mountMode:{0:'Retract',1:'Neutral',2:'MAVLink targeting',3:'RC targeting',4:'GPS point'},gimbalFlags:{0:'Body frame',16:'Earth frame'},dir:{'-1':'Counter-clockwise',0:'Shortest',1:'Clockwise'},relative:{0:'Absolute',1:'Relative'},switchPos:{0:'Low',1:'Middle',2:'High'},fenceEnable:{0:'Disable',1:'Enable',2:'Disable floor only'},tog:{0:'Off',1:'On'}},
+    cmdHelp:{TAKEOFF:'Place first. Climbs vertically from the current position to the altitude.',WAYPOINT:'Flies straight to the point and holds for Delay (P1). Accept (P2) / pass (P3) radius are for Plane / Rover; Copter uses WP_RADIUS_M.',SPLINE_WAYPOINT:'Connects neighbouring WPs with a smooth curve. Same arguments as WAYPOINT (delay only).',LOITER_TIME:'Waits at the point for Loiter time (P1) seconds. Radius (P3) is Plane only.',LOITER_TURNS:'Circles at the radius. 0 pirouettes in place; negative = counter-clockwise. Fractions below 1 are allowed.',LOITER_UNLIM:'Waits at the point indefinitely. The mission stops here.',LAND:'Lands at the point (0,0 = current position). Altitude is not used.',RTL:'Climbs to RTL_ALT_M and returns home. No arguments. Usually the last item.',NAV_DELAY:'Waits at the current position for N seconds or until the UTC time. Unused fields = -1.',DO_SET_ROI:'Nose / gimbal keeps pointing at this location for subsequent WPs. All zeros clears the ROI.',DO_CHANGE_SPEED:'Changes the maximum speed from here on. Type is normally 1 (ground speed). Throttle -1 = no change.',DO_SET_CAM_TRIGG_DIST:'Triggers the shutter every N metres. 0 stops. P3 = On fires once immediately.',DO_DIGICAM_CONTROL:'Triggers the shutter once (P5 = On). Session / zoom / focus apply only if the camera supports them.',DO_SET_SERVO:'Moves the servo on the output channel to the PWM value (typically 1000–2000 µs).',DO_REPEAT_SERVO:'Cycles the servo between neutral and the PWM value for the given count and period.',DO_SET_RELAY:'Switches a relay output On / Off (0 = first relay).',DO_REPEAT_RELAY:'Toggles the relay for the given count and period.',DO_GRIPPER:'Releases / grabs with the gripper. Gripper # is currently ignored.',DO_GIMBAL_MANAGER_PITCHYAW:'Points the gimbal to pitch / yaw (recommended). Yaw frame 0 = body, 16 = earth. With rates, resend after a CONDITION_DELAY to stop.',DO_MOUNT_CONTROL:'Sets gimbal roll / pitch / yaw. Deprecated: use DO_GIMBAL_MANAGER_PITCHYAW.',DO_LAND_START:'Marks the start of the landing sequence (Plane). No arguments.',DO_AUX_FUNCTION:'Runs an auxiliary function (RCx_OPTION value) at the given switch position.',DO_FENCE_ENABLE:'Enables / disables the geofence.',CONDITION_DELAY:'Delays the next DO command by N seconds. The vehicle keeps flying.',CONDITION_DISTANCE:'Delays the next DO command until within N metres of the next WP.',CONDITION_YAW:'Turns the nose to a heading (absolute) or by an amount (relative). Rate 0 = default.',DO_JUMP:'Jumps to the item number. Repeat -1 = forever. Max 100 per mission.'},
+    missionItems:'Items',commands:'Commands',insertCmd:'Insert command',insertHere:'Insert WP here',palPos:'Position commands (placed on map)',palDo:'DO commands (attached to previous WP)',palCond:'Conditions & control',afterItem:'Insert after',atEnd:'Insert at end',selectHint:'Click to select · Shift+click / Shift+drag for multi · ⌘click for range · + on a leg inserts · right-click for menu',multiSelected:'selected',multiHint:'drag any to move all',multiNote:'Applies to every selected item. Arrow keys also move them (Shift = larger step).',deselect:'Deselect',applyAll:'Apply to all',deleteSel:'Delete selected',ctxInsertBefore:'Insert WP before',ctxInsertAfter:'Insert WP after',ctxSpeed:'Add speed change',ctxCam:'Add shutter trigger',ctxRoi:'Add ROI',ctxAddHere:'Add WP here',ctxRoiHere:'Set ROI here',ctxLandHere:'Land here',noTakeoffWarn:'First item is not TAKEOFF',jumpWarn:'Jump target out of range',shortcuts:'Del delete · ⌘Z undo · ⇧⌘Z redo · ⌘A select all · arrows move · Esc clear',
+    cmd:{flight:'Flight',pause:'Pause',resume:'Resume',rtl:'Return to launch',land:'Land',move:'Move',guided:'Guided move',alt:'Change altitude',speed:'Change speed',mode:'Mode & mission',modeChange:'Change mode',missionStart:'Start mission',missionResume:'Resume mission',payload:'Vehicle & payload',arm:'Arm',disarm:'Disarm',camera:'Camera / gimbal',other:'Other supported commands'},
+    motor:'Motor',controller:'Controller',battery:'Battery',output:'Output',imu:'IMU / Attitude',gnss:'GPS / Compass',radio:'Telemetry',failsafe:'Failsafe',schemTitle:'System layout',follow:'Follow',following:'Following',followHint:'Double-click to follow / unfollow',stopFollow:'Stop following',schemNote:'Abstract diagram shared by copter / rover / plane / VTOL',
+    msg:{sent:' sent',guidedStart:'Guided move started',opReg:'Operator registered',ack:'Comms delay acknowledged',missionUp:'Mission written',missionDown:'Mission read from vehicle',missionSaved:'Mission saved to file',missionLoaded:'Mission loaded from file',cacheUpd:'Map cache refreshed',logSaved:'Saved to log folder',sysOk:'System health check passed',commDelay:'Comms delay',commDelayBody:'Telemetry responses are delayed.',paramsWritten:'Parameters written',calibStarted:'Calibration started',joyCalib:'Joystick axis calibration started'},
+    ai:{q1:'Check the comms status',a1:' telemetry updates are delayed.',tool:'Status fetch · done',ago:'s ago',reply:' latest telemetry checked. Altitude and speed are within normal range.'},
+    logReply:'The vibration peak around 08:42 correlates with M1/M4 output fluctuation. Propeller inspection recommended.'}
+};
+// ---- MAVLink mission command table (ArduPilot semantics) ----
+// Altitude frames: MAV_FRAME_GLOBAL_RELATIVE_ALT (3) / MAV_FRAME_GLOBAL (0) / MAV_FRAME_GLOBAL_TERRAIN_ALT (10)
+const FRAMES={REL:{mav:3,name:'MAV_FRAME_GLOBAL_RELATIVE_ALT'},ABS:{mav:0,name:'MAV_FRAME_GLOBAL'},TER:{mav:10,name:'MAV_FRAME_GLOBAL_TERRAIN_ALT'}};
+const FRAME_KEYS=['REL','ABS','TER'];
+// Field spec: p = MAVLink param index (1-4; 5-7 map to x/y/z), k = key into t.fields / item.p, t = num | sel | tog,
+// def = default, only = vehicle types that honour the param (others show it disabled as "unused").
+const fNum=(p,k,def,o)=>({p,k,t:'num',def,...(o||{})});
+const fSel=(p,k,def,opts,o)=>({p,k,t:'sel',def,opts,...(o||{})});
+const fTog=(p,k,def,o)=>({p,k,t:'tog',def,...(o||{})});
+const CMDS={
+  TAKEOFF:{id:22,mav:'MAV_CMD_NAV_TAKEOFF',pos:true,alt:true,fields:[]},
+  WAYPOINT:{id:16,mav:'MAV_CMD_NAV_WAYPOINT',pos:true,alt:true,fields:[fNum(1,'delay',0,{min:0,step:1}),fNum(2,'acceptRadius',0,{min:0,only:['plane','rover']}),fNum(3,'passRadius',0,{only:['plane']})]},
+  SPLINE_WAYPOINT:{id:82,mav:'MAV_CMD_NAV_SPLINE_WAYPOINT',pos:true,alt:true,fields:[fNum(1,'delay',0,{min:0,step:1})]},
+  LOITER_TIME:{id:19,mav:'MAV_CMD_NAV_LOITER_TIME',pos:true,alt:true,fields:[fNum(1,'time',10,{min:0,step:1}),fNum(3,'radius',0,{only:['plane']})]},
+  LOITER_TURNS:{id:18,mav:'MAV_CMD_NAV_LOITER_TURNS',pos:true,alt:true,fields:[fNum(1,'turns',1,{min:0,step:0.5}),fNum(3,'radius',20,{step:1})]},
+  LOITER_UNLIM:{id:17,mav:'MAV_CMD_NAV_LOITER_UNLIM',pos:true,alt:true,fields:[fNum(3,'radius',0,{only:['plane']})]},
+  LAND:{id:21,mav:'MAV_CMD_NAV_LAND',pos:true,alt:false,fields:[fNum(1,'abortAlt',0,{min:0,only:['plane']})]},
+  RTL:{id:20,mav:'MAV_CMD_NAV_RETURN_TO_LAUNCH',pos:false,fields:[]},
+  NAV_DELAY:{id:93,mav:'MAV_CMD_NAV_DELAY',pos:false,fields:[fNum(1,'secs',10,{min:-1,step:1}),fNum(2,'hourUtc',-1,{min:-1,max:23,step:1}),fNum(3,'minUtc',-1,{min:-1,max:59,step:1}),fNum(4,'secUtc',-1,{min:-1,max:59,step:1})]},
+  DO_SET_ROI:{id:201,mav:'MAV_CMD_DO_SET_ROI',pos:true,alt:true,fields:[]},
+  DO_CHANGE_SPEED:{id:178,mav:'MAV_CMD_DO_CHANGE_SPEED',pos:false,fields:[fSel(1,'speedType',1,[0,1,2,3]),fNum(2,'speed',8,{min:-2,step:0.5}),fNum(3,'throttle',-1,{min:-1,max:100,step:1})]},
+  DO_SET_CAM_TRIGG_DIST:{id:206,mav:'MAV_CMD_DO_SET_CAM_TRIGG_DIST',pos:false,fields:[fNum(1,'dist',20,{min:0,step:1}),fTog(3,'triggerNow',0)]},
+  DO_DIGICAM_CONTROL:{id:203,mav:'MAV_CMD_DO_DIGICAM_CONTROL',pos:false,fields:[fTog(5,'shoot',1),fTog(1,'session',0),fNum(3,'zoomStep',0,{min:-1,max:1,step:1}),fSel(4,'focusLock',0,[0,1,2])]},
+  DO_GIMBAL_MANAGER_PITCHYAW:{id:1000,mav:'MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW',pos:false,fields:[fNum(1,'pitch',-45,{min:-90,max:90,step:1}),fNum(2,'yaw',0,{min:-180,max:180,step:1}),fNum(3,'pitchRate',0,{step:1}),fNum(4,'yawRate',0,{step:1}),fSel(5,'gimbalFlags',0,[0,16]),fNum(7,'gimbalId',0,{min:0,step:1})]},
+  DO_MOUNT_CONTROL:{id:205,mav:'MAV_CMD_DO_MOUNT_CONTROL',pos:false,deprecated:true,fields:[fNum(1,'pitch',-45,{min:-90,max:90,step:1}),fNum(2,'roll',0,{min:-180,max:180,step:1}),fNum(3,'yaw',0,{min:-180,max:180,step:1}),fSel(7,'mountMode',2,[0,1,2,3,4])]},
+  DO_SET_SERVO:{id:183,mav:'MAV_CMD_DO_SET_SERVO',pos:false,fields:[fNum(1,'servo',9,{min:1,max:16,step:1}),fNum(2,'pwm',1500,{min:800,max:2200,step:10})]},
+  DO_REPEAT_SERVO:{id:184,mav:'MAV_CMD_DO_REPEAT_SERVO',pos:false,fields:[fNum(1,'servo',9,{min:1,max:16,step:1}),fNum(2,'pwm',1700,{min:800,max:2200,step:10}),fNum(3,'cycles',2,{min:1,step:1}),fNum(4,'cycleTime',2,{min:0,step:0.5})]},
+  DO_SET_RELAY:{id:181,mav:'MAV_CMD_DO_SET_RELAY',pos:false,fields:[fNum(1,'relay',0,{min:0,max:5,step:1}),fTog(2,'relayState',1)]},
+  DO_REPEAT_RELAY:{id:182,mav:'MAV_CMD_DO_REPEAT_RELAY',pos:false,fields:[fNum(1,'relay',0,{min:0,max:5,step:1}),fNum(2,'cycles',2,{min:1,step:1}),fNum(3,'cycleTime',2,{min:0,step:0.5})]},
+  DO_GRIPPER:{id:211,mav:'MAV_CMD_DO_GRIPPER',pos:false,fields:[fNum(1,'gripperNo',1,{min:1,step:1}),fSel(2,'gripperAction',1,[0,1])]},
+  DO_AUX_FUNCTION:{id:218,mav:'MAV_CMD_DO_AUX_FUNCTION',pos:false,fields:[fNum(1,'auxFn',0,{min:0,step:1}),fSel(2,'switchPos',2,[0,1,2])]},
+  DO_FENCE_ENABLE:{id:207,mav:'MAV_CMD_DO_FENCE_ENABLE',pos:false,fields:[fSel(1,'fenceEnable',1,[0,1,2])]},
+  DO_LAND_START:{id:189,mav:'MAV_CMD_DO_LAND_START',pos:false,fields:[]},
+  CONDITION_DELAY:{id:112,mav:'MAV_CMD_CONDITION_DELAY',pos:false,fields:[fNum(1,'delay',5,{min:0,step:1})]},
+  CONDITION_DISTANCE:{id:114,mav:'MAV_CMD_CONDITION_DISTANCE',pos:false,fields:[fNum(1,'dist',50,{min:0,step:1})]},
+  CONDITION_YAW:{id:115,mav:'MAV_CMD_CONDITION_YAW',pos:false,fields:[fNum(1,'angle',0,{min:0,max:360,step:1}),fNum(2,'rate',0,{min:0,step:1}),fSel(3,'dir',1,[-1,0,1]),fSel(4,'relative',0,[0,1])]},
+  DO_JUMP:{id:177,mav:'MAV_CMD_DO_JUMP',pos:false,fields:[fNum(1,'seq',1,{min:1,step:1}),fNum(2,'repeat',1,{min:-1,step:1})]},
+};
+const PALETTE_POS=['WAYPOINT','SPLINE_WAYPOINT','TAKEOFF','LAND','LOITER_TIME','LOITER_TURNS','LOITER_UNLIM','DO_SET_ROI'];
+const PALETTE_DO=['DO_CHANGE_SPEED','DO_SET_CAM_TRIGG_DIST','DO_DIGICAM_CONTROL','DO_GIMBAL_MANAGER_PITCHYAW','DO_MOUNT_CONTROL','DO_SET_SERVO','DO_REPEAT_SERVO','DO_SET_RELAY','DO_REPEAT_RELAY','DO_GRIPPER','DO_AUX_FUNCTION','DO_FENCE_ENABLE','DO_LAND_START','RTL'];
+const PALETTE_COND=['CONDITION_DELAY','CONDITION_DISTANCE','CONDITION_YAW','NAV_DELAY','DO_JUMP'];
+// Fields that count as "time spent" for the ETA estimate
+const TIME_FIELDS=['delay','time','secs'];
+const CENTER = [139.372, 36.162];
+const INIT_WPS=[{id:1,cmd:'TAKEOFF',lng:139.372,lat:36.162,frame:'REL',p:{alt:30}},{id:2,cmd:'WAYPOINT',lng:139.381,lat:36.169,frame:'REL',p:{alt:80,delay:0,acceptRadius:0,passRadius:0}},{id:3,cmd:'DO_CHANGE_SPEED',lng:139.381,lat:36.169,p:{speedType:1,speed:6,throttle:-1}},{id:4,cmd:'DO_SET_CAM_TRIGG_DIST',lng:139.381,lat:36.169,p:{dist:25,triggerNow:0}},{id:5,cmd:'WAYPOINT',lng:139.392,lat:36.166,frame:'REL',p:{alt:120,delay:5,acceptRadius:0,passRadius:0}},{id:6,cmd:'LOITER_TIME',lng:139.394,lat:36.156,frame:'REL',p:{alt:80,time:20,radius:0}},{id:7,cmd:'DO_SET_CAM_TRIGG_DIST',lng:139.394,lat:36.156,p:{dist:0,triggerNow:0}},{id:8,cmd:'WAYPOINT',lng:139.381,lat:36.152,frame:'TER',p:{alt:60,delay:0,acceptRadius:0,passRadius:0}},{id:9,cmd:'RTL',lng:139.381,lat:36.152,p:{}}];
+const CYAN='#9cc9ff', AMBER='#f2b544', ALT_HI='#d8a8ff', POST_COLOR='#bfe0ff';
+const ELEV_PANEL_H=200;
+// Terrain tiles (Terrarium encoding). Stand-in for the DSM that will be loaded later; see Component#groundElev.
+const DEM_TILES=['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'];
+function lerpHex(a,b,t){ const pa=[1,3,5].map(i=>parseInt(a.slice(i,i+2),16)), pb=[1,3,5].map(i=>parseInt(b.slice(i,i+2),16)); return '#'+pa.map((v,i)=>Math.round(v+(pb[i]-v)*t).toString(16).padStart(2,'0')).join(''); }
+function altColor(v,lo,hi){ const t=hi>lo?Math.min(1,Math.max(0,(v-lo)/(hi-lo))):0; return lerpHex(CYAN,ALT_HI,t); }
+function mavFontSize(name){ const n=name.length; return n<=16?'10px':n<=22?'9px':n<=28?'8px':'7px'; }
+// ---- 3D flight path: a MapLibre custom layer drawing a real 3D polyline. Each vertex carries its own altitude, the
+// width is constant in screen pixels (extruded in the vertex shader), edges are feathered and depth-tested against terrain.
+class AirPathLayer{
+  constructor(id){ this.id=id||'mission-air3d'; this.type='custom'; this.renderingMode='3d'; this.widthPx=4; this.postPx=2; this.visible=true; this.count=0; this.postStart=0; this.postCount=0; this.origin=[0,0,0]; }
+  onAdd(map,gl){ this.map=map; this.gl=gl;
+    const vs=`attribute vec3 a_pos;attribute vec3 a_prev;attribute vec3 a_next;attribute float a_side;attribute vec3 a_color;
+      uniform mat4 u_matrix;uniform vec2 u_res;uniform float u_width;varying float v_side;varying vec3 v_color;
+      vec2 px(vec4 c){return c.xy/c.w*u_res*0.5;}
+      void main(){vec4 cp=u_matrix*vec4(a_pos,1.0);vec4 cq=u_matrix*vec4(a_prev,1.0);vec4 cn=u_matrix*vec4(a_next,1.0);
+        vec2 p=px(cp),q=px(cq),n=px(cn);vec2 d1=p-q,d2=n-p;
+        if(length(d1)<0.01)d1=d2;if(length(d2)<0.01)d2=d1;d1=normalize(d1);d2=normalize(d2);
+        vec2 t=d1+d2;vec2 dir=length(t)<0.01?d1:normalize(t);vec2 nrm=vec2(-dir.y,dir.x);
+        float miter=min(1.0/max(0.4,dot(nrm,vec2(-d1.y,d1.x))),2.0);
+        vec2 off=nrm*a_side*u_width*0.5*miter;
+        gl_Position=vec4(cp.xy+off/(u_res*0.5)*cp.w,cp.z,cp.w);v_side=a_side;v_color=a_color;}`;
+    const fs=`precision mediump float;varying float v_side;varying vec3 v_color;uniform float u_opacity;uniform vec3 u_tint;uniform float u_tintMix;
+      void main(){float a=(1.0-smoothstep(0.55,1.0,abs(v_side)))*u_opacity;vec3 c=mix(v_color,u_tint,u_tintMix);gl_FragColor=vec4(c*a,a);}`;
+    const sh=(type,src)=>{ const o=gl.createShader(type); gl.shaderSource(o,src); gl.compileShader(o); if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)) console.error('[air3d]',gl.getShaderInfoLog(o)); return o; };
+    const pr=gl.createProgram(); gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs)); gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(pr); this.prog=pr;
+    this.loc={pos:gl.getAttribLocation(pr,'a_pos'),prev:gl.getAttribLocation(pr,'a_prev'),next:gl.getAttribLocation(pr,'a_next'),side:gl.getAttribLocation(pr,'a_side'),color:gl.getAttribLocation(pr,'a_color'),matrix:gl.getUniformLocation(pr,'u_matrix'),res:gl.getUniformLocation(pr,'u_res'),width:gl.getUniformLocation(pr,'u_width'),opacity:gl.getUniformLocation(pr,'u_opacity'),tint:gl.getUniformLocation(pr,'u_tint'),tintMix:gl.getUniformLocation(pr,'u_tintMix')};
+    this.buf=gl.createBuffer();
+    const ext=gl.createVertexArray?null:gl.getExtension('OES_vertex_array_object');
+    this.vaoCreate=()=>gl.createVertexArray?gl.createVertexArray():ext&&ext.createVertexArrayOES(); this.vaoBind=v=>{ if(gl.bindVertexArray) gl.bindVertexArray(v); else if(ext) ext.bindVertexArrayOES(v); };
+    this.vao=this.vaoCreate(); if(this._pending){ this.setLines(this._pending.lines,this._pending.posts); this._pending=null; } }
+  onRemove(map,gl){ if(this.buf) gl.deleteBuffer(this.buf); if(this.prog) gl.deleteProgram(this.prog); }
+  // lines: [[{x,y,z,c:[r,g,b]}...], ...] in mercator units (absolute altitude). Built as one triangle strip with degenerate joins.
+  // posts: same shape, one 2-point line per waypoint (ground → flight altitude); drawn thinner after the path.
+  setLines(lines,posts){ if(!this.gl||!this.buf){ this._pending={lines,posts}; return; } const pts=lines.filter(l=>l.length>1); const pp=(posts||[]).filter(l=>l.length>1); const first=pts[0]||pp[0]; if(!first){ this.count=0; this.postCount=0; this.pendingData=null; return; }
+    const o=this.origin=[first[0].x,first[0].y,first[0].z]; const out=[];
+    const push=(p,q,n,side)=>{ out.push(p.x-o[0],p.y-o[1],p.z-o[2],q.x-o[0],q.y-o[1],q.z-o[2],n.x-o[0],n.y-o[1],n.z-o[2],side,p.c[0],p.c[1],p.c[2]); };
+    const strip=ls=>ls.forEach((l,li)=>{ l.forEach((p,i)=>{ const q=l[i-1]||p, n=l[i+1]||p; if(i===0&&li>0) push(p,q,n,-1); push(p,q,n,-1); push(p,q,n,1); if(i===l.length-1&&li<ls.length-1) push(p,q,n,1); }); });
+    strip(pts); const pathCount=out.length/13; strip(pp);
+    // GL state is only touched inside render(): MapLibre caches GL state and would be desynchronised otherwise.
+    this.pendingData=new Float32Array(out); this.pendingCount=pathCount; this.pendingPostCount=out.length/13-pathCount; }
+  _upload(gl){ this.vaoBind(this.vao); gl.bindBuffer(gl.ARRAY_BUFFER,this.buf); gl.bufferData(gl.ARRAY_BUFFER,this.pendingData,gl.STATIC_DRAW); const S=13*4;
+    [['pos',3,0],['prev',3,12],['next',3,24],['side',1,36],['color',3,40]].forEach(([k,n,off])=>{ gl.enableVertexAttribArray(this.loc[k]); gl.vertexAttribPointer(this.loc[k],n,gl.FLOAT,false,S,off); });
+    this.count=this.pendingCount; this.postStart=this.pendingCount; this.postCount=this.pendingPostCount; this.pendingData=null; }
+  render(gl,matrix){ if(this.pendingData) this._upload(gl); if(!this.visible||!(this.count||this.postCount)) return; const o=this.origin; const m=new Float64Array(matrix);
+    // MapLibre 4.7 builds the custom-layer matrix BEFORE applying the terrain centre-elevation translation that every other
+    // layer (and the DOM markers) gets, so with terrain the layer would float by transform.elevation. Compensate here.
+    const tr=this.map.transform; const ez=tr.elevation?maplibregl.MercatorCoordinate.fromLngLat(this.map.getCenter(),tr.elevation).z:0;
+    // fold the origin translation (and the elevation fix) into the matrix so vertex positions stay small (float32-safe)
+    for(let r=0;r<4;r++) m[12+r]+=m[r]*o[0]+m[4+r]*o[1]+m[8+r]*(o[2]-ez);
+    gl.useProgram(this.prog); gl.uniformMatrix4fv(this.loc.matrix,false,new Float32Array(m)); gl.uniform2f(this.loc.res,gl.drawingBufferWidth,gl.drawingBufferHeight);
+    const dpr=window.devicePixelRatio||1; this.vaoBind(this.vao);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
+    // casing pass (dark, slightly wider) then the coloured core
+    const pass=(start,n,w,op,tint)=>{ if(!n) return; gl.uniform1f(this.loc.width,w*dpr); gl.uniform1f(this.loc.opacity,op); gl.uniform1f(this.loc.tintMix,tint?1:0); gl.drawArrays(gl.TRIANGLE_STRIP,start,n); };
+    gl.uniform3f(this.loc.tint,0.02,0.19,0.23);
+    // vertical posts first (thin, translucent) so the path always reads on top of them
+    gl.depthMask(false); pass(this.postStart,this.postCount,this.postPx+2,.35,true); pass(this.postStart,this.postCount,this.postPx,.6,false);
+    pass(0,this.count,this.widthPx+3,.75,true); // dark casing
+    gl.depthMask(true); pass(0,this.count,this.widthPx,.95,false); // coloured core
+    this.vaoBind(null); }
+}
+// ---- DEM sampler: decodes Terrarium tiles so the profile / AGL / 3D path have real terrain in 2D as well as 3D.
+// A future DSM source only needs to provide the same elevAt(lng,lat) → metres AMSL contract.
+class TerrainSampler{
+  constructor(onTile){ this.z=13; this.tiles=new Map(); this.onTile=onTile; this._t=null; }
+  ready(){ for(const v of this.tiles.values()) if(v) return true; return false; }
+  elevAt(lng,lat){ const n=1<<this.z; const xf=(lng+180)/360*n; const lr=lat*Math.PI/180; const yf=(1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2*n; const tx=Math.floor(xf), ty=Math.floor(yf); const t=this.tile(tx,ty); if(!t) return null;
+    const px=Math.min(255,Math.max(0,(xf-tx)*256-0.5)), py=Math.min(255,Math.max(0,(yf-ty)*256-0.5)); const x0=Math.floor(px), y0=Math.floor(py), x1=Math.min(255,x0+1), y1=Math.min(255,y0+1), fx=px-x0, fy=py-y0; const e=(i,j)=>t[j*256+i];
+    return e(x0,y0)*(1-fx)*(1-fy)+e(x1,y0)*fx*(1-fy)+e(x0,y1)*(1-fx)*fy+e(x1,y1)*fx*fy; }
+  tile(x,y){ const k=`${x}/${y}`; if(this.tiles.has(k)) return this.tiles.get(k); this.tiles.set(k,null); this.load(x,y,k); return null; }
+  async load(x,y,k){ try{ const url=DEM_TILES[0].replace('{z}',this.z).replace('{x}',x).replace('{y}',y); const res=await fetch(url); if(!res.ok) throw new Error(String(res.status)); const bmp=await createImageBitmap(await res.blob()); const cv=document.createElement('canvas'); cv.width=cv.height=256; const ctx=cv.getContext('2d'); ctx.drawImage(bmp,0,0); const d=ctx.getImageData(0,0,256,256).data; const out=new Float32Array(65536); for(let i=0;i<65536;i++) out[i]=d[i*4]*256+d[i*4+1]+d[i*4+2]/256-32768; this.tiles.set(k,out); clearTimeout(this._t); this._t=setTimeout(()=>this.onTile&&this.onTile(),60); }
+    catch(err){ console.warn('[terrain] tile failed',k,err); this.tiles.delete(k); } }
+}
+function seeded(seed){ let s=seed; return ()=>{ s=(s*16807)%2147483647; return (s-1)/2147483646; }; }
+
+class Component extends DCLogic {
+  constructor(p){
+    super(p);
+    this.vehicles=[
+      {name:'UAV-01',type:'copter',mode:'AUTO',batt:78,alt:82,spd:8.4,lng:139.350,lat:36.178,hdg:300,feed:'assets/feed_b.png',rec:true},
+      {name:'UAV-02',type:'copter',mode:'RTL',batt:46,alt:75,spd:9.2,lng:139.356,lat:36.148,hdg:285,feed:'assets/feed_c.png',rec:true},
+      {name:'UAV-03',type:'copter',mode:'AUTO',batt:62,alt:80,spd:8.1,lng:139.372,lat:36.162,hdg:15,feed:'assets/feed_a.png',rec:true,warn:true},
+      {name:'UAV-04',type:'copter',mode:'LOITER',batt:71,alt:90,spd:7.6,lng:139.394,lat:36.176,hdg:320,feed:'assets/feed_d.png',rec:true},
+      {name:'UAV-05',type:'rover',mode:'GROUND',batt:96,alt:0,spd:0,lng:139.386,lat:36.147,hdg:0,feed:'assets/feed_hangar.png',rec:false,home:true},
+      {name:'UAV-06',type:'rover',mode:'GROUND',batt:54,alt:0,spd:0,lng:139.398,lat:36.145,hdg:0,feed:null,rec:false},
+    ];
+    this.vehicles.forEach(v=>{ v.trail=[[v.lng,v.lat]]; });
+    const r=seeded(42); const mk=(n,base,amp,spike)=>Array.from({length:n},(_,i)=>{const sp=(i>150&&i<190)?spike*Math.exp(-Math.pow((i-168)/9,2)):0;return base+(r()-.5)*amp+sp*(0.5+r());});
+    this.series={vx:mk(300,118,10,-70),vy:mk(300,120,8,-55),vz:mk(300,116,9,-80),m1:mk(300,70,10,-30),m2:mk(300,95,8,25),m3:mk(300,110,8,-40),m4:mk(300,78,10,30)};
+    const now=new Date();
+    this.state={view:'ops',mapMode:'2d',follow:null,selectedId:'UAV-03',right:'detail',modal:null,guidedMode:'keep',guidedAlt:80,guidedTarget:null,operator:'OP-001',opDraft:'OP-001',maintTab:'params',maintVehicle:'UAV-05',maintSection:'motor',maxVideo:null,listOpen:true,lang:null,msgsOpen:false,search:'',cmdSearch:'',chatDraft:'',logDraft:'',logChat:[],acked:false,joyVehicle:'Xbox Wireless Controller',joyGimbal:'Logitech Extreme 3D Pro',tick:0,now,
+      mission:{name:'Mission 01',vehicle:'UAV-03',defaultAlt:80,defaultFrame:'REL',speed:8,wps:INIT_WPS},mHist:[INIT_WPS],mHistIdx:0,selWps:[2],wpTool:'select',ctxMenu:null,paletteOpen:false,bulkAlt:80,bulkFrame:'REL',bulkDelay:0,elevOpen:false,box:null,helpOpen:false,
+      params:{expo:0.65,spinArm:0.10,spinMin:0.12},paramsDirty:false,
+      log:[{time:'12:04:12',key:'cacheUpd',kind:'info'},{time:'12:01:03',key:'logSaved',kind:'info'}],
+      chat:[{role:'user',text:null,key:'q1',time:'12:17'},{role:'bot',key:'a1',time:'12:17'},{role:'tool',time:'12:17'}]};
+    this.terrain=new TerrainSampler(()=>{ this.updateMission(); this.updateVehicleAir(); this.setState(s=>({demTick:(s.demTick||0)+1})); });
+    this.mapRef=React.createRef(); this.aiSelRef=React.createRef(); this.mvSelRef=React.createRef(); this.msSelRef=React.createRef(); this.wpCmdRef=React.createRef(); this.markers={}; this.wpMarkers=[]; this._nextId=100; this._onKey=e=>this.onKey(e); this.map=null; this.mapKind=null;
+  }
+  get lang(){ return this.state.lang || this.props.lang || 'ja'; }
+  get t(){ return I18N[this.lang]; }
+  fmtClock(d){ const p=n=>String(n).padStart(2,'0'); const wd=this.lang==='ja'?['日','月','火','水','木','金','土'][d.getDay()]:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]; return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} (${wd}) ${p(d.getHours())}:${p(d.getMinutes())}`; }
+  fmtTime(d){ const p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+  pushLog(text){ this.setState(s=>({log:[{time:this.fmtTime(new Date()),text,kind:'info'},...s.log].slice(0,20)})); }
+  byName(n){ return this.vehicles.find(v=>v.name===n); }
+
+  componentDidMount(){
+    this.timer=setInterval(()=>{ this.simulate(); this.setState(s=>({tick:s.tick+1,now:new Date()})); },1000);
+    this._prevState=this.state; this.ensureMap(); this.syncSelects(); window.addEventListener('keydown',this._onKey);
+  }
+  componentWillUnmount(){ clearInterval(this.timer); window.removeEventListener('keydown',this._onKey); if(this.map){ this.map.remove(); this.map=null; } }
+  syncSelects(){ clearTimeout(this._selT); this._selT=setTimeout(()=>this._syncSelectsNow(),0); }
+  _syncSelectsNow(){ if(this.msSelRef.current&&this.msSelRef.current.value!==this.state.mission.vehicle) this.msSelRef.current.value=this.state.mission.vehicle; const w=this.state.mission.wps.find(x=>x.id===this.state.selWps[this.state.selWps.length-1]); if(this.wpCmdRef.current&&w&&this.wpCmdRef.current.value!==w.cmd) this.wpCmdRef.current.value=w.cmd; if(this.aiSelRef.current&&this.aiSelRef.current.value!==this.state.selectedId) this.aiSelRef.current.value=this.state.selectedId; if(this.mvSelRef.current&&this.mvSelRef.current.value!==this.state.maintVehicle) this.mvSelRef.current.value=this.state.maintVehicle; }
+  componentDidUpdate(_,prevArg){
+    const prev=prevArg||this._prevState||{}; this._prevState=this.state;
+    this.ensureMap(); this.syncSelects();
+    if(!this.map) return;
+    this.syncPadding();
+    if(prev.mapMode!==this.state.mapMode && this.mapKind!=='log'){
+      // Terrain must be toggled BEFORE the camera animation starts: MapLibre 4.7 captures the elevation centre at easeTo()
+      // start, and enabling terrain mid-animation crashes the render loop (_updateElevation on an undefined centre).
+      this.map.stop(); this.applyMapMode();
+      this.map.easeTo({pitch:this.state.mapMode==='3d'?60:0,bearing:this.state.mapMode==='3d'?-25:0,duration:900}); }
+    if(prev.follow!==this.state.follow&&this.state.follow&&this.mapKind==='ops'){ const v=this.byName(this.state.follow); if(v){ this._followJump=true; this.map.once('moveend',()=>{ this._followJump=false; }); this.map.easeTo({center:[v.lng,v.lat],zoom:Math.max(this.map.getZoom(),15),duration:900}); } }
+    if(prev.follow!==this.state.follow||prev.selectedId!==this.state.selectedId) this.updateVehicleAir();
+    if(prev.selectedId!==this.state.selectedId||prev.mapMode!==this.state.mapMode) this.refreshMarkers();
+    if(prev.guidedTarget!==this.state.guidedTarget||prev.modal!==this.state.modal||prev.selectedId!==this.state.selectedId) this.updateGuided();
+    if(prev.mission!==this.state.mission||prev.selWps!==this.state.selWps||prev.lang!==this.state.lang) this.updateMission();
+  }
+  static dist(a,b){ const R=6371000,toR=Math.PI/180; const dLat=(b.lat-a.lat)*toR,dLng=(b.lng-a.lng)*toR; const h=Math.sin(dLat/2)**2+Math.cos(a.lat*toR)*Math.cos(b.lat*toR)*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+  static isPos(cmd){ return !!(CMDS[cmd]&&CMDS[cmd].pos); }
+  newId(){ return this._nextId++; }
+  static defaultParams(cmd,prevP,defaultAlt){ const d=CMDS[cmd]||CMDS.WAYPOINT; const p={}; d.fields.forEach(f=>{ p[f.k]=prevP&&prevP[f.k]!=null?prevP[f.k]:f.def; }); if(d.alt) p.alt=prevP&&prevP.alt!=null?prevP.alt:(+defaultAlt||80); return p; }
+  newItem(cmd,lng,lat){ const M=this.state.mission; const d=CMDS[cmd]||CMDS.WAYPOINT; const p=Component.defaultParams(cmd,null,M.defaultAlt); if(cmd==='TAKEOFF') p.alt=Math.min(p.alt,30); const it={id:this.newId(),cmd,lng,lat,p}; return d.alt?{...it,frame:M.defaultFrame||'REL'}:it; }
+  setWps(fn,extra){ this.setState(s=>{ const wps=fn(s.mission.wps.slice(),s); const hist=[...s.mHist.slice(0,s.mHistIdx+1),wps].slice(-60); return {mission:{...s.mission,wps},mHist:hist,mHistIdx:hist.length-1,ctxMenu:null,...(extra||{})}; }); }
+  undo(){ this.setState(s=>{ if(s.mHistIdx<=0) return null; const i=s.mHistIdx-1; const ids=new Set(s.mHist[i].map(w=>w.id)); return {mHistIdx:i,mission:{...s.mission,wps:s.mHist[i]},selWps:s.selWps.filter(x=>ids.has(x))}; }); }
+  redo(){ this.setState(s=>{ if(s.mHistIdx>=s.mHist.length-1) return null; const i=s.mHistIdx+1; const ids=new Set(s.mHist[i].map(w=>w.id)); return {mHistIdx:i,mission:{...s.mission,wps:s.mHist[i]},selWps:s.selWps.filter(x=>ids.has(x))}; }); }
+  patchWp(id,patch){ this.setWps(w=>w.map(x=>x.id===id?{...x,...patch,p:{...x.p,...(patch.p||{})}}:x)); }
+  patchMany(ids,fn){ const set=new Set(ids); this.setWps(w=>w.map(x=>set.has(x.id)?fn(x):x)); }
+  // Shift+click toggles membership (same gesture as Shift+drag box select); ⌘/Ctrl+click extends a contiguous range in list order.
+  selectWp(id,ev){ const toggle=ev&&ev.shiftKey, range=ev&&(ev.metaKey||ev.ctrlKey); this.setState(s=>{ const ids=s.mission.wps.map(w=>w.id); if(range&&s.selWps.length){ const a=ids.indexOf(s.selWps[s.selWps.length-1]), b=ids.indexOf(id); const span=ids.slice(Math.min(a,b),Math.max(a,b)+1); return {selWps:[...new Set([...s.selWps.filter(x=>!span.includes(x)),...span])],ctxMenu:null}; } if(toggle) return {selWps:s.selWps.includes(id)?s.selWps.filter(x=>x!==id):[...s.selWps,id],ctxMenu:null}; return {selWps:[id],ctxMenu:null}; }); }
+  // Shift+drag on the map: rubber-band selection of position items (adds to the current selection).
+  mapMouseDown(e){ if(this.state.view!=='mission'||!this.map||!e.shiftKey||e.button!==0) return; if(e.target.closest&&e.target.closest('.maplibregl-marker')) return; e.preventDefault();
+    const host=e.currentTarget, rect=host.getBoundingClientRect(); const x0=e.clientX-rect.left, y0=e.clientY-rect.top; const base=this.state.selWps; const map=this.map; map.dragPan.disable();
+    const mv=ev=>{ const x1=ev.clientX-rect.left, y1=ev.clientY-rect.top; this.setState({box:{x:Math.min(x0,x1),y:Math.min(y0,y1),w:Math.abs(x1-x0),h:Math.abs(y1-y0)}}); };
+    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); map.dragPan.enable(); const b=this.state.box; if(!b||(b.w<4&&b.h<4)){ this.setState({box:null}); return; }
+      const hit=this.state.mission.wps.filter(w=>{ if(!Component.isPos(w.cmd)) return false; const p=map.project([w.lng,w.lat]); return p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h; }).map(w=>w.id);
+      this.setState({box:null,selWps:[...new Set([...base,...hit])],ctxMenu:null}); };
+    window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up); }
+  insertItem(cmd,index,lng,lat){ const wps=this.state.mission.wps; if(index==null||index<0) index=wps.length; if(lng==null){ const pos=wps.filter(w=>Component.isPos(w.cmd)); const prev=[...wps.slice(0,index)].reverse().find(w=>Component.isPos(w.cmd)); const next=wps.slice(index).find(w=>Component.isPos(w.cmd)); if(prev&&next){ lng=(prev.lng+next.lng)/2; lat=(prev.lat+next.lat)/2; } else if(prev){ lng=prev.lng+0.003; lat=prev.lat; } else if(next){ lng=next.lng-0.003; lat=next.lat; } else { const c=this.map?this.map.getCenter():{lng:CENTER[0],lat:CENTER[1]}; lng=c.lng; lat=c.lat; } }
+    const it=this.newItem(cmd,+lng.toFixed(6),+lat.toFixed(6)); this.setWps(a=>{ a.splice(index,0,it); return a; },{selWps:[it.id],paletteOpen:false}); }
+  addWpEnd(lng,lat){ const wps=this.state.mission.wps; let idx=wps.length; const last=wps[wps.length-1]; if(last&&(last.cmd==='RTL'||last.cmd==='LAND')) idx=wps.length-1; this.insertItem('WAYPOINT',idx,lng,lat); }
+  deleteIds(ids){ const set=new Set(ids); this.setWps(a=>a.filter(x=>!set.has(x.id)),{selWps:[]}); }
+  nudge(ids,dn,de){ const set=new Set(ids); this.setWps(a=>a.map(x=>{ if(!set.has(x.id)||!Component.isPos(x.cmd)) return x; const lat=x.lat+dn/111320, lng=x.lng+de/(111320*Math.cos(x.lat*Math.PI/180)); return {...x,lat:+lat.toFixed(6),lng:+lng.toFixed(6)}; })); }
+  openCtx(x,y,target){ this.setState({ctxMenu:{x,y,...target}}); }
+  onKey(e){ if(this.state.view!=='mission') return; const tag=(e.target&&e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='select'||tag==='textarea') return; const s=this.state; const mod=e.metaKey||e.ctrlKey;
+    if(e.key==='Escape'){ this.setState({selWps:[],ctxMenu:null,paletteOpen:false}); return; }
+    if(mod&&e.key.toLowerCase()==='z'){ e.preventDefault(); e.shiftKey?this.redo():this.undo(); return; }
+    if(mod&&e.key.toLowerCase()==='y'){ e.preventDefault(); this.redo(); return; }
+    if(mod&&e.key.toLowerCase()==='a'){ e.preventDefault(); this.setState({selWps:s.mission.wps.map(w=>w.id)}); return; }
+    if((e.key==='Delete'||e.key==='Backspace')&&s.selWps.length){ e.preventDefault(); this.deleteIds(s.selWps); return; }
+    const step=e.shiftKey?20:2; if(e.key==='ArrowUp'){e.preventDefault();this.nudge(s.selWps,step,0);} if(e.key==='ArrowDown'){e.preventDefault();this.nudge(s.selWps,-step,0);} if(e.key==='ArrowLeft'){e.preventDefault();this.nudge(s.selWps,0,-step);} if(e.key==='ArrowRight'){e.preventDefault();this.nudge(s.selWps,0,step);} }
+  // ---- Terrain / altitude model ----
+  // Single entry point for ground elevation (m AMSL). Today it samples the MapLibre DEM when terrain is active;
+  // when a DSM is loaded later, resolve it here and every consumer (3D path, posts, profile, AGL warnings) follows.
+  groundElev(lng,lat){ const e=this.terrain.elevAt(lng,lat); if(e!=null) return e; const map=this.map; if(!map||!map.terrain||!window.maplibregl) return null;
+    try{ const z=map.transform&&map.transform.tileZoom!=null?map.transform.tileZoom:Math.floor(map.getZoom()); const v=map.terrain.getElevationForLngLatZoom(new maplibregl.LngLat(lng,lat),z); return (typeof v==='number'&&isFinite(v))?v:null; }catch(_){ return null; } }
+  hasTerrain(){ return this.terrain.ready()||!!(this.map&&this.map.terrain); }
+  homeElev(){ const h=this.state.mission.wps.find(w=>Component.isPos(w.cmd)); const e=h?this.groundElev(h.lng,h.lat):null; return e==null?0:e; }
+  groundOrHome(lng,lat){ const g=this.groundElev(lng,lat); return g==null?this.homeElev():g; }
+  // Altitude of an item as AMSL, honouring its frame (REL / ABS / TER).
+  amsl(w){ const d=CMDS[w.cmd]||{}; const alt=d.alt?(+(w.p&&w.p.alt)||0):0; const fr=w.frame||'REL'; if(!d.alt) return this.groundOrHome(w.lng,w.lat); if(fr==='ABS') return alt; if(fr==='TER') return this.groundOrHome(w.lng,w.lat)+alt; return this.homeElev()+alt; }
+  // Flown route: position items (ROI excluded), with RTL closing back to the first point at the last altitude.
+  missionRoute(){ const wps=this.state.mission.wps; const route=wps.filter(w=>Component.isPos(w.cmd)&&w.cmd!=='DO_SET_ROI').map((w,i)=>({id:w.id,cmd:w.cmd,seq:wps.indexOf(w)+1,lng:w.lng,lat:w.lat,z:this.amsl(w),frame:(CMDS[w.cmd]||{}).alt?(w.frame||'REL'):'GND'}));
+    if(wps.length&&wps[wps.length-1].cmd==='RTL'&&route.length) route.push({...route[0],id:'rtl',cmd:'RTL',seq:wps.length,z:route[route.length-1].z,frame:'REL'}); return route; }
+  // Altitude along a leg at fraction t. Terrain-frame legs follow the ground (ArduPilot terrain following); others are straight.
+  legAlt(a,b,t,lng,lat){ if(a.frame==='TER'&&b.frame==='TER'){ const ga=this.groundOrHome(a.lng,a.lat), gb=this.groundOrHome(b.lng,b.lat); return this.groundOrHome(lng,lat)+(a.z-ga)+((b.z-gb)-(a.z-ga))*t; } return a.z+(b.z-a.z)*t; }
+  altRange(route){ const home=this.homeElev(); const rel=route.map(r=>r.z-home); const lo=rel.length?Math.min(...rel):0, hi=rel.length?Math.max(...rel):0; return {lo,hi:hi>lo?hi:lo+1,home}; }
+  // 2D: ground line coloured by altitude (line-gradient). 3D: dashed footprint + elevated ribbon + posts.
+  updateMissionLines(route){ const map=this.map; const src=map.getSource('mission'); if(!src) return; const coords=route.map(r=>[r.lng,r.lat]);
+    src.setData({type:'FeatureCollection',features:coords.length>1?[{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords}}]:[]});
+    if(coords.length>1&&map.getLayer('mission')){ const {lo,hi,home}=this.altRange(route); let cum=0,total=0; for(let i=1;i<route.length;i++) total+=Component.dist(route[i-1],route[i]); const stops=[]; let last=-1;
+      route.forEach((r,i)=>{ if(i) cum+=Component.dist(route[i-1],r); let f=total>0?cum/total:i/(route.length-1); if(f<=last) f=last+1e-4; if(f>1) return; last=f; stops.push(f,altColor(r.z-home,lo,hi)); });
+      if(stops.length>=4) map.setPaintProperty('mission','line-gradient',['interpolate',['linear'],['line-progress'],...stops]); else map.setPaintProperty('mission','line-gradient',null); }
+    this.updateMissionAir(route); }
+  updateMissionAir(route){ const map=this.map; if(!map||this.mapKind!=='mission'||!this.airLayer) return;
+    route=route||this.missionRoute(); const {lo,hi,home}=this.altRange(route); const sel=new Set(this.state.selWps);
+    // One polyline per leg; straight legs need only their end points, terrain-following (Ter→Ter) legs are subdivided.
+    const hex=c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)/255); const toM=(lng,lat,z,c)=>{ const m=maplibregl.MercatorCoordinate.fromLngLat({lng,lat},z); return {x:m.x,y:m.y,z:m.z,c:hex(c)}; };
+    const lines=[];
+    for(let i=0;i<route.length-1;i++){ const a=route[i], b=route[i+1]; const len=Component.dist(a,b); if(len<0.5) continue; const ter=a.frame==='TER'&&b.frame==='TER'; const n=ter?Math.min(200,Math.max(2,Math.ceil(len/20))):Math.max(2,Math.min(8,Math.ceil(len/400)));
+      const line=[]; for(let k=0;k<=n;k++){ const t=k/n; const lng=a.lng+(b.lng-a.lng)*t, lat=a.lat+(b.lat-a.lat)*t; const z=this.legAlt(a,b,t,lng,lat); line.push(toM(lng,lat,z,altColor(z-home,lo,hi))); } lines.push(line); }
+    // vertical posts: ground → flight altitude, same coordinate space as the path so they always meet exactly
+    const wpPts=route.filter(r=>r.id!=='rtl');
+    const posts=wpPts.map(r=>{ const g=this.groundOrHome(r.lng,r.lat); const c=sel.has(r.id)?AMBER:POST_COLOR; return [toM(r.lng,r.lat,Math.min(g,r.z),c),toM(r.lng,r.lat,Math.max(g,r.z),c)]; }).filter(l=>l[1].z-l[0].z>1e-9);
+    this.airLayer.setLines(lines,posts); map.triggerRepaint(); this.floatMarkers();
+    const gnd=map.getSource('mission-ground'); if(gnd) gnd.setData({type:'FeatureCollection',features:wpPts.map(r=>({type:'Feature',properties:{sel:sel.has(r.id)?1:0},geometry:{type:'Point',coordinates:[r.lng,r.lat]}}))}); }
+  applyMapMode(){ const map=this.map; if(!map||this.mapKind==='log'||!map.getSource('dem')) return; const is3d=this.state.mapMode==='3d';
+    map.setTerrain(is3d?{source:'dem',exaggeration:1}:null);
+    const vis=(id,on)=>{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility',on?'visible':'none'); };
+    vis('mission-casing',!is3d); vis('mission',!is3d); vis('mission-foot',is3d); vis('mission-ground',is3d); vis('veh-ground',is3d); if(this.airLayer){ this.airLayer.visible=is3d; map.triggerRepaint(); }
+    const refresh=()=>{ if(this.mapKind==='mission') this.updateMission(); this.updateVehicleAir(); };
+    refresh(); // immediate: alt chips / ribbon follow the mode switch
+    if(is3d) map.once('idle',()=>{ if(this.map===map) refresh(); }); } // again once DEM tiles are in
+  elevProfile(){ const route=this.missionRoute(); if(!route.length) return null; const W=1000,H=100; const home=this.homeElev(); const hasDem=this.hasTerrain();
+    let cum=0; const pts=route.map((r,i)=>{ if(i) cum+=Component.dist(route[i-1],r); return {...r,d:cum}; }); const total=Math.max(cum,1);
+    // Dense sampling along every leg (≈ every 5 m, min 700 samples over the route) so ground and flight lines are smooth.
+    const step=Math.max(5,total/700); const g=[], f=[];
+    if(pts.length===1) { g.push([0,this.groundOrHome(pts[0].lng,pts[0].lat)]); f.push([0,pts[0].z]); }
+    for(let i=0;i<pts.length-1;i++){ const a=pts[i], b=pts[i+1]; const len=b.d-a.d; const n=Math.max(1,Math.ceil(len/step));
+      for(let k=(i===0?0:1);k<=n;k++){ const t=k/n; const lng=a.lng+(b.lng-a.lng)*t, lat=a.lat+(b.lat-a.lat)*t; const d=a.d+len*t; g.push([d,this.groundOrHome(lng,lat)]); f.push([d,this.legAlt(a,b,t,lng,lat)]); } }
+    const gz=g.map(v=>v[1]), fz=f.map(v=>v[1]); const lo=Math.min(...gz,...fz), hi=Math.max(...gz,...fz); const span=Math.max(20,hi-lo); const yMin=lo-span*0.1, yMax=hi+span*0.18; const Y=v=>H-(v-yMin)/(yMax-yMin)*H, X=d=>d/total*W;
+    const groundD=`M0,${H} `+g.map(([d,e])=>`L${X(d).toFixed(1)},${Y(e).toFixed(1)}`).join(' ')+` L${W},${H} Z`;
+    const pathD=f.map(([d,z],i)=>`${i?'L':'M'}${X(d).toFixed(1)},${Y(z).toFixed(1)}`).join(' ');
+    const minAgl=f.reduce((m,[d,z],i)=>Math.min(m,z-gz[i]),Infinity);
+    const postsD=pts.filter(p=>p.id!=='rtl').map(p=>`M${X(p.d).toFixed(1)},${Y(this.groundOrHome(p.lng,p.lat)).toFixed(1)} L${X(p.d).toFixed(1)},${Y(p.z).toFixed(1)}`).join(' ');
+    const {lo:rlo,hi:rhi}=this.altRange(route); const sel=new Set(this.state.selWps);
+    const points=pts.map(p=>{ const gz=this.groundOrHome(p.lng,p.lat); const agl=p.z-gz; return {id:p.id,seq:p.seq,cmd:p.cmd,x:(X(p.d)/W*100).toFixed(2)+'%',y:(Y(p.z)/H*100).toFixed(2)+'%',color:agl<0?'#ff6961':altColor(p.z-home,rlo,rhi),sel:sel.has(p.id),agl,rel:p.z-home,z:p.z,d:p.d}; });
+    return {points,groundD,pathD,postsD,yMin,yMax,total,hasDem,lo:rlo,hi:rhi,home,minAgl,belowGround:minAgl<-0.5}; }
+  updateMission(){
+    if(!this.map||this.mapKind!=='mission') return; const src=this.map.getSource('mission'); if(!src) return;
+    const s=this.state; const t=this.t; const is3d=s.mapMode==='3d';
+    this.updateMissionLines(this.missionRoute());
+    this.wpMarkers.forEach(m=>m.remove()); this.wpMarkers=[];
+    const wps=s.mission.wps; const sel=new Set(s.selWps); const primary=s.selWps[s.selWps.length-1];
+    const rect=()=>this.map.getContainer().getBoundingClientRect();
+    const posItems=[];
+    wps.forEach((wp,i)=>{
+      if(!Component.isPos(wp.cmd)) return;
+      const seq=i+1; posItems.push(wp);
+      const attached=[]; for(let j=i+1;j<wps.length&&!Component.isPos(wps[j].cmd);j++) attached.push(wps[j]);
+      const isSel=sel.has(wp.id), isPri=wp.id===primary; const roi=wp.cmd==='DO_SET_ROI';
+      const el=document.createElement('div'); el.className='rg-wp'+(isSel?' sel':'')+(isPri?' pri':'');
+      const altChip=is3d&&CMDS[wp.cmd].alt?`<span class="chip altc">▲ ${Math.round(+wp.p.alt||0)} m ${t.frames[wp.frame||'REL']}</span>`:'';
+      const chips=altChip+attached.map(a=>`<span class="chip${sel.has(a.id)?' sel':''}" data-id="${a.id}">${wps.indexOf(a)+1} ${t.wpCmd[a.cmd]}</span>`).join('');
+      el.innerHTML=`<div class="dot${roi?' roi':''}">${wp.cmd==='TAKEOFF'?'T':wp.cmd==='LAND'?'L':roi?'◎':seq}</div>${chips?`<div class="chips">${chips}</div>`:''}`;
+      el.querySelector('.dot').addEventListener('click',ev=>{ ev.stopPropagation(); this.selectWp(wp.id,ev); });
+      el.querySelectorAll('.chip[data-id]').forEach(c=>c.addEventListener('click',ev=>{ ev.stopPropagation(); this.selectWp(+c.dataset.id,ev); }));
+      el.addEventListener('contextmenu',ev=>{ ev.preventDefault(); ev.stopPropagation(); const r=rect(); if(!sel.has(wp.id)) this.setState({selWps:[wp.id]}); this.openCtx(ev.clientX-r.left,ev.clientY-r.top,{id:wp.id}); });
+      const m=new maplibregl.Marker({element:el,anchor:'top-left',offset:[-16,-16],draggable:true,rotationAlignment:'map',opacityWhenCovered:'1'}).setLngLat([wp.lng,wp.lat]).addTo(this.map);
+      let start=null, others=[];
+      m.on('dragstart',()=>{ start=m.getLngLat(); const ids=sel.has(wp.id)?s.selWps:[wp.id]; others=this.wpMarkers.filter(o=>o._wpId&&ids.includes(o._wpId)&&o!==m).map(o=>({m:o,ll:o.getLngLat()})); });
+      m.on('drag',()=>{ if(!start) return; const ll=m.getLngLat(); const dx=ll.lng-start.lng, dy=ll.lat-start.lat; others.forEach(o=>o.m.setLngLat([o.ll.lng+dx,o.ll.lat+dy])); });
+      m.on('dragend',()=>{ const ll=m.getLngLat(); const dx=ll.lng-start.lng, dy=ll.lat-start.lat; const ids=sel.has(wp.id)?s.selWps:[wp.id]; const set=new Set(ids); this.setWps(a=>a.map(x=>set.has(x.id)&&Component.isPos(x.cmd)?{...x,lng:+(x.lng+dx).toFixed(6),lat:+(x.lat+dy).toFixed(6)}:x),{selWps:ids}); start=null; });
+      m._wpId=wp.id; m._air={z:this.amsl(wp)}; m._base=[-16,-16]; this.wpMarkers.push(m);
+    });
+    // midpoint insert handles (float at the leg's mid altitude in 3D)
+    const route=this.missionRoute().filter(r=>r.id!=='rtl');
+    for(let i=0;i<route.length-1;i++){
+      const a=route[i], b=route[i+1]; const mid=[(a.lng+b.lng)/2,(a.lat+b.lat)/2];
+      const el=document.createElement('div'); el.className='rg-mid'; el.textContent='+'; el.title=t.insertHere;
+      const insertIdx=()=>this.state.mission.wps.findIndex(w=>w.id===b.id);
+      el.addEventListener('click',ev=>{ ev.stopPropagation(); this.insertItem('WAYPOINT',insertIdx(),mid[0],mid[1]); });
+      const m=new maplibregl.Marker({element:el,draggable:true,opacityWhenCovered:'1'}).setLngLat(mid).addTo(this.map);
+      m.on('dragend',()=>{ const ll=m.getLngLat(); this.insertItem('WAYPOINT',insertIdx(),ll.lng,ll.lat); });
+      m._air={z:this.legAlt(a,b,0.5,mid[0],mid[1])}; m._base=[0,0]; this.wpMarkers.push(m);
+    }
+    this.floatMarkers();
+  }
+  // 3D: DOM markers can only sit on the ground, so shift each one by the screen-space delta between its ground
+  // point and its flight altitude (same projection MapLibre uses for terrain-aware markers). 2D: plain offsets.
+  floatMarkers(){ const map=this.map; if(!map||this.mapKind==='log'||!window.maplibregl) return; const air=this.state.mapMode==='3d'&&!!map.terrain; const tr=map.transform;
+    [...this.wpMarkers,...Object.values(this.markers)].forEach(m=>{ if(!m._air) return; const base=m._base||[0,0];
+      if(!air){ if(m._floated){ m.setOffset(base); m._floated=false; } return; }
+      const ll=m.getLngLat(); const g=map.project(ll); const p=tr.coordinatePoint(maplibregl.MercatorCoordinate.fromLngLat(ll),m._air.z,tr.pixelMatrix3D);
+      m.setOffset([base[0]+p.x-g.x,base[1]+p.y-g.y]); m._floated=true; }); }
+  simulate(){
+    this.vehicles.forEach(v=>{
+      if(v.type!=='copter') return;
+      v.hdg=(v.hdg+(Math.random()-.5)*6+360)%360;
+      const d=v.spd*1, rad=v.hdg*Math.PI/180;
+      v.lat+=d*Math.cos(rad)/111320; v.lng+=d*Math.sin(rad)/(111320*Math.cos(v.lat*Math.PI/180));
+      v.alt=Math.max(0,v.alt+(Math.random()-.5)*0.6);
+      v.trail.push([v.lng,v.lat]); if(v.trail.length>60) v.trail.shift();
+    });
+    if(this.map&&this._mapReady){
+      this.vehicles.forEach(v=>{ const m=this.markers[v.name]; if(m){ m.setLngLat([v.lng,v.lat]); const a=m.getElement().querySelector('.arrow'); if(a) a.style.transform=`rotate(${v.hdg}deg)`; const alt=m.getElement().querySelector('.alt'); if(alt) alt.textContent=`${Math.round(v.alt)} m`; } });
+      const src=this.map.getSource('trails'); if(src) src.setData(this.trailGeo());
+      this.updateVehicleAir();
+      // one linear ease per tick keeps the camera gliding with the vehicle; the initial zoom-in jump must not be interrupted
+      if(this.state.follow&&this.mapKind==='ops'&&!this._followJump){ const v=this.byName(this.state.follow); if(v) this.map.easeTo({center:[v.lng,v.lat],duration:950,easing:x=>x}); }
+    }
+  }
+  trailGeo(){ return {type:'FeatureCollection',features:this.vehicles.filter(v=>v.type==='copter').map(v=>({type:'Feature',properties:{sel:v.name===this.state.selectedId?1:0},geometry:{type:'LineString',coordinates:v.trail}}))}; }
+  ensureMap(){
+    const el=this.mapRef.current;
+    if(!el){ if(this.map){ this.map.remove(); this.map=null; this.markers={}; } return; }
+    if(this.map&&this.map.getContainer()===el) return;
+    if(!window.maplibregl){ clearTimeout(this._retry); this._retry=setTimeout(()=>this.ensureMap(),250); return; }
+    if(this.map){ this.map.remove(); this._mapReady=false; this.markers={}; this.wpMarkers=[]; this.vehAir=null; this.airLayer=null; this._nextId=100; this._onKey=e=>this.onKey(e); }
+    const kind=this.state.view==='maint'?'log':this.state.view==='mission'?'mission':'ops'; this.mapKind=kind;
+    const is3d=kind!=='log'&&this.state.mapMode==='3d';
+    const map=new maplibregl.Map({container:el,attributionControl:false,center:CENTER,zoom:kind==='log'?13:13.3,pitch:is3d?60:0,bearing:is3d?-25:0,maxPitch:70,boxZoom:kind!=='mission',
+      style:{version:8,sources:{osm:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'Esri, Maxar, Earthstar Geographics'},lbl:{type:'raster',tiles:['https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png','https://b.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap contributors © CARTO'}},layers:[{id:'bg',type:'background',paint:{'background-color':'#141b26'}},{id:'osm',type:'raster',source:'osm',paint:{'raster-saturation':0.1,'raster-brightness-max':0.95}},{id:'lbl',type:'raster',source:'lbl',paint:{'raster-opacity':0.85}}]}});
+    map.addControl(new maplibregl.ScaleControl({maxWidth:220,unit:'metric'}),'bottom-left');
+    map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-right');
+    map.on('load',()=>{ this._mapReady=true;
+      if(kind==='ops'){
+        map.addSource('dem',{type:'raster-dem',tiles:DEM_TILES,tileSize:256,encoding:'terrarium',maxzoom:15,attribution:'Terrain: Mapzen / AWS Terrain Tiles'});
+        map.addSource('trails',{type:'geojson',data:this.trailGeo()});
+        map.addLayer({id:'trails',type:'line',source:'trails',layout:{'line-cap':'round'},paint:{'line-color':['case',['==',['get','sel'],1],AMBER,CYAN],'line-width':3,'line-dasharray':[2,2],'line-opacity':.9}});
+        map.addSource('guided',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+        map.addLayer({id:'guided',type:'line',source:'guided',paint:{'line-color':AMBER,'line-width':3,'line-dasharray':[2,1.5]}});
+        this.addVehicleLayers(map); this.buildMarkers(map);
+        map.on('click',e=>{ if(this.state.modal==='guided'){ this.setState({guidedTarget:[e.lngLat.lng,e.lngLat.lat]}); } });
+        map.on('dragstart',()=>{ if(this.state.follow) this.setState({follow:null}); }); // a manual pan ends following
+        this.updateGuided(); this.applyMapMode();
+      } else if(kind==='mission'){
+        map.addSource('trails',{type:'geojson',data:this.trailGeo()});
+        map.addSource('dem',{type:'raster-dem',tiles:DEM_TILES,tileSize:256,encoding:'terrarium',maxzoom:15,attribution:'Terrain: Mapzen / AWS Terrain Tiles'});
+        map.addSource('mission',{type:'geojson',lineMetrics:true,data:{type:'FeatureCollection',features:[]}});
+        map.addSource('mission-ground',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+        // 2D: solid line, colour = altitude above home (cyan → violet)
+        map.addLayer({id:'mission-casing',type:'line',source:'mission',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#0f1824','line-width':7,'line-opacity':.8}});
+        map.addLayer({id:'mission',type:'line',source:'mission',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':CYAN,'line-width':3.5}});
+        // 3D: ground footprint + ground discs; the airborne path and the vertical posts are drawn by AirPathLayer
+        map.addLayer({id:'mission-foot',type:'line',source:'mission',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':CYAN,'line-width':1.5,'line-opacity':.5}});
+        map.addLayer({id:'mission-ground',type:'circle',source:'mission-ground',paint:{'circle-radius':5,'circle-color':['case',['==',['get','sel'],1],AMBER,CYAN],'circle-stroke-color':'#0f1824','circle-stroke-width':2,'circle-opacity':.95,'circle-pitch-alignment':'map'}});
+        this.airLayer=new AirPathLayer(); map.addLayer(this.airLayer);
+        this.addVehicleLayers(map); this.buildMarkers(map);
+        map.on('click',e=>{ if(e.originalEvent&&e.originalEvent.shiftKey) return; if(this.state.ctxMenu){ this.setState({ctxMenu:null}); return; } if(this.state.wpTool==='add') this.addWpEnd(e.lngLat.lng,e.lngLat.lat); else if(this.state.selWps.length) this.setState({selWps:[]}); });
+        map.on('contextmenu',e=>{ e.preventDefault(); this.openCtx(e.point.x,e.point.y,{lng:e.lngLat.lng,lat:e.lngLat.lat}); });
+        this.applyMapMode();
+        this.updateMission();
+      } else {
+        const r=seeded(7); const pts=[]; let lng=139.352,lat=36.172; for(let i=0;i<60;i++){ lng+=0.0009+(r()-.5)*0.0004; lat-=0.0006+(r()-.5)*0.0006; pts.push([lng,lat]); }
+        const seg=(a,b)=>({type:'Feature',geometry:{type:'LineString',coordinates:pts.slice(a,b+1)}});
+        map.addSource('track',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+        [['#5fd39b',0,22],['#f2b544',22,32],['#ff6961',32,42],['#f2994a',42,50],['#5fd39b',50,59]].forEach(([c,a,b],i)=>{ map.addSource('tk'+i,{type:'geojson',data:seg(a,b)}); map.addLayer({id:'tk'+i,type:'line',source:'tk'+i,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':c,'line-width':6}}); });
+        const ev=document.createElement('div'); ev.style.cssText='width:18px;height:18px;border-radius:50%;background:#ff6961;border:3px solid #fff;box-shadow:0 0 10px #ff6961';
+        new maplibregl.Marker({element:ev}).setLngLat(pts[37]).addTo(map);
+        const st=document.createElement('div'); st.className='rg-mk'; st.innerHTML='<div class="arrow"><svg viewBox="0 0 24 24" width="26" height="26" fill="#9cc9ff" stroke="#0f1824" stroke-width="1"><path d="M12 2l7 18-7-4-7 4z"/></svg></div>'; st.querySelector('.arrow').style.transform='rotate(130deg)';
+        new maplibregl.Marker({element:st}).setLngLat(pts[0]).addTo(map);
+        map.fitBounds([[139.348,36.13],[139.41,36.176]],{padding:30,duration:0});
+      }
+    });
+    this.map=map; this.syncPadding(); if(location.hash==='#debug') window.__rgcs=this;
+  }
+  // Floating panels cover the edges of the full-bleed map; padding keeps easeTo / follow centred in the visible part.
+  syncPadding(){ const map=this.map; if(!map||this.mapKind==='log') return; const s=this.state, g=24, mini=s.view==='video';
+    const left=mini?g:(this.mapKind==='mission'?320:(s.listOpen?296:60))+g, right=mini?g:(this.mapKind==='mission'?360:(s.right?372:0))+g, top=mini?g:72, bottom=this.mapKind==='mission'&&s.elevOpen?ELEV_PANEL_H+60+g:g;
+    const p=map.getPadding(); if(p.left!==left||p.right!==right||p.top!==top||p.bottom!==bottom) map.setPadding({top,left,right,bottom}); }
+  buildMarkers(map){
+    this.vehicles.forEach(v=>{
+      const el=document.createElement('div'); el.className='rg-mk';
+      const icon=v.type==='copter'
+        ?`<div class="arrow" style="transform:rotate(${v.hdg}deg)"><svg viewBox="0 0 24 24" width="28" height="28" fill="${CYAN}" stroke="#0f1824" stroke-width="1"><path d="M12 2l7 18-7-4-7 4z"/></svg></div>`
+        :`<div class="rov">${v.home?'<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg>':'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 13l2-5h14l2 5v5H3z"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg>'}</div>`;
+      el.innerHTML=icon+`<div><div class="lbl">${v.name}</div><div class="alt" style="display:none">${Math.round(v.alt)} m</div></div>`;
+      el.addEventListener('click',ev=>{ ev.stopPropagation(); this.setState({selectedId:v.name,right:this.state.right||'detail'}); });
+      const m=new maplibregl.Marker({element:el,anchor:'left',offset:[-17,0],rotationAlignment:'map',opacityWhenCovered:'1'}).setLngLat([v.lng,v.lat]).addTo(map);
+      this.markers[v.name]=m;
+    });
+    this.refreshMarkers();
+  }
+  refreshMarkers(){
+    Object.entries(this.markers).forEach(([n,m])=>{ const el=m.getElement(); el.classList.toggle('sel',n===this.state.selectedId); const svg=el.querySelector('.arrow svg'); if(svg) svg.setAttribute('fill',n===this.state.selectedId?'#1f1500':CYAN); const alt=el.querySelector('.alt'); if(alt) alt.style.display=this.state.mapMode==='3d'&&this.byName(n).type==='copter'?'inline-block':'none'; });
+    const src=this.map&&this.map.getSource&&this.map.getSource('trails'); if(src) src.setData(this.trailGeo());
+  }
+  // Vehicle altitude in 3D: ArduPilot reports altitude relative to home, so AMSL = ground elevation at the take-off point
+  // (first trail sample) + relative altitude; the anchor post runs from the DSM/DEM ground under the vehicle up to that height.
+  vehicleAir(v){ if(v.type!=='copter') return null; if(v.homeElev==null){ const h=(v.trail&&v.trail[0])||[v.lng,v.lat]; const e=this.groundElev(h[0],h[1]); if(e==null) return null; v.homeElev=e; }
+    const g=this.groundElev(v.lng,v.lat); return {ground:g==null?v.homeElev:g,amsl:v.homeElev+v.alt}; }
+  updateVehicleAir(){ const map=this.map; if(!map||this.mapKind==='log'||!this.vehAir||!window.maplibregl) return; const is3d=this.state.mapMode==='3d'; const sel=this.state.selectedId;
+    const toM=(lng,lat,z,c)=>{ const m=maplibregl.MercatorCoordinate.fromLngLat({lng,lat},z); return {x:m.x,y:m.y,z:m.z,c:[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)/255)}; };
+    const posts=[], discs=[];
+    this.vehicles.forEach(v=>{ const a=this.vehicleAir(v); const m=this.markers[v.name]; if(m){ m._air=a?{z:a.amsl}:null; m._base=[-17,0]; } if(!a||v.alt<1) return; const c=v.name===sel?AMBER:CYAN;
+      posts.push([toM(v.lng,v.lat,Math.min(a.ground,a.amsl),c),toM(v.lng,v.lat,Math.max(a.ground,a.amsl),c)]); discs.push({type:'Feature',properties:{sel:v.name===sel?1:0},geometry:{type:'Point',coordinates:[v.lng,v.lat]}}); });
+    this.vehAir.visible=is3d; this.vehAir.setLines([],posts); const src=map.getSource('veh-ground'); if(src) src.setData({type:'FeatureCollection',features:discs}); map.triggerRepaint(); this.floatMarkers(); }
+  addVehicleLayers(map){ map.addSource('veh-ground',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+    map.addLayer({id:'veh-ground',type:'circle',source:'veh-ground',layout:{visibility:'none'},paint:{'circle-radius':6,'circle-color':['case',['==',['get','sel'],1],AMBER,CYAN],'circle-stroke-color':'#0f1824','circle-stroke-width':2,'circle-opacity':.9,'circle-pitch-alignment':'map'}});
+    this.vehAir=new AirPathLayer('veh-air3d'); map.addLayer(this.vehAir); map.on('move',()=>this.floatMarkers()); }
+  updateGuided(){
+    if(!this.map||this.mapKind!=='ops') return; const src=this.map.getSource('guided'); if(!src) return;
+    const v=this.byName(this.state.selectedId); const tg=this.state.guidedTarget;
+    if(this.tgtMarker){ this.tgtMarker.remove(); this.tgtMarker=null; }
+    if(this.state.modal==='guided'&&tg&&v){
+      src.setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:[[v.lng,v.lat],tg]}}]});
+      const el=document.createElement('div'); el.className='rg-tgt'; el.textContent='+';
+      this.tgtMarker=new maplibregl.Marker({element:el}).setLngLat(tg).addTo(this.map);
+    } else src.setData({type:'FeatureCollection',features:[]});
+  }
+
+  renderVals(){
+    const s=this.state, t=this.t, L=this.lang;
+    const sel=this.byName(s.selectedId)||this.vehicles[0];
+    const mv=this.byName(s.maintVehicle)||this.vehicles[4];
+    const modeLabel=v=>v.mode==='GROUND'?t.ground:v.mode;
+    const dot=v=>v.warn?AMBER:(v.type==='copter'?CYAN:'#fff');
+    const q=s.search.trim().toLowerCase();
+    const vehicles=this.vehicles.filter(v=>!q||v.name.toLowerCase().includes(q)||modeLabel(v).toLowerCase().includes(q)).map(v=>{
+      const isSel=v.name===s.selectedId;
+      return {name:v.name,isCopter:v.type==='copter',isRover:v.type==='rover',warn:!!v.warn,following:v.name===s.follow,follow:()=>this.setState({follow:s.follow===v.name?null:v.name,selectedId:v.name,right:s.view==='ops'?(s.right||'detail'):s.right}),rec:v.rec,feed:v.feed||'',noFeed:!v.feed,
+        modeLabel:modeLabel(v),modeColor:v.type==='copter'?CYAN:'#f2f5f8',dot:dot(v),battW:v.batt+'%',battColor:v.batt<50?'#f2f5f8':CYAN,battText:v.batt+'%',
+        altText:`${Math.round(v.alt)} m`,spdText:`${v.spd.toFixed(1)} m/s`,sigTop:v.warn?'rgba(156,201,255,.3)':CYAN,
+        rowCls:isSel?'vrow sel':'vrow',tileCls:isSel?'vtile sel':'vtile',battCls:v.batt<50?'batt low':'batt',
+        select:()=>this.setState({selectedId:v.name,right:s.view==='ops'?(s.right||'detail'):s.right}),maximize:e=>{e.stopPropagation();this.setState({view:'video',maxVideo:v.name,selectedId:v.name});}};
+    });
+    const isOps=s.view==='ops', isVideo=s.view==='video', isMaint=s.view==='maint', isMission=s.view==='mission';
+    const M=s.mission; const selSet=new Set(s.selWps); const primaryId=s.selWps[s.selWps.length-1]; const wpSel=M.wps.find(w=>w.id===primaryId)||null; const selCount=s.selWps.length;
+    const legs=[]; let total=0,prev=null; M.wps.forEach(w=>{ if(!Component.isPos(w.cmd)||w.cmd==='DO_SET_ROI'){legs.push(0);return;} const d=prev?Component.dist(prev,w):0; legs.push(d); total+=d; prev=w; });
+    const posWps=M.wps.filter(w=>Component.isPos(w.cmd)&&w.cmd!=='DO_SET_ROI'); if(M.wps.length&&M.wps[M.wps.length-1].cmd==='RTL'&&posWps.length>1) total+=Component.dist(posWps[posWps.length-1],posWps[0]);
+    const delays=M.wps.reduce((a,w)=>a+TIME_FIELDS.reduce((b,k)=>b+Math.max(0,+(w.p&&w.p[k])||0),0),0); const spd=Math.max(0.5,+M.speed||8); const mSecs=total/spd+delays+30; const maxAltV=this.missionRoute().reduce((a,r)=>Math.max(a,r.z-this.groundOrHome(r.lng,r.lat)),0);
+    const fmtD=d=>d>=1000?(d/1000).toFixed(2)+' km':Math.round(d)+' m';
+    const vehType=(this.byName(M.vehicle)||{}).type||'copter'; const fieldNa=f=>!!(f.only&&!f.only.includes(vehType));
+    const F=t.fields; const optLabel=(f,v)=>((t.opts[f.k]||{})[String(v)]!=null?t.opts[f.k][String(v)]:String(v));
+    const summ=w=>{ const d=CMDS[w.cmd]||{fields:[]}; const parts=[]; if(d.alt) parts.push(`▲${w.p.alt} m ${t.frames[w.frame||'REL']}`); d.fields.forEach(f=>{ if(fieldNa(f)) return; const v=w.p[f.k]; parts.push(f.t==='num'?`${F[f.k][0]} ${v}${F[f.k][1]}`:f.t==='tog'?`${F[f.k][0]} ${t.opts.tog[v?1:0]}`:`${F[f.k][0]} ${optLabel(f,v)}`); }); return parts.join(' · '); };
+    const wpRows=M.wps.map((w,i)=>{ const isSel=selSet.has(w.id), isPri=w.id===primaryId; const pos=Component.isPos(w.cmd); const roi=w.cmd==='DO_SET_ROI'; const def=CMDS[w.cmd]||{mav:'',id:0};
+      const badge=w.cmd==='TAKEOFF'?'T':w.cmd==='LAND'?'L':w.cmd==='RTL'?'R':roi?'◎':String(i+1);
+      const sub=pos?`${legs[i]>0?fmtD(legs[i])+' · ':''}${summ(w)}`:(summ(w)||'—');
+      return {badge,cmdLabel:t.wpCmd[w.cmd],mav:def.mav,mavId:def.id,mavSize:mavFontSize(def.mav),sub,indent:pos?'12px':'28px',badgeRadius:pos?'50%':'6px',rowCls:'wrow'+(isSel?' sel':'')+(isPri?' pri':''),badgeBg:isSel?AMBER:roi?'#5fd39b':w.cmd==='RTL'?'#f2f5f8':pos?CYAN:'rgba(255,255,255,.08)',badgeColor:isSel?'#1f1500':pos?'#0b1b2e':'#b3bfcc',badgeBorder:isSel?'#fff':pos?'transparent':'rgba(255,255,255,.3)',
+        select:e=>this.selectWp(w.id,e),ctx:e=>{ e.preventDefault(); const r=e.currentTarget.closest('aside').getBoundingClientRect(); if(!selSet.has(w.id)) this.setState({selWps:[w.id]}); this.openCtx(e.clientX-r.left+340,e.clientY-r.top+2,{id:w.id}); },
+        up:e=>{e.stopPropagation(); if(i>0) this.setWps(a=>{[a[i-1],a[i]]=[a[i],a[i-1]];return a;});},down:e=>{e.stopPropagation(); if(i<M.wps.length-1) this.setWps(a=>{[a[i+1],a[i]]=[a[i],a[i+1]];return a;});}}; });
+    const nMs=isMission?'on':'';
+    const insertIdx=wpSel?M.wps.indexOf(wpSel)+1:M.wps.length;
+    const palItem=k=>({label:t.wpCmd[k],mav:CMDS[k].mav,mavShort:CMDS[k].mav.replace(/^MAV_CMD_/,''),color:Component.isPos(k)?(k==='DO_SET_ROI'?'#5fd39b':CYAN):'#8a97a5',radius:Component.isPos(k)?'50%':'4px',insert:()=>this.insertItem(k,insertIdx)});
+    const paletteGroups=[{title:t.palPos,items:PALETTE_POS.map(palItem)},{title:t.palDo,items:PALETTE_DO.map(palItem)},{title:t.palCond,items:PALETTE_COND.map(palItem)}];
+    const ctx=s.ctxMenu; let ctxItems=[], ctxTitle='';
+    if(ctx){ if(ctx.id!=null){ const idx=M.wps.findIndex(w=>w.id===ctx.id); const ids=selSet.has(ctx.id)?s.selWps:[ctx.id]; ctxTitle=`#${idx+1} ${t.wpCmd[(M.wps[idx]||{}).cmd]||''}${ids.length>1?` (+${ids.length-1})`:''}`;
+        ctxItems=[{glyph:'↑',label:t.ctxInsertBefore,color:'#f2f5f8',run:()=>this.insertItem('WAYPOINT',idx)},{glyph:'↓',label:t.ctxInsertAfter,color:'#f2f5f8',run:()=>this.insertItem('WAYPOINT',idx+1)},{glyph:'⚡',label:t.ctxSpeed,color:'#f2f5f8',run:()=>this.insertItem('DO_CHANGE_SPEED',idx+1)},{glyph:'▣',label:t.ctxCam,color:'#f2f5f8',run:()=>this.insertItem('DO_DIGICAM_CONTROL',idx+1)},{glyph:'◎',label:t.ctxRoi,color:'#f2f5f8',run:()=>this.insertItem('DO_SET_ROI',idx+1)},{glyph:'✕',label:ids.length>1?t.deleteSel:t.deleteWp,color:'#ff6961',run:()=>this.deleteIds(ids)}]; }
+      else { ctxTitle=`${ctx.lat.toFixed(5)}, ${ctx.lng.toFixed(5)}`; ctxItems=[{glyph:'+',label:t.ctxAddHere,color:'#f2f5f8',run:()=>this.addWpEnd(ctx.lng,ctx.lat)},{glyph:'◎',label:t.ctxRoiHere,color:'#f2f5f8',run:()=>this.insertItem('DO_SET_ROI',insertIdx,ctx.lng,ctx.lat)},{glyph:'L',label:t.ctxLandHere,color:'#f2f5f8',run:()=>this.insertItem('LAND',M.wps.length,ctx.lng,ctx.lat)}]; } }
+    const wpDef=wpSel?(CMDS[wpSel.cmd]||{fields:[]}):{fields:[]};
+    const wpFields=wpSel?wpDef.fields.map(f=>{ const v=wpSel.p[f.k]; const na=fieldNa(f); const set=val=>this.patchWp(wpSel.id,{p:{[f.k]:val}}); const out={ptag:`P${f.p}`,label:F[f.k][0],unit:F[f.k][1],value:v,na,naTitle:t.naTitle,isNum:f.t==='num',isSel:f.t==='sel',isTog:f.t==='tog',min:f.min!=null?f.min:'',max:f.max!=null?f.max:'',step:f.step!=null?f.step:'any',border:'rgba(255,255,255,.18)',set:e=>set(+e.target.value),opts:(f.opts||[]).map(o=>({value:o,label:optLabel(f,o)}))};
+      if(f.t==='tog'){ out.onCls=v?'on':''; out.offCls=v?'':'on'; out.setOn=()=>set(1); out.setOff=()=>set(0); } return out; }):[];
+    const frameOptions=FRAME_KEYS.map(k=>({value:k,label:t.frames[k]}));
+    const elev=this.elevProfile(); const hasDem=this.hasTerrain();
+    const framesUsed=new Set(M.wps.filter(w=>(CMDS[w.cmd]||{}).alt).map(w=>w.frame||'REL'));
+    const warnings=[]; if(maxAltV>150) warnings.push({text:t.altWarn}); if(M.wps.length&&M.wps[0].cmd!=='TAKEOFF'&&posWps.length) warnings.push({text:t.noTakeoffWarn}); if(M.wps.some(w=>w.cmd==='DO_JUMP'&&(w.p.seq<1||w.p.seq>M.wps.length))) warnings.push({text:t.jumpWarn});
+    if(framesUsed.size>1) warnings.push({text:t.frameMixWarn}); if(framesUsed.has('TER')&&!hasDem) warnings.push({text:t.terNoDemWarn}); if(elev&&elev.belowGround&&hasDem) warnings.push({text:t.belowGroundWarn});
+    const addMode=s.wpTool==='add';
+    const fmtAlt=v=>`${Math.round(v)} m`;
+    const elevVals=(()=>{ const open=!!s.elevOpen; const base={elevOpen:open,toggleElev:()=>this.setState({elevOpen:!s.elevOpen}),elevH:`${ELEV_PANEL_H}px`,mapBarBottom:open?`${ELEV_PANEL_H+72}px`:'60px',elevBtnCls:open?'on':'',elevTerrainText:hasDem?t.terrainOk:t.terrainNone};
+      if(!elev) return {...base,elevGroundD:'',elevPathD:'',elevPostsD:'',elevPts:[],elevYMax:'',elevYMin:'',elevXMax:'',elevLegendLo:'',elevLegendHi:''};
+      const pts=elev.points.map(p=>({x:p.x,y:p.y,color:p.color,cls:p.sel?'sel':'',tip:`#${p.seq} ${t.wpCmd[p.cmd]||p.cmd} · ${fmtAlt(p.rel)} ${t.frames.REL} · ${t.agl} ${fmtAlt(p.agl)} · ${fmtD(p.d)}`,select:e=>{ e.stopPropagation(); if(p.id!=='rtl') this.selectWp(p.id,e); }}));
+      return {...base,elevGroundD:elev.groundD,elevPathD:elev.pathD,elevPostsD:elev.postsD,elevPts:pts,elevYMax:fmtAlt(elev.yMax),elevYMin:fmtAlt(elev.yMin),elevXMax:fmtD(elev.total),elevLegendLo:fmtAlt(elev.lo),elevLegendHi:fmtAlt(elev.hi)}; })();
+    const box=s.box; const boxVals={boxOpen:!!box,boxX:box?`${Math.round(box.x)}px`:'0px',boxY:box?`${Math.round(box.y)}px`:'0px',boxW:box?`${Math.round(box.w)}px`:'0px',boxH:box?`${Math.round(box.h)}px`:'0px',mapMouseDown:e=>this.mapMouseDown(e)};
+    const wpAgl=wpSel&&wpDef.alt?this.amsl(wpSel)-this.groundOrHome(wpSel.lng,wpSel.lat):null;
+    const missionVals={isMission,navMissionCls:nMs,goMission:()=>this.setState({view:'mission',modal:null,maxVideo:null}),
+      wpCount:M.wps.length,posCount:posWps.length,cmdCount:M.wps.length-M.wps.filter(w=>Component.isPos(w.cmd)).length,wpEmpty:M.wps.length===0,wpRows,
+      toolAdd:()=>this.setState({wpTool:'add'}),toolSelect:()=>this.setState({wpTool:'select'}),toolAddCls:addMode?'on':'',toolSelCls:addMode?'':'on',toolLens:addMode?'translateX(0)':'translateX(100%)',mapCursor:addMode?'crosshair':'grab',
+      mapStatusShow:selCount>1||addMode,helpOpen:!!s.helpOpen,toggleHelp:()=>this.setState({helpOpen:!s.helpOpen}),helpBtnCls:s.helpOpen?'on':'',helpItems:t.helpItems.map(([key,text])=>({key,text})),
+      mapHint:selCount>1?`${selCount} ${t.multiSelected} — ${t.multiHint}`:addMode?t.addHint:t.selectHint,hintCls:selCount>1?'hint caution':addMode?'hint accent':'hint',
+      undo:()=>this.undo(),redo:()=>this.redo(),noUndo:s.mHistIdx<=0,noRedo:s.mHistIdx>=s.mHist.length-1,undoOpacity:s.mHistIdx<=0?0.4:1,redoOpacity:s.mHistIdx>=s.mHist.length-1?0.4:1,
+      reverseWps:()=>this.setWps(a=>a.reverse()),clearWps:()=>this.setWps(()=>[],{selWps:[]}),
+      paletteOpen:!!s.paletteOpen,togglePalette:()=>this.setState({paletteOpen:!s.paletteOpen}),paletteCls:s.paletteOpen?'on':'',paletteGroups,insertPosText:wpSel?`${t.afterItem} #${insertIdx}`:t.atEnd,
+      ctxOpen:!!ctx,ctxX:ctx?`${Math.round(ctx.x)}px`:'0px',ctxY:ctx?`${Math.round(ctx.y)}px`:'0px',ctxTitle,ctxItems,closeCtx:()=>{ if(s.ctxMenu) this.setState({ctxMenu:null}); },
+      missionName:M.name,setMissionName:e=>this.setState(st=>({mission:{...st.mission,name:e.target.value}})),missionVehicle:M.vehicle,setMissionVehicle:e=>this.setState(st=>({mission:{...st.mission,vehicle:e.target.value}})),msSelRef:this.msSelRef,wpCmdRef:this.wpCmdRef,
+      missionAlt:M.defaultAlt,setMissionAlt:e=>this.setState(st=>({mission:{...st.mission,defaultAlt:e.target.value}})),missionSpeed:M.speed,setMissionSpeed:e=>this.setState(st=>({mission:{...st.mission,speed:e.target.value}})),
+      frameOptions,missionFrame:M.defaultFrame||'REL',missionFrameDesc:t.frameDesc[M.defaultFrame||'REL'],setMissionFrame:e=>this.setState(st=>({mission:{...st.mission,defaultFrame:e.target.value}})),
+      multiSel:selCount>1,singleSel:selCount===1&&!!wpSel,selCount,clearSel:()=>this.setState({selWps:[]}),deleteSel:()=>this.deleteIds(s.selWps),
+      bulkAlt:s.bulkAlt,setBulkAlt:e=>this.setState({bulkAlt:e.target.value}),bulkFrame:s.bulkFrame,setBulkFrame:e=>this.setState({bulkFrame:e.target.value}),applyBulkAlt:()=>this.patchMany(s.selWps,x=>(CMDS[x.cmd]||{}).alt?{...x,frame:s.bulkFrame,p:{...x.p,alt:+s.bulkAlt}}:x),
+      bulkDelay:s.bulkDelay,setBulkDelay:e=>this.setState({bulkDelay:e.target.value}),applyBulkDelay:()=>this.patchMany(s.selWps,x=>(CMDS[x.cmd]||{fields:[]}).fields.some(f=>f.k==='delay')?{...x,p:{...x.p,delay:Math.max(0,+s.bulkDelay||0)}}:x),
+      nudgeN:()=>this.nudge(s.selWps,10,0),nudgeS:()=>this.nudge(s.selWps,-10,0),nudgeW:()=>this.nudge(s.selWps,0,-10),nudgeE:()=>this.nudge(s.selWps,0,10),
+      wpSelBadge:wpSel?(wpRows[M.wps.indexOf(wpSel)]||{}).badge:'',wpSelCmd:wpSel?wpSel.cmd:'WAYPOINT',wpCmdOptions:Object.keys(CMDS).map(k=>({value:k,label:t.wpCmd[k]})),wpSelHasPos:!!wpSel&&Component.isPos(wpSel.cmd),wpSelHelp:wpSel?(t.cmdHelp[wpSel.cmd]||''):'',
+      wpSelMav:wpDef.mav||'',wpSelMavId:wpDef.id!=null?String(wpDef.id):'',wpSelDeprecated:!!wpDef.deprecated,
+      wpSelHasAlt:!!wpSel&&!!wpDef.alt,wpSelFrame:wpSel?(wpSel.frame||'REL'):'REL',wpSelFrameDesc:wpSel?t.frameDesc[wpSel.frame||'REL']:'',setWpFrame:e=>{ if(wpSel) this.patchWp(wpSel.id,{frame:e.target.value}); },
+      wpSelAlt:wpSel?wpSel.p.alt:'',setWpAlt:e=>{ if(wpSel) this.patchWp(wpSel.id,{p:{alt:+e.target.value}}); },wpSelAltBorder:wpSel&&wpSel.p.alt>150?AMBER:'rgba(255,255,255,.18)',wpSelAglShow:wpAgl!=null&&hasDem,wpSelAgl:wpAgl!=null?fmtAlt(wpAgl):'',
+      setWpCmd:e=>{ if(!wpSel) return; const cmd=e.target.value; const d=CMDS[cmd]; const p=Component.defaultParams(cmd,wpSel.p,M.defaultAlt); this.setWps(a=>a.map(x=>x.id===wpSel.id?(d.alt?{...x,cmd,p,frame:x.frame||M.defaultFrame||'REL'}:{...x,cmd,p}):x)); },
+      ...elevVals,...boxVals,
+      wpSelLat:wpSel?wpSel.lat:'',wpSelLng:wpSel?wpSel.lng:'',setWpLat:e=>{const v=parseFloat(e.target.value); if(wpSel&&!isNaN(v)) this.patchWp(wpSel.id,{lat:v});},setWpLng:e=>{const v=parseFloat(e.target.value); if(wpSel&&!isNaN(v)) this.patchWp(wpSel.id,{lng:v});},wpFields,
+      totalDist:fmtD(total),estTime:`${Math.floor(mSecs/60)}:${String(Math.round(mSecs%60)).padStart(2,'0')}`,maxAlt:`${Math.round(maxAltV)} m`,warnings,uploadOpacity:M.wps.length?1:0.45,
+      uploadMission:()=>this.pushLog(`${M.vehicle}: ${t.msg.missionUp} (${M.name}, ${M.wps.length} items)`),downloadMission:()=>this.pushLog(`${M.vehicle}: ${t.msg.missionDown}`),saveMissionFile:()=>this.pushLog(`${t.msg.missionSaved}: ${M.name}.waypoints`),loadMissionFile:()=>this.pushLog(t.msg.missionLoaded)};
+    const rightOpen=isOps&&!!s.right;
+    const stageCls=['stage',isMission?'mission':'',(isOps||isMaint)&&!s.listOpen?'rail':'',isOps&&!rightOpen?'noright':'',isVideo?'video':isMaint?'maint':'',isMission&&s.elevOpen?'elev':''].filter(Boolean).join(' ');
+    const nav=(active)=>active?'on':'';
+    const nOps=nav(isOps&&s.right!=='ai'&&!isMission), nVid=nav(isVideo), nAi=nav(isOps&&s.right==='ai'), nM=nav(isMaint);
+    const glyphs={pause:'❚❚',resume:'▶',rtl:'⌂',land:'⤓',guided:'◎',alt:'⇅',speed:'◔',modeChange:'⇄',missionStart:'▶',missionResume:'▶',arm:'🔒',disarm:'🔓',camera:'▣',other:'•••'};
+    const cq=s.cmdSearch.trim().toLowerCase();
+    const mkCmd=(k,opts={})=>{const label=t.cmd[k]; if(cq&&!label.toLowerCase().includes(cq)) return null; return {label,glyph:glyphs[k],disabled:!!opts.disabled,opacity:opts.disabled?0.45:1,span:opts.full?'1 / -1':'auto',run:()=>{ if(k==='guided'){ this.setState({modal:'guided',guidedTarget:null}); return; } this.pushLog(`${sel.name}: ${label}${t.msg.sent}`); this.setState({modal:null}); }};};
+    const armed=sel.type==='copter'&&sel.mode!=='GROUND';
+    const cmdGroups=[{title:t.cmd.flight,items:[mkCmd('pause'),mkCmd('resume'),mkCmd('rtl'),mkCmd('land')]},{title:t.cmd.move,items:[mkCmd('guided',{full:true}),mkCmd('alt'),mkCmd('speed')]},{title:t.cmd.mode,items:[mkCmd('modeChange'),mkCmd('missionStart'),mkCmd('missionResume')]},{title:t.cmd.payload,items:[mkCmd('arm',{disabled:armed}),mkCmd('disarm',{disabled:!armed}),mkCmd('camera'),mkCmd('other')]}].map(g=>({...g,items:g.items.filter(Boolean)})).filter(g=>g.items.length);
+    const selMsgs=sel.warn?[{time:'11:36:25',title:t.msg.commDelay,body:t.msg.commDelayBody,color:AMBER,ackBg:s.acked?'#5fd39b':'rgba(255,255,255,.06)',ackBorder:s.acked?'#5fd39b':'#5fd39b',ackColor:s.acked?'#0b1f14':'#5fd39b',ack:()=>{ if(!s.acked){ this.pushLog(`${sel.name}: ${t.msg.ack}`); this.setState({acked:true}); } }}]:[];
+    const unread=sel.warn&&!s.acked?1:0;
+    const chat=s.chat.map(c=>({isUser:c.role==='user',isBot:c.role==='bot',isTool:c.role==='tool',time:c.time,text:c.text!=null?c.text:(c.key==='q1'?t.ai.q1:c.key==='a1'?`${s.selectedId}${L==='ja'?'':''}${t.ai.a1}`:''),rx:`1.8 ${t.ai.ago}`,vid:`0.2 ${t.ai.ago}`,tool:t.ai.tool,subject:s.selectedId}));
+    const maintTabs=[['params',t.tabParams],['calib',t.tabCalib],['log',t.tabLog],['history',t.tabHistory],['app',t.tabApp]].map(([k,label],i,arr)=>({label,cls:s.maintTab===k?'on':'',go:()=>this.setState({maintTab:k})})); const maintLens=`translateX(${Math.max(0,['params','calib','log','history','app'].indexOf(s.maintTab))*100}%)`;
+    const secs=[['motor',t.secMotor,'M'],['att',t.secAtt,'A'],['pos',t.secPos,'P'],['power',t.secPower,'E'],['comm',t.secComm,'C'],['safety',t.secSafety,'S']];
+    const maintSections=secs.map(([k,label,g])=>({label,glyph:g,cls:s.maintSection===k?'secrow on':'secrow',go:()=>this.setState({maintSection:k})}));
+    const sectionTitle=(secs.find(x=>x[0]===s.maintSection)||secs[0])[1];
+    const PARAMS={motor:[['expo',L==='ja'?'推力カーブ':'Thrust curve','MOT_THST_EXPO',0.05],['spinArm',L==='ja'?'アーム時の回転':'Spin when armed','MOT_SPIN_ARM',0.01],['spinMin',L==='ja'?'最低回転':'Minimum spin','MOT_SPIN_MIN',0.01]],att:[['expo',L==='ja'?'ロール P':'Roll P','ATC_RAT_RLL_P',0.01],['spinArm',L==='ja'?'ピッチ P':'Pitch P','ATC_RAT_PIT_P',0.01],['spinMin',L==='ja'?'ヨー P':'Yaw P','ATC_RAT_YAW_P',0.01]],pos:[['expo',L==='ja'?'水平速度上限':'Max horizontal speed','WPNAV_SPEED',0.5],['spinArm',L==='ja'?'上昇速度':'Climb speed','WPNAV_SPEED_UP',0.1],['spinMin',L==='ja'?'ウェイポイント半径':'WP radius','WPNAV_RADIUS',0.1]],power:[['expo',L==='ja'?'低電圧しきい値':'Low voltage','BATT_LOW_VOLT',0.1],['spinArm',L==='ja'?'低電圧時動作':'Low volt action','BATT_FS_LOW_ACT',1],['spinMin',L==='ja'?'容量 (Ah)':'Capacity (Ah)','BATT_CAPACITY',0.5]],comm:[['expo',L==='ja'?'テレメトリ速度':'Telemetry rate','SR1_POSITION',1],['spinArm',L==='ja'?'ボーレート':'Baud','SERIAL1_BAUD',1],['spinMin',L==='ja'?'リンク喪失 (s)':'Link loss (s)','FS_GCS_TIMEOUT',0.5]],safety:[['expo',L==='ja'?'ジオフェンス':'Geofence','FENCE_ENABLE',1],['spinArm',L==='ja'?'高度上限 (m)':'Max alt (m)','FENCE_ALT_MAX',5],['spinMin',L==='ja'?'RTL高度 (m)':'RTL alt (m)','RTL_ALT',5]]};
+    const params=(PARAMS[s.maintSection]||PARAMS.motor).map(([k,label,key,step])=>({label,key,value:(+s.params[k]).toFixed(2),set:e=>{const v=parseFloat(e.target.value); if(!isNaN(v)) this.setState(st=>({params:{...st.params,[k]:v},paramsDirty:true}));},inc:()=>this.setState(st=>({params:{...st.params,[k]:+(st.params[k]+step).toFixed(2)},paramsDirty:true})),dec:()=>this.setState(st=>({params:{...st.params,[k]:+(st.params[k]-step).toFixed(2)},paramsDirty:true}))}));
+    const expo=Math.min(1,Math.max(0,s.params.expo)); const pts=[]; for(let i=0;i<=20;i++){const x=i/20; const y=(1-expo)*x+expo*x*x; pts.push(`${40+x*230},${170-y*140}`);} const thrustPath='M'+pts.join(' L');
+    // Maintenance schematic: abstract hub-and-spoke diagram (controller hub + subsystem nodes on a ring) so the same
+    // picture serves copter / rover / plane / VTOL; nodes of the active parameter section light up.
+    const SCHEM_C=[280,280], SCHEM_R=150, SCHEM_L=212, SCHEM_W=560;
+    const schemDefs=[{sec:'comm',ang:0,label:t.radio,color:'#f2f5f8'},{sec:'pos',ang:48,label:t.gnss,color:'#5fd39b'},{sec:'att',ang:90,label:t.imu,color:'#c9a8ff'},{sec:'motor',ang:132,label:`${t.output} 1`,color:CYAN},{sec:'motor',ang:160,label:`${t.output} 2`,color:CYAN},{sec:'motor',ang:200,label:`${t.output} 3`,color:CYAN},{sec:'motor',ang:228,label:`${t.output} 4`,color:CYAN},{sec:'power',ang:-90,label:t.battery,color:AMBER},{sec:'safety',ang:-48,label:t.failsafe,color:'#ff6961'}];
+    const schemNodes=schemDefs.map(d=>{ const r=d.ang*Math.PI/180, sx=Math.sin(r), cy=-Math.cos(r); const x=SCHEM_C[0]+SCHEM_R*sx, y=SCHEM_C[1]+SCHEM_R*cy; const lx=SCHEM_C[0]+SCHEM_L*sx, ly=SCHEM_C[1]+SCHEM_L*cy; const on=d.sec===s.maintSection;
+      return {label:d.label,color:on?d.color:'#56626f',spoke:`M${SCHEM_C[0]} ${SCHEM_C[1]} L${x.toFixed(1)} ${y.toFixed(1)}`,x:x.toFixed(1),y:y.toFixed(1),sw:on?3:1.5,op:on?1:.55,glow:on?.22:0,
+        lx:(lx/SCHEM_W*100).toFixed(2)+'%',ly:(ly/SCHEM_W*100).toFixed(2)+'%',lBorder:on?d.color:'rgba(255,255,255,.22)',lColor:on?'#f2f5f8':'#8a97a5',lBg:on?'#1b2432':'rgba(20,26,34,.85)',lWeight:on?700:500}; });
+    const hex=(cx,cy,r)=>Array.from({length:6},(_,i)=>{ const q=Math.PI/3*i-Math.PI/6; return `${(cx+r*Math.cos(q)).toFixed(1)} ${(cy+r*Math.sin(q)).toFixed(1)}`; }).join(' L ');
+    const schemHub='M '+hex(SCHEM_C[0],SCHEM_C[1],46)+' Z', schemHubInner='M '+hex(SCHEM_C[0],SCHEM_C[1],34)+' Z';
+    const schemHeading=`M${SCHEM_C[0]} ${SCHEM_C[1]-SCHEM_R-34} l-9 14 h18 z`;
+    const calibItems=[[L==='ja'?'加速度計':'Accelerometer','#5fd39b',L==='ja'?'校正済み · 2026/10/02':'Calibrated · 2026/10/02'],[L==='ja'?'コンパス':'Compass','#5fd39b',L==='ja'?'校正済み · 2026/10/02':'Calibrated · 2026/10/02'],[L==='ja'?'水平レベル':'Level horizon','#5fd39b',L==='ja'?'校正済み · 2026/09/18':'Calibrated · 2026/09/18'],[L==='ja'?'RCキャリブレーション':'RC calibration',AMBER,L==='ja'?'要確認 · 30日以上経過':'Check · older than 30 days'],[L==='ja'?'ESCキャリブレーション':'ESC calibration','#5fd39b',L==='ja'?'校正済み · 2026/08/30':'Calibrated · 2026/08/30'],[L==='ja'?'モーターテスト':'Motor test','#8a97a5',L==='ja'?'未実施':'Not run']].map(([label,color,status])=>({label,color,status,run:()=>this.pushLog(`${mv.name}: ${label} ${t.msg.calibStarted}`)}));
+    const history=[['12:18:03','OP-001','UAV-05','MOT_THST_EXPO 0.60 → 0.65'],['11:52:40','OP-001','UAV-03',L==='ja'?'モード変更 AUTO':'Mode change AUTO'],['11:40:11','OP-002','UAV-01','WPNAV_SPEED 900 → 1000'],['10:05:27','OP-001','UAV-02',L==='ja'?'コンパス校正':'Compass calibration'],['09:30:00','OP-002','UAV-06','BATT_LOW_VOLT 21.0 → 21.6']].map(([time,who,vehicle,text])=>({time,who,vehicle,text}));
+    const toPts=arr=>arr.map((y,i)=>`${(i/(arr.length-1))*600},${y.toFixed(1)}`).join(' ');
+    const m=this.vehicles.find(v=>v.name===s.maxVideo)||sel;
+    const footerLogs=(isMaint?[{time:'',text:t.noChange,glyph:'i',iconBg:'#f2f5f8',iconColor:'#141b26'},{time:mv.name,text:t.paramsLoaded,glyph:'✓',iconBg:'#5fd39b',iconColor:'#0b1f14'}]:s.log.slice(0,2).map(l=>({time:l.time,text:l.text||t.msg[l.key],glyph:'i',iconBg:'#f2f5f8',iconColor:'#141b26'})));
+    const recTime=(()=>{const base=8*60+42+ (s.tick%60); return `${String(Math.floor(base/60)).padStart(2,'0')}:${String(base%60).padStart(2,'0')}`;})();
+    return {
+      ...missionVals,
+      t,isOps,isMaint,isVideoGrid:isVideo&&!s.maxVideo,isVideoMax:isVideo&&!!s.maxVideo,showList:isOps||isMaint,listOpen:s.listOpen,listClosed:!s.listOpen,stageCls,
+      copterCount:this.vehicles.filter(v=>v.type==='copter').length,roverCount:this.vehicles.filter(v=>v.type==='rover').length,warnCount:this.vehicles.filter(v=>v.warn).length,vehicleCount:this.vehicles.length,
+      navOpsCls:nOps,navVideoCls:nVid,navAiCls:nAi,navMaintCls:nM,navLens:`translateX(${(isMission?2:nAi?3:isVideo?1:isMaint?4:0)*100}%)`,
+      operatorLabel:s.operator||t.unregistered,clock:this.fmtClock(s.now),clockShort:this.fmtClock(s.now).slice(-5),recTime,
+      goOps:()=>this.setState({view:'ops',right:s.right==='ai'?'detail':s.right,maxVideo:null}),goVideo:()=>this.setState({view:'video',modal:null}),goMaint:()=>this.setState({view:'maint',modal:null,maxVideo:null}),toggleAi:()=>this.setState({view:'ops',right:s.right==='ai'&&isOps?'detail':'ai',modal:null,maxVideo:null}),
+      openOperator:()=>this.setState({view:isOps?'ops':s.view==='maint'?'ops':'ops',modal:'operator',opDraft:s.operator||''}),closeModal:()=>this.setState({modal:null,guidedTarget:null}),
+      toggleList:()=>this.setState({listOpen:!s.listOpen}),search:s.search,setSearch:e=>this.setState({search:e.target.value}),vehicles,allVehicles:this.vehicles.map(v=>({name:v.name})),mapRef:this.mapRef,aiSelRef:this.aiSelRef,mvSelRef:this.mvSelRef,
+      isFollowing:!!s.follow,followName:s.follow||'',stopFollow:()=>this.setState({follow:null}),compassRot:s.mapMode==='3d'?'25deg':'0deg',set2d:()=>this.setState({mapMode:'2d'}),set3d:()=>this.setState({mapMode:'3d'}),btn2dCls:s.mapMode==='2d'?'on':'',btn3dCls:s.mapMode==='3d'?'on':'',mapLens:s.mapMode==='3d'?'translateX(100%)':'translateX(0)',
+      guidedHint:s.modal==='guided'&&!s.guidedTarget,modalCommands:s.modal==='commands',modalGuided:s.modal==='guided',modalOperator:s.modal==='operator',
+      selName:sel.name,selDot:dot(sel),selFeed:sel.feed||'',selHasFeed:!!sel.feed,selNoFeed:!sel.feed,selAltText:`${Math.round(sel.alt)} m`,selSpdText:`${sel.spd.toFixed(1)} m/s`,selBattW:sel.batt+'%',selBattText:sel.batt+'%',selMsgs,selUnread:unread>0,selUnreadCount:unread,selectedId:s.selectedId,
+      selectFromEvent:e=>this.setState({selectedId:e.target.value}),
+      cmdSearch:s.cmdSearch,setCmdSearch:e=>this.setState({cmdSearch:e.target.value}),cmdGroups,
+      guidedTargetText:s.guidedTarget?`${t.guidedTo}: ${s.guidedTarget[1].toFixed(5)}, ${s.guidedTarget[0].toFixed(5)}`:t.guidedPick,guidedDisabled:!s.guidedTarget,guidedBtnOpacity:s.guidedTarget?1:0.45,
+      setGuidedKeep:()=>this.setState({guidedMode:'keep'}),setGuidedSet:()=>this.setState({guidedMode:'set'}),keepRingColor:s.guidedMode==='keep'?CYAN:'#8a97a5',keepDotColor:s.guidedMode==='keep'?CYAN:'transparent',setRingColor:s.guidedMode==='set'?CYAN:'#8a97a5',setDotColor:s.guidedMode==='set'?CYAN:'transparent',guidedAlt:s.guidedAlt,setGuidedAlt:e=>this.setState({guidedAlt:e.target.value,guidedMode:'set'}),
+      startGuided:()=>{ if(!s.guidedTarget) return; sel.mode='GUIDED'; sel.hdg=(Math.atan2(s.guidedTarget[0]-sel.lng,s.guidedTarget[1]-sel.lat)*180/Math.PI+360)%360; if(s.guidedMode==='set') sel.alt=+s.guidedAlt||sel.alt; this.pushLog(`${sel.name}: ${t.msg.guidedStart}`); this.setState({modal:null,guidedTarget:null}); },
+      opDraft:s.opDraft,setOpDraft:e=>this.setState({opDraft:e.target.value}),registerOperator:()=>{ const n=s.opDraft.trim(); if(!n) return; this.pushLog(`${t.msg.opReg}: ${n}`); this.setState({operator:n,modal:null}); },
+      rightDetail:isOps&&s.right==='detail',rightAi:isOps&&s.right==='ai',closeRight:()=>this.setState({right:null}),
+      maximizeSel:()=>this.setState({view:'video',maxVideo:sel.name}),openMaintSel:()=>this.setState({view:'maint',maintVehicle:sel.name,maintTab:'params'}),toggleMsgs:()=>this.setState({msgsOpen:!s.msgsOpen,maintTab:'history'}),openCommands:()=>this.setState({modal:s.modal==='commands'?null:'commands'}),
+      cmdBtnCls:s.modal==='commands'?'on':'',
+      chat,chatDraft:s.chatDraft,setChatDraft:e=>this.setState({chatDraft:e.target.value}),
+      sendChat:()=>this.sendChat(),chatKey:e=>{ if(e.key==='Enter') this.sendChat(); },
+      maxFeed:m.feed||'',maxName:m.name,maxWarn:!!m.warn,maxMode:modeLabel(m),maxModeColor:m.type==='copter'?CYAN:'#f2f5f8',vidAlt:`${Math.round(m.alt)} m`,maxSpd:`${m.spd.toFixed(1)} m/s`,maxBatt:m.batt+'%',maxRec:m.rec,unmaximize:()=>this.setState({maxVideo:null}),
+      maintVehicle:s.maintVehicle,setMaintVehicle:e=>this.setState({maintVehicle:e.target.value,selectedId:e.target.value}),mvIsCopter:mv.type==='copter',mvIsRover:mv.type==='rover',mvModeLabel:modeLabel(mv),mvArm:mv.mode==='GROUND'?'DISARMED':'ARMED',
+      maintTabs,maintLens,tabParams:s.maintTab==='params',tabCalib:s.maintTab==='calib',tabLog:s.maintTab==='log',tabHistory:s.maintTab==='history',tabApp:s.maintTab==='app',
+      maintSections,sectionTitle,params,thrustPath,schemNodes,schemHub,schemHubInner,schemHeading,schemCx:SCHEM_C[0],schemCy:SCHEM_C[1],schemR:SCHEM_R,paramsDirty:s.paramsDirty,resetParams:()=>this.setState({params:{expo:0.65,spinArm:0.10,spinMin:0.12},paramsDirty:false}),writeParams:()=>{ this.pushLog(`${mv.name}: ${t.msg.paramsWritten}`); this.setState({paramsDirty:false}); },
+      calibItems,history,
+      vibeX:toPts(this.series.vx),vibeY:toPts(this.series.vy),vibeZ:toPts(this.series.vz),m1:toPts(this.series.m1),m2:toPts(this.series.m2),m3:toPts(this.series.m3),m4:toPts(this.series.m4),eventX:(168/299*600).toFixed(1),
+      jumpEvent:()=>{ if(this.map&&this.mapKind==='log') this.map.flyTo({center:[139.386,36.152],zoom:14.6}); },
+      logChat:s.logChat.map(c=>({text:c.text,cls:c.role==='user'?'bubble user':'bubble bot'})),logDraft:s.logDraft,setLogDraft:e=>this.setState({logDraft:e.target.value}),sendLog:()=>this.sendLog(),logKey:e=>{ if(e.key==='Enter') this.sendLog(); },
+      setJa:()=>this.setState({lang:'ja'}),setEn:()=>this.setState({lang:'en'}),jaCls:L==='ja'?'on':'',enCls:L==='en'?'on':'',langLens:L==='ja'?'translateX(0)':'translateX(100%)',
+      refreshCache:()=>this.pushLog(t.msg.cacheUpd),joyVehicle:s.joyVehicle,joyGimbal:s.joyGimbal,setJoyVehicle:e=>this.setState({joyVehicle:e.target.value}),setJoyGimbal:e=>this.setState({joyGimbal:e.target.value}),calibJoy:()=>this.pushLog(t.msg.joyCalib),
+      footerLead:isMaint?'':t.all,footerLogs,
+    };
+  }
+  sendChat(){ const txt=this.state.chatDraft.trim(); if(!txt) return; const tm=this.fmtClock(new Date()).slice(-5); const t=this.t;
+    this.setState(s=>({chat:[...s.chat,{role:'user',text:txt,time:tm}],chatDraft:''}));
+    setTimeout(()=>this.setState(s=>({chat:[...s.chat,{role:'bot',text:`${s.selectedId}${t.ai.reply}`,time:tm}]})),700); }
+  sendLog(){ const txt=this.state.logDraft.trim(); if(!txt) return; const t=this.t;
+    this.setState(s=>({logChat:[...s.logChat,{role:'user',text:txt}],logDraft:''}));
+    setTimeout(()=>this.setState(s=>({logChat:[...s.logChat,{role:'bot',text:t.logReply}]})),700); }
+}
+</script>
+</x-dc>
+</body>
+</html>
