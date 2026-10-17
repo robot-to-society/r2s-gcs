@@ -11,7 +11,7 @@ sim = []
 
 [dependencies]
 rgcs-core = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["io-util"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
@@ -19,3 +19,7 @@ async-trait = "0.1"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
+
+[[example]]
+name = "siyi_sim"
+required-features = ["sim"]
