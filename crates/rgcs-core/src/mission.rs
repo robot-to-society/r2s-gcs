@@ -171,6 +171,17 @@ pub struct MissionProgress {
     pub total: Option<u16>,
 }
 
+/// Result of `PUT /api/vehicles/{sysid}/mission`: what was written and whether the read-back matched.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct UploadReport {
+    pub items: u32,
+    pub verified: bool,
+    /// 1-based sequences whose read-back differed.
+    pub mismatched: Vec<u16>,
+    pub findings: Vec<Finding>,
+}
+
 /// Geofence parameters as far as they are known (`FENCE_ENABLE`, `FENCE_ALT_MAX`, `FENCE_RADIUS`).
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct FenceInfo {

@@ -14,6 +14,8 @@ pub mod config;
 pub mod confirm;
 pub mod guided;
 pub mod input_api;
+pub mod mission_api;
+pub mod missions;
 pub mod params;
 pub mod present_api;
 pub mod settings;

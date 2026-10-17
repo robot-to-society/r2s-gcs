@@ -21,7 +21,9 @@ use crate::confirm::{ConfirmError, ConfirmTokens};
 use crate::params::ParamStore;
 use crate::settings;
 use crate::video::VideoHub;
-use crate::{api, auth, branding, camera_api, commands, guided, input_api, present_api, video_api, ws};
+use crate::{
+    api, auth, branding, camera_api, commands, guided, input_api, mission_api, present_api, video_api, ws,
+};
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
 use rgcs_video::{Timings, WhepRelay, MAX_OFFER_BYTES};
@@ -42,6 +44,7 @@ pub struct AppState {
     pub cameras: CameraManager,
     pub video: VideoHub,
     pub whep: WhepRelay,
+    pub missions: crate::missions::MissionHub,
     /// Where branding files (and the database) live; `config.toml` `data_dir`.
     pub data_dir: PathBuf,
     pub hostname: String,
@@ -74,6 +77,7 @@ impl AppState {
         let (outgoing, _) = mpsc::channel(1);
         let cameras = CameraManager::new(store.clone(), tx.clone(), CameraFactory::Real);
         let video = VideoHub::new(store.clone(), tx.clone(), Timings::default());
+        let missions = crate::missions::MissionHub::new(tx.clone());
         let whep = WhepRelay::new(&crate::config::Config::default().whep_upstream)
             .expect("default whep upstream parses");
         Self {
@@ -86,6 +90,7 @@ impl AppState {
             cameras,
             video,
             whep,
+            missions,
             data_dir: crate::config::Config::default().data_dir,
             hostname,
             secure_cookies: false,
@@ -230,6 +235,18 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
         .route("/vehicles/{sysid}/confirm", post(commands::confirm))
         .route("/vehicles/{sysid}/command", post(commands::command))
         .route("/vehicles/{sysid}/guided", post(guided::guided))
+        .route(
+            "/vehicles/{sysid}/mission",
+            get(mission_api::get_mission).put(mission_api::put_mission),
+        )
+        .route(
+            "/vehicles/{sysid}/mission/upload",
+            post(mission_api::upload_saved),
+        )
+        .route(
+            "/vehicles/{sysid}/mission/progress",
+            get(mission_api::get_progress),
+        )
         .route("/vehicles/{sysid}/camera", get(camera_api::get_camera))
         .route("/vehicles/{sysid}/camera/command", post(camera_api::command))
         .route(

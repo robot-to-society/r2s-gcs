@@ -71,9 +71,13 @@ pub async fn pump_events(
     mut events: mpsc::Receiver<RouterEvent>,
     tx: broadcast::Sender<ServerMessage>,
     params: crate::params::ParamStore,
+    missions: crate::missions::MissionHub,
 ) {
     while let Some(ev) = events.recv().await {
         params.apply(&ev);
+        if let RouterEvent::Mission { sysid, frame } = &ev {
+            missions.on_frame(*sysid, frame.clone());
+        }
         if let Some(f) = event_frame(ev, crate::app::unix_ms()) {
             let _ = tx.send(f);
         }

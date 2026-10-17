@@ -60,7 +60,9 @@ async fn main() -> anyhow::Result<()> {
         events_rx,
         tx.clone(),
         state.params.clone(),
+        state.missions.clone(),
     ));
+    tokio::spawn(state.missions.clone().resend_loop());
     tokio::spawn(telemetry::diff_loop(
         router.clone(),
         tx.clone(),

@@ -20,6 +20,9 @@ rgcs-store = { workspace = true }
 rgcs-camera = { workspace = true }
 rgcs-video = { workspace = true }
 rgcs-input = { workspace = true }
+rgcs-mission = { workspace = true }
+thiserror = { workspace = true }
+mavlink = { workspace = true }
 axum-extra = { workspace = true }
 uuid = { workspace = true }
 axum = { workspace = true }

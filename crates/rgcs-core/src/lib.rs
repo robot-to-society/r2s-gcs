@@ -19,7 +19,7 @@ pub use camera::{
 pub use command::{CommandResult, VehicleCommand};
 pub use mission::{
     demo20, haversine_m, FenceInfo, Finding, FindingLevel, Home, Mission, MissionFrame, MissionItem,
-    MissionProgress, MissionStats, MissionSummaryRow, MAV_CMD_DO_JUMP, MAV_CMD_NAV_LAND,
+    MissionProgress, MissionStats, MissionSummaryRow, UploadReport, MAV_CMD_DO_JUMP, MAV_CMD_NAV_LAND,
     MAV_CMD_NAV_RETURN_TO_LAUNCH, MAV_CMD_NAV_TAKEOFF, MAV_CMD_NAV_WAYPOINT,
 };
 pub use operator::Operator;

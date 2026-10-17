@@ -1,6 +1,7 @@
 //! In-process test harness: in-memory store, a bare `Router`, and a stub command queue that
 //! accepts everything. Shared by the integration tests under `tests/`.
 #![allow(dead_code)]
+#![allow(deprecated)] // MISSION_REQUEST: the fake vehicle can speak the legacy protocol
 
 use std::sync::Arc;
 
@@ -9,13 +10,17 @@ use axum::http::{header, HeaderMap, Method, Request, StatusCode};
 use axum::Router as AxumRouter;
 use http_body_util::BodyExt;
 use mavlink::dialects::ardupilotmega::{
-    MavAutopilot, MavMessage, MavModeFlag, MavState, MavType, HEARTBEAT_DATA,
+    MavAutopilot, MavMessage, MavMissionResult, MavMissionType, MavModeFlag, MavState, MavType,
+    HEARTBEAT_DATA, MISSION_ACK_DATA, MISSION_COUNT_DATA, MISSION_ITEM_INT_DATA, MISSION_REQUEST_DATA,
+    MISSION_REQUEST_INT_DATA,
 };
 use mavlink::MavHeader;
 use rgcs_camera::siyi::sim::SimServer;
+use rgcs_mavlink::MissionFrame;
 use rgcs_mavlink::{Clock, Outcome, Outgoing, QueuedCommand, Router};
 use rgcs_server::app::{self, AppState, BROADCAST_CAPACITY};
 use rgcs_server::cameras::{CameraFactory, CameraManager};
+use rgcs_server::missions::MissionHub;
 use rgcs_store::Store;
 use serde_json::Value;
 use tokio::sync::{broadcast, mpsc, Mutex};
@@ -204,4 +209,108 @@ pub fn cookie_pair(headers: &HeaderMap) -> String {
 
 pub fn error_code(body: &Value) -> &str {
     body["error"]["code"].as_str().unwrap_or("")
+}
+
+/// How the fake vehicle behaves during a mission transaction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FakeMode {
+    Normal,
+    /// Asks with the deprecated MISSION_REQUEST instead of MISSION_REQUEST_INT.
+    Legacy,
+    /// Consumes every frame and never answers.
+    Silent,
+    /// Completes the transfer but answers MISSION_ACK with MAV_MISSION_ERROR.
+    RejectAck,
+}
+
+const GCS: u8 = 255;
+const GCS_COMP: u8 = 190;
+const MISSION: MavMissionType = MavMissionType::MAV_MISSION_TYPE_MISSION;
+
+#[allow(deprecated)]
+fn fake_request(seq: u16, mode: FakeMode) -> MissionFrame {
+    if mode == FakeMode::Legacy {
+        MissionFrame::Request(MISSION_REQUEST_DATA {
+            seq,
+            target_system: GCS,
+            target_component: GCS_COMP,
+            mission_type: MISSION,
+        })
+    } else {
+        MissionFrame::RequestInt(MISSION_REQUEST_INT_DATA {
+            seq,
+            target_system: GCS,
+            target_component: GCS_COMP,
+            mission_type: MISSION,
+        })
+    }
+}
+
+fn fake_ack(result: MavMissionResult) -> MissionFrame {
+    MissionFrame::Ack(MISSION_ACK_DATA {
+        target_system: GCS,
+        target_component: GCS_COMP,
+        mavtype: result,
+        mission_type: MISSION,
+        opaque_id: 0,
+    })
+}
+
+/// A vehicle on the other end of the `outgoing` channel: stores uploads, serves downloads.
+pub fn fake_vehicle_mission(
+    mut rx: mpsc::Receiver<Outgoing>,
+    hub: MissionHub,
+    sysid: u8,
+    stored: Arc<std::sync::Mutex<Vec<MISSION_ITEM_INT_DATA>>>,
+    mode: FakeMode,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut expected: u16 = 0;
+        let mut staging: Vec<MISSION_ITEM_INT_DATA> = Vec::new();
+        while let Some(out) = rx.recv().await {
+            if mode == FakeMode::Silent {
+                continue;
+            }
+            match out.message {
+                MavMessage::MISSION_COUNT(c) => {
+                    expected = c.count;
+                    staging.clear();
+                    hub.on_frame(sysid, fake_request(0, mode));
+                }
+                MavMessage::MISSION_ITEM_INT(d) => {
+                    staging.push(d);
+                    if (staging.len() as u16) < expected {
+                        hub.on_frame(sysid, fake_request(staging.len() as u16, mode));
+                    } else if mode == FakeMode::RejectAck {
+                        hub.on_frame(sysid, fake_ack(MavMissionResult::MAV_MISSION_ERROR));
+                    } else {
+                        *stored.lock().unwrap() = staging.clone();
+                        hub.on_frame(sysid, fake_ack(MavMissionResult::MAV_MISSION_ACCEPTED));
+                    }
+                }
+                MavMessage::MISSION_REQUEST_LIST(_) => {
+                    let n = stored.lock().unwrap().len() as u16;
+                    hub.on_frame(
+                        sysid,
+                        MissionFrame::Count(MISSION_COUNT_DATA {
+                            count: n,
+                            target_system: GCS,
+                            target_component: GCS_COMP,
+                            mission_type: MISSION,
+                            opaque_id: 0,
+                        }),
+                    );
+                }
+                MavMessage::MISSION_REQUEST_INT(r) => {
+                    let item = stored.lock().unwrap().get(r.seq as usize).cloned();
+                    if let Some(mut d) = item {
+                        d.target_system = GCS;
+                        d.target_component = GCS_COMP;
+                        hub.on_frame(sysid, MissionFrame::ItemInt(d));
+                    }
+                }
+                _ => {}
+            }
+        }
+    })
 }
