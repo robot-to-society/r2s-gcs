@@ -1,0 +1,85 @@
+//! SQLite persistence (spec 60): users / sessions / audit log / settings. `Store` is cheap to
+//! clone (it wraps a connection pool) and every method takes `&self`.
+
+pub mod audit;
+pub mod lockout;
+pub mod password;
+pub mod sessions;
+pub mod users;
+
+use std::path::Path;
+
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
+
+pub use audit::AuditEntry;
+pub use lockout::Lockout;
+pub use users::UserRow;
+
+#[derive(Debug, thiserror::Error)]
+pub enum StoreError {
+    #[error("database error: {0}")]
+    Db(#[from] sqlx::Error),
+    #[error("migration error: {0}")]
+    Migrate(#[from] sqlx::migrate::MigrateError),
+    #[error("password hashing error: {0}")]
+    Password(String),
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+}
+
+pub type Result<T> = std::result::Result<T, StoreError>;
+
+#[derive(Clone)]
+pub struct Store {
+    pool: SqlitePool,
+}
+
+impl Store {
+    /// Opens (creating if needed) the database file, runs migrations and seeds the dev account.
+    pub async fn open(path: &Path) -> Result<Self> {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let opts = SqliteConnectOptions::new()
+            .filename(path)
+            .create_if_missing(true)
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+            .foreign_keys(true);
+        Self::connect(opts, 4).await
+    }
+
+    /// Private in-memory database (tests).
+    pub async fn open_memory() -> Result<Self> {
+        let opts = SqliteConnectOptions::new()
+            .filename(":memory:")
+            .foreign_keys(true);
+        Self::connect(opts, 1).await
+    }
+
+    async fn connect(opts: SqliteConnectOptions, max: u32) -> Result<Self> {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(max)
+            .connect_with(opts)
+            .await?;
+        sqlx::migrate!("./migrations").run(&pool).await?;
+        let store = Self { pool };
+        store.seed_dev_admin().await?;
+        Ok(store)
+    }
+
+    pub fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
+}
+
+/// Current time as RFC 3339 UTC, the format every `ts` column uses.
+pub fn now_iso() -> String {
+    OffsetDateTime::now_utc().format(&Rfc3339).unwrap_or_default()
+}
+
+/// RFC 3339 for a given instant (tests and expiries).
+pub fn iso(t: OffsetDateTime) -> String {
+    t.format(&Rfc3339).unwrap_or_default()
+}

@@ -11,11 +11,17 @@ use tokio::sync::broadcast;
 use tracing::warn;
 
 use crate::app::AppState;
+use crate::auth::AuthUser;
 
 /// Client frames are small control messages; anything bigger is not ours.
 const MAX_MESSAGE_SIZE: usize = 16 * 1024;
 
-pub async fn handler(ws: WebSocketUpgrade, headers: HeaderMap, State(app): State<AppState>) -> Response {
+pub async fn handler(
+    ws: WebSocketUpgrade,
+    headers: HeaderMap,
+    State(app): State<AppState>,
+    AuthUser(_op): AuthUser,
+) -> Response {
     let origin = headers.get("origin").and_then(|v| v.to_str().ok());
     let host = headers.get("host").and_then(|v| v.to_str().ok());
     if !origin_allowed(origin, host) {

@@ -8,6 +8,7 @@ use rgcs_core::{SysId, VehicleSummary};
 use serde::Serialize;
 
 use crate::app::AppState;
+use crate::auth::AuthUser;
 
 #[derive(Serialize)]
 pub struct ApiError {
@@ -52,7 +53,7 @@ pub async fn health(State(app): State<AppState>) -> Response {
     })
 }
 
-pub async fn list_vehicles(State(app): State<AppState>) -> Response {
+pub async fn list_vehicles(State(app): State<AppState>, AuthUser(_op): AuthUser) -> Response {
     let list: Vec<VehicleSummary> = app
         .router
         .lock()
@@ -64,7 +65,11 @@ pub async fn list_vehicles(State(app): State<AppState>) -> Response {
     ok(list)
 }
 
-pub async fn get_vehicle(State(app): State<AppState>, Path(sysid): Path<SysId>) -> Response {
+pub async fn get_vehicle(
+    State(app): State<AppState>,
+    AuthUser(_op): AuthUser,
+    Path(sysid): Path<SysId>,
+) -> Response {
     match app.router.lock().await.state(sysid) {
         Some(v) => ok(v.clone()),
         None => err(
@@ -72,6 +77,22 @@ pub async fn get_vehicle(State(app): State<AppState>, Path(sysid): Path<SysId>) 
             "not_found",
             format!("vehicle {sysid} is not connected"),
         ),
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct Limit {
+    pub limit: Option<u32>,
+}
+
+pub async fn audit_history(
+    State(app): State<AppState>,
+    AuthUser(_op): AuthUser,
+    axum::extract::Query(q): axum::extract::Query<Limit>,
+) -> Response {
+    match app.store.recent_audit(q.limit.unwrap_or(50).min(500)).await {
+        Ok(list) => ok(list),
+        Err(e) => err(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string()),
     }
 }
 

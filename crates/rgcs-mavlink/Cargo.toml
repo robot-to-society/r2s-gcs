@@ -12,6 +12,8 @@ mavlink = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+serde = { workspace = true }
+num-traits = "0.2"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

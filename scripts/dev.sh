@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# One-shot local dev stack: ArduCopter SITL + rgcs-server + UI.
+#
+#   scripts/dev.sh            # Vite dev server with HMR on :5173 (proxies /api and /ws to :8000)
+#   scripts/dev.sh --built    # serve apps/rgcs-server/ui/dist from rgcs-server on :8000 (builds if missing)
+#   scripts/dev.sh --no-sitl  # reuse a SITL you already started on tcp:5760
+#
+# Env overrides: ARDUPILOT_DIR, SITL_HOME (lat,lon,alt,yaw), SITL_SPEEDUP, RGCS_PORT, UI_PORT.
+# Everything runtime-related lives in .dev/ (git-ignored). Ctrl-C stops all three processes.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEV_DIR="$ROOT/.dev"
+UI_DIR="$ROOT/apps/rgcs-server/ui"
+ARDUPILOT_DIR="${ARDUPILOT_DIR:-$HOME/github/rtos/ardupilot}"
+SITL_BIN="$ARDUPILOT_DIR/build/sitl/bin/arducopter"
+SITL_PARAMS="$ARDUPILOT_DIR/Tools/autotest/default_params/copter.parm"
+SITL_HOME="${SITL_HOME:-36.162,139.372,400,0}"
+SITL_SPEEDUP="${SITL_SPEEDUP:-1}"
+SITL_PORT=5760
+RGCS_PORT="${RGCS_PORT:-8000}"
+UI_PORT="${UI_PORT:-5173}"
+
+MODE="vite"
+START_SITL=1
+for arg in "$@"; do
+  case "$arg" in
+    --built) MODE="built" ;;
+    --no-sitl) START_SITL=0 ;;
+    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
+
+export PATH="$HOME/.cargo/bin:$PATH"
+mkdir -p "$DEV_DIR/sitl" "$DEV_DIR/data"
+
+PIDS=()
+cleanup() {
+  trap - EXIT INT TERM
+  echo
+  echo "[dev] stopping..."
+  for pid in "${PIDS[@]:-}"; do
+    [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
+  done
+  wait 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
+
+# --- 1. SITL -----------------------------------------------------------------
+if [ "$START_SITL" = 1 ]; then
+  if port_in_use "$SITL_PORT"; then
+    echo "[dev] SITL already listening on tcp:$SITL_PORT, reusing it"
+  else
+    if [ ! -x "$SITL_BIN" ]; then
+      echo "[dev] SITL binary not found: $SITL_BIN (build ArduPilot sitl or set ARDUPILOT_DIR)" >&2
+      exit 1
+    fi
+    echo "[dev] starting ArduCopter SITL (home $SITL_HOME, speedup $SITL_SPEEDUP) -> $DEV_DIR/sitl.log"
+    (cd "$DEV_DIR/sitl" && exec "$SITL_BIN" --model + --speedup "$SITL_SPEEDUP" \
+        --defaults "$SITL_PARAMS" --home "$SITL_HOME" -I0 -w) >"$DEV_DIR/sitl.log" 2>&1 &
+    PIDS+=($!)
+  fi
+fi
+
+# --- 2. rgcs-server ----------------------------------------------------------
+if port_in_use "$RGCS_PORT"; then
+  echo "[dev] port $RGCS_PORT already in use; stop the other rgcs-server first" >&2
+  exit 1
+fi
+
+CONFIG="$DEV_DIR/config.toml"
+{
+  echo "listen = \"127.0.0.1:$RGCS_PORT\""
+  echo "mavlink_url = \"tcp:127.0.0.1:$SITL_PORT\""
+  echo "data_dir = \"$DEV_DIR/data\""
+  echo "role = \"standalone\""
+  echo "telemetry_interval_ms = 100"
+  if [ "$MODE" = "built" ]; then echo "ui_dir = \"$UI_DIR/dist\""; fi
+} >"$CONFIG"
+
+if [ "$MODE" = "built" ] && [ ! -f "$UI_DIR/dist/index.html" ]; then
+  echo "[dev] ui/dist missing, building UI once..."
+  (cd "$UI_DIR" && npm run build)
+fi
+
+echo "[dev] starting rgcs-server (config $CONFIG)"
+(cd "$ROOT" && RGCS_CONFIG="$CONFIG" exec cargo run -q -p rgcs-server) &
+PIDS+=($!)
+
+# --- 3. UI -------------------------------------------------------------------
+if [ "$MODE" = "vite" ]; then
+  echo "[dev] starting Vite dev server on :$UI_PORT"
+  (cd "$UI_DIR" && RGCS_SERVER="http://127.0.0.1:$RGCS_PORT" exec npm run dev -- --host 127.0.0.1 --port "$UI_PORT" --strictPort) &
+  PIDS+=($!)
+  URL="http://127.0.0.1:$UI_PORT"
+else
+  URL="http://127.0.0.1:$RGCS_PORT"
+fi
+
+echo
+echo "[dev] UI:      $URL"
+echo "[dev] API:     http://127.0.0.1:$RGCS_PORT/api/health"
+echo "[dev] SITL:    tcp:127.0.0.1:$SITL_PORT (telemetry streams start ~10-15 s after link-up)"
+echo "[dev] SITL log: $DEV_DIR/sitl.log"
+echo "[dev] Ctrl-C stops everything."
+echo
+
+wait

@@ -1,5 +1,5 @@
 //! Async link task: connect, feed every frame to the [`Router`], ask for missing streams,
-//! reconnect after errors. One task per link URL.
+//! transmit queued messages, publish COMMAND_ACKs, reconnect after errors. One task per link.
 //!
 //! Receiving runs in its own task and hands frames over a channel, so the `select!` below
 //! never cancels an in-flight `recv()` (which could drop half a frame on TCP / serial).
@@ -11,12 +11,13 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use mavlink::dialects::ardupilotmega::{MavCmd, MavMessage, COMMAND_LONG_DATA};
 use mavlink::{AsyncMavConnection, MavHeader};
 use rgcs_core::SysId;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{broadcast, mpsc, Mutex};
 use tracing::{info, warn};
 
 use crate::heartbeat::is_flight_controller;
 use crate::interval::IntervalRequester;
 use crate::link::LinkUrl;
+use crate::queue::{Ack, Outgoing};
 use crate::router::{Clock, Router, RouterEvent};
 
 pub const GCS_SYSTEM_ID: u8 = 255;
@@ -26,6 +27,16 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const FRAME_QUEUE: usize = 256;
 
 type Conn = Arc<dyn AsyncMavConnection<MavMessage> + Sync + Send>;
+
+/// Channels that connect the link to the rest of the server.
+pub struct LinkChannels {
+    /// Router events (discoveries, STATUSTEXT) for the WebSocket.
+    pub events: mpsc::Sender<RouterEvent>,
+    /// Messages to transmit (from the command queue).
+    pub outgoing: mpsc::Receiver<Outgoing>,
+    /// Every COMMAND_ACK received, for the command queue.
+    pub acks: broadcast::Sender<Ack>,
+}
 
 /// Wall + monotonic clock for the router, anchored at task start.
 #[derive(Clone, Copy)]
@@ -52,7 +63,7 @@ struct LinkState {
 }
 
 /// Runs until the `events` receiver is dropped. Reconnects after any link error.
-pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, events: mpsc::Sender<RouterEvent>) {
+pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, mut ch: LinkChannels) {
     let address = url.mavlink_address();
     let clock = TaskClock {
         started: Instant::now(),
@@ -63,7 +74,7 @@ pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, events: mpsc::Se
             Ok(Ok(conn)) => {
                 info!(link = %url, "mavlink link connected");
                 let conn: Conn = Arc::from(conn);
-                if receive_loop(conn, &router, &events, clock, &mut link)
+                if receive_loop(conn, &router, &mut ch, clock, &mut link)
                     .await
                     .is_err()
                 {
@@ -73,7 +84,7 @@ pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, events: mpsc::Se
             Ok(Err(e)) => warn!(link = %url, error = %e, "mavlink connect failed"),
             Err(_) => warn!(link = %url, "mavlink connect timed out"),
         }
-        if events.is_closed() {
+        if ch.events.is_closed() {
             return;
         }
         tokio::time::sleep(RECONNECT_WAIT).await;
@@ -105,7 +116,7 @@ fn spawn_reader(conn: Conn) -> mpsc::Receiver<(MavHeader, MavMessage)> {
 async fn receive_loop(
     conn: Conn,
     router: &Arc<Mutex<Router>>,
-    events: &mpsc::Sender<RouterEvent>,
+    ch: &mut LinkChannels,
     clock: TaskClock,
     link: &mut LinkState,
 ) -> Result<(), ()> {
@@ -118,20 +129,50 @@ async fn receive_loop(
                 Some((header, msg)) => {
                     let now = clock.now();
                     let evs = router.lock().await.on_message(&header, &msg, now);
-                    forward(events, evs).await?;
-                    if let MavMessage::HEARTBEAT(hb) = &msg {
-                        if is_flight_controller(hb.autopilot) {
-                            request_streams(&conn, router, link, &header, now).await;
-                        }
-                    }
+                    forward(&ch.events, evs).await?;
+                    handle_special(&conn, router, ch, link, &header, &msg, now).await;
                 }
                 None => return Ok(()),
             },
+            out = ch.outgoing.recv() => match out {
+                Some(o) => {
+                    let header = next_header(link);
+                    if let Err(e) = conn.send(&header, &o.message).await {
+                        warn!(error = %e, "mavlink send failed");
+                    }
+                }
+                None => return Err(()),
+            },
             _ = ticker.tick() => {
                 let evs = router.lock().await.tick(clock.now());
-                forward(events, evs).await?;
+                forward(&ch.events, evs).await?;
             }
         }
+    }
+}
+
+/// Heartbeats drive stream requests; COMMAND_ACKs go to the command queue.
+async fn handle_special(
+    conn: &Conn,
+    router: &Arc<Mutex<Router>>,
+    ch: &LinkChannels,
+    link: &mut LinkState,
+    header: &MavHeader,
+    msg: &MavMessage,
+    now: Clock,
+) {
+    match msg {
+        MavMessage::HEARTBEAT(hb) if is_flight_controller(hb.autopilot) => {
+            request_streams(conn, router, link, header, now).await;
+        }
+        MavMessage::COMMAND_ACK(ack) => {
+            let _ = ch.acks.send(Ack {
+                sysid: header.system_id,
+                command: ack.command,
+                result: ack.result,
+            });
+        }
+        _ => {}
     }
 }
 

@@ -2,7 +2,10 @@
 
 mod api;
 mod app;
+mod auth;
+mod commands;
 mod config;
+mod confirm;
 mod telemetry;
 mod ws;
 
@@ -10,7 +13,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use rgcs_mavlink::{LinkUrl, Router};
+use rgcs_mavlink::{LinkChannels, LinkUrl, Router};
+use rgcs_store::Store;
 use tokio::sync::{broadcast, mpsc, Mutex};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -31,10 +35,25 @@ async fn main() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("mavlink_url: {e}"))?;
     info!(config = %config_path, listen = %config.listen, link = %link, "starting rgcs-server");
 
+    let store = Store::open(&config.data_dir.join("rgcs.db")).await?;
+    let dev_mode = store.dev_mode().await?;
+    if dev_mode {
+        tracing::warn!("development login admin/admin is active");
+    }
+
     let router = Arc::new(Mutex::new(Router::default()));
     let (tx, _) = broadcast::channel(BROADCAST_CAPACITY);
     let (events_tx, events_rx) = mpsc::channel(256);
-    tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), events_tx));
+    let (outgoing_tx, outgoing_rx) = mpsc::channel(64);
+    let (acks_tx, _) = broadcast::channel(64);
+    let (queue_tx, queue_rx) = mpsc::channel(32);
+    let channels = LinkChannels {
+        events: events_tx,
+        outgoing: outgoing_rx,
+        acks: acks_tx.clone(),
+    };
+    tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), channels));
+    tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx, acks_tx));
     tokio::spawn(telemetry::pump_events(events_rx, tx.clone()));
     tokio::spawn(telemetry::diff_loop(
         router.clone(),
@@ -42,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
         Duration::from_millis(config.telemetry_interval_ms.max(20)),
     ));
 
-    let state = AppState::new(router, tx);
+    let state = AppState::new(router, tx, store, queue_tx, dev_mode);
     let app = app::build(state, config.ui_dir.clone());
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     axum::serve(listener, app)

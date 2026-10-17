@@ -92,6 +92,20 @@ pub fn mode_name(kind: VehicleKind, custom_mode: u32) -> String {
         .unwrap_or_else(|| format!("MODE({custom_mode})"))
 }
 
+/// Reverse lookup for DO_SET_MODE; names are matched case-insensitively.
+pub fn mode_number(kind: VehicleKind, name: &str) -> Option<u32> {
+    let table = match kind {
+        VehicleKind::Copter => COPTER,
+        VehicleKind::Rover => ROVER,
+        VehicleKind::Plane => PLANE,
+        VehicleKind::Other => &[],
+    };
+    table
+        .iter()
+        .find(|(_, n)| n.eq_ignore_ascii_case(name))
+        .map(|(num, _)| *num)
+}
+
 pub fn vehicle_kind(mavtype: MavType) -> VehicleKind {
     const COPTERS: &[MavType] = &[
         MavType::MAV_TYPE_QUADROTOR,
@@ -136,6 +150,14 @@ mod tests {
         assert_eq!(mode_name(VehicleKind::Rover, 10), "AUTO");
         assert_eq!(mode_name(VehicleKind::Rover, 4), "HOLD");
         assert_eq!(mode_name(VehicleKind::Plane, 11), "RTL");
+    }
+
+    #[test]
+    fn mode_number_round_trips() {
+        assert_eq!(mode_number(VehicleKind::Copter, "rtl"), Some(6));
+        assert_eq!(mode_number(VehicleKind::Rover, "HOLD"), Some(4));
+        assert_eq!(mode_number(VehicleKind::Copter, "WARP"), None);
+        assert_eq!(mode_number(VehicleKind::Other, "AUTO"), None);
     }
 
     #[test]
