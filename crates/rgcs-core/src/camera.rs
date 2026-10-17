@@ -327,14 +327,13 @@ pub struct CameraProfile {
     pub auto_record: bool,
 }
 
-/// The RTSP host must be the camera itself: `{host}` or its literal address. Anything else
-/// would let a profile edit turn the reachability probe into a scanner of other hosts.
-fn rtsp_targets_camera(rtsp_url: &str, host: &str) -> bool {
-    let rest = rtsp_url.trim_start_matches("rtsp://");
-    let authority = rest.split('/').next().unwrap_or("");
-    let authority = authority.rsplit('@').next().unwrap_or(authority);
-    let rtsp_host = authority.split(':').next().unwrap_or("");
-    rtsp_host == "{host}" || rtsp_host == host
+/// The RTSP host must be the camera itself. Parsed with the same `url` parser the probe uses
+/// (no hand-rolled authority splitting), with userinfo refused outright.
+fn rtsp_targets_camera(resolved_url: &str, host: &str) -> bool {
+    let Ok(u) = url::Url::parse(resolved_url) else {
+        return false;
+    };
+    u.scheme() == "rtsp" && u.username().is_empty() && u.password().is_none() && u.host_str() == Some(host)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -390,7 +389,7 @@ impl CameraProfile {
         if !self.rtsp_url.starts_with("rtsp://") {
             return err("rtsp_url", "must start with rtsp://");
         }
-        if !rtsp_targets_camera(&self.rtsp_url, &self.host) {
+        if !rtsp_targets_camera(&self.rtsp_url_resolved(), &self.host) {
             return err("rtsp_url", "host must be {host} or the camera's address");
         }
         if self.comp_id == 0 {
@@ -520,6 +519,22 @@ mod tests {
             ..ok.clone()
         };
         assert_eq!(named.validate().unwrap_err().field, "rtsp_url");
+        // Same parser as the probe: userinfo tricks and odd authorities are rejected, not misread.
+        let userinfo = CameraProfile {
+            rtsp_url: "rtsp://192.168.144.25@10.0.0.9:8554/v".into(),
+            ..ok.clone()
+        };
+        assert_eq!(userinfo.validate().unwrap_err().field, "rtsp_url");
+        let creds = CameraProfile {
+            rtsp_url: "rtsp://user:pw@192.168.144.25:8554/v".into(),
+            ..ok.clone()
+        };
+        assert_eq!(creds.validate().unwrap_err().field, "rtsp_url");
+        let spaced = CameraProfile {
+            rtsp_url: "rtsp://192.168.144.25 :8554/v".into(),
+            ..ok.clone()
+        };
+        assert_eq!(spaced.validate().unwrap_err().field, "rtsp_url");
     }
 
     #[test]

@@ -59,9 +59,12 @@ impl Gate {
             };
             return (self.clone(), vec![Action::Reply(reply)]);
         }
-        if self
-            .last_rate_ms
-            .is_some_and(|t| now_ms.saturating_sub(t) < MIN_RATE_INTERVAL_MS)
+        // A stop (0,0) is a safety frame: it is never rate-limited away.
+        let stop = yaw == 0 && pitch == 0;
+        if !stop
+            && self
+                .last_rate_ms
+                .is_some_and(|t| now_ms.saturating_sub(t) < MIN_RATE_INTERVAL_MS)
         {
             return (self.clone(), Vec::new());
         }
@@ -178,6 +181,19 @@ mod tests {
         let (_, a3) = g.on_gimbal_rate(1, 30, 0, 1_040);
         assert_eq!(forward(&a3), vec![(1, 30, 0)], "40 ms later: forwarded");
         assert_eq!(MIN_RATE_INTERVAL_MS, 40);
+    }
+
+    #[test]
+    fn a_stop_frame_is_never_dropped_by_the_rate_limit() {
+        let (g, _) = Gate::default().on_gimbal_rate(1, 40, 40, 1_000);
+        let (g, a) = g.on_gimbal_rate(1, 0, 0, 1_010);
+        assert_eq!(
+            forward(&a),
+            vec![(1, 0, 0)],
+            "stopping must not wait for the interval"
+        );
+        let (_, a) = g.on_gimbal_rate(1, 0, 0, 1_020);
+        assert_eq!(forward(&a), vec![(1, 0, 0)]);
     }
 
     #[test]
