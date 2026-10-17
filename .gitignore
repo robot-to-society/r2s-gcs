@@ -5,3 +5,5 @@ target/
 dist/
 .dev/
 .superpowers/
+test-results/
+playwright-report/
