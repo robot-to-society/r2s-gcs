@@ -17,6 +17,8 @@ interface Props {
   readonly target: LatLon | null
   readonly onDragStart: () => void
   readonly onClick: (p: LatLon) => void
+  /** False for the audience mini-map: no controls, no pan/zoom. */
+  readonly interactive?: boolean
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -27,7 +29,7 @@ const ARROW_OFFSET: [number, number] = [-17, 0]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -40,9 +42,11 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
 
   useEffect(() => {
     if (!container.current) return
-    const m = new maplibregl.Map({ container: container.current, style, center: HOME, zoom: 14, attributionControl: { compact: true } })
-    m.addControl(new maplibregl.NavigationControl({ showZoom: false, visualizePitch: false }), 'top-right')
-    m.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right')
+    const m = new maplibregl.Map({ container: container.current, style, center: HOME, zoom: 14, attributionControl: { compact: true }, interactive })
+    if (interactive) {
+      m.addControl(new maplibregl.NavigationControl({ showZoom: false, visualizePitch: false }), 'top-right')
+      m.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right')
+    }
     m.on('load', () => {
       m.addSource(TRACKS, { type: 'geojson', data: EMPTY })
       m.addLayer({

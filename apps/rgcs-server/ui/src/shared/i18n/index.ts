@@ -116,6 +116,18 @@ const ja = {
   axisFunction: '軸 {n} の機能',
   buttonFunction: 'ボタン {n} の機能',
   centerGimbal: 'ジンバルをセンター',
+  presentTitle: '観客用画面',
+  presentLabel: 'ラベル',
+  presentCreate: 'リンクを発行',
+  presentLogo: 'ロゴ画像',
+  presentInvalid: '無効なリンクです',
+  copy: 'コピー',
+  revoke: '無効化',
+  revoked: '無効',
+  active: '有効',
+  logoSet: 'ロゴ: 設定済み',
+  logoUnset: 'ロゴ: 未設定',
+  logoRemove: 'ロゴを削除',
 } as const
 
 const en: Record<keyof typeof ja, string> = {
@@ -234,6 +246,18 @@ const en: Record<keyof typeof ja, string> = {
   axisFunction: 'Axis {n} function',
   buttonFunction: 'Button {n} function',
   centerGimbal: 'Center gimbal',
+  presentTitle: 'Audience view',
+  presentLabel: 'Label',
+  presentCreate: 'Create link',
+  presentLogo: 'Logo image',
+  presentInvalid: 'This link is not valid',
+  copy: 'Copy',
+  revoke: 'Revoke',
+  revoked: 'revoked',
+  active: 'active',
+  logoSet: 'Logo: set',
+  logoUnset: 'Logo: not set',
+  logoRemove: 'Remove logo',
 }
 
 export type Dict = Record<keyof typeof ja, string>

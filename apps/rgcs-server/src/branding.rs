@@ -92,12 +92,29 @@ pub async fn delete_logo(State(app): State<AppState>, AdminUser(op): AdminUser) 
 /// Served to the audience page; `no-store` so a replaced logo shows immediately.
 pub fn logo_response(data_dir: &Path) -> Response {
     match find_logo(data_dir).and_then(|(p, ct)| std::fs::read(p).ok().map(|b| (b, ct))) {
-        Some((bytes, ct)) => (
-            StatusCode::OK,
-            [(header::CONTENT_TYPE, ct), (header::CACHE_CONTROL, "no-store")],
-            bytes,
-        )
-            .into_response(),
+        Some((bytes, ct)) => {
+            let ext = if ct == "image/svg+xml" { "svg" } else { "png" };
+            // A logo is an <img> on the audience page; opened directly it must not be able to
+            // run script in this origin (SVG can carry <script>), hence CSP + sandbox + nosniff.
+            (
+                StatusCode::OK,
+                [
+                    (header::CONTENT_TYPE, ct.to_string()),
+                    (header::CACHE_CONTROL, "no-store".to_string()),
+                    (header::X_CONTENT_TYPE_OPTIONS, "nosniff".to_string()),
+                    (
+                        header::CONTENT_SECURITY_POLICY,
+                        "default-src 'none'; style-src 'unsafe-inline'; sandbox".to_string(),
+                    ),
+                    (
+                        header::CONTENT_DISPOSITION,
+                        format!("inline; filename=logo.{ext}"),
+                    ),
+                ],
+                bytes,
+            )
+                .into_response()
+        }
         None => err(StatusCode::NOT_FOUND, "not_found", "no logo"),
     }
 }

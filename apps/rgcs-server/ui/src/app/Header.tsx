@@ -15,6 +15,7 @@ interface Props {
   readonly view: View
   readonly onView: (view: View) => void
   readonly onLogout: () => void
+  readonly onPresent?: () => void
 }
 
 const Icon = ({ d, extra }: { d: string; extra?: React.ReactNode }) => (
@@ -24,7 +25,7 @@ const Icon = ({ d, extra }: { d: string; extra?: React.ReactNode }) => (
   </svg>
 )
 
-export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout }: Props) {
+export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout, onPresent }: Props) {
   const [menu, setMenu] = useState(false)
   const copters = vehicles.filter((v) => v.kind === 'copter').length
   const rovers = vehicles.filter((v) => v.kind === 'rover').length
@@ -57,7 +58,18 @@ export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout
         {me.username}
       </button>
       <span className="num t2 header-clock">{clock}</span>
-      {menu && <UserPopover me={me} dict={dict} onLogout={onLogout} onClose={() => setMenu(false)} />}
+      {menu && (
+        <UserPopover
+          me={me}
+          dict={dict}
+          onLogout={onLogout}
+          onClose={() => setMenu(false)}
+          onPresent={onPresent && (() => {
+            setMenu(false)
+            onPresent()
+          })}
+        />
+      )}
     </header>
   )
 }

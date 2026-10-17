@@ -151,6 +151,16 @@ async fn logo_upload_limits_and_serves() {
     assert_eq!(res.status(), StatusCode::OK);
     assert_eq!(res.headers()[header::CONTENT_TYPE], "image/svg+xml");
     assert_eq!(res.headers()[header::CACHE_CONTROL], "no-store");
+    // An uploaded SVG must never run script in our origin when opened directly.
+    assert_eq!(res.headers()["x-content-type-options"], "nosniff");
+    assert_eq!(
+        res.headers()[header::CONTENT_SECURITY_POLICY],
+        "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+    );
+    assert_eq!(
+        res.headers()[header::CONTENT_DISPOSITION],
+        "inline; filename=logo.svg"
+    );
     let bytes = res.into_body().collect().await.unwrap().to_bytes();
     assert_eq!(&bytes[..], &svg[..]);
 

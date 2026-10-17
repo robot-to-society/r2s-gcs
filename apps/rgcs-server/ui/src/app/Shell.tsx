@@ -3,6 +3,7 @@ import { authStore } from '../features/auth/store'
 import { CommandsSheet, ConfirmDialog, runCommand, type RunResult } from '../features/commands'
 import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
+import { PresentSettings } from '../features/present-settings'
 import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../features/detail'
 import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
@@ -131,6 +132,7 @@ export function Shell({ me, lang }: Props) {
           view={view}
           onView={setView}
           onLogout={() => void authStore.logout()}
+          onPresent={() => setModal({ kind: 'present-settings' })}
         />
         <main className={`stage${detail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}`} style={{ position: 'absolute', inset: 0 }}>
           {settings && (
@@ -213,6 +215,9 @@ export function Shell({ me, lang }: Props) {
               onCenter={() => cameraCommand(modal.sysid, { cmd: 'gimbal_center', args: { mode: 'one_key_reset' } })}
               onSave={(camera, input) => void saveSettings(modal.sysid, camera, input)}
             />
+          )}
+          {modal.kind === 'present-settings' && (
+            <PresentSettings isAdmin={me.role === 'admin'} logo={false} dict={dict} onClose={() => setModal(NO_MODAL)} />
           )}
           {modal.kind === 'confirm' && (
             <ConfirmDialog
