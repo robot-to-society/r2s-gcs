@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { WsClient, defaultWsUrl } from '../../shared/ws/client'
-import { initialState, reduce, setLink, type VehiclesState } from './reducer'
+import type { CommandResult } from '../../shared/api/types'
+import { addResult, initialState, reduce, setLink, type VehiclesState } from './reducer'
 
 type Listener = () => void
 
@@ -35,6 +36,12 @@ export class VehicleStore {
     this.client?.stop()
     this.client = null
     this.set(setLink(this.state, 'closed'))
+  }
+
+  /** A result that never went through the server (e.g. 503 on send); negative ids by convention. */
+  pushLocalResult(r: CommandResult): void {
+    const results = addResult(this.state.results, r)
+    if (results !== this.state.results) this.set({ ...this.state, results })
   }
 
   private set(next: VehiclesState): void {

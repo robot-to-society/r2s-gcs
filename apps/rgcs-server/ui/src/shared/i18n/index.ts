@@ -43,6 +43,19 @@ const ja = {
   cmd_mission_resume: 'ミッション再開',
   cmd_other: 'その他',
   cmd_guided: 'Guided 移動',
+  cmd_camera: 'カメラ・ジンバル',
+  allCommands: '全コマンド',
+  searchCommands: 'コマンドを検索',
+  groupFlight: '飛行',
+  groupMove: '移動',
+  groupMode: 'モード・ミッション',
+  groupPayload: '機体・ペイロード',
+  altInput: '高度 (m)',
+  speedInput: '速度 (m/s)',
+  confirmTitle: '確認',
+  execute: '実行',
+  cancel: 'キャンセル',
+  close: '閉じる',
 } as const
 
 const en: Record<keyof typeof ja, string> = {
@@ -88,6 +101,19 @@ const en: Record<keyof typeof ja, string> = {
   cmd_mission_resume: 'Resume mission',
   cmd_other: 'Other',
   cmd_guided: 'Guided move',
+  cmd_camera: 'Camera & gimbal',
+  allCommands: 'All commands',
+  searchCommands: 'Search commands',
+  groupFlight: 'Flight',
+  groupMove: 'Move',
+  groupMode: 'Mode & mission',
+  groupPayload: 'Vehicle & payload',
+  altInput: 'Altitude (m)',
+  speedInput: 'Speed (m/s)',
+  confirmTitle: 'Confirm',
+  execute: 'Execute',
+  cancel: 'Cancel',
+  close: 'Close',
 }
 
 export type Dict = Record<keyof typeof ja, string>

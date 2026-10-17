@@ -204,3 +204,70 @@
 .grow {
   flex: 1;
 }
+
+/* ---- commands sheet + confirm dialog (spec 10 §3.5) ---- */
+.sheet {
+  position: absolute;
+  right: var(--gap);
+  top: var(--top);
+  bottom: var(--gap);
+  width: 380px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.sheet-body {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+.cmd-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cmd-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+}
+.cmd-row > .cmd-btn:only-child {
+  grid-column: 1 / -1;
+}
+.cmd-row .rg-num,
+.cmd-row .rg-sel {
+  width: 130px;
+}
+.commands-launch {
+  z-index: 3;
+}
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.confirm {
+  width: 380px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.confirm-cmd {
+  font-size: 17px;
+  font-weight: 500;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

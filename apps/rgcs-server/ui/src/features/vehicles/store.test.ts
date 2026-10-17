@@ -52,3 +52,14 @@ describe('VehicleStore', () => {
     store.disconnect()
   })
 })
+
+describe('local results', () => {
+  it('pushLocalResult adds a synthetic result once', async () => {
+    const { VehicleStore } = await import('./store')
+    const s = new VehicleStore()
+    const r = { id: -1, sysid: 1, cmd: 'pause', ok: false, reason: 'link_lost', ts: 1 }
+    s.pushLocalResult(r)
+    s.pushLocalResult(r)
+    expect(s.getState().results).toEqual([r])
+  })
+})
