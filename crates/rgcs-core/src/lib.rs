@@ -5,6 +5,7 @@
 
 pub mod camera;
 pub mod command;
+pub mod mission;
 pub mod operator;
 pub mod vehicle;
 pub mod ws;
@@ -16,6 +17,10 @@ pub use camera::{
     VideoSourceStatus, ZoomCaps,
 };
 pub use command::{CommandResult, VehicleCommand};
+pub use mission::{
+    demo20, haversine_m, FenceInfo, Finding, FindingLevel, Home, Mission, MissionFrame, MissionItem,
+    MissionProgress, MissionStats, MissionSummaryRow,
+};
 pub use operator::Operator;
 pub use vehicle::{
     diff, Battery, Gps, LinkStatus, SysId, VehicleKind, VehicleState, VehicleStateDiff, VehicleSummary,

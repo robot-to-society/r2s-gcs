@@ -5,6 +5,7 @@ use ts_rs::TS;
 
 use crate::camera::{CameraCaps, CameraSnapshot, CameraState, Deadman, VideoSourceStatus};
 use crate::command::CommandResult;
+use crate::mission::MissionProgress;
 use crate::vehicle::{SysId, VehicleState, VehicleStateDiff};
 
 /// A STATUSTEXT or a link event shown in the vehicle's message list.
@@ -51,6 +52,11 @@ pub enum ServerMessage {
     },
     InputState {
         deadman: Deadman,
+    },
+    /// `MISSION_CURRENT` of a vehicle (on change + 1 Hz re-send).
+    MissionProgress {
+        sysid: SysId,
+        progress: MissionProgress,
     },
     Telemetry {
         sysid: SysId,
@@ -133,6 +139,22 @@ mod tests {
         let json = serde_json::to_value(&snap).unwrap();
         assert_eq!(json["video_sources"][0]["sysid"], 1);
         assert_eq!(json["video_sources"][0]["status"]["source"], "none");
+    }
+
+    #[test]
+    fn mission_progress_frame_shape() {
+        let f = ServerMessage::MissionProgress {
+            sysid: 1,
+            progress: crate::MissionProgress {
+                seq: 3,
+                total: Some(21),
+            },
+        };
+        let json = serde_json::to_value(&f).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({"t":"mission_progress","sysid":1,"progress":{"seq":3,"total":21}})
+        );
     }
 
     #[test]
