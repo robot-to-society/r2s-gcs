@@ -1,0 +1,239 @@
+//! The gate: one per WebSocket session.
+
+use rgcs_core::{Deadman, ServerMessage, SysId};
+
+/// 25 Hz ceiling: frames closer than this to the previous accepted one are dropped.
+pub const MIN_RATE_INTERVAL_MS: u64 = 40;
+/// Heartbeat silence after which the gimbal is stopped (spec 70 §2).
+pub const DEADMAN_MS: u64 = 1_500;
+const RATE_LIMIT: i16 = 100;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Action {
+    Forward { sysid: SysId, yaw: i8, pitch: i8 },
+    Zero { sysid: SysId },
+    Reply(ServerMessage),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Gate {
+    target: Option<SysId>,
+    last_rate_ms: Option<u64>,
+    last_hb_ms: Option<u64>,
+    deadman: Deadman,
+}
+
+impl Default for Gate {
+    fn default() -> Self {
+        Self {
+            target: None,
+            last_rate_ms: None,
+            last_hb_ms: None,
+            deadman: Deadman::Ok,
+        }
+    }
+}
+
+impl Gate {
+    /// Switches the target, zeroing the previous one; revives the deadman on any liveness.
+    fn retarget(&self, sysid: SysId, now_ms: u64, actions: &mut Vec<Action>) -> Self {
+        if let Some(prev) = self.target.filter(|p| *p != sysid) {
+            actions.push(Action::Zero { sysid: prev });
+        }
+        if self.deadman == Deadman::Lost {
+            actions.push(Action::Reply(ServerMessage::InputState { deadman: Deadman::Ok }));
+        }
+        Self {
+            target: Some(sysid),
+            last_hb_ms: Some(now_ms),
+            deadman: Deadman::Ok,
+            ..self.clone()
+        }
+    }
+
+    pub fn on_gimbal_rate(&self, sysid: SysId, yaw: i16, pitch: i16, now_ms: u64) -> (Self, Vec<Action>) {
+        if yaw.abs() > RATE_LIMIT || pitch.abs() > RATE_LIMIT {
+            let reply = ServerMessage::Error {
+                code: "validation".into(),
+                message: "gimbal_rate values must be within -100..100".into(),
+            };
+            return (self.clone(), vec![Action::Reply(reply)]);
+        }
+        if self
+            .last_rate_ms
+            .is_some_and(|t| now_ms.saturating_sub(t) < MIN_RATE_INTERVAL_MS)
+        {
+            return (self.clone(), Vec::new());
+        }
+        let mut actions = Vec::new();
+        let next = self.retarget(sysid, now_ms, &mut actions);
+        actions.push(Action::Forward {
+            sysid,
+            yaw: yaw as i8,
+            pitch: pitch as i8,
+        });
+        (
+            Self {
+                last_rate_ms: Some(now_ms),
+                ..next
+            },
+            actions,
+        )
+    }
+
+    pub fn on_hb(&self, sysid: SysId, now_ms: u64) -> (Self, Vec<Action>) {
+        let mut actions = Vec::new();
+        let next = self.retarget(sysid, now_ms, &mut actions);
+        (next, actions)
+    }
+
+    pub fn on_select(&self, sysid: SysId, now_ms: u64) -> (Self, Vec<Action>) {
+        let mut actions = Vec::new();
+        let next = self.retarget(sysid, now_ms, &mut actions);
+        (next, actions)
+    }
+
+    /// Called ~2× per second: a silent heartbeat stops the gimbal once and reports `lost`.
+    pub fn tick(&self, now_ms: u64) -> (Self, Vec<Action>) {
+        let silent = self
+            .last_hb_ms
+            .is_some_and(|t| now_ms.saturating_sub(t) >= DEADMAN_MS);
+        match (self.deadman, self.target, silent) {
+            (Deadman::Ok, Some(sysid), true) => (
+                Self {
+                    deadman: Deadman::Lost,
+                    ..self.clone()
+                },
+                vec![
+                    Action::Zero { sysid },
+                    Action::Reply(ServerMessage::InputState {
+                        deadman: Deadman::Lost,
+                    }),
+                ],
+            ),
+            _ => (self.clone(), Vec::new()),
+        }
+    }
+
+    /// The session ended: never leave a gimbal turning.
+    pub fn close(&self) -> Vec<Action> {
+        self.target
+            .map(|sysid| Action::Zero { sysid })
+            .into_iter()
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rgcs_core::{Deadman, ServerMessage};
+
+    fn forward(actions: &[Action]) -> Vec<(u8, i8, i8)> {
+        actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Forward { sysid, yaw, pitch } => Some((*sysid, *yaw, *pitch)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn zeros(actions: &[Action]) -> Vec<u8> {
+        actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Zero { sysid } => Some(*sysid),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn replies(actions: &[Action]) -> Vec<ServerMessage> {
+        actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Reply(m) => Some(m.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn out_of_range_is_rejected_with_validation_error() {
+        let (g, actions) = Gate::default().on_gimbal_rate(1, 200, 0, 1_000);
+        assert!(forward(&actions).is_empty());
+        assert!(
+            matches!(&replies(&actions)[..], [ServerMessage::Error { code, .. }] if code == "validation")
+        );
+        assert_eq!(g, Gate::default(), "a rejected frame changes nothing");
+    }
+
+    #[test]
+    fn frames_faster_than_25hz_are_dropped() {
+        let (g, a1) = Gate::default().on_gimbal_rate(1, 10, 0, 1_000);
+        assert_eq!(forward(&a1), vec![(1, 10, 0)]);
+        let (g, a2) = g.on_gimbal_rate(1, 20, 0, 1_030);
+        assert!(forward(&a2).is_empty(), "30 ms later: dropped");
+        let (_, a3) = g.on_gimbal_rate(1, 30, 0, 1_040);
+        assert_eq!(forward(&a3), vec![(1, 30, 0)], "40 ms later: forwarded");
+        assert_eq!(MIN_RATE_INTERVAL_MS, 40);
+    }
+
+    #[test]
+    fn hb_silence_sends_zero_once_and_reports_lost_then_ok_on_next_hb() {
+        let (g, _) = Gate::default().on_hb(1, 0);
+        let (g, a) = g.tick(1_499);
+        assert!(a.is_empty());
+        let (g, a) = g.tick(1_500);
+        assert_eq!(zeros(&a), vec![1]);
+        assert!(matches!(
+            &replies(&a)[..],
+            [ServerMessage::InputState {
+                deadman: Deadman::Lost
+            }]
+        ));
+        let (g, a) = g.tick(2_000);
+        assert!(a.is_empty(), "lost is reported once");
+        let (g, a) = g.on_hb(1, 2_100);
+        assert!(matches!(
+            &replies(&a)[..],
+            [ServerMessage::InputState { deadman: Deadman::Ok }]
+        ));
+        let (_, a) = g.tick(2_200);
+        assert!(a.is_empty());
+        assert_eq!(DEADMAN_MS, 1_500);
+    }
+
+    #[test]
+    fn a_rate_frame_counts_as_liveness() {
+        let (g, _) = Gate::default().on_gimbal_rate(1, 5, 5, 0);
+        let (g, a) = g.tick(1_400);
+        assert!(a.is_empty());
+        let (_, a) = g.tick(1_500);
+        assert_eq!(zeros(&a), vec![1]);
+    }
+
+    #[test]
+    fn select_sends_zero_to_the_previous_target() {
+        let (g, _) = Gate::default().on_gimbal_rate(1, 5, 5, 0);
+        let (g, a) = g.on_select(2, 100);
+        assert_eq!(zeros(&a), vec![1]);
+        let (g, a) = g.on_select(2, 200);
+        assert!(a.is_empty(), "same target: nothing to zero");
+        let (_, a) = g.on_gimbal_rate(3, 1, 1, 300);
+        assert_eq!(
+            zeros(&a),
+            vec![2],
+            "a rate for another vehicle also zeroes the old one"
+        );
+        assert_eq!(forward(&a), vec![(3, 1, 1)]);
+    }
+
+    #[test]
+    fn close_zeroes_the_current_target() {
+        let (g, _) = Gate::default().on_hb(4, 0);
+        assert_eq!(zeros(&g.close()), vec![4]);
+        assert!(Gate::default().close().is_empty());
+    }
+}

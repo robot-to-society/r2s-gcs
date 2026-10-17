@@ -327,6 +327,16 @@ pub struct CameraProfile {
     pub auto_record: bool,
 }
 
+/// The RTSP host must be the camera itself: `{host}` or its literal address. Anything else
+/// would let a profile edit turn the reachability probe into a scanner of other hosts.
+fn rtsp_targets_camera(rtsp_url: &str, host: &str) -> bool {
+    let rest = rtsp_url.trim_start_matches("rtsp://");
+    let authority = rest.split('/').next().unwrap_or("");
+    let authority = authority.rsplit('@').next().unwrap_or(authority);
+    let rtsp_host = authority.split(':').next().unwrap_or("");
+    rtsp_host == "{host}" || rtsp_host == host
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProfileError {
     pub field: &'static str,
@@ -379,6 +389,9 @@ impl CameraProfile {
         }
         if !self.rtsp_url.starts_with("rtsp://") {
             return err("rtsp_url", "must start with rtsp://");
+        }
+        if !rtsp_targets_camera(&self.rtsp_url, &self.host) {
+            return err("rtsp_url", "host must be {host} or the camera's address");
         }
         if self.comp_id == 0 {
             return err("comp_id", "must be 1-255");
@@ -491,6 +504,22 @@ mod tests {
         };
         assert_eq!(bad_palette.validate().unwrap_err().field, "thermal_palette");
         assert_eq!(ok.rtsp_url_resolved(), "rtsp://192.168.144.25:8554/video1");
+        // The probe may only ever target the camera itself (no SSRF / port-scan oracle).
+        let other_host = CameraProfile {
+            rtsp_url: "rtsp://10.0.0.9:8554/x".into(),
+            ..ok.clone()
+        };
+        assert_eq!(other_host.validate().unwrap_err().field, "rtsp_url");
+        let same_host = CameraProfile {
+            rtsp_url: "rtsp://192.168.144.25:8554/video1".into(),
+            ..ok.clone()
+        };
+        assert_eq!(same_host.validate(), Ok(()));
+        let named = CameraProfile {
+            rtsp_url: "rtsp://camera.local/video1".into(),
+            ..ok.clone()
+        };
+        assert_eq!(named.validate().unwrap_err().field, "rtsp_url");
     }
 
     #[test]

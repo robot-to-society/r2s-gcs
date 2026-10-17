@@ -1450,6 +1450,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rgcs-input"
+version = "0.1.0"
+dependencies = [
+ "rgcs-core",
+]
+
+[[package]]
 name = "rgcs-mavlink"
 version = "0.1.0"
 dependencies = [
@@ -1474,6 +1481,7 @@ dependencies = [
  "mavlink",
  "rgcs-camera",
  "rgcs-core",
+ "rgcs-input",
  "rgcs-mavlink",
  "rgcs-server",
  "rgcs-store",

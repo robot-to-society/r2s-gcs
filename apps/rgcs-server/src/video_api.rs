@@ -6,6 +6,7 @@ use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use rgcs_core::{SysId, VideoSourceMode};
+use rgcs_store::audit::AuditInput;
 use rgcs_video::WhepError;
 use serde::Deserialize;
 
@@ -55,11 +56,24 @@ pub struct ModeBody {
 
 pub async fn put_source(
     State(app): State<AppState>,
-    AuthUser(_op): AuthUser,
+    AuthUser(op): AuthUser,
     Path(sysid): Path<SysId>,
     Json(body): Json<ModeBody>,
 ) -> Response {
-    match app.video.set_mode(sysid, body.mode).await {
+    let result = app.video.set_mode(sysid, body.mode).await;
+    let entry = AuditInput {
+        operator: &op.username,
+        sysid: Some(sysid),
+        target: "video",
+        command: "source",
+        args: serde_json::to_string(&body.mode).ok(),
+        result: if result.is_ok() { "ok" } else { "failed" },
+        reason: result.as_ref().err().map(|e| e.to_string()),
+    };
+    if let Err(e) = app.store.record_audit(entry).await {
+        tracing::error!(error = %e, "audit write failed");
+    }
+    match result {
         Ok(status) => ok(status),
         Err(e) => err(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string()),
     }

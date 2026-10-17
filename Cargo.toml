@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/rgcs-core", "crates/rgcs-mavlink", "crates/rgcs-store", "crates/rgcs-camera", "crates/rgcs-video", "apps/rgcs-server"]
+members = ["crates/rgcs-core", "crates/rgcs-mavlink", "crates/rgcs-store", "crates/rgcs-camera", "crates/rgcs-video", "crates/rgcs-input", "apps/rgcs-server"]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,6 +14,7 @@ rgcs-mavlink = { path = "crates/rgcs-mavlink" }
 rgcs-store = { path = "crates/rgcs-store" }
 rgcs-camera = { path = "crates/rgcs-camera" }
 rgcs-video = { path = "crates/rgcs-video" }
+rgcs-input = { path = "crates/rgcs-input" }
 reqwest = { version = "0.12", default-features = false }
 url = "2"
 serde = { version = "1.0", features = ["derive"] }

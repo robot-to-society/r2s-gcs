@@ -103,4 +103,11 @@ async fn video_source_endpoint_reports_none_for_an_unconfigured_camera() {
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["data"]["mode"], "mt11");
+    let (_, audit, _) = call(
+        &app,
+        req(Method::GET, "/api/history/audit?limit=1", Some(&cookie), None),
+    )
+    .await;
+    assert_eq!(audit["data"][0]["target"], "video", "{audit}");
+    assert_eq!(audit["data"][0]["command"], "source");
 }
