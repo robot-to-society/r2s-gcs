@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
 import { CommandsSheet, ConfirmDialog, runCommand, type RunResult } from '../features/commands'
-import { EMPTY_PENDING, clearPending, markPending, sendCameraCommand, type PendingState } from '../features/camera'
+import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
+import { CameraSettingsSheet } from '../features/camera-settings'
 import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../features/detail'
-import { buttonCommand, getGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
+import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
-import type { CameraCommand, GimbalInputProfile, Me, VehicleCommand } from '../shared/api/types'
+import type { CameraCommand, CameraProfile, GimbalInputProfile, Me, VehicleCommand } from '../shared/api/types'
 import { t, type Lang } from '../shared/i18n'
 import { Footer } from './Footer'
 import { Header } from './Header'
@@ -83,6 +84,28 @@ export function Shell({ me, lang }: Props) {
       }),
     [],
   )
+  const [settingsProfile, setSettingsProfile] = useState<CameraProfile | null>(null)
+  useEffect(() => {
+    if (modal.kind !== 'camera-settings') return
+    let alive = true
+    getCameraProfile(modal.sysid)
+      .then((p) => alive && setSettingsProfile(p))
+      .catch(() => alive && setSettingsProfile(null))
+    return () => {
+      alive = false
+    }
+  }, [modal])
+  const saveSettings = async (sysid: number, camera: { kind: CameraProfile['kind']; host: string; port: number }, input: GimbalInputProfile) => {
+    try {
+      await putCameraProfile(sysid, camera)
+      const saved = await putGimbalProfile(input)
+      setGimbalProfile(saved)
+      vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'camera_settings', ok: true, reason: null, ts: Date.now() })
+    } catch (e: unknown) {
+      vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'camera_settings', ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
+    }
+    setModal(NO_MODAL)
+  }
   useGimbalJoystick(current, gimbalProfile, (fn) => {
     if (current === null) return
     const cmd = buttonCommand(fn, cameras.get(current)?.state ?? null)
@@ -176,6 +199,19 @@ export function Shell({ me, lang }: Props) {
                 }
                 setModal(NO_MODAL)
               }}
+            />
+          )}
+          {modal.kind === 'camera-settings' && settingsProfile && gimbalProfile && (
+            <CameraSettingsSheet
+              sysid={modal.sysid}
+              profile={settingsProfile}
+              inputProfile={gimbalProfile}
+              cameraState={cameras.get(modal.sysid)?.state}
+              gamepadIds={typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function' ? navigator.getGamepads().flatMap((g) => (g ? [g.id] : [])) : []}
+              dict={dict}
+              onCancel={() => setModal(NO_MODAL)}
+              onCenter={() => cameraCommand(modal.sysid, { cmd: 'gimbal_center', args: { mode: 'one_key_reset' } })}
+              onSave={(camera, input) => void saveSettings(modal.sysid, camera, input)}
             />
           )}
           {modal.kind === 'confirm' && (

@@ -414,3 +414,43 @@
 .cam-status .danger {
   color: var(--danger);
 }
+
+/* ---- camera settings sheet (spec 10 §5) ---- */
+.sheet.settings {
+  width: 440px;
+}
+.settings-tabs {
+  margin: 0 12px 8px;
+}
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings-form .form {
+  align-items: center;
+}
+.settings-form .tbl {
+  width: 100%;
+  font-size: 12px;
+}
+.settings-form .tbl input.rg-num {
+  width: 70px;
+}
+.in.invalid,
+.rg-num.invalid {
+  border-color: var(--danger);
+}
+.settings-issue {
+  font-size: 12px;
+  grid-column: 1 / -1;
+}
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.mono {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+}
