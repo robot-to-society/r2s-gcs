@@ -17,6 +17,7 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
 use crate::confirm::{ConfirmError, ConfirmTokens};
+use crate::settings;
 use crate::{api, auth, commands, ws};
 
 pub const BROADCAST_CAPACITY: usize = 1024;
@@ -31,6 +32,9 @@ pub struct AppState {
     pub queue: mpsc::Sender<QueuedCommand>,
     pub hostname: String,
     pub secure_cookies: bool,
+    /// Map tile source handed to the UI by `GET /api/settings/app`.
+    pub map_tile_url: String,
+    pub map_attribution: String,
     started: Instant,
     lockout: Arc<StdMutex<Lockout>>,
     /// One async mutex per username so check-lockout → verify → record is serialized
@@ -57,12 +61,22 @@ impl AppState {
             queue,
             hostname,
             secure_cookies: false,
+            map_tile_url: crate::config::Config::default().map_tile_url,
+            map_attribution: crate::config::Config::default().map_attribution,
             started: Instant::now(),
             lockout: Arc::new(StdMutex::new(Lockout::default())),
             login_guards: Arc::new(StdMutex::new(HashMap::new())),
             confirm: Arc::new(StdMutex::new(ConfirmTokens::default())),
             next_command: Arc::new(AtomicU64::new(1)),
             dev_mode: Arc::new(AtomicBool::new(dev_mode)),
+        }
+    }
+
+    pub fn with_map(self, tile_url: String, attribution: String) -> Self {
+        Self {
+            map_tile_url: tile_url,
+            map_attribution: attribution,
+            ..self
         }
     }
 
@@ -140,6 +154,7 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
         .route("/vehicles/{sysid}/confirm", post(commands::confirm))
         .route("/vehicles/{sysid}/command", post(commands::command))
         .route("/history/audit", get(api::audit_history))
+        .route("/settings/app", get(settings::app_settings))
         .layer(middleware::from_fn(auth::csrf_guard));
     let app = AxumRouter::new().nest("/api", api).route("/ws", get(ws::handler));
     let app = match ui_dir {

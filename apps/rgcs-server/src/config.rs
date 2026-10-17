@@ -26,6 +26,9 @@ pub struct Config {
     pub ui_dir: Option<PathBuf>,
     /// Interval of the telemetry diff frames in milliseconds.
     pub telemetry_interval_ms: u64,
+    /// Raster tile template for the operations map (`{z}/{x}/{y}`); swap for imagery on site.
+    pub map_tile_url: String,
+    pub map_attribution: String,
 }
 
 impl Default for Config {
@@ -37,6 +40,8 @@ impl Default for Config {
             role: Role::Standalone,
             ui_dir: None,
             telemetry_interval_ms: 100,
+            map_tile_url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png".into(),
+            map_attribution: "© OpenStreetMap contributors".into(),
         }
     }
 }
@@ -81,6 +86,19 @@ mod tests {
         assert_eq!(c.role, Role::Edge);
         assert_eq!(c.ui_dir.as_deref(), Some(Path::new("/opt/rgcs/ui")));
         assert_eq!(c.telemetry_interval_ms, 100);
+    }
+
+    #[test]
+    fn map_tiles_default_to_osm_and_can_be_overridden() {
+        let d = Config::default();
+        assert_eq!(d.map_tile_url, "https://tile.openstreetmap.org/{z}/{x}/{y}.png");
+        assert_eq!(d.map_attribution, "© OpenStreetMap contributors");
+        let c = Config::parse(
+            "map_tile_url = 'https://tiles.example/{z}/{x}/{y}.jpg'\nmap_attribution = 'Example'",
+        )
+        .unwrap();
+        assert_eq!(c.map_tile_url, "https://tiles.example/{z}/{x}/{y}.jpg");
+        assert_eq!(c.map_attribution, "Example");
     }
 
     #[test]

@@ -7,6 +7,8 @@ interface Props {
   readonly selected: boolean
   readonly dict: Dict
   readonly onSelect: (sysid: number) => void
+  readonly onFollow?: (sysid: number) => void
+  readonly following?: boolean
 }
 
 function KindIcon({ kind }: { readonly kind: VehicleState['kind'] }) {
@@ -33,7 +35,7 @@ function dotClass(v: VehicleState): string {
   return v.kind === 'copter' ? 'dot copter' : 'dot'
 }
 
-export function VehicleRow({ vehicle: v, selected, dict, onSelect }: Props) {
+export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, following = false }: Props) {
   return (
     <div
       className={selected ? 'vrow sel' : 'vrow'}
@@ -55,6 +57,23 @@ export function VehicleRow({ vehicle: v, selected, dict, onSelect }: Props) {
           <span style={{ width: battWidth(v) }} />
         </span>
         <span className="num">{battText(v)}</span>
+        {onFollow && (
+          <button
+            type="button"
+            className={following ? 'btn-icon sm on' : 'btn-icon sm'}
+            aria-label={dict.follow}
+            aria-pressed={following}
+            onClick={(e) => {
+              e.stopPropagation()
+              onFollow(v.sysid)
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="7" />
+              <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="stat num" style={{ gridColumn: 2 }}>
         <span>▲ {altText(v)}</span>

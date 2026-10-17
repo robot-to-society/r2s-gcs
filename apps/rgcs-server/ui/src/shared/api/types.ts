@@ -1,4 +1,5 @@
 // Re-exports of the ts-rs generated bindings (`cargo test -p rgcs-core` regenerates them).
+export type { AppSettings } from './generated/AppSettings'
 export type { Battery } from './generated/Battery'
 export type { ClientMessage } from './generated/ClientMessage'
 export type { CommandResult } from './generated/CommandResult'

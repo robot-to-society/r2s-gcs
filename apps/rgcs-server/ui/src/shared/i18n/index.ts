@@ -56,6 +56,9 @@ const ja = {
   execute: '実行',
   cancel: 'キャンセル',
   close: '閉じる',
+  follow: '追従',
+  following: '追従中',
+  unfollow: '追従を解除',
 } as const
 
 const en: Record<keyof typeof ja, string> = {
@@ -114,6 +117,9 @@ const en: Record<keyof typeof ja, string> = {
   execute: 'Execute',
   cancel: 'Cancel',
   close: 'Close',
+  follow: 'Follow',
+  following: 'Following',
+  unfollow: 'Stop following',
 }
 
 export type Dict = Record<keyof typeof ja, string>

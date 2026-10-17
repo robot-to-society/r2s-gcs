@@ -9,9 +9,11 @@ interface Props {
   readonly selected: number | null
   readonly dict: Dict
   readonly onSelect: (sysid: number) => void
+  readonly onFollow?: (sysid: number) => void
+  readonly following?: number | null
 }
 
-export function VehicleList({ vehicles, selected, dict, onSelect }: Props) {
+export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, following = null }: Props) {
   const [query, setQuery] = useState('')
   const shown = vehicles.filter((v) => matches(v, query, dict))
   return (
@@ -34,7 +36,7 @@ export function VehicleList({ vehicles, selected, dict, onSelect }: Props) {
       <div className="vlist-body" role="listbox">
         {shown.length === 0 && <div className="empty">{dict.noVehicles}</div>}
         {shown.map((v) => (
-          <VehicleRow key={v.sysid} vehicle={v} selected={v.sysid === selected} dict={dict} onSelect={onSelect} />
+          <VehicleRow key={v.sysid} vehicle={v} selected={v.sysid === selected} dict={dict} onSelect={onSelect} onFollow={onFollow} following={following === v.sysid} />
         ))}
       </div>
     </aside>

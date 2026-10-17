@@ -43,3 +43,14 @@ describe('VehicleList', () => {
     expect(screen.getByText('Vehicles appear here once they connect')).toBeInTheDocument()
   })
 })
+
+describe('VehicleList follow button', () => {
+  it('calls onFollow with the sysid without selecting the row', () => {
+    const onSelect = vi.fn()
+    const onFollow = vi.fn()
+    render(<VehicleList vehicles={[mk(1, 'UAV-01', 'AUTO')]} selected={null} dict={t('ja')} onSelect={onSelect} onFollow={onFollow} following={null} />)
+    fireEvent.click(screen.getByRole('button', { name: '追従' }))
+    expect(onFollow).toHaveBeenCalledWith(1)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+})

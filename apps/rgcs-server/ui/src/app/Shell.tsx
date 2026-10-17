@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { authStore } from '../features/auth/store'
 import { CommandsSheet, ConfirmDialog, runCommand, type RunResult } from '../features/commands'
+import { FollowChip, MapView, clearFollow, mapUiStore, padding, rasterStyle, setFollow, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
+import { useAppSettings } from '../shared/api/settings'
 import type { Me, VehicleCommand } from '../shared/api/types'
 import { t, type Lang } from '../shared/i18n'
 import { Footer } from './Footer'
@@ -37,7 +39,11 @@ export function Shell({ me, lang }: Props) {
   const [selected, setSelected] = useState<number | null>(null)
   const [view, setView] = useState<View>('ops')
   const [modal, setModal] = useState<Modal>(NO_MODAL)
+  const tracks = useTracks()
+  const mapUi = useMapUi()
+  const settings = useAppSettings()
   const clock = useClock(lang)
+  useEffect(() => vehicleStore.subscribe(() => tracksStore.ingest(vehicleStore.getState().vehicles)), [])
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const current = selected ?? list[0]?.sysid ?? null
   const currentVehicle = current === null ? undefined : vehicles.get(current)
@@ -62,8 +68,31 @@ export function Shell({ me, lang }: Props) {
           onView={setView}
           onLogout={() => void authStore.logout()}
         />
-        <main className="stage noright" style={{ position: 'absolute', inset: 0 }}>
-          <VehicleList vehicles={list} selected={current} dict={dict} onSelect={setSelected} />
+        <main className={`stage noright${mapUi.aside === 'rail' ? ' rail' : ''}`} style={{ position: 'absolute', inset: 0 }}>
+          {settings && (
+            <MapView
+              vehicles={vehicles}
+              tracks={tracks}
+              follow={mapUi.follow}
+              selected={current}
+              padding={padding(mapUi.aside, false)}
+              style={rasterStyle(settings.map_tile_url, settings.map_attribution)}
+              target={mapUi.target}
+              onDragStart={() => mapUiStore.update(clearFollow)}
+              onClick={() => {}}
+            />
+          )}
+          <VehicleList
+            vehicles={list}
+            selected={current}
+            dict={dict}
+            onSelect={setSelected}
+            onFollow={(sysid) => mapUiStore.update((s) => (s.follow === sysid ? clearFollow(s) : setFollow(s, sysid)))}
+            following={mapUi.follow}
+          />
+          {mapUi.follow !== null && (
+            <FollowChip name={vehicles.get(mapUi.follow)?.name ?? `#${mapUi.follow}`} dict={dict} onClear={() => mapUiStore.update(clearFollow)} />
+          )}
           {currentVehicle && modal.kind === 'none' && (
             <button type="button" className="g btn btn-sm float map-r top1 commands-launch" onClick={() => setModal({ kind: 'commands', sysid: currentVehicle.sysid })}>
               {dict.allCommands}

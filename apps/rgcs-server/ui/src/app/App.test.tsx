@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthStore } from '../features/auth/store'
 import { App } from './App'
 
+vi.mock('../features/map/MapView', () => ({ MapView: () => <div data-testid="map" /> }))
+
 class FakeSocket {
   static instances: FakeSocket[] = []
   static get last(): FakeSocket | null {
