@@ -86,7 +86,9 @@ impl AppState {
     pub fn login_guard(&self, user: &str) -> Arc<Mutex<()>> {
         let mut guards = self.login_guards.lock().expect("login guards mutex");
         if guards.len() > MAX_LOGIN_GUARDS && !guards.contains_key(user) {
-            guards.clear();
+            // Drop only guards nobody holds: an in-flight attempt keeps its Arc alive, and a
+            // concurrent attempt for the same user must share that very mutex.
+            guards.retain(|_, m| Arc::strong_count(m) > 1);
         }
         guards.entry(user.to_string()).or_default().clone()
     }
@@ -151,4 +153,32 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
 
 async fn placeholder() -> Html<&'static str> {
     Html("<!doctype html><title>RGCS</title><p>RGCS server is running. Build the UI and set <code>ui_dir</code> in config.toml.")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rgcs_store::Store;
+
+    async fn state() -> AppState {
+        let store = Store::open_memory().await.unwrap();
+        let (tx, _rx) = broadcast::channel(8);
+        let (queue, _queue_rx) = mpsc::channel(1);
+        AppState::new(Arc::new(Mutex::new(Router::default())), tx, store, queue, true)
+    }
+
+    #[tokio::test]
+    async fn login_guard_reset_keeps_guards_that_are_in_flight() {
+        let app = state().await;
+        let alice = app.login_guard("alice");
+        let _held = alice.lock().await;
+        for i in 0..=MAX_LOGIN_GUARDS {
+            app.login_guard(&format!("user{i}"));
+        }
+        // The map was reset while alice's attempt is still running …
+        let again = app.login_guard("alice");
+        // … so a concurrent attempt for alice must get the very same mutex.
+        assert!(Arc::ptr_eq(&alice, &again));
+        assert!(app.login_guards.lock().unwrap().len() <= MAX_LOGIN_GUARDS + 2);
+    }
 }

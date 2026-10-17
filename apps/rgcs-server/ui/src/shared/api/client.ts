@@ -1,0 +1,66 @@
+// Thin fetch wrapper for `/api/*`: CSRF header, same-origin cookies, envelope unwrapping
+// (spec 50 §1, 70 §5). A 401 also notifies the auth layer so the UI drops to the login screen.
+
+export type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+
+export interface ApiInit {
+  readonly method?: ApiMethod
+  readonly body?: unknown
+}
+
+export const CSRF_HEADER = 'X-Requested-With'
+export const CSRF_VALUE = 'rgcs'
+
+export class ApiError extends Error {
+  readonly status: number
+  readonly code: string
+  constructor(status: number, code: string, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.code = code
+  }
+}
+
+type Envelope<T> = { success: true; data: T } | { success: false; error: { code: string; message: string } }
+
+let onUnauthorized: (() => void) | null = null
+
+/** Registered once by the app shell; called before a 401 is thrown. */
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn
+}
+
+export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> {
+  const hasBody = init.body !== undefined
+  const headers: Record<string, string> = { [CSRF_HEADER]: CSRF_VALUE }
+  if (hasBody) headers['content-type'] = 'application/json'
+  let res: Response
+  try {
+    res = await fetch(path, {
+      method: init.method ?? 'GET',
+      credentials: 'same-origin',
+      headers,
+      body: hasBody ? JSON.stringify(init.body) : undefined,
+    })
+  } catch (e) {
+    throw new ApiError(0, 'network', e instanceof Error ? e.message : 'network error')
+  }
+  const envelope = await parseEnvelope<T>(res)
+  if (envelope.success) return envelope.data
+  if (res.status === 401) onUnauthorized?.()
+  throw new ApiError(res.status, envelope.error.code, envelope.error.message)
+}
+
+async function parseEnvelope<T>(res: Response): Promise<Envelope<T>> {
+  try {
+    const parsed: unknown = await res.json()
+    if (typeof parsed === 'object' && parsed !== null && 'success' in parsed) return parsed as Envelope<T>
+  } catch {
+    // fall through: not a JSON envelope
+  }
+  return {
+    success: false,
+    error: { code: res.ok ? 'bad_response' : `http_${res.status}`, message: res.statusText || 'unexpected response' },
+  }
+}

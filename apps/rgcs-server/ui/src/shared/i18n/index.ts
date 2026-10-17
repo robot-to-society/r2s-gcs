@@ -13,6 +13,19 @@ const ja = {
   navMission: 'ミッション',
   navAi: 'AIチャット',
   navSettings: 'メンテナンス・設定',
+  login: 'ログイン',
+  username: 'ユーザー名',
+  password: 'パスワード',
+  loginFailed: 'ユーザー名またはパスワードが違います',
+  loginLocked: 'しばらく待ってから再試行してください',
+  loginNetwork: 'サーバーに接続できません',
+  devBadge: '開発用',
+  devNote: '開発用アカウント admin / admin',
+  connectedTo: '接続先',
+  logout: 'ログアウト',
+  roleOperator: 'オペレータ',
+  roleAdmin: '管理者',
+  auditNote: '操作履歴にはこの名前で記録されます',
 } as const
 
 const en: Record<keyof typeof ja, string> = {
@@ -28,6 +41,19 @@ const en: Record<keyof typeof ja, string> = {
   navMission: 'Mission',
   navAi: 'AI chat',
   navSettings: 'Maintenance & settings',
+  login: 'Sign in',
+  username: 'Username',
+  password: 'Password',
+  loginFailed: 'Wrong username or password',
+  loginLocked: 'Too many attempts, try again shortly',
+  loginNetwork: 'Cannot reach the server',
+  devBadge: 'DEV',
+  devNote: 'Development account admin / admin',
+  connectedTo: 'Server',
+  logout: 'Sign out',
+  roleOperator: 'Operator',
+  roleAdmin: 'Administrator',
+  auditNote: 'Your actions are recorded under this name',
 }
 
 export type Dict = Record<keyof typeof ja, string>

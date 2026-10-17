@@ -94,3 +94,65 @@
   color: var(--text-3);
   font-size: 13px;
 }
+
+/* ---- login (spec 10 §2) ---- */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--base);
+}
+.login {
+  position: relative;
+  z-index: 1;
+  width: 400px;
+  padding: 28px 28px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.login-brand {
+  gap: 10px;
+  align-items: center;
+}
+.login-brand .brand {
+  font-size: 22px;
+  font-weight: 600;
+}
+.login-host {
+  font-size: 12px;
+  margin-top: -6px;
+}
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.login-field .in {
+  width: 100%;
+}
+.login-error {
+  font-size: 13px;
+  min-height: 18px;
+}
+.login-error.danger {
+  color: var(--danger);
+}
+.login-lang {
+  width: 180px;
+  align-self: center;
+}
+.login-note {
+  text-align: center;
+  font-size: 12px;
+}
+.t3 {
+  color: var(--text-3);
+}
+.row {
+  display: flex;
+  align-items: center;
+}

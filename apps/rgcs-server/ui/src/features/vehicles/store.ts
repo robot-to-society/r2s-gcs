@@ -17,12 +17,16 @@ export class VehicleStore {
     return () => this.listeners.delete(listener)
   }
 
-  connect(url: string = defaultWsUrl()): void {
+  /** `onClose` receives the WebSocket close code so the shell can re-check the session. */
+  connect(url: string = defaultWsUrl(), onClose?: (code: number) => void): void {
     if (this.client) return
     this.client = new WsClient(url, {
       onMessage: (msg) => this.set(reduce(this.state, msg)),
       onOpen: () => this.set(setLink(this.state, 'open')),
-      onClose: () => this.set(setLink(this.state, 'closed')),
+      onClose: (code) => {
+        this.set(setLink(this.state, 'closed'))
+        onClose?.(code)
+      },
     })
     this.client.start()
   }

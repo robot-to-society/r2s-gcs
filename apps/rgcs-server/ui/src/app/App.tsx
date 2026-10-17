@@ -1,44 +1,37 @@
-import { useEffect, useState } from 'react'
-import { useVehicles, vehicleStore } from '../features/vehicles/store'
-import { VehicleList } from '../features/vehicles/VehicleList'
-import { t, type Lang } from '../shared/i18n'
-import { Header } from './Header'
+import { useEffect } from 'react'
+import { Login } from '../features/auth/Login'
+import { authStore, useAuth, type AuthStore } from '../features/auth/store'
+import { vehicleStore } from '../features/vehicles/store'
+import { useLang } from '../shared/i18n/lang'
+import { defaultWsUrl } from '../shared/ws/client'
+import { Shell } from './Shell'
 
-function formatClock(d: Date, lang: Lang): string {
-  const p = (n: number) => String(n).padStart(2, '0')
-  const wd = lang === 'ja' ? ['日', '月', '火', '水', '木', '金', '土'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} (${wd[d.getDay()]}) ${p(d.getHours())}:${p(d.getMinutes())}`
+/** Close codes after which the session is re-checked: our own 4401, or an abnormal close
+ *  (1006) which is what the browser reports when the `/ws` upgrade was refused with 401. */
+const RECHECK_SESSION_CODES: ReadonlySet<number> = new Set([4401, 1006])
+
+interface Props {
+  /** Injected by tests; the app uses the singleton. */
+  readonly store?: AuthStore
 }
 
-function useClock(lang: Lang): string {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(id)
-  }, [])
-  return formatClock(now, lang)
-}
+export function App({ store = authStore }: Props) {
+  const auth = useAuth(store)
+  const [lang] = useLang()
 
-export function App() {
-  const lang: Lang = 'ja'
-  const dict = t(lang)
-  const { vehicles, link } = useVehicles()
-  const [selected, setSelected] = useState<number | null>(null)
-  const clock = useClock(lang)
   useEffect(() => {
-    vehicleStore.connect()
+    void store.load()
+  }, [store])
+
+  useEffect(() => {
+    if (auth.status !== 'authed') return
+    vehicleStore.connect(defaultWsUrl(), (code) => {
+      if (RECHECK_SESSION_CODES.has(code)) void store.load()
+    })
     return () => vehicleStore.disconnect()
-  }, [])
-  const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
-  const current = selected ?? list[0]?.sysid ?? null
-  return (
-    <div className="shell">
-      <div className="frame">
-        <Header vehicles={list} link={link} dict={dict} clock={clock} />
-        <main className="stage noright" style={{ position: 'absolute', inset: 0 }}>
-          <VehicleList vehicles={list} selected={current} dict={dict} onSelect={setSelected} />
-        </main>
-      </div>
-    </div>
-  )
+  }, [auth.status, store])
+
+  if (auth.status === 'unknown') return null
+  if (auth.status === 'anon' || auth.me === null) return <Login store={store} />
+  return <Shell me={auth.me} lang={lang} />
 }

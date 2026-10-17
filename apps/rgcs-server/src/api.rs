@@ -38,11 +38,14 @@ pub fn err(status: StatusCode, code: &'static str, message: impl Into<String>) -
     (status, Json(body)).into_response()
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ts_rs::TS)]
+#[ts(export)]
 pub struct Health {
     pub status: &'static str,
     pub hostname: String,
     pub version: &'static str,
+    /// True while the seeded admin/admin account works; the login screen shows a badge.
+    pub dev_mode: bool,
 }
 
 pub async fn health(State(app): State<AppState>) -> Response {
@@ -50,6 +53,7 @@ pub async fn health(State(app): State<AppState>) -> Response {
         status: "ok",
         hostname: app.hostname.clone(),
         version: env!("CARGO_PKG_VERSION"),
+        dev_mode: app.dev_mode(),
     })
 }
 

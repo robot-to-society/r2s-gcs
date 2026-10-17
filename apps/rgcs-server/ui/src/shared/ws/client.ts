@@ -3,7 +3,8 @@ import type { ClientMessage, ServerMessage } from '../api/types'
 export interface WsHandlers {
   readonly onMessage: (msg: ServerMessage) => void
   readonly onOpen?: () => void
-  readonly onClose?: () => void
+  /** Called with the close code (1005 when the browser gives none). */
+  readonly onClose?: (code: number) => void
 }
 
 const RECONNECT_MIN_MS = 500
@@ -87,10 +88,10 @@ export class WsClient {
       const frame = parseFrame(ev.data)
       if (frame) this.handlers.onMessage(frame)
     }
-    socket.onclose = () => {
+    socket.onclose = (ev?: CloseEvent) => {
       if (this.socket !== socket) return
       this.socket = null
-      this.handlers.onClose?.()
+      this.handlers.onClose?.(ev?.code ?? 1005)
       this.scheduleReconnect()
     }
     socket.onerror = () => socket.close()

@@ -24,7 +24,9 @@ pub struct LoginBody {
     pub password: String,
 }
 
-#[derive(Serialize)]
+/// `GET /api/auth/me` and the login reply; exported to TypeScript as `Me`.
+#[derive(Serialize, ts_rs::TS)]
+#[ts(export)]
 pub struct Me {
     pub username: String,
     pub role: rgcs_core::operator::Role,

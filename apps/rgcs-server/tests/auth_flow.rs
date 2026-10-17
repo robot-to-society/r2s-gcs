@@ -127,3 +127,12 @@ async fn concurrent_failures_cannot_bypass_the_lockout() {
     assert_eq!(unauthorized, 5, "{statuses:?}");
     assert_eq!(locked, 5, "{statuses:?}");
 }
+
+#[tokio::test]
+async fn health_is_public_and_reports_dev_mode() {
+    let (app, _) = spawn_app().await;
+    let (status, body, _) = call(&app, req_nocsrf(Method::GET, "/api/health", None)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["data"]["dev_mode"], true, "{body}");
+    assert!(body["data"]["hostname"].is_string());
+}
