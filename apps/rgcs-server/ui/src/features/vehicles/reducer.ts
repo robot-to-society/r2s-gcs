@@ -1,4 +1,4 @@
-import type { CameraSnapshot, CommandResult, Deadman, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CameraSnapshot, CommandResult, Deadman, Mission, MissionProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { applyDiff } from '../../shared/ws/apply'
 
 export type LinkState = 'connecting' | 'open' | 'closed'
@@ -10,6 +10,10 @@ export interface VehiclesState {
   readonly results: readonly CommandResult[]
   readonly cameras: ReadonlyMap<SysId, CameraSnapshot>
   readonly videoSources: ReadonlyMap<SysId, VideoSourceStatus>
+  /** Last `mission_progress` per vehicle. */
+  readonly missionProgress: ReadonlyMap<SysId, MissionProgress>
+  /** The mission each vehicle is known to carry (set after a verified upload or a download). */
+  readonly vehicleMissions: ReadonlyMap<SysId, Mission>
   readonly deadman: Deadman
   readonly link: LinkState
 }
@@ -20,6 +24,8 @@ export const initialState: VehiclesState = {
   results: [],
   cameras: new Map(),
   videoSources: new Map(),
+  missionProgress: new Map(),
+  vehicleMissions: new Map(),
   deadman: 'ok',
   link: 'connecting',
 }
@@ -83,6 +89,13 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
       videoSources.set(msg.sysid, msg.status)
       return { ...state, videoSources }
     }
+    case 'mission_progress': {
+      const prev = state.missionProgress.get(msg.sysid)
+      if (prev && prev.seq === msg.progress.seq && prev.total === msg.progress.total) return state
+      const missionProgress = new Map(state.missionProgress)
+      missionProgress.set(msg.sysid, msg.progress)
+      return { ...state, missionProgress }
+    }
     case 'input_state':
       return state.deadman === msg.deadman ? state : { ...state, deadman: msg.deadman }
     case 'telemetry': {
@@ -112,4 +125,11 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
 
 export function setLink(state: VehiclesState, link: LinkState): VehiclesState {
   return state.link === link ? state : { ...state, link }
+}
+
+/** Local action: remember what the vehicle carries (not a server frame). */
+export function withVehicleMission(state: VehiclesState, sysid: SysId, mission: Mission): VehiclesState {
+  const vehicleMissions = new Map(state.vehicleMissions)
+  vehicleMissions.set(sysid, mission)
+  return { ...state, vehicleMissions }
 }

@@ -7,3 +7,25 @@ export { localWarnings, stats } from './summary'
 export type { LocalWarning } from './summary'
 export { hasPosition, haversineM, isPositional, midpoint, pathGeoJson, positioned, remainingDistanceM } from './geo'
 export type { LatLon, PathProps } from './geo'
+export * from './api'
+export {
+  INITIAL_MISSION_UI,
+  MissionStore,
+  clearSelection,
+  edit,
+  fresh,
+  loaded,
+  markSaved,
+  missionStore,
+  redoUi,
+  removeSelected,
+  selectOne,
+  selectRange,
+  setBusy,
+  setFindings,
+  setReport,
+  setTool,
+  undoUi,
+  useMissionUi,
+} from './store'
+export type { Busy, MissionUi, Tool } from './store'

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
-import { initialState, reduce, setLink } from './reducer'
+import { initialState, reduce, setLink, withVehicleMission } from './reducer'
 
 const uav: VehicleState = {
   sysid: 1,
@@ -100,6 +100,22 @@ describe('camera, video source and input frames', () => {
     expect(s3.cameras.get(9)?.caps.kind).toBe('siyi_mt11')
     const none = { ...caps, kind: 'none' as const }
     expect(reduce(s3, { t: 'camera_state', sysid: 1, caps: none, state: state(1) }).cameras.get(1)?.caps.kind).toBe('none')
+  })
+
+  it('mission_progress_is_stored_per_vehicle', () => {
+    const s1 = reduce(initialState, { t: 'mission_progress', sysid: 1, progress: { seq: 3, total: 21 } })
+    expect(s1.missionProgress.get(1)).toEqual({ seq: 3, total: 21 })
+    expect(reduce(s1, { t: 'mission_progress', sysid: 1, progress: { seq: 3, total: 21 } })).toBe(s1)
+    const s2 = reduce(s1, { t: 'mission_progress', sysid: 2, progress: { seq: 1, total: null } })
+    expect(s2.missionProgress.size).toBe(2)
+    expect(s1.missionProgress.size).toBe(1)
+  })
+
+  it('vehicle_mission_is_stored_locally', () => {
+    const m = { id: 1, name: 'm', sysid: 1, default_alt: 50, default_frame: 'rel' as const, speed: 8, home: null, items: [] }
+    const s1 = withVehicleMission(initialState, 1, m)
+    expect(s1.vehicleMissions.get(1)).toBe(m)
+    expect(initialState.vehicleMissions.size).toBe(0)
   })
 
   it('snapshot video_sources populate the map', () => {

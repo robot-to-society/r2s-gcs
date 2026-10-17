@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { WsClient, defaultWsUrl } from '../../shared/ws/client'
-import type { ClientMessage, CommandResult } from '../../shared/api/types'
-import { addResult, initialState, reduce, setLink, type VehiclesState } from './reducer'
+import type { ClientMessage, CommandResult, Mission } from '../../shared/api/types'
+import { addResult, initialState, reduce, setLink, withVehicleMission, type VehiclesState } from './reducer'
 
 type Listener = () => void
 
@@ -41,6 +41,11 @@ export class VehicleStore {
   /** Sends a client frame (joystick); false when the socket is not open. */
   send(msg: ClientMessage): boolean {
     return this.client?.send(msg) ?? false
+  }
+
+  /** The mission the vehicle is known to carry (after a verified upload or a download). */
+  setVehicleMission(sysid: number, mission: Mission): void {
+    this.set(withVehicleMission(this.state, sysid, mission))
   }
 
   /** A result that never went through the server (e.g. 503 on send); negative ids by convention. */
