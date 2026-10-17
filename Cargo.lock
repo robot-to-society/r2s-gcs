@@ -1471,6 +1471,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rgcs-mission"
+version = "0.1.0"
+dependencies = [
+ "mavlink",
+ "rgcs-core",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "rgcs-server"
 version = "0.1.0"
 dependencies = [
