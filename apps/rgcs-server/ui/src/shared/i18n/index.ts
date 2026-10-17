@@ -83,6 +83,18 @@ const ja = {
   modeRequired: 'Guided 移動には GUIDED モードが必要です',
   confirmGuided: '確認して移動開始',
   fenceUnknown: 'ジオフェンス設定を未確認です',
+  record: '録画',
+  photo: '写真',
+  zoomIn: 'ズームイン',
+  zoomOut: 'ズームアウト',
+  videoType: '映像タイプ',
+  cameraSettings: 'カメラ設定',
+  cameraNotConfigured: 'カメラ未設定',
+  setUp: '設定する',
+  disconnected: '切断',
+  reconnecting: '再接続中',
+  joystickLost: 'ジョイスティック切断',
+  cmd_camera_settings: 'カメラ設定',
 } as const
 
 const en: Record<keyof typeof ja, string> = {
@@ -168,6 +180,18 @@ const en: Record<keyof typeof ja, string> = {
   modeRequired: 'Guided moves need GUIDED mode',
   confirmGuided: 'Confirm and start',
   fenceUnknown: 'Geofence settings not verified',
+  record: 'Record',
+  photo: 'Photo',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  videoType: 'Video type',
+  cameraSettings: 'Camera settings',
+  cameraNotConfigured: 'No camera',
+  setUp: 'Set up',
+  disconnected: 'Offline',
+  reconnecting: 'Reconnecting',
+  joystickLost: 'Joystick lost',
+  cmd_camera_settings: 'Camera settings',
 }
 
 export type Dict = Record<keyof typeof ja, string>

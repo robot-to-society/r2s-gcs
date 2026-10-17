@@ -6,12 +6,13 @@ interface Props {
   readonly results: readonly CommandResult[]
   readonly dict: Dict
   readonly clock: string
+  readonly deadmanLost?: boolean
 }
 
 const SHOWN = 2
 
 /** Bottom-centre log pills: "all", the two newest command results, the clock (spec 10 §1). */
-export function Footer({ results, dict, clock }: Props) {
+export function Footer({ results, dict, clock, deadmanLost = false }: Props) {
   return (
     <footer className="footer-log">
       <span className="g pill" data-testid="pill">
@@ -22,6 +23,11 @@ export function Footer({ results, dict, clock }: Props) {
           {hhmm(r.ts)} {cmdLabel(r.cmd, dict)} {r.ok ? dict.ok : dict.failed}
         </span>
       ))}
+      {deadmanLost && (
+        <span className="g pill danger" data-testid="pill">
+          {dict.joystickLost}
+        </span>
+      )}
       {clock && <span className="num t2 footer-clock">{clock}</span>}
     </footer>
   )

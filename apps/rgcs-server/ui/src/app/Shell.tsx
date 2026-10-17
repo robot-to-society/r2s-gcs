@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
 import { CommandsSheet, ConfirmDialog, runCommand, type RunResult } from '../features/commands'
+import { EMPTY_PENDING, clearPending, markPending, sendCameraCommand, type PendingState } from '../features/camera'
 import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../features/detail'
+import { buttonCommand, getGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
-import type { Me, VehicleCommand } from '../shared/api/types'
+import type { CameraCommand, GimbalInputProfile, Me, VehicleCommand } from '../shared/api/types'
 import { t, type Lang } from '../shared/i18n'
 import { Footer } from './Footer'
 import { Header } from './Header'
@@ -37,7 +39,18 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, results, messages } = useVehicles()
+  const { vehicles, link, results, messages, cameras, videoSources, deadman } = useVehicles()
+  const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
+  const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
+  useEffect(() => {
+    let alive = true
+    getGimbalProfile()
+      .then((p) => alive && setGimbalProfile(p))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
   const [selected, setSelected] = useState<number | null>(null)
   const [acks, setAcks] = useState<MessagesState>(EMPTY_MESSAGES)
   const [view, setView] = useState<View>('ops')
@@ -51,6 +64,30 @@ export function Shell({ me, lang }: Props) {
   const current = selected ?? list[0]?.sysid ?? null
   const currentVehicle = current === null ? undefined : vehicles.get(current)
   const detail = selected === null ? undefined : vehicles.get(selected)
+  const cameraCommand = (sysid: number, cmd: CameraCommand) => {
+    setPending((p) => markPending(p, sysid, cmd.cmd, Date.now()))
+    sendCameraCommand(sysid, cmd).catch((e: unknown) => {
+      setPending((p) => clearPending(p, sysid))
+      vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: `camera:${cmd.cmd}`, ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
+    })
+  }
+  const lastCameras = useRef(cameras)
+  useEffect(
+    () =>
+      vehicleStore.subscribe(() => {
+        // A fresh camera_state (the server re-sends at least every second) settles pending commands.
+        const next = vehicleStore.getState().cameras
+        if (next === lastCameras.current) return
+        lastCameras.current = next
+        setPending((p) => [...next.keys()].reduce((acc, sysid) => clearPending(acc, sysid), p))
+      }),
+    [],
+  )
+  useGimbalJoystick(current, gimbalProfile, (fn) => {
+    if (current === null) return
+    const cmd = buttonCommand(fn, cameras.get(current)?.state ?? null)
+    if (cmd) cameraCommand(current, cmd)
+  })
 
   const settle = (sysid: number, result: RunResult, command: VehicleCommand) => {
     if (result.kind === 'needs_confirm') return setModal({ kind: 'confirm', sysid, command, message: result.message })
@@ -106,6 +143,11 @@ export function Shell({ me, lang }: Props) {
               onAck={(id) => setAcks((s) => ack(s, id))}
               onClose={() => setSelected(null)}
               onOpenCommands={() => setModal({ kind: 'commands', sysid: detail.sysid })}
+              camera={cameras.get(detail.sysid)}
+              videoSource={videoSources.get(detail.sysid)}
+              cameraPending={pending.bySysid.has(detail.sysid)}
+              onCameraCommand={(cmd) => cameraCommand(detail.sysid, cmd)}
+              onCameraSettings={() => setModal({ kind: 'camera-settings', sysid: detail.sysid })}
             />
           )}
           {modal.kind === 'commands' && currentVehicle && (
@@ -148,7 +190,7 @@ export function Shell({ me, lang }: Props) {
             />
           )}
         </main>
-        <Footer results={results} dict={dict} clock={clock.slice(-5)} />
+        <Footer results={results} dict={dict} clock={clock.slice(-5)} deadmanLost={deadman === 'lost'} />
       </div>
     </div>
   )

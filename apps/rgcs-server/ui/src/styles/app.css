@@ -383,3 +383,34 @@
   flex-direction: column;
   gap: 8px;
 }
+
+/* ---- camera in the detail panel ---- */
+.detail-video video.feed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--r-ctl);
+  cursor: default;
+}
+.detail-rec {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  font-size: 11px;
+  height: 24px;
+}
+.detail-rec .rdot {
+  width: 8px;
+  height: 8px;
+  animation: rgblink 1.2s infinite;
+}
+.detail-reconnect {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+.cam-status .danger {
+  color: var(--danger);
+}

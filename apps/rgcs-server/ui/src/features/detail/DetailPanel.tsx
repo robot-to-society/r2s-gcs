@@ -1,5 +1,6 @@
 import { hhmm } from '../../shared/format/time'
-import type { VehicleMessage, VehicleState } from '../../shared/api/types'
+import type { CameraCommand, CameraSnapshot, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import { CameraStatusRow, CameraStrip, VideoThumb } from '../camera'
 import type { Dict } from '../../shared/i18n'
 import { forVehicle, unread } from './messages'
 import { messageText, severityClass } from './format'
@@ -12,6 +13,16 @@ interface Props {
   readonly onClose: () => void
   readonly onOpenCommands: () => void
   readonly dict: Dict
+  readonly camera?: CameraSnapshot
+  readonly videoSource?: VideoSourceStatus
+  readonly cameraPending?: boolean
+  readonly onCameraCommand?: (cmd: CameraCommand) => void
+  readonly onCameraSettings?: () => void
+}
+
+const NONE_CAPS: CameraSnapshot['caps'] = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [] }
+const OFFLINE: CameraSnapshot['state'] = {
+  connected: false, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 1, video_mode: null, gimbal: null, gimbal_mode: null, stream: null,
 }
 
 function dotClass(v: VehicleState): string {
@@ -21,7 +32,9 @@ function dotClass(v: VehicleState): string {
 }
 
 /** Right panel, 372 px (spec 10 §3.3) without the camera strip (P2). */
-export function DetailPanel({ vehicle: v, messages, acked, onAck, onClose, onOpenCommands, dict }: Props) {
+export function DetailPanel({ vehicle: v, messages, acked, onAck, onClose, onOpenCommands, dict, camera, videoSource, cameraPending = false, onCameraCommand, onCameraSettings }: Props) {
+  const caps = camera?.caps ?? NONE_CAPS
+  const camState = camera?.state ?? OFFLINE
   const list = forVehicle(messages, v.sysid)
   const count = unread(messages, v.sysid, acked)
   return (
@@ -38,9 +51,9 @@ export function DetailPanel({ vehicle: v, messages, acked, onAck, onClose, onOpe
         </button>
       </div>
       <div className="detail-body">
-        <div className="detail-video inset">
-          <span className="t3">{dict.videoNotConnected}</span>
-        </div>
+        <VideoThumb sysid={v.sysid} status={videoSource} recording={camState.recording} dict={dict} />
+        <CameraStrip caps={caps} state={camState} pending={cameraPending} onCommand={(c) => onCameraCommand?.(c)} onSettings={() => onCameraSettings?.()} dict={dict} />
+        <CameraStatusRow caps={caps} state={camState} onSetup={() => onCameraSettings?.()} dict={dict} />
         <div className="detail-telemetry">
           <div className="kv">
             <span className="t3">{dict.altitude}</span>

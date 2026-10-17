@@ -82,3 +82,31 @@ describe('command results', () => {
     expect(same.results).toBe(full.results)
   })
 })
+
+describe('camera, video source and input frames', () => {
+  const caps = { kind: 'siyi_mt11' as const, gimbal: null, zoom: null, focus: false, photo: true, record: true, video_modes: ['rgb' as const] }
+  const state = (zoom: number) => ({
+    connected: true, last_error: null, firmware: null, recording: 'idle' as const, zoom, zoom_max: 165, video_mode: 'rgb' as const, gimbal: null, gimbal_mode: null, stream: null,
+  })
+
+  it('snapshot cameras populate the map and camera_state replaces one entry immutably', () => {
+    const s1 = reduce(initialState, { t: 'snapshot', vehicles: [], cameras: [{ sysid: 1, caps, state: state(1) }] })
+    expect(s1.cameras.get(1)?.state.zoom).toBe(1)
+    const s2 = reduce(s1, { t: 'camera_state', sysid: 1, state: state(3) })
+    expect(s2.cameras.get(1)?.state.zoom).toBe(3)
+    expect(s2.cameras.get(1)?.caps).toBe(s1.cameras.get(1)?.caps)
+    expect(s1.cameras.get(1)?.state.zoom).toBe(1)
+    const s3 = reduce(s2, { t: 'camera_state', sysid: 9, state: state(2) })
+    expect(s3.cameras.get(9)?.caps.kind).toBe('none')
+  })
+
+  it('video_source and input_state are stored', () => {
+    const status = { mode: 'auto' as const, source: 'mt11' as const, scanning: false, probe_ok: true, whep_path: 'mt11' }
+    const s1 = reduce(initialState, { t: 'video_source', sysid: 1, status })
+    expect(s1.videoSources.get(1)).toEqual(status)
+    expect(initialState.deadman).toBe('ok')
+    const s2 = reduce(s1, { t: 'input_state', deadman: 'lost' })
+    expect(s2.deadman).toBe('lost')
+    expect(reduce(s2, { t: 'input_state', deadman: 'lost' })).toBe(s2)
+  })
+})

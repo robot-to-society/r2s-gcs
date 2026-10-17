@@ -1,4 +1,4 @@
-import type { CommandResult, ServerMessage, SysId, VehicleMessage, VehicleState } from '../../shared/api/types'
+import type { CameraSnapshot, CommandResult, Deadman, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { applyDiff } from '../../shared/ws/apply'
 
 export type LinkState = 'connecting' | 'open' | 'closed'
@@ -8,10 +8,23 @@ export interface VehiclesState {
   readonly messages: readonly VehicleMessage[]
   /** `command_result` frames, newest first, unique by id (the footer shows the top two). */
   readonly results: readonly CommandResult[]
+  readonly cameras: ReadonlyMap<SysId, CameraSnapshot>
+  readonly videoSources: ReadonlyMap<SysId, VideoSourceStatus>
+  readonly deadman: Deadman
   readonly link: LinkState
 }
 
-export const initialState: VehiclesState = { vehicles: new Map(), messages: [], results: [], link: 'connecting' }
+export const initialState: VehiclesState = {
+  vehicles: new Map(),
+  messages: [],
+  results: [],
+  cameras: new Map(),
+  videoSources: new Map(),
+  deadman: 'ok',
+  link: 'connecting',
+}
+
+const NONE_CAPS: CameraSnapshot['caps'] = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [] }
 
 const MAX_MESSAGES = 200
 const MAX_RESULTS = 50
@@ -55,7 +68,24 @@ function withVehicle(state: VehiclesState, v: VehicleState): VehiclesState {
 export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState {
   switch (msg.t) {
     case 'snapshot':
-      return { ...state, vehicles: new Map(msg.vehicles.map((v) => [v.sysid, v])) }
+      return {
+        ...state,
+        vehicles: new Map(msg.vehicles.map((v) => [v.sysid, v])),
+        cameras: new Map(msg.cameras.map((c) => [c.sysid, c])),
+      }
+    case 'camera_state': {
+      const prev = state.cameras.get(msg.sysid)
+      const cameras = new Map(state.cameras)
+      cameras.set(msg.sysid, { sysid: msg.sysid, caps: prev?.caps ?? NONE_CAPS, state: msg.state })
+      return { ...state, cameras }
+    }
+    case 'video_source': {
+      const videoSources = new Map(state.videoSources)
+      videoSources.set(msg.sysid, msg.status)
+      return { ...state, videoSources }
+    }
+    case 'input_state':
+      return state.deadman === msg.deadman ? state : { ...state, deadman: msg.deadman }
     case 'telemetry': {
       const prev = state.vehicles.get(msg.sysid) ?? placeholder(msg.sysid)
       return withVehicle(state, applyDiff(prev, msg.diff))
