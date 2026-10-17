@@ -6,6 +6,8 @@
 pub mod api;
 pub mod app;
 pub mod auth;
+pub mod camera_api;
+pub mod cameras;
 pub mod commands;
 pub mod config;
 pub mod confirm;

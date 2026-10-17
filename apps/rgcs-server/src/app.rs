@@ -16,10 +16,11 @@ use tokio::sync::{broadcast, mpsc, Mutex};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
+use crate::cameras::{CameraFactory, CameraManager};
 use crate::confirm::{ConfirmError, ConfirmTokens};
 use crate::params::ParamStore;
 use crate::settings;
-use crate::{api, auth, commands, guided, ws};
+use crate::{api, auth, camera_api, commands, guided, ws};
 
 pub const BROADCAST_CAPACITY: usize = 1024;
 /// Distinct usernames tracked for login serialization before the map is reset.
@@ -34,6 +35,7 @@ pub struct AppState {
     /// Frames sent straight to the link without waiting for an ACK (Guided targets, param reads).
     pub outgoing: mpsc::Sender<Outgoing>,
     pub params: ParamStore,
+    pub cameras: CameraManager,
     pub hostname: String,
     pub secure_cookies: bool,
     /// Map tile source handed to the UI by `GET /api/settings/app`.
@@ -62,6 +64,7 @@ impl AppState {
         let hostname = std::env::var("HOSTNAME").unwrap_or_else(|_| "rgcs".into());
         // Without a link the sender has no receiver: direct sends fail → 503 link_lost.
         let (outgoing, _) = mpsc::channel(1);
+        let cameras = CameraManager::new(store.clone(), tx.clone(), CameraFactory::Real);
         Self {
             router,
             tx,
@@ -69,6 +72,7 @@ impl AppState {
             queue,
             outgoing,
             params: ParamStore::default(),
+            cameras,
             hostname,
             secure_cookies: false,
             map_tile_url: crate::config::Config::default().map_tile_url,
@@ -85,6 +89,10 @@ impl AppState {
 
     pub fn with_outgoing(self, outgoing: mpsc::Sender<Outgoing>) -> Self {
         Self { outgoing, ..self }
+    }
+
+    pub fn with_cameras(self, cameras: CameraManager) -> Self {
+        Self { cameras, ..self }
     }
 
     pub fn guided_confirmed(&self, sysid: SysId) -> bool {
@@ -180,6 +188,12 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
         .route("/vehicles/{sysid}/confirm", post(commands::confirm))
         .route("/vehicles/{sysid}/command", post(commands::command))
         .route("/vehicles/{sysid}/guided", post(guided::guided))
+        .route("/vehicles/{sysid}/camera", get(camera_api::get_camera))
+        .route("/vehicles/{sysid}/camera/command", post(camera_api::command))
+        .route(
+            "/vehicles/{sysid}/camera/profile",
+            get(camera_api::get_profile).put(camera_api::put_profile),
+        )
         .route("/history/audit", get(api::audit_history))
         .route("/settings/app", get(settings::app_settings))
         .layer(middleware::from_fn(auth::csrf_guard));

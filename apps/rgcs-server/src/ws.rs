@@ -79,10 +79,10 @@ async fn session(socket: WebSocket, app: AppState) {
     }
 }
 
-async fn snapshot(app: &AppState) -> ServerMessage {
+pub async fn snapshot(app: &AppState) -> ServerMessage {
     ServerMessage::Snapshot {
         vehicles: app.router.lock().await.states(),
-        cameras: Vec::new(),
+        cameras: app.cameras.snapshot().await,
     }
 }
 

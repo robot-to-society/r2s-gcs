@@ -12,8 +12,10 @@ use mavlink::dialects::ardupilotmega::{
     MavAutopilot, MavMessage, MavModeFlag, MavState, MavType, HEARTBEAT_DATA,
 };
 use mavlink::MavHeader;
+use rgcs_camera::siyi::sim::SimServer;
 use rgcs_mavlink::{Clock, Outcome, Outgoing, QueuedCommand, Router};
 use rgcs_server::app::{self, AppState, BROADCAST_CAPACITY};
+use rgcs_server::cameras::{CameraFactory, CameraManager};
 use rgcs_store::Store;
 use serde_json::Value;
 use tokio::sync::{broadcast, mpsc, Mutex};
@@ -28,6 +30,19 @@ pub async fn spawn_app() -> (AxumRouter, AppState) {
 
 /// Like `spawn_app`, but also hands back the receiver of frames sent straight to the link.
 pub async fn spawn_app_with_link() -> (AxumRouter, AppState, mpsc::Receiver<Outgoing>) {
+    spawn_app_full(None).await
+}
+
+/// `spawn_app` plus an MT11 simulator the camera manager connects to instead of the profile host.
+pub async fn spawn_app_with_sim() -> (AxumRouter, AppState, SimServer) {
+    let sim = SimServer::start().await;
+    let (app, state, _rx) = spawn_app_full(Some(sim.addr)).await;
+    (app, state, sim)
+}
+
+async fn spawn_app_full(
+    sim: Option<std::net::SocketAddr>,
+) -> (AxumRouter, AppState, mpsc::Receiver<Outgoing>) {
     let (outgoing_tx, outgoing_rx) = mpsc::channel::<Outgoing>(16);
     let store = Store::open_memory().await.expect("memory store");
     let dev_mode = store.dev_mode().await.expect("dev_mode");
@@ -44,7 +59,11 @@ pub async fn spawn_app_with_link() -> (AxumRouter, AppState, mpsc::Receiver<Outg
         let mut rx = _keep;
         while rx.recv().await.is_ok() {}
     });
-    let state = AppState::new(router, tx, store, queue_tx, dev_mode).with_outgoing(outgoing_tx);
+    let factory = sim.map_or(CameraFactory::Real, CameraFactory::Sim);
+    let cameras = CameraManager::new(store.clone(), tx.clone(), factory);
+    let state = AppState::new(router, tx, store, queue_tx, dev_mode)
+        .with_outgoing(outgoing_tx)
+        .with_cameras(cameras);
     (app::build(state.clone(), None), state, outgoing_rx)
 }
 

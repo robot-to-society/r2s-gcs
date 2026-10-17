@@ -305,6 +305,94 @@ pub enum Deadman {
     Lost,
 }
 
+/// Per-vehicle camera configuration (spec 60 §3.3). Stored as one row per sysid.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct CameraProfile {
+    pub sysid: SysId,
+    pub kind: CameraKind,
+    /// IPv4 dotted address (also used to build the RTSP URL).
+    pub host: String,
+    pub port: u16,
+    /// `{host}` is expanded for MT11; arbitrary for MAVLink cameras.
+    pub rtsp_url: String,
+    pub comp_id: u8,
+    pub video_source_mode: VideoSourceMode,
+    pub android_url: String,
+    pub encoding_preset: String,
+    pub thermal_palette: u8,
+    pub thermal_overlay: bool,
+    pub ai_box_px: u16,
+    pub clock_sync: bool,
+    pub auto_record: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProfileError {
+    pub field: &'static str,
+    pub message: String,
+}
+
+impl std::fmt::Display for ProfileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.field, self.message)
+    }
+}
+
+impl CameraProfile {
+    pub fn default_for(sysid: SysId) -> Self {
+        Self {
+            sysid,
+            kind: CameraKind::None,
+            host: "192.168.144.25".into(),
+            port: 37260,
+            rtsp_url: "rtsp://{host}:8554/video1".into(),
+            comp_id: 100,
+            video_source_mode: VideoSourceMode::Auto,
+            android_url: "http://127.0.0.1:8080".into(),
+            encoding_preset: "h264_1080p".into(),
+            thermal_palette: 3,
+            thermal_overlay: true,
+            ai_box_px: 100,
+            clock_sync: true,
+            auto_record: true,
+        }
+    }
+
+    pub fn rtsp_url_resolved(&self) -> String {
+        self.rtsp_url.replace("{host}", &self.host)
+    }
+
+    /// Range / format checks from spec 60 §3.3; the first failing field is reported.
+    pub fn validate(&self) -> Result<(), ProfileError> {
+        let err = |field: &'static str, message: &str| {
+            Err(ProfileError {
+                field,
+                message: message.into(),
+            })
+        };
+        if self.host.parse::<std::net::Ipv4Addr>().is_err() {
+            return err("host", "must be an IPv4 address");
+        }
+        if self.port == 0 {
+            return err("port", "must be 1-65535");
+        }
+        if !self.rtsp_url.starts_with("rtsp://") {
+            return err("rtsp_url", "must start with rtsp://");
+        }
+        if self.comp_id == 0 {
+            return err("comp_id", "must be 1-255");
+        }
+        if !(32..=600).contains(&self.ai_box_px) {
+            return err("ai_box_px", "must be 32-600");
+        }
+        if !(self.thermal_palette == 0 || (2..=11).contains(&self.thermal_palette)) {
+            return err("thermal_palette", "must be 0 or 2-11");
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,6 +453,44 @@ mod tests {
         assert!(c.supports(&CameraCommand::VideoMode { mode: VideoMode::Rgb }));
         c.gimbal = None;
         assert!(!c.supports(&CameraCommand::GimbalRate { yaw: 0, pitch: 0 }));
+    }
+
+    #[test]
+    fn profile_validation_names_the_field() {
+        let ok = CameraProfile::default_for(1);
+        assert_eq!(ok.validate(), Ok(()));
+        let bad_host = CameraProfile {
+            host: "camera.local".into(),
+            ..ok.clone()
+        };
+        assert_eq!(
+            bad_host.validate(),
+            Err(ProfileError {
+                field: "host",
+                message: "must be an IPv4 address".into()
+            })
+        );
+        let bad_port = CameraProfile {
+            port: 0,
+            ..ok.clone()
+        };
+        assert_eq!(bad_port.validate().unwrap_err().field, "port");
+        let bad_rtsp = CameraProfile {
+            rtsp_url: "http://x".into(),
+            ..ok.clone()
+        };
+        assert_eq!(bad_rtsp.validate().unwrap_err().field, "rtsp_url");
+        let bad_box = CameraProfile {
+            ai_box_px: 10,
+            ..ok.clone()
+        };
+        assert_eq!(bad_box.validate().unwrap_err().field, "ai_box_px");
+        let bad_palette = CameraProfile {
+            thermal_palette: 1,
+            ..ok.clone()
+        };
+        assert_eq!(bad_palette.validate().unwrap_err().field, "thermal_palette");
+        assert_eq!(ok.rtsp_url_resolved(), "rtsp://192.168.144.25:8554/video1");
     }
 
     #[test]

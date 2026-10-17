@@ -10,9 +10,9 @@ pub mod vehicle;
 pub mod ws;
 
 pub use camera::{
-    CameraCaps, CameraCommand, CameraKind, CameraSnapshot, CameraState, CenterMode, Deadman, Firmware,
-    GimbalAttitude, GimbalCaps, GimbalMode, RecordingState, VideoMode, VideoSource, VideoSourceMode,
-    VideoSourceStatus, ZoomCaps,
+    CameraCaps, CameraCommand, CameraKind, CameraProfile, CameraSnapshot, CameraState, CenterMode, Deadman,
+    Firmware, GimbalAttitude, GimbalCaps, GimbalMode, ProfileError, RecordingState, VideoMode, VideoSource,
+    VideoSourceMode, VideoSourceStatus, ZoomCaps,
 };
 pub use command::{CommandResult, VehicleCommand};
 pub use operator::Operator;

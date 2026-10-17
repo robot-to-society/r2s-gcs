@@ -2,6 +2,7 @@
 //! clone (it wraps a connection pool) and every method takes `&self`.
 
 pub mod audit;
+pub mod camera_profiles;
 pub mod lockout;
 pub mod password;
 pub mod sessions;

@@ -17,6 +17,7 @@ path = "src/main.rs"
 rgcs-core = { workspace = true }
 rgcs-mavlink = { workspace = true }
 rgcs-store = { workspace = true }
+rgcs-camera = { workspace = true }
 axum-extra = { workspace = true }
 uuid = { workspace = true }
 axum = { workspace = true }
@@ -31,7 +32,12 @@ tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 futures = { workspace = true }
 
+[features]
+# Test builds get the MT11 simulator through the self dev-dependency below.
+sim = ["rgcs-camera/sim"]
+
 [dev-dependencies]
+rgcs-server = { path = ".", features = ["sim"] }
 mavlink = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }
 tower = { workspace = true, features = ["util"] }
