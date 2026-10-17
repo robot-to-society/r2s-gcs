@@ -41,6 +41,8 @@ pub struct SimServer {
     pub received: mpsc::UnboundedReceiver<Received>,
     state: Arc<Mutex<SimState>>,
     tasks: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    /// When set, TCP connections stay open but nothing is answered (a hung / power-cycled camera).
+    frozen: Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// Reply (cmd, data) for a request, updating the simulated state.
@@ -97,16 +99,17 @@ impl SimServer {
         let (tx, received) = mpsc::unbounded_channel();
         let state = Arc::new(Mutex::new(SimState::default()));
         let tasks: Arc<Mutex<Vec<JoinHandle<()>>>> = Arc::new(Mutex::new(Vec::new()));
+        let frozen = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
         let accept = {
-            let (tx, state, tasks) = (tx.clone(), state.clone(), tasks.clone());
+            let (tx, state, tasks, frozen) = (tx.clone(), state.clone(), tasks.clone(), frozen.clone());
             tokio::spawn(async move {
                 loop {
                     let Ok((stream, _)) = listener.accept().await else {
                         return;
                     };
-                    let (tx, state) = (tx.clone(), state.clone());
-                    let conn = tokio::spawn(serve_tcp(stream, tx, state));
+                    let (tx, state, frozen) = (tx.clone(), state.clone(), frozen.clone());
+                    let conn = tokio::spawn(serve_tcp(stream, tx, state, frozen));
                     tasks.lock().expect("sim tasks").push(conn);
                 }
             })
@@ -130,7 +133,17 @@ impl SimServer {
             received,
             state,
             tasks,
+            frozen,
         }
+    }
+
+    /// Stop answering (connections stay open) — the client must notice by itself.
+    pub fn freeze(&self) {
+        self.frozen.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn thaw(&self) {
+        self.frozen.store(false, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn set_zoom(&self, int_part: u8, tenths: u8) {
@@ -154,6 +167,7 @@ async fn serve_tcp(
     mut stream: tokio::net::TcpStream,
     tx: mpsc::UnboundedSender<Received>,
     state: Arc<Mutex<SimState>>,
+    frozen: Arc<std::sync::atomic::AtomicBool>,
 ) {
     let mut buf = [0u8; 4096];
     let mut parser = Parser::default();
@@ -166,6 +180,9 @@ async fn serve_tcp(
         for f in parser.push(&buf[..n]) {
             let reply = reply_for(&state, f.cmd, &f.payload);
             let _ = tx.send((Transport::Tcp, f.cmd, f.payload));
+            if frozen.load(std::sync::atomic::Ordering::Relaxed) {
+                continue;
+            }
             if let Some((cmd, data)) = reply {
                 seq = seq.wrapping_add(1);
                 if stream.write_all(&make_packet(cmd, &data, 2, seq)).await.is_err() {

@@ -25,13 +25,13 @@ const uav: VehicleState = {
 
 describe('vehicles reducer', () => {
   it('snapshot replaces the vehicle map', () => {
-    const s = reduce(initialState, { t: 'snapshot', vehicles: [uav], cameras: [] })
+    const s = reduce(initialState, { t: 'snapshot', vehicles: [uav], cameras: [], video_sources: [] })
     expect(s.vehicles.get(1)?.name).toBe('UAV-01')
     expect(initialState.vehicles.size).toBe(0)
   })
 
   it('telemetry applies a diff to a known vehicle and creates unknown ones', () => {
-    const s0 = reduce(initialState, { t: 'snapshot', vehicles: [uav], cameras: [] })
+    const s0 = reduce(initialState, { t: 'snapshot', vehicles: [uav], cameras: [], video_sources: [] })
     const s1 = reduce(s0, { t: 'telemetry', sysid: 1, diff: { alt_rel: 90 } })
     expect(s1.vehicles.get(1)?.alt_rel).toBe(90)
     expect(s0.vehicles.get(1)?.alt_rel).toBe(80)
@@ -90,14 +90,22 @@ describe('camera, video source and input frames', () => {
   })
 
   it('snapshot cameras populate the map and camera_state replaces one entry immutably', () => {
-    const s1 = reduce(initialState, { t: 'snapshot', vehicles: [], cameras: [{ sysid: 1, caps, state: state(1) }] })
+    const s1 = reduce(initialState, { t: 'snapshot', vehicles: [], cameras: [{ sysid: 1, caps, state: state(1) }], video_sources: [] })
     expect(s1.cameras.get(1)?.state.zoom).toBe(1)
-    const s2 = reduce(s1, { t: 'camera_state', sysid: 1, state: state(3) })
+    const s2 = reduce(s1, { t: 'camera_state', sysid: 1, caps, state: state(3) })
     expect(s2.cameras.get(1)?.state.zoom).toBe(3)
-    expect(s2.cameras.get(1)?.caps).toBe(s1.cameras.get(1)?.caps)
     expect(s1.cameras.get(1)?.state.zoom).toBe(1)
-    const s3 = reduce(s2, { t: 'camera_state', sysid: 9, state: state(2) })
-    expect(s3.cameras.get(9)?.caps.kind).toBe('none')
+    // A camera configured after the snapshot (or after a server restart) is learnt from its frames.
+    const s3 = reduce(s2, { t: 'camera_state', sysid: 9, caps, state: state(2) })
+    expect(s3.cameras.get(9)?.caps.kind).toBe('siyi_mt11')
+    const none = { ...caps, kind: 'none' as const }
+    expect(reduce(s3, { t: 'camera_state', sysid: 1, caps: none, state: state(1) }).cameras.get(1)?.caps.kind).toBe('none')
+  })
+
+  it('snapshot video_sources populate the map', () => {
+    const status = { mode: 'auto' as const, source: 'mt11' as const, scanning: false, probe_ok: true, whep_path: 'mt11' }
+    const s1 = reduce(initialState, { t: 'snapshot', vehicles: [], cameras: [], video_sources: [{ sysid: 1, status }] })
+    expect(s1.videoSources.get(1)).toEqual(status)
   })
 
   it('video_source and input_state are stored', () => {

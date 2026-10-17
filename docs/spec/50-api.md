@@ -47,7 +47,7 @@
 |---|---|---|
 | GET | `/api/vehicles/{sysid}/camera` | → `{caps: CameraCaps, state: CameraState}` |
 | POST | `/api/vehicles/{sysid}/camera/command` | `CameraCommand`(`GimbalRate` は WS 専用 → `409 ws_only`; caps に無い → `409 unsupported_capability`; 未接続 → `503 camera_offline`。監査 target `camera`) |
-| GET / PUT | `/api/vehicles/{sysid}/camera/profile` | `CameraProfile`(60 §3)。PUT は部分更新(省略した項目は保持)、`400 validation` はフィールド名入り。保存後にドライバと映像監視を再生成 |
+| GET / PUT | `/api/vehicles/{sysid}/camera/profile` | `CameraProfile`(60 §3)。PUT は部分更新(省略した項目は保持)、`400 validation` はフィールド名入り。保存後にドライバと映像監視を再生成。起動時にも保存済み(`none` 以外)の全カメラを自動起動 |
 | GET / PUT | `/api/vehicles/{sysid}/roi/targets` | `[RoiTarget]`(10 件固定、id `roi_1..roi_10`) |
 | GET / PUT | `/api/vehicles/{sysid}/roi/control` | `RoiControl` |
 | POST | `/api/vehicles/{sysid}/roi/start` / `stop` | `{id}` / — |
@@ -90,11 +90,11 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 ### 3.1 サーバー → クライアント
 | `t` | ペイロード | 周期 |
 |---|---|---|
-| `snapshot` | `{vehicles: [VehicleState], cameras: [CameraSnapshot{sysid, caps, state}]}` | 接続時 |
+| `snapshot` | `{vehicles: [VehicleState], cameras: [CameraSnapshot{sysid, caps, state}], video_sources: [{sysid, status}]}` | 接続時 |
 | `telemetry` | `{sysid, diff: Partial<VehicleState>}` | 10 Hz(変化分のみ) |
-| `camera_state` | `{sysid, state: CameraState}` | 変化時 + 1 Hz(サーバーが再送) |
+| `camera_state` | `{sysid, caps: CameraCaps, state: CameraState}` | 変化時 + 1 Hz(サーバーが再送。caps を毎回載せるので再読込なしに種別変更が反映される) |
 | `roi_status` | `{sysid, status: RoiStatus}` | 2 Hz(追従中) |
-| `video_source` | `{sysid, status: VideoSourceStatus}` | 変化時 |
+| `video_source` | `{sysid, status: VideoSourceStatus}` | 変化時 + 1 Hz(サーバーが再送) |
 | `vehicle_message` | `{sysid, id, severity, text, ts}`。機体の STATUSTEXT は原文(50 バイトのチャンクはサーバーで結合)。サーバー生成の `text` は固定コード `comms_delay` / `link_lost` / `link_restored`(UI が翻訳) | 発生時 |
 | `command_result` | `{id, sysid, cmd, ok, reason?, ts}` | 完了時 |
 | `vehicle_discovered` / `vehicle_lost` | `{sysid}` | 発生時 |

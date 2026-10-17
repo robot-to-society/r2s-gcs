@@ -3,7 +3,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use rgcs_core::{CameraKind, CameraProfile, ServerMessage, SysId, VideoSourceMode, VideoSourceStatus};
+use rgcs_core::{
+    CameraKind, CameraProfile, ServerMessage, SysId, VideoSourceEntry, VideoSourceMode, VideoSourceStatus,
+};
 use rgcs_store::Store;
 use rgcs_video::{initial_status, probe_rtsp, ProbeFn, SourceMonitor, Timings};
 use tokio::sync::{broadcast, watch, Mutex};
@@ -83,6 +85,23 @@ impl VideoHub {
             forwarder.abort();
         }
         current
+    }
+
+    /// Every known source status (for the WebSocket snapshot).
+    pub async fn snapshot(&self) -> Vec<VideoSourceEntry> {
+        let entries = self.entries.lock().await;
+        let mut out: Vec<VideoSourceEntry> = entries
+            .iter()
+            .map(|(sysid, e)| VideoSourceEntry {
+                sysid: *sysid,
+                status: match e {
+                    Entry::Static(s) => s.clone(),
+                    Entry::Live { status, .. } => status.borrow().clone(),
+                },
+            })
+            .collect();
+        out.sort_by_key(|e| e.sysid);
+        out
     }
 
     pub async fn status(&self, sysid: SysId) -> VideoSourceStatus {

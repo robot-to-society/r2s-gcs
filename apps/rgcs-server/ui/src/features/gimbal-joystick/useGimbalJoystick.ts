@@ -18,6 +18,9 @@ export function useGimbalJoystick(sysid: number | null, profile: GimbalInputProf
   const onButtonRef = useRef(onButton)
   onButtonRef.current = onButton
   const loopRef = useRef<GimbalLoop | null>(null)
+  // Read inside the visibility handler so a tab switch re-targets the *current* selection.
+  const sysidRef = useRef(sysid)
+  sysidRef.current = sysid
 
   useEffect(() => {
     if (!profile) return
@@ -30,7 +33,7 @@ export function useGimbalJoystick(sysid: number | null, profile: GimbalInputProf
     loopRef.current = loop
     loop.start(profile, sysid)
     const timer = setInterval(() => loop.tick(), TICK_MS)
-    const onVisibility = () => loop.setTarget(document.visibilityState === 'hidden' ? null : sysid)
+    const onVisibility = () => loop.setTarget(document.visibilityState === 'hidden' ? null : sysidRef.current)
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
       clearInterval(timer)

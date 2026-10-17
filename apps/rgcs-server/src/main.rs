@@ -67,6 +67,7 @@ async fn main() -> anyhow::Result<()> {
         Duration::from_millis(config.telemetry_interval_ms.max(20)),
     ));
 
+    state.bring_up_configured().await;
     let app = app::build(state, config.ui_dir.clone());
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     axum::serve(listener, app)

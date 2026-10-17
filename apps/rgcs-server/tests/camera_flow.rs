@@ -153,7 +153,7 @@ async fn snapshot_and_camera_state_frames() {
     assert_eq!(s, StatusCode::OK, "{v}");
     let seen = tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            if let Ok(ServerMessage::CameraState { sysid: 1, state }) = rx.recv().await {
+            if let Ok(ServerMessage::CameraState { sysid: 1, state, .. }) = rx.recv().await {
                 if state.zoom == 3.0 {
                     return true;
                 }
@@ -189,4 +189,66 @@ async fn profile_validation_errors_name_the_field() {
     .await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(v["data"]["kind"], "none");
+}
+
+#[tokio::test]
+async fn configured_cameras_come_up_at_startup_and_frames_carry_caps() {
+    let (app, state, mut sim) = spawn_app_with_sim().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    let mut rx = state.tx.subscribe();
+    put_mt11_profile(&app, &cookie, sim.addr.port()).await;
+    // (b) a runtime kind change: the very next camera_state frame already carries the MT11 caps.
+    let caps_seen = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if let Ok(ServerMessage::CameraState { sysid: 1, caps, .. }) = rx.recv().await {
+                if caps.kind == rgcs_core::CameraKind::SiyiMt11 {
+                    return true;
+                }
+            }
+        }
+    })
+    .await;
+    assert_eq!(caps_seen, Ok(true));
+    while sim.received.try_recv().is_ok() {}
+
+    // (a) a fresh server over the same store (a Pi reboot) brings the camera up without any request.
+    let state2 = rgcs_server::app::AppState::new(
+        state.router.clone(),
+        state.tx.clone(),
+        state.store.clone(),
+        state.queue.clone(),
+        true,
+    )
+    .with_cameras(rgcs_server::cameras::CameraManager::new(
+        state.store.clone(),
+        state.tx.clone(),
+        rgcs_server::cameras::CameraFactory::Sim(sim.addr),
+    ));
+    state2.bring_up_configured().await;
+    let connected = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let snap = rgcs_server::ws::snapshot(&state2).await;
+            if let ServerMessage::Snapshot {
+                cameras,
+                video_sources,
+                ..
+            } = snap
+            {
+                if cameras.iter().any(|c| {
+                    c.sysid == 1 && c.caps.kind == rgcs_core::CameraKind::SiyiMt11 && c.state.connected
+                }) && video_sources.iter().any(|v| v.sysid == 1)
+                {
+                    return true;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await;
+    assert_eq!(
+        connected,
+        Ok(true),
+        "camera and video monitor installed at startup"
+    );
 }

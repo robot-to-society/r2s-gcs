@@ -5,7 +5,7 @@ import { WhepPlayer } from '../shared/video/whep'
 import type { PlayerPhase } from '../shared/video/state'
 import { CSRF_HEADER, CSRF_VALUE } from '../shared/api/client'
 import { MiniMap } from './MiniMap'
-import { presentConfig, presentLogoUrl, presentVehicle, presentWhepUrl, type PresentConfig, type PresentVehicle } from './api'
+import { PresentError, presentConfig, presentLogoUrl, presentVehicle, presentWhepUrl, type PresentConfig, type PresentVehicle } from './api'
 
 interface Props {
   readonly token: string
@@ -15,6 +15,11 @@ type Status = { kind: 'loading' } | { kind: 'invalid' } | { kind: 'ready'; confi
 
 const VEHICLE_POLL_MS = 500
 const BADGE_AFTER_MS = 1000
+/** Config retry schedule while the server is unreachable (mirrors the video player's backoff). */
+const CONFIG_RETRY_MS = [1000, 2000, 4000, 5000] as const
+
+/** Only a 401 means the link is bad; anything else (server restart, Wi-Fi blip) is retried. */
+const isRevoked = (e: unknown): boolean => e instanceof PresentError && e.status === 401
 
 /**
  * The audience page (addendum §5.1): video, mini-map, logo. Read-only, no session, never a
@@ -31,11 +36,24 @@ export function PresentApp({ token }: Props) {
 
   useEffect(() => {
     let alive = true
-    presentConfig(token)
-      .then((config) => alive && setStatus({ kind: 'ready', config }))
-      .catch(() => alive && setStatus({ kind: 'invalid' }))
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const attempt = (n: number) => {
+      presentConfig(token)
+        .then((config) => alive && setStatus({ kind: 'ready', config }))
+        .catch((e: unknown) => {
+          if (!alive) return
+          if (isRevoked(e)) {
+            setStatus({ kind: 'invalid' })
+            return
+          }
+          const delay = CONFIG_RETRY_MS[Math.min(n, CONFIG_RETRY_MS.length - 1)] ?? 5000
+          timer = setTimeout(() => attempt(n + 1), delay)
+        })
+    }
+    attempt(0)
     return () => {
       alive = false
+      if (timer) clearTimeout(timer)
     }
   }, [token])
 
@@ -47,7 +65,11 @@ export function PresentApp({ token }: Props) {
     const poll = () => {
       presentVehicle(token)
         .then((v) => alive && v && setVehicle(v))
-        .catch(() => {})
+        .catch((e: unknown) => {
+          // A revoked link stops everything (player unmounts with the page); other errors keep
+          // the last position — the audience never sees a dialog.
+          if (alive && isRevoked(e)) setStatus({ kind: 'invalid' })
+        })
     }
     const first = setTimeout(poll, 0)
     const id = setInterval(poll, VEHICLE_POLL_MS)

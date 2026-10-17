@@ -78,7 +78,7 @@ impl CameraManager {
         if let Err(e) = camera.connect().await {
             tracing::warn!(sysid, error = %e, "camera connect failed");
         }
-        let forwarder = tokio::spawn(forward(sysid, camera.state(), self.tx.clone()));
+        let forwarder = tokio::spawn(forward(sysid, camera.caps(), camera.state(), self.tx.clone()));
         let mut entries = self.entries.lock().await;
         if let Some(old) = entries.insert(
             sysid,
@@ -91,6 +91,14 @@ impl CameraManager {
             old.camera.disconnect().await;
         }
         camera
+    }
+
+    /// Starts every driver with a saved, non-`none` profile (server boot).
+    pub async fn ensure_all_configured(&self) {
+        let sysids = self.store.camera_profile_sysids().await.unwrap_or_default();
+        for sysid in sysids {
+            self.ensure(sysid).await;
+        }
     }
 
     /// Disconnects the current driver and spawns one from the (new) profile.
@@ -127,15 +135,20 @@ impl CameraManager {
     }
 }
 
-/// Broadcasts every state change and re-sends the current state each second.
+/// Broadcasts every state change and re-sends the current state each second (with the caps).
 async fn forward(
     sysid: SysId,
+    caps: rgcs_core::CameraCaps,
     mut rx: tokio::sync::watch::Receiver<rgcs_core::CameraState>,
     tx: broadcast::Sender<ServerMessage>,
 ) {
     loop {
         let state = rx.borrow_and_update().clone();
-        let _ = tx.send(ServerMessage::CameraState { sysid, state });
+        let _ = tx.send(ServerMessage::CameraState {
+            sysid,
+            caps: caps.clone(),
+            state,
+        });
         tokio::select! {
             changed = rx.changed() => { if changed.is_err() { return; } }
             _ = tokio::time::sleep(RESEND_EVERY) => {}

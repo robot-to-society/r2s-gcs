@@ -20,4 +20,4 @@ pub use operator::Operator;
 pub use vehicle::{
     diff, Battery, Gps, LinkStatus, SysId, VehicleKind, VehicleState, VehicleStateDiff, VehicleSummary,
 };
-pub use ws::{ClientMessage, ServerMessage, VehicleMessage};
+pub use ws::{ClientMessage, ServerMessage, VehicleMessage, VideoSourceEntry};

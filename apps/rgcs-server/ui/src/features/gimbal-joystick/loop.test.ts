@@ -49,15 +49,30 @@ describe('GimbalLoop', () => {
     expect(h.sent.filter((m) => m.t === 'input_hb')).toHaveLength(2)
   })
 
-  it('setTarget sends zero to the old target then select', () => {
+  it('setTarget sends zero to the old target then select once a pad has been seen', () => {
     const h = h0()
     h.loop.start(DEFAULT_PROFILE, 1)
+    h.loop.tick()
     h.loop.setTarget(2)
     expect(h.sent).toEqual([
       { t: 'select', sysid: 1 },
+      { t: 'input_hb', sysid: 1 },
       { t: 'gimbal_rate', sysid: 1, yaw: 0, pitch: 0, seq: 1 },
       { t: 'select', sysid: 2 },
     ])
+  })
+
+  it('without a gamepad, selecting vehicles sends select only: no zero, no heartbeat', () => {
+    const h = h0()
+    h.setPad(null)
+    h.loop.start(DEFAULT_PROFILE, 1)
+    for (let i = 0; i < 25; i++) {
+      h.loop.tick()
+      h.advance(50)
+    }
+    h.loop.setTarget(2)
+    h.loop.stop()
+    expect(h.sent).toEqual([{ t: 'select', sysid: 1 }, { t: 'select', sysid: 2 }])
   })
 
   it('disconnect sends zero and stops; stop() does the same', () => {

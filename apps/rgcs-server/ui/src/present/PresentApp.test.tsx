@@ -68,6 +68,51 @@ describe('PresentApp', () => {
     expect(players).toHaveLength(0)
   })
 
+  it('a server error on the config keeps the blank screen and retries until it loads', async () => {
+    let configCalls = 0
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input)
+      if (url.startsWith('/present/config')) {
+        configCalls += 1
+        return configCalls === 1 ? envelope(503, { success: false, error: { code: 'unavailable', message: 'x' } }) : envelope(200, { success: true, data: config })
+      }
+      return envelope(200, { success: true, data: vehicle })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<PresentApp token="deadbeef" />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(screen.queryByText('無効なリンクです')).not.toBeInTheDocument()
+    expect(document.querySelector('video')).toBeNull()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1100)
+    })
+    expect(configCalls).toBe(2)
+    expect(document.querySelector('video.present-video')).not.toBeNull()
+  })
+
+  it('a 401 from the vehicle poll means the link was revoked: notice shown, polling and video stop', async () => {
+    let revoked = false
+    const fetchMock = stub(200, () => (revoked ? envelope(401, { success: false, error: { code: 'invalid_token', message: 'x' } }) : envelope(200, { success: true, data: vehicle })))
+    render(<PresentApp token="deadbeef" />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(document.querySelector('video.present-video')).not.toBeNull()
+    revoked = true
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(screen.getByText('無効なリンクです')).toBeInTheDocument()
+    expect(document.querySelector('video')).toBeNull()
+    const calls = fetchMock.mock.calls.length
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000)
+    })
+    expect(fetchMock.mock.calls.length).toBe(calls)
+  })
+
   it('ready renders video, logo and mini-map and polls the vehicle at 2 Hz', async () => {
     const fetchMock = stub(200, () => envelope(200, { success: true, data: vehicle }))
     render(<PresentApp token="abc" />)

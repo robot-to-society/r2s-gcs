@@ -111,3 +111,23 @@ async fn video_source_endpoint_reports_none_for_an_unconfigured_camera() {
     assert_eq!(audit["data"][0]["target"], "video", "{audit}");
     assert_eq!(audit["data"][0]["command"], "source");
 }
+
+#[tokio::test]
+async fn video_source_is_in_the_snapshot_and_resent_every_second() {
+    let (app, state) = spawn_app().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    let (status, body, _) = call(
+        &app,
+        req(Method::GET, "/api/vehicles/1/video/source", Some(&cookie), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let snap = rgcs_server::ws::snapshot(&state).await;
+    let rgcs_core::ServerMessage::Snapshot { video_sources, .. } = snap else {
+        panic!("not a snapshot")
+    };
+    assert_eq!(video_sources.len(), 1);
+    assert_eq!(video_sources[0].sysid, 1);
+    assert_eq!(video_sources[0].status.whep_path, "mt11");
+}

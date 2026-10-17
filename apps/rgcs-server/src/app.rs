@@ -118,6 +118,16 @@ impl AppState {
         Self { whep, ..self }
     }
 
+    /// Boot: start every configured camera driver and its video monitor without waiting for
+    /// a request (the detail panel must show the camera right after a Pi reboot).
+    pub async fn bring_up_configured(&self) {
+        let sysids = self.store.camera_profile_sysids().await.unwrap_or_default();
+        for sysid in sysids {
+            self.cameras.ensure(sysid).await;
+            self.video.status(sysid).await;
+        }
+    }
+
     pub fn with_data_dir(self, data_dir: PathBuf) -> Self {
         Self { data_dir, ..self }
     }

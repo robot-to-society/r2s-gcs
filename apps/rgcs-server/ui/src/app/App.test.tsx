@@ -78,7 +78,7 @@ describe('App auth gate', () => {
     await act(async () => {
       s.readyState = 1
       s.onopen?.()
-      s.onmessage?.({ data: JSON.stringify({ t: 'snapshot', vehicles: [], cameras: [] }) } as MessageEvent<string>)
+      s.onmessage?.({ data: JSON.stringify({ t: 'snapshot', vehicles: [], cameras: [], video_sources: [] }) } as MessageEvent<string>)
     })
     expect(screen.getByTestId('link')).toHaveTextContent('サーバー接続')
   })

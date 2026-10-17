@@ -15,8 +15,8 @@ use crate::app::{unix_ms, AppState};
 use crate::auth::AuthUser;
 
 /// Client frames are small control messages; anything bigger is not ours.
-/// Deadman check cadence (the limit itself is 1.5 s).
-const DEADMAN_TICK: std::time::Duration = std::time::Duration::from_millis(500);
+/// Deadman check cadence: 250 ms keeps the worst case under 1.75 s (spec 70 §2: 1.5 s).
+const DEADMAN_TICK: std::time::Duration = std::time::Duration::from_millis(250);
 const MAX_MESSAGE_SIZE: usize = 16 * 1024;
 
 pub async fn handler(
@@ -133,7 +133,7 @@ async fn perform(app: &AppState, actions: Vec<Action>) -> Vec<ServerMessage> {
         match a {
             Action::Forward { sysid, yaw, pitch } => rate(app, sysid, yaw, pitch).await,
             Action::Zero { sysid } => rate(app, sysid, 0, 0).await,
-            Action::Reply(m) => replies.push(m),
+            Action::Reply(m) => replies.push(*m),
         }
     }
     replies
@@ -153,6 +153,7 @@ pub async fn snapshot(app: &AppState) -> ServerMessage {
     ServerMessage::Snapshot {
         vehicles: app.router.lock().await.states(),
         cameras: app.cameras.snapshot().await,
+        video_sources: app.video.snapshot().await,
     }
 }
 

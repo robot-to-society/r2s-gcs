@@ -31,11 +31,13 @@ export PATH="$HOME/.cargo/bin:$PATH"
 mkdir -p "$DEV_DIR"
 rm -rf "$DEV_DIR/e2e-data" && mkdir -p "$DEV_DIR/e2e-data"
 
-if [ ! -x "$BIN" ]; then
-  echo "[e2e] building rgcs-server"
+if [ -z "${RGCS_SERVER_BIN:-}" ]; then
+  echo "[e2e] building rgcs-server (no-op when up to date)"
   (cd "$ROOT" && cargo build -q -p rgcs-server)
 fi
-if [ ! -f "$UI_DIR/dist/index.html" ] || [ "${E2E_REBUILD_UI:-0}" = 1 ]; then
+# Rebuild the UI bundle when it is missing or any source is newer than it (a stale dist tests old code).
+if [ ! -f "$UI_DIR/dist/index.html" ] || [ "${E2E_REBUILD_UI:-0}" = 1 ] \
+   || [ -n "$(find "$UI_DIR/src" "$UI_DIR/index.html" -newer "$UI_DIR/dist/index.html" -print -quit 2>/dev/null)" ]; then
   echo "[e2e] building UI"
   (cd "$UI_DIR" && npm run build >/dev/null)
 fi

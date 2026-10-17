@@ -24,7 +24,6 @@ export const initialState: VehiclesState = {
   link: 'connecting',
 }
 
-const NONE_CAPS: CameraSnapshot['caps'] = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [] }
 
 const MAX_MESSAGES = 200
 const MAX_RESULTS = 50
@@ -72,11 +71,11 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
         ...state,
         vehicles: new Map(msg.vehicles.map((v) => [v.sysid, v])),
         cameras: new Map(msg.cameras.map((c) => [c.sysid, c])),
+        videoSources: new Map(msg.video_sources.map((v) => [v.sysid, v.status])),
       }
     case 'camera_state': {
-      const prev = state.cameras.get(msg.sysid)
       const cameras = new Map(state.cameras)
-      cameras.set(msg.sysid, { sysid: msg.sysid, caps: prev?.caps ?? NONE_CAPS, state: msg.state })
+      cameras.set(msg.sysid, { sysid: msg.sysid, caps: msg.caps, state: msg.state })
       return { ...state, cameras }
     }
     case 'video_source': {

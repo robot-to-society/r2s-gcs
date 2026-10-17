@@ -19,6 +19,9 @@ use crate::{Camera, CameraError};
 
 pub const DEFAULT_PORT: u16 = 37260;
 pub const RECONNECT_AFTER: Duration = Duration::from_secs(1);
+/// The camera answers 0x0A / 0x0D every second; silence longer than this means it is gone.
+pub const READ_TIMEOUT: Duration = Duration::from_secs(3);
+pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const HEARTBEAT: Duration = Duration::from_secs(1);
 const POLL: Duration = Duration::from_secs(1);
 const ON_CONNECT: [u8; 4] = [0x01, 0x18, 0x10, 0x19];
@@ -133,7 +136,15 @@ async fn run(addr: SocketAddr, state: watch::Sender<CameraState>, mut ops: mpsc:
     };
     let mut seq: u16 = 0;
     loop {
-        match TcpStream::connect(addr).await {
+        let attempt = tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect(addr)).await;
+        let attempt = match attempt {
+            Ok(r) => r,
+            Err(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "connect timed out",
+            )),
+        };
+        match attempt {
             Ok(stream) => {
                 state.send_modify(|s| {
                     s.connected = true;
@@ -219,17 +230,31 @@ async fn session(
     heartbeat.set_missed_tick_behavior(MissedTickBehavior::Skip);
     let mut poll = interval(POLL);
     poll.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let mut last_rx = tokio::time::Instant::now();
+    let mut last_attitude: Option<tokio::time::Instant> = None;
     loop {
+        let watchdog = tokio::time::sleep_until(last_rx + READ_TIMEOUT);
         tokio::select! {
             n = rd.read(&mut buf) => match n {
                 Ok(0) => return SessionEnd::Lost("camera closed the connection".into()),
                 Err(e) => return SessionEnd::Lost(e.to_string()),
-                Ok(n) => for f in parser.push(&buf[..n]) { apply_frame(state, &f); },
+                Ok(n) => {
+                    last_rx = tokio::time::Instant::now();
+                    for f in parser.push(&buf[..n]) {
+                        if f.cmd == 0x0D { last_attitude = Some(last_rx); }
+                        apply_frame(state, &f);
+                    }
+                }
             },
+            _ = watchdog => return SessionEnd::Lost("no reply from the camera for 3 s".into()),
             _ = heartbeat.tick() => {
                 if let Err(e) = link.tcp(0x00, &encode::heartbeat()).await { return SessionEnd::Lost(e.to_string()); }
             },
             _ = poll.tick() => {
+                if let Some(t) = last_attitude {
+                    let age = t.elapsed().as_millis() as u64;
+                    state.send_modify(|s| if let Some(g) = s.gimbal.as_mut() { g.age_ms = age; });
+                }
                 for cmd in [0x0A, 0x0D] {
                     if let Err(e) = link.tcp(cmd, &[]).await { return SessionEnd::Lost(e.to_string()); }
                 }
@@ -499,6 +524,43 @@ mod tests {
         let sim2 = SimServer::start_on(port).await;
         wait_until(&cam, |s| s.connected, 4).await;
         sim2.stop().await;
+        cam.disconnect().await;
+    }
+
+    #[tokio::test]
+    async fn a_silent_camera_is_reported_lost_within_three_seconds_and_recovers() {
+        let (cam, sim) = connected_pair().await;
+        sim.freeze();
+        let t0 = std::time::Instant::now();
+        wait_until(&cam, |s| !s.connected, 5).await;
+        assert!(
+            t0.elapsed() < Duration::from_millis(4_500),
+            "watchdog fired at {:?}",
+            t0.elapsed()
+        );
+        sim.thaw();
+        // Reconnected and the first attitude poll answered: its age is tracked, not left at 0.
+        let s = wait_until(&cam, |s| s.connected && s.gimbal.is_some(), 4).await;
+        assert!(
+            s.gimbal.is_some_and(|g| g.age_ms < 3_000),
+            "attitude age is tracked"
+        );
+        cam.disconnect().await;
+        sim.stop().await;
+    }
+
+    #[tokio::test]
+    async fn connect_to_a_black_hole_times_out_instead_of_hanging() {
+        // 10.255.255.1 is a non-routable address: SYN never answered.
+        let cam = SiyiMt11::new("10.255.255.1".parse().unwrap(), 37260);
+        cam.connect().await.unwrap();
+        tokio::time::sleep(Duration::from_millis(3_600)).await;
+        assert!(cam
+            .state()
+            .borrow()
+            .last_error
+            .as_deref()
+            .is_some_and(|e| e.contains("timed out") || e.contains("connect")));
         cam.disconnect().await;
     }
 

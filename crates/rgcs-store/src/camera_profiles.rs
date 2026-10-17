@@ -60,6 +60,17 @@ impl Store {
         })
     }
 
+    /// Vehicles with a saved, non-`none` camera: these drivers are started at boot.
+    pub async fn camera_profile_sysids(&self) -> Result<Vec<SysId>> {
+        let rows = sqlx::query("SELECT sysid FROM camera_profiles WHERE kind != 'none' ORDER BY sysid")
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| r.get::<i64, _>("sysid") as SysId)
+            .collect())
+    }
+
     pub async fn put_camera_profile(&self, p: &CameraProfile) -> Result<()> {
         sqlx::query(
             "INSERT INTO camera_profiles (sysid, kind, host, port, rtsp_url, comp_id, video_source_mode, android_url, \
@@ -109,6 +120,28 @@ mod tests {
         assert_eq!(p.rtsp_url, "rtsp://{host}:8554/video1");
         assert_eq!(p.video_source_mode, VideoSourceMode::Auto);
         assert_eq!((p.ai_box_px, p.thermal_palette, p.auto_record), (100, 3, true));
+    }
+
+    #[tokio::test]
+    async fn configured_sysids_lists_saved_non_none_profiles() {
+        let s = Store::open_memory().await.unwrap();
+        assert_eq!(s.camera_profile_sysids().await.unwrap(), Vec::<u8>::new());
+        s.put_camera_profile(&CameraProfile {
+            kind: CameraKind::SiyiMt11,
+            ..CameraProfile::default_for(3)
+        })
+        .await
+        .unwrap();
+        s.put_camera_profile(&CameraProfile::default_for(1))
+            .await
+            .unwrap();
+        s.put_camera_profile(&CameraProfile {
+            kind: CameraKind::SiyiMt11,
+            ..CameraProfile::default_for(2)
+        })
+        .await
+        .unwrap();
+        assert_eq!(s.camera_profile_sysids().await.unwrap(), vec![2, 3]);
     }
 
     #[tokio::test]

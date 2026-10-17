@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::camera::{CameraSnapshot, CameraState, Deadman, VideoSourceStatus};
+use crate::camera::{CameraCaps, CameraSnapshot, CameraState, Deadman, VideoSourceStatus};
 use crate::command::CommandResult;
 use crate::vehicle::{SysId, VehicleState, VehicleStateDiff};
 
@@ -22,6 +22,13 @@ pub struct VehicleMessage {
     pub ts: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct VideoSourceEntry {
+    pub sysid: SysId,
+    pub status: VideoSourceStatus,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "t", rename_all = "snake_case")]
 #[ts(export, rename_all = "snake_case")]
@@ -29,9 +36,13 @@ pub enum ServerMessage {
     Snapshot {
         vehicles: Vec<VehicleState>,
         cameras: Vec<CameraSnapshot>,
+        video_sources: Vec<VideoSourceEntry>,
     },
+    /// Caps travel with every state frame so a client never needs a fresh snapshot to learn
+    /// that a camera was (re)configured.
     CameraState {
         sysid: SysId,
+        caps: CameraCaps,
         state: CameraState,
     },
     VideoSource {
@@ -92,6 +103,36 @@ mod tests {
             serde_json::to_string(&telemetry).unwrap(),
             r#"{"t":"telemetry","sysid":1,"diff":{}}"#
         );
+    }
+
+    #[test]
+    fn camera_state_carries_caps_and_snapshot_carries_video_sources() {
+        use crate::camera::{CameraCaps, CameraState, VideoSource, VideoSourceMode, VideoSourceStatus};
+        let frame = ServerMessage::CameraState {
+            sysid: 1,
+            caps: CameraCaps::none(),
+            state: CameraState::disconnected(0.0),
+        };
+        let json = serde_json::to_value(&frame).unwrap();
+        assert_eq!(json["t"], "camera_state");
+        assert_eq!(json["caps"]["kind"], "none");
+        let snap = ServerMessage::Snapshot {
+            vehicles: vec![],
+            cameras: vec![],
+            video_sources: vec![VideoSourceEntry {
+                sysid: 1,
+                status: VideoSourceStatus {
+                    mode: VideoSourceMode::Auto,
+                    source: VideoSource::None,
+                    scanning: true,
+                    probe_ok: false,
+                    whep_path: "mt11".into(),
+                },
+            }],
+        };
+        let json = serde_json::to_value(&snap).unwrap();
+        assert_eq!(json["video_sources"][0]["sysid"], 1);
+        assert_eq!(json["video_sources"][0]["status"]["source"], "none");
     }
 
     #[test]

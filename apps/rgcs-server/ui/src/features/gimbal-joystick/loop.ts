@@ -44,16 +44,19 @@ export class GimbalLoop {
     this.profile = profile
   }
 
-  /** Zeroes the previous target before switching (spec 70 §2). */
+  /**
+   * Zeroes the previous target before switching (spec 70 §2) — only once a gamepad has been
+   * seen: without one, nothing was ever commanded and a selection must not touch the camera.
+   */
   setTarget(sysid: number | null): void {
-    if (this.target !== null && this.target !== sysid) this.zero(this.target)
+    if (this.padPresent && this.target !== null && this.target !== sysid) this.zero(this.target)
     this.target = sysid
     this.lastHb = null
     if (sysid !== null) this.deps.send({ t: 'select', sysid })
   }
 
   stop(): void {
-    if (this.target !== null) this.zero(this.target)
+    if (this.padPresent && this.target !== null) this.zero(this.target)
     this.target = null
   }
 

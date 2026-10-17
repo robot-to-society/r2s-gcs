@@ -12,7 +12,7 @@ const RATE_LIMIT: i16 = 100;
 pub enum Action {
     Forward { sysid: SysId, yaw: i8, pitch: i8 },
     Zero { sysid: SysId },
-    Reply(ServerMessage),
+    Reply(Box<ServerMessage>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,7 +41,9 @@ impl Gate {
             actions.push(Action::Zero { sysid: prev });
         }
         if self.deadman == Deadman::Lost {
-            actions.push(Action::Reply(ServerMessage::InputState { deadman: Deadman::Ok }));
+            actions.push(Action::Reply(Box::new(ServerMessage::InputState {
+                deadman: Deadman::Ok,
+            })));
         }
         Self {
             target: Some(sysid),
@@ -57,7 +59,7 @@ impl Gate {
                 code: "validation".into(),
                 message: "gimbal_rate values must be within -100..100".into(),
             };
-            return (self.clone(), vec![Action::Reply(reply)]);
+            return (self.clone(), vec![Action::Reply(Box::new(reply))]);
         }
         // A stop (0,0) is a safety frame: it is never rate-limited away.
         let stop = yaw == 0 && pitch == 0;
@@ -90,10 +92,19 @@ impl Gate {
         (next, actions)
     }
 
+    /// Switches the target without arming the deadman: a selection is not a sign of life
+    /// (operators without a gamepad select vehicles all day).
     pub fn on_select(&self, sysid: SysId, now_ms: u64) -> (Self, Vec<Action>) {
         let mut actions = Vec::new();
+        let armed = self.last_hb_ms;
         let next = self.retarget(sysid, now_ms, &mut actions);
-        (next, actions)
+        (
+            Self {
+                last_hb_ms: armed,
+                ..next
+            },
+            actions,
+        )
     }
 
     /// Called ~2× per second: a silent heartbeat stops the gimbal once and reports `lost`.
@@ -109,9 +120,9 @@ impl Gate {
                 },
                 vec![
                     Action::Zero { sysid },
-                    Action::Reply(ServerMessage::InputState {
+                    Action::Reply(Box::new(ServerMessage::InputState {
                         deadman: Deadman::Lost,
-                    }),
+                    })),
                 ],
             ),
             _ => (self.clone(), Vec::new()),
@@ -156,7 +167,7 @@ mod tests {
         actions
             .iter()
             .filter_map(|a| match a {
-                Action::Reply(m) => Some(m.clone()),
+                Action::Reply(m) => Some((**m).clone()),
                 _ => None,
             })
             .collect()
@@ -244,6 +255,16 @@ mod tests {
             "a rate for another vehicle also zeroes the old one"
         );
         assert_eq!(forward(&a), vec![(3, 1, 1)]);
+    }
+
+    #[test]
+    fn select_sets_the_target_without_arming_the_deadman() {
+        let (g, _) = Gate::default().on_select(1, 0);
+        let (g, a) = g.tick(5_000);
+        assert!(a.is_empty(), "no heartbeat was ever received: nothing to lose");
+        let (g, _) = g.on_hb(1, 5_000);
+        let (_, a) = g.tick(6_500);
+        assert_eq!(zeros(&a), vec![1]);
     }
 
     #[test]
