@@ -1,127 +1,78 @@
 # RGCS 実装プラン
 
-- 版: 0.1(2026-10-16)
-- 仕様: `../spec/00-overview.md` 〜 `70-safety-auth.md`。デザイン正本: `design_base/project/RGCS Prototype Glass.dc.html`
+- 版: 0.2(2026-10-17)。0.1(2026-10-16)を年末デモ向けに並べ直した。差分は §7。
+- 仕様: `../spec/00-overview.md` 〜 `70-safety-auth.md` + 設計追補 `../superpowers/specs/2026-10-17-year-end-demo-design.md`(矛盾時は追補が優先)。デザイン正本: `design_base/project/RGCS Prototype Glass.dc.html`
+- 詳細な実行プラン(タスク・テスト・コミット単位)はフェーズ開始時に `../superpowers/plans/` に 1 本ずつ書く。P1 は `2026-10-17-p1-close-m1.md`。
 - 開発規約: 不変データ(破壊的更新をしない)、1 ファイル 200–400 行(最大 800)、関数 50 行未満、TDD(先に赤)、カバレッジ 80% 以上、conventional commits、`console.log` 禁止、秘密情報をコードに置かない、入力は zod / `TryFrom` で検証
 
-## 1. 前提と判断
+## 1. ゴール(2026 年 12 月下旬のデモ)
+
+MT11 を載せた ArduCopter を操作者一人で運用する。前日に RGCS の地図で組んだミッションで自動飛行し、操作者はカメラに集中する。外部モニターに観客向けの映像 + 小地図 + ロゴを出し、**その映像は何があっても止まらない**。飛行前点検と飛行後のログ取り出しを国交省の飛行日誌 3 様式として出力する。詳細は設計追補 §1〜§4。
+
+## 2. 前提と判断
 
 | 判断 | 内容 | 根拠 |
 |---|---|---|
-| Pi スタンドアローン先行 | 機体側 companion Pi の `rgcs-server` 1 プロセス + ブラウザ UI。1 Pi = 1 機体 | 最初の現場が MT11 1 台構成で、Python 版を 1 サービスで置き換えたい |
-| MT11 は Rust 移植 | `rgcs-camera::siyi`。Python 版のテストを正解データに | Pi 上に 2 サービスを残さない。機能追加を 1 箇所にする |
-| ログイン = オペレータ | モック admin/admin → M5 でアカウント管理 | クラウド版で自然に置換できる |
-| ジョイスティックはブラウザ側 | Gamepad API → WS 20 Hz。`gilrs` 不使用 | デバイスは操作者 PC に接続される |
-| 映像は MediaMTX パススルー | Pi で GStreamer を動かさない | Pi の CPU と Python 版での実績 |
-| Tauri は後送り | `apps/rgcs-desktop` は席だけ | UI は同一。デスクトップ殻は価値が小さい |
-| フロントは React + TS(Vite) | 状態は機能単位ストア + WS 差分 | プロトタイプの構造をそのまま移せる |
+| Pi スタンドアローン先行 | 機体側 companion Pi の `rgcs-server` 1 プロセス + ブラウザ UI。1 Pi = 1 機体 | 最初の現場が MT11 1 台構成 |
+| **ミッションを M4 → P3 に前倒し** | 2D 作成、`.waypoints` 書き出し、機体往復、AUTO 開始、進捗表示 | デモは自動飛行(追補 §5.2) |
+| **観客用画面を新設** | `/present`: 映像 + 小地図 + ロゴ、トークン保護、別 WHEP セッション、最終フレーム保持 | 本人の最重要要件(追補 §5.1) |
+| **飛行日誌を新設** | 点検テンプレート、日常点検、飛行記録(ARM/DISARM から下書き)、点検整備、ログ取り出し、PDF / CSV | 国交省 3 様式(追補 §5.5–5.6) |
+| **全パラメータ検索** | 全件テーブル + 検索 + 変更セット書込。セクション表示は後送り | 当日の現場調整(追補 §5.4) |
+| MT11 は Rust 移植 | デモ版は ジンバル速度 / センター / ズーム / 録画 / 写真 / 映像タイプ / 状態 に絞る。trait と caps は仕様通り | 期限(追補 §5.3) |
+| ログイン = オペレータ | admin/admin シード → M5 でアカウント管理 | 変更なし |
+| ジョイスティックはブラウザ側 | Gamepad API → WS 20 Hz、デッドマン必須 | 変更なし |
+| 映像は MediaMTX パススルー | Pi で再エンコードしない | 変更なし。観客用の安定性にも直結 |
+| フロントは React + TS(Vite) | 機能単位ストア + WS 差分 | 変更なし |
+| **SITL はローカルバイナリ** | `scripts/dev.sh` で SITL + server + Vite を起動。docker-compose は作らない | Mac 上で即起動できる |
+| 地図タイル | `config.toml` の `map_tile_url`(既定 OSM ラスタ)。衛星画像は現場の契約に合わせて差し替え | 期限内に権利関係を抱えない |
 
-## 2. ワークスペースの初期構成
+## 3. ロードマップ(10 週: 2026-10-20 → 12-26)
 
-```
-r2s-gcs/
-├─ Cargo.toml  rust-toolchain.toml  .cargo/config.toml(aarch64 クロス)  deny.toml
-├─ crates/rgcs-{core,mavlink,camera,video,input,mission,store,i18n,map,log,ai}/
-├─ apps/rgcs-server/(src/, ui/, migrations → rgcs-store)
-├─ apps/rgcs-cli/
-├─ tests/(sitl/ docker-compose、siyi-sim/)
-├─ deploy/(rgcs-server.service, config.toml.example, mediamtx.yml, install.sh)
-├─ docs/(本書・仕様)
-└─ design_base/(デザイン正本、無変更)
-```
-
-UI(`apps/rgcs-server/ui`): `src/app/`(ルート・認証ゲート)、`src/features/{auth,vehicles,map,video,camera,camera-settings,gimbal-joystick,mission,maintenance,ai-chat,settings}/`、`src/shared/{api,ws,ui(部品),i18n,schemas}/`、`src/styles/{tokens,components}.css`。1 コンポーネント 1 ファイル、機能ごとに `index.ts` で公開。
-
-## 3. ロードマップ
-
-| MS | 期間 | 内容 | 出荷 |
+| フェーズ | 期間 | 内容 | 出荷 / 合格 |
 |---|---|---|---|
-| **M1 Pi 基盤** | 4 週 | ワークスペース、`rgcs-server` + ログイン、`rgcs-mavlink`(udpin、Router、CommandQueue、確認トークン)、WS テレメトリ、UI: ログイン / 運用マップ 2D / 機体リスト / 右パネル詳細(カメラ帯なし)/ 全コマンド / Guided / フッター、監査ログ、systemd、aarch64 ビルド、SITL + 実 Pi で動作 | 内部 |
-| **M2 カメラ・MT11** | 4 週 | `rgcs-camera`(trait、caps、siyi 全 CMD、mavlink_cam、none)、`rgcs-video`(ソース監視、WHEP 中継、遅延統計)、UI: カメラ帯、全機体映像、操作卓(録画 / 写真 / ズーム / 映像タイプ / モード / センター / 遅延)、カメラ設定(接続 / 操作 / 映像)、Gamepad → WS(ジンバル)、デッドマン | **0.1 = Python 版置換** |
-| **M3 ROI・サーマル・AI 追跡** | 3 週 | ROI 制御器(rate / angle、PID)、プリセット + 地図で指定 + CSV、ROI チップ・マーカー・視線、温度オーバーレイ(0x14 / 0x12)、クリック追跡 / Ctrl 選択 / 0x5F、時刻同期、SD 監視、自動録画、カメラ設定 ROI タブ | **0.2** |
-| **M4 メンテナンス・ミッション** | 4 週 | パラメータ(`apm.pdef.xml`、書戻し検証、履歴)、校正、ミッション(Mission Protocol、ファイル、検証、標高プロファイル)、3D 地図(地形)、機体操作ジョイスティック(MANUAL_CONTROL)、MAVLink 署名、i18n 完成、負荷試験 | **0.3** |
-| **M5 多機体・クラウド・AI** | 4 週+ | `--role edge / hub`、アカウント管理(モック廃止)、DataFlash 解析 + ルール AI、AI チャット、録画保存(hub)、Tauri 殻(任意) | **1.0** |
+| **P1 M1 を閉じる** | 10/20–11/05(2.5 週) | 週 2 バックエンドをコミット、認証統合テスト、UI: ログイン / ヘッダー / ポップオーバー / フッター / 全コマンド / 確認、MapLibre 地図 + マーカー + 航跡 + 追従、右パネル詳細 + STATUSTEXT、Guided、Playwright、SITL 受入 | admin/admin → SITL を確認付き ARM → 監査行 → フッター。追従 ±4 px。LinkLost で 503 |
+| **P2 カメラ・映像・観客用** | 11/06–11/26(3 週) | `rgcs-camera`(trait、caps、siyi 絞込実装、none)、MT11 疑似サーバー、`rgcs-video` WHEP 中継 + 統計、UI: 右パネル映像 + カメラ帯 + 操作卓、ゲームパッド → `gimbal_rate` + デッドマン、**`/present`**(トークン、ロゴ、小地図、最終フレーム保持)、設定: ロゴ / トークン | 操作者が全操作を一巡しても `/present` が止まらない(自動化 + 手動) |
+| **P3 ミッション** | 11/27–12/10(2 週) | `rgcs-mission`(Mission Protocol 状態機械、`.waypoints` 読み書き、検証)、`missions` テーブル、UI: 2D 作成(一覧 / 地図編集 / パラメータ / サマリー / Undo・Redo)、書込・読込・開始、運用マップの経路 + 現在 WP | SITL に 20 WP 往復一致、`.waypoints` を Mission Planner が読む、AUTO で動く |
+| **P4 パラメータ** | 12/11–12/12(0.5 週)※P3 と並行可 | PARAM 全件取得 + キャッシュ + 進捗、`apm.pdef.xml` 同梱、UI: 全件テーブル + 検索 + 変更セット + 確認 + 書戻し検証 + 履歴 | 1,000 件超を検索 → 変更 → `param_history` |
+| **P5 点検・飛行日誌** | 12/01–12/19(並行ストリーム、2.5 週) | 台帳列(機体 / 操縦者)、点検テンプレート + 実施、飛行検出(ARM → DISARM)+ 飛行記録下書き、不具合記事、点検整備記録、ログ取り出し(LOG_REQUEST_*)、PDF(Noto Sans JP 同梱)/ CSV、UI: 日常点検 / 飛行日誌タブ、アプリ設定(台帳・テンプレート) | 様式 1 / 2 / 3 の PDF と CSV。SITL 飛行で下書き自動生成 |
+| **P6 配備・リハーサル** | 12/08–12/12 リハ 1、12/22–12/26 リハ 2 + 修正 | `cross` aarch64(CI 済)、`include_dir` で UI 埋め込み、`deploy/install.sh`、実 Pi + 実 FC + MT11、LTE 越し、修正週 | リハ 1: 飛行 + 映像 + 観客用。リハ 2: 全シナリオ(追補 §4) |
 
-依存: M2 は M1 の WS / 認証 / 監査に依存。M3 は M2 のドライバと `GLOBAL_POSITION_INT` 受信に依存。M4 の 3D 地図はプロトタイプの `AirPathLayer` を移植。M5 の edge/hub は M1〜M4 の WS 契約をそのまま使う。
+**並行の前提**: P5 は P3 / P4 と触る層が重ならない(store + UI + 独立したログ取り出し)ので、`superpowers:subagent-driven-development` で別ワークツリーのストリームとして走らせる。単線で進める場合は P5 が 12/26 を超えるため、その時は PDF 出力を CSV のみに縮退し PDF をデモ後に送る(本人判断)。
 
-## 4. M1 詳細(4 週)
+**余白**: 実質 1 週(12/22–26 の修正週)。P2 の観客用安定化が遅れた場合は P3 の Undo / Redo と右クリックメニューを削る。
 
-### 週 1: 骨組みとテレメトリ
-1. `cargo new` でワークスペース。`rgcs-core` にドメイン型(`VehicleState`, `Command`, `CommandResult`, `Operator`)+ ts-rs 出力(`ui/src/shared/api/types.ts` を `cargo test` で生成し CI で差分検出)。
-2. `rgcs-mavlink`: リンク URL パーサ(`udpin|udpout|udp|tcp:<host>:<port>` / `/dev/tty*[,baud]`、`tcpin` 拒否)→ 先にテスト。Router(sysid/compid → `VehicleHandle`、未知 sysid 自動登録)。HEARTBEAT 監視(3 s / 10 s)。`SET_MESSAGE_INTERVAL` 遅延要求(Python `test_mavlink_source.py` を移植)。
-3. `rgcs-server`: axum 起動、`config.toml`、静的配信、`/ws` に `snapshot` + `telemetry` 10 Hz 差分。
-4. UI: Vite + React + TS、`tokens.css` / `components.css`(プロトタイプの `<style>` を移植)、WS クライアント、機体リスト。
-5. 受け入れ: SITL(docker、ArduCopter 1 機)の位置が UI のリストに 10 Hz で出る。
+## 4. P1 の要点(詳細は `../superpowers/plans/2026-10-17-p1-close-m1.md`)
 
-### 週 2: 認証・監査・コマンド
-1. `rgcs-store`: マイグレーション(`users`, `sessions`, `audit_log`, `param_history`, `vehicles`, `app_settings`)、`admin` シード、`dev_mode` 判定。
-2. 認証 API(login / logout / me)、tower-sessions、CSRF ヘッダ、5 回失敗ロック → 統合テスト(401 / 429)。
-3. `CommandQueue`: ポリシー(ACK 必須 / 再送 / タイムアウト)、確認トークン発行と検証(30 s)、監査記録、`command_result` 配信。先にユニットテスト(要確認コマンドのトークン無し → `confirm_required`)。
-4. UI: ログイン画面(`glass_login.png`)、ヘッダー + ユーザーポップオーバー、全コマンドシート、確認ダイアログ、フッターのログピル。
-5. 受け入れ: admin/admin でログイン → SITL を ARM(確認付き)→ `audit_log` に行、フッターに結果。
+1. 未コミットの週 2 バックエンド(auth / sessions / lockout / confirm / queue / audit、86 テスト緑)をコミット。
+2. `rgcs-server` を lib + bin に分け、`tests/` に認証・コマンドの統合テスト(401 / 403 / 429 / 409 / 503)。
+3. UI: API クライアント(CSRF ヘッダ、封筒解釈、401 → ログインへ)、認証ストア、ログイン画面、ヘッダー 5 ナビ、ユーザーポップオーバー、フッターのログピル。
+4. UI: 全コマンドシート + 確認ダイアログ(`POST confirm` → `confirm_token` → `POST command`)。
+5. 地図: MapLibre ラスタ、`.rg-mk` マーカー、航跡 600 点、追従 + `setPadding` 同期。
+6. 右パネル詳細(映像未接続、テレメトリ 3 列、タイル 3 つ、メッセージ + 確認)。STATUSTEXT(チャンク結合)と CommsDelay / LinkLost を `vehicle_message` に。
+7. Guided: `SET_POSITION_TARGET_GLOBAL_INT`、GUIDED でなければ 409、`FENCE_ALT_MAX` 既知なら上限拒否、初回のみ確認。
+8. Playwright(ログイン → 一覧 → ポップオーバー → ログアウト。SITL ありの拡張はローカル)、`tests/sitl/accept-m1.sh`、CI に e2e ジョブ。
+9. 仕様書の同期(10 §7 タブ、50 / 60 の追加、00 §7 の決定)。
 
-### 週 3: 地図と右パネル
-1. MapLibre 地図(2D)、機体マーカー(`.rg-mk`)、航跡、追従と `setPadding` 同期(プロトタイプ `syncPadding` を移植)。
-2. 右パネル詳細(映像サムネイルは「映像未接続」固定、テレメトリ 3 列、タイル 3 つ、メッセージ + 確認)。`vehicle_message`(STATUSTEXT、CommsDelay / LinkLost)。
-3. Guided 移動(目標クリック、高度モード、`SET_POSITION_TARGET_GLOBAL_INT`、ジオフェンス上限チェック)。
-4. 受け入れ: 追従中の機体が可視領域中央 ±4 px。Guided で SITL が動く。LinkLost 時にコマンドが 503。
+## 5. P2〜P5 の設計上の席(P1 で壊さないこと)
 
-### 週 4: Pi 配備と仕上げ
-1. `cross` で aarch64 ビルド、`sqlx` オフライン、`include_dir` で UI 埋め込み、`deploy/install.sh`(Python 版サービス停止 → 配置 → `config.toml` → enable)。
-2. 実 Pi(Rpanion `udpin:127.0.0.1:15555`)で実機 FC 接続、LTE 越しのブラウザ操作。
-3. Playwright E2E: ログイン → リスト → 詳細 → コマンド(確認)→ ログアウト。
-4. 性能: 20 機ダミー(SITL 2 機 + 生成テレメトリ)で UI 50 fps、`rgcs-server` CPU 計測。
-5. ドキュメント: `deploy/README`(Pi セットアップ)、`docs/spec` の差分反映。
-
-### M1 受け入れ条件(まとめ)
-- 30 §9 の性能目標(テレメトリ反映、CPU、メモリ)。
-- 70 §8 のうち確認トークン・401 / 429 / 409。
-- 10 §1〜3 の受け入れ条件(カメラ帯を除く)。
-- `cargo test` / `pnpm test` / Playwright が CI で緑、カバレッジ 80%。
-
-## 5. M2 詳細(要点)
-
-- 週 1: `rgcs-camera` 型 + `siyi/frame.rs`(CRC・フレーミング、`test_camera_protocol.py` 移植)+ `siyi/client.rs`(TCP / UDP、ハートビート、再接続、`FORBIDDEN_CMD_IDS`)+ `tests/siyi-sim`(Python 版の応答を再現する疑似カメラ)。
-- 週 2: 全 CMD の encode / parse(ai / thermal / tf_card / encoding)、`CameraState` 更新、`camera_state` 配信、`mavlink_cam` の caps 取得、`camera_profiles` + API。
-- 週 3: `rgcs-video`(`video_source.py` 移植、WHEP 中継、`/video/stats`)、UI: 全機体映像グリッド、操作卓(映像 `<video>` + 操作バー)、カメラ帯、カメラ設定(接続 / 操作 / 映像)。
-- 週 4: Gamepad API(`app.js` の軸 / ボタン処理を TS に移植、vitest)、WS `gimbal_rate` / `input_hb`、`InputGate` デッドマン、実機 MT11 で Python 版と並べて比較(同時起動は不可なので交互に)、Pi 配備、**0.1 出荷**。
+- `AppState` にカメラ・映像・プレゼンのハンドルを足せるよう、`AppState::new` の引数は構造体化しない(フィールド追加で済む)。
+- `ServerMessage` は `#[serde(tag = "t")]` の追加のみで拡張(`camera_state`, `mission_progress`, `log_fetch_progress`, `flight_draft_created`)。既存バリアントの形は変えない。
+- UI の `features/<name>/` 1 機能 1 ディレクトリ、`index.ts` で公開。`view` は `'ops'|'video'|'mission'|'ai'|'maint'|'present'` の union を P1 で定義し、未実装はナビで無効化。
+- `Router` の `RouterEvent` に `Statustext` と `ParamValue` を P1 で足す(P4 / P5 が使う)。
+- `vehicles` / `users` テーブルの列追加はマイグレーション `0002_` 以降で行う(P5)。`0001_init.sql` は触らない。
 
 ## 6. テスト戦略
 
-| 層 | 内容 | ツール |
+| 層 | 対象 | 手段 |
 |---|---|---|
-| ユニット(Rust) | フレーミング / パーサ / PID / geo / 時刻同期 / 検証範囲 / コマンドポリシー | `cargo test`、Python テストのケースを移植 |
-| ユニット(TS) | 軸・ボタン処理、クリック→画素座標、zod スキーマ、WS 差分適用、i18n 欠落検出 | vitest |
-| 統合 | 認証、API エラー経路、WS 契約、`siyi-sim` との往復、SITL(docker)での ARM / Guided / パラメータ往復 / ミッション往復 | `cargo test --test`、docker-compose |
-| E2E | ログイン → 運用 → 操作卓 → 設定保存 → ログアウト、能力ゲート(MT11 / MAVLink / none) | Playwright(`e2e-runner`) |
-| 負荷 | 20 機 × 50 Hz + 6 映像、WS 10 Hz 維持、Pi CPU | 専用スクリプト |
-| 実機 | MT11 全機能、ROI、LTE 越し、`siyi probe` | チェックリスト(40 §8) |
+| 単体 | 型・パーサ・エンコーダ・状態機械・reducer・フォーマット | `cargo test` / `vitest` |
+| 統合 | 認証、API エラー経路、WS 契約、コマンド → 監査、Mission Protocol(MT11 疑似サーバーと SITL) | `cargo test --test`(in-memory store + 疑似 Router)、`tests/sitl/*.sh` |
+| E2E | ログイン → 一覧 → 詳細 → コマンド(確認)→ ログアウト、`/present` 連続再生 | Playwright(CI は SITL なし、ローカルは `scripts/dev.sh --built`) |
+| 受入 | 各フェーズの合格条件(§3)、リハーサル 2 回 | 手動 + スクリプト |
 
-TDD の順序: Python テスト → Rust テスト(赤)→ 実装(緑)→ リファクタ。UI は Storybook 不要、Playwright のスクリーンショットをデザイン正本(`design_base/screenshots/glass_*.png`)と目視比較。
+## 7. 0.1 からの変更
 
-## 7. リスク
-
-| リスク | 対策 |
-|---|---|
-| Pi の CPU(映像を Pi で触ると不足) | MediaMTX パススルーを崩さない。Pi 上の処理は制御・中継のみ |
-| WebRTC over LTE(UDP 8189 不通、H.265 非対応ブラウザ) | TCP フォールバック、既定は H.264 1080p、UI に遅延と理由を表示 |
-| MT11 TCP 1 クライアント制限 | Python 版と `rgcs-server` の同時起動禁止(install.sh が停止)、`siyi probe` はサービス停止前提 |
-| `0x0E` 角度基準・温度の負値など未確認仕様 | 実機確認済み事項を 40 に記載。未確認は `siyi probe` で先に確認 |
-| aarch64 クロスビルド・`sqlx` オフライン | 週 1 から CI でクロスビルドを回す |
-| モックログインが本番に残る | `dev_mode` バッジ + 初回パスワード変更強制(M5)+ インストール手順に明記 |
-| ROI 精度(コンパス・GPS) | 高倍率は ROI → AI 追跡に切替える運用を UI の注記に出す |
-| 仕様の二重管理(範囲表) | `docs/spec/ranges.json` を両側のテストが参照 |
-
-## 8. 未決事項
-
-1. MAVLink 署名鍵の配布・保管(M4 冒頭)。
-2. hub の認証基盤(自前 / 外部 IdP)(M5 冒頭)。
-3. SIYI 他機種(ZR10 / A8)対応の優先度。
-4. 地図タイルのオフライン化(Pi 版はオンライン前提、hub / desktop で MBTiles)。
-
-## 9. 直近の着手順
-
-1. ワークスペース生成とクロスビルド CI(M1 週 1 の 1)。
-2. `rgcs-core` の型と ts-rs 生成。
-3. `rgcs-mavlink` の URL パーサ・Router(テスト先行)。
-4. UI の `tokens.css` / `components.css` 移植とログイン画面。
+- ロードマップを M1〜M5 から P1〜P6(10 週)に差し替え。ミッションを 4 番目から 3 番目へ、パラメータ全件検索を新設、観客用画面と飛行日誌を新設。
+- デモ後送り: ROI 制御器、サーマル温度、AI 追跡、時刻同期 / SD / 自動録画、機体操作ジョイスティック、3D / 地形 / 標高プロファイル、edge / hub、アカウント管理、AI チャット、ログ AI 解析、Tauri、MAVLink 署名、英語の完成。
+- SITL は docker ではなくローカルバイナリ(`scripts/dev.sh`)。
+- 詳細プランは本書から `docs/superpowers/plans/` に分離(本書はロードマップと判断のみ)。
