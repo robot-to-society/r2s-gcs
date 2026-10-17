@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest'
+import type { MissionItem } from '../../shared/api/types'
+import { localWarnings, stats } from './summary'
+
+const item = (command: number, lat: number, lon: number, alt: number, p1 = 0): MissionItem => ({ command, frame: 'rel', params: [p1, 0, 0, 0], lat, lon, alt, autocontinue: true })
+
+describe('summary', () => {
+  it('stats_match_the_core_rule', () => {
+    const items = [item(22, 36.162, 139.372, 30), item(16, 36.162, 139.3831, 80, 10)]
+    const s = stats(items, null, 8)
+    expect(s.distance_m).toBeGreaterThan(990)
+    expect(s.distance_m).toBeLessThan(1010)
+    expect(s.duration_s).toBeGreaterThan(123)
+    expect(s.duration_s).toBeLessThan(137)
+    expect(s.max_alt).toBe(80)
+    expect(stats([], null, 8)).toEqual({ distance_m: 0, duration_s: 0, max_alt: 0 })
+    const withHome = stats(items, { lat: 36.162, lon: 139.361, alt: 0 }, 8)
+    expect(withHome.distance_m).toBeGreaterThan(s.distance_m + 900)
+  })
+
+  it('warnings_cover_first_not_takeoff_and_mixed_frames', () => {
+    expect(localWarnings([], 8).map((w) => w.code)).toEqual(['empty'])
+    const bad = [item(16, 36.1, 139.1, 50), { ...item(16, 36.2, 139.2, 50), frame: 'abs' as const }]
+    const codes = localWarnings(bad, 8).map((w) => w.code)
+    expect(codes).toContain('first_not_takeoff')
+    expect(codes).toContain('mixed_frames')
+    expect(codes).toContain('no_land_or_rtl')
+    // ~700 m leg: well under the 20-minute long-flight proxy
+    const ok = [item(22, 36.1, 139.1, 30), item(16, 36.105, 139.105, 50), item(20, 0, 0, 0)]
+    expect(localWarnings(ok, 8)).toEqual([])
+    const far = [item(22, 36.1, 139.1, 30), item(16, 37.1, 139.1, 50), item(20, 0, 0, 0)]
+    expect(localWarnings(far, 8).map((w) => w.code)).toEqual(['long_flight'])
+  })
+})
