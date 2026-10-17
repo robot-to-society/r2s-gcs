@@ -127,6 +127,11 @@ CREATE TABLE param_history (
 - `vehicles(sysid PK, name, kind, first_seen, last_seen, notes)`。表示名は `UAV-xx` 既定、UI で変更可。
 - `missions(id PK, name, sysid, default_alt, default_frame, speed, items JSON, created_at, updated_at)`。
 
+### 3.9 P2 で追加した表(2026-10-17)
+- `camera_profiles`: §3.3 の通り(マイグレーション `0002_camera.sql`)。`rtsp_url` のホストは `{host}` かカメラの IP そのものに限る(プローブを他ホストに向けさせない)。
+- `gimbal_input_profile(id = 1, json, updated_at)`: `GimbalInputProfile` を JSON で 1 行。
+- `presentation_tokens(token PK, label, created_by, created_at, revoked_at)`: 32 桁 16 進。一覧は先頭 6 文字だけを返す。
+
 ## 4. 検証の二重化
 
 - サーバー: `impl TryFrom<CameraProfileInput> for CameraProfile` 等で範囲を検査し、違反は `422 validation` に `details: {field, reason}`。

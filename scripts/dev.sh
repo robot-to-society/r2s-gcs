@@ -4,6 +4,8 @@
 #   scripts/dev.sh            # Vite dev server with HMR on :5173 (proxies /api and /ws to :8000)
 #   scripts/dev.sh --built    # serve apps/rgcs-server/ui/dist from rgcs-server on :8000 (builds if missing)
 #   scripts/dev.sh --no-sitl  # reuse a SITL you already started on tcp:5760
+#   scripts/dev.sh --siyi-sim # also run the MT11 simulator on 37260 and point UAV-01's camera at it
+#   scripts/dev.sh --video    # also run MediaMTX + ffmpeg test pattern (scripts/dev-video.sh)
 #
 # Env overrides: ARDUPILOT_DIR, SITL_HOME (lat,lon,alt,yaw), SITL_SPEEDUP, RGCS_PORT, UI_PORT.
 # Everything runtime-related lives in .dev/ (git-ignored). Ctrl-C stops all three processes.
@@ -23,10 +25,14 @@ UI_PORT="${UI_PORT:-5173}"
 
 MODE="vite"
 START_SITL=1
+SIYI_SIM=0
+VIDEO=0
 for arg in "$@"; do
   case "$arg" in
     --built) MODE="built" ;;
     --no-sitl) START_SITL=0 ;;
+    --siyi-sim) SIYI_SIM=1 ;;
+    --video) VIDEO=1 ;;
     -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
@@ -78,6 +84,7 @@ CONFIG="$DEV_DIR/config.toml"
   echo "data_dir = \"$DEV_DIR/data\""
   echo "role = \"standalone\""
   echo "telemetry_interval_ms = 100"
+  if [ "$VIDEO" = 1 ]; then echo "whep_upstream = \"http://127.0.0.1:8889/video1/whep\""; fi
   if [ "$MODE" = "built" ]; then echo "ui_dir = \"$UI_DIR/dist\""; fi
 } >"$CONFIG"
 
@@ -86,9 +93,32 @@ if [ "$MODE" = "built" ] && [ ! -f "$UI_DIR/dist/index.html" ]; then
   (cd "$UI_DIR" && npm run build)
 fi
 
+if [ "$SIYI_SIM" = 1 ]; then
+  echo "[dev] starting MT11 simulator on 37260 -> $DEV_DIR/siyi-sim.log"
+  (cd "$ROOT" && exec cargo run -q -p rgcs-camera --features sim --example siyi_sim -- --port 37260) >"$DEV_DIR/siyi-sim.log" 2>&1 &
+  PIDS+=($!)
+fi
+if [ "$VIDEO" = 1 ]; then
+  "$ROOT/scripts/dev-video.sh" >"$DEV_DIR/video.log" 2>&1 &
+  PIDS+=($!)
+fi
+
 echo "[dev] starting rgcs-server (config $CONFIG)"
 (cd "$ROOT" && RGCS_CONFIG="$CONFIG" exec cargo run -q -p rgcs-server) &
 PIDS+=($!)
+
+if [ "$SIYI_SIM" = 1 ]; then
+  # Point UAV-01's camera profile at the simulator once the API answers.
+  (
+    for _ in $(seq 1 120); do curl -sf --max-time 1 "http://127.0.0.1:$RGCS_PORT/api/health" >/dev/null && break; sleep 1; done
+    J=$(mktemp)
+    curl -s -c "$J" -H 'X-Requested-With: rgcs' -H 'content-type: application/json' -d '{"username":"admin","password":"admin"}' "http://127.0.0.1:$RGCS_PORT/api/auth/login" >/dev/null
+    curl -s -b "$J" -H 'X-Requested-With: rgcs' -H 'content-type: application/json' -X PUT \
+      -d '{"kind":"siyi_mt11","host":"127.0.0.1","port":37260}' "http://127.0.0.1:$RGCS_PORT/api/vehicles/1/camera/profile" >/dev/null \
+      && echo "[dev] UAV-01 camera profile -> MT11 simulator"
+    rm -f "$J"
+  ) &
+fi
 
 # --- 3. UI -------------------------------------------------------------------
 if [ "$MODE" = "vite" ]; then

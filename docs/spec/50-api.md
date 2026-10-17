@@ -46,14 +46,14 @@
 | メソッド | パス | 本文 / 応答 |
 |---|---|---|
 | GET | `/api/vehicles/{sysid}/camera` | → `{caps: CameraCaps, state: CameraState}` |
-| POST | `/api/vehicles/{sysid}/camera/command` | `CameraCommand`(`GimbalRate` は WS 専用、ここでは 409) |
-| GET / PUT | `/api/vehicles/{sysid}/camera/profile` | `CameraProfile`(60 §3)。PUT でドライバを再生成・再接続 |
+| POST | `/api/vehicles/{sysid}/camera/command` | `CameraCommand`(`GimbalRate` は WS 専用 → `409 ws_only`; caps に無い → `409 unsupported_capability`; 未接続 → `503 camera_offline`。監査 target `camera`) |
+| GET / PUT | `/api/vehicles/{sysid}/camera/profile` | `CameraProfile`(60 §3)。PUT は部分更新(省略した項目は保持)、`400 validation` はフィールド名入り。保存後にドライバと映像監視を再生成 |
 | GET / PUT | `/api/vehicles/{sysid}/roi/targets` | `[RoiTarget]`(10 件固定、id `roi_1..roi_10`) |
 | GET / PUT | `/api/vehicles/{sysid}/roi/control` | `RoiControl` |
 | POST | `/api/vehicles/{sysid}/roi/start` / `stop` | `{id}` / — |
-| GET / PUT | `/api/vehicles/{sysid}/video/source` | `{mode: auto\|mt11\|android}` → `VideoSourceStatus` |
-| POST | `/api/vehicles/{sysid}/video/whep` | `application/sdp` → `application/sdp`(MediaMTX / android-stream へ中継、`Location` を書き換え) |
-| POST | `/api/vehicles/{sysid}/video/stats` | `{rtt_ms, jitter_ms, fps}`(ブラウザの受信統計、遅延表示用) |
+| GET / PUT | `/api/vehicles/{sysid}/video/source` | `{mode: auto\|mt11}` → `VideoSourceStatus`(P2 は Android 無し。PUT は監査 target `video`) |
+| POST | `/api/vehicles/{sysid}/video/whep` | `application/sdp`(≤ 64 KB、ICE 収集完了後の offer、trickle 無し)→ `201 application/sdp`。上流は `config.toml` の `whep_upstream`(既定 `http://127.0.0.1:8889/mt11/whep`)。上流不達は `503 video_unavailable` |
+| POST | `/api/vehicles/{sysid}/video/stats` | (P2 では未実装。遅延は UI が `getStats()` から算出) |
 | GET | `/api/debug/camera/{sysid}/rx` | → `{counts: {"0x50": n…}, last: {...}, firmware}` |
 
 CSV 取込は UI が解析して `PUT roi/targets`。
@@ -61,7 +61,10 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 ### 2.4 設定
 | メソッド | パス | 本文 |
 |---|---|---|
-| GET / PUT | `/api/settings/input/gimbal` | `GimbalInputProfile` |
+| GET / PUT | `/api/settings/input/gimbal` | `GimbalInputProfile`(`400 validation` はフィールド名入り、監査 target `settings`) |
+| GET / POST | `/api/settings/presentation/tokens` | 一覧(prefix 6 文字のみ、operator 可)/ `{label}` → `{token, url}`(admin、token は一度だけ返る) |
+| DELETE | `/api/settings/presentation/tokens/{prefix}` | 無効化(admin) |
+| PUT / DELETE | `/api/settings/branding/logo` | 本文 = 画像そのもの(`image/png` / `image/svg+xml`、≤ 1 MB、admin) |
 | GET / PUT | `/api/settings/input/vehicle` | `VehicleInputProfile`(M4) |
 | GET / PUT | `/api/settings/app` | `{lang, map_tile_url, map_attribution}`(P1 は GET のみ。`log_dir, tile_cache, terrain` は P4+) |
 | GET | `/api/history/params?sysid=&limit=` | `[{ts, operator, sysid, name, from, to}]` |
@@ -69,6 +72,15 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 
 ### 2.5 ログ・AI(M4 / M5)
 `POST /api/logs/open {path}`, `GET /api/logs/{id}/series?keys=`, `POST /api/logs/{id}/analyze`, `POST /api/ai/chat {sysid, message}`(ツールは状態取得 / メッセージ一覧 / ログ検索のみ)。
+
+### 2.6 観客用(`/present/*`、2026-10-17 追補 §5.1)
+セッションではなく `?t=<token>` で守る(無効 / 失効は `401 invalid_token`)。
+| メソッド | パス | 応答 |
+|---|---|---|
+| GET | `/present/config` | `{sysid?, vehicle_name?, logo, map_tile_url, map_attribution, whep_path}` |
+| GET | `/present/vehicle` | 最初の機体 `{sysid, name, lat, lon, hdg, alt_rel, mode, armed, link}` または `null`(2 Hz でポーリング) |
+| GET | `/present/logo` | ロゴ画像(`Cache-Control: no-store`、`nosniff`、CSP sandbox) |
+| POST | `/present/whep` | 操作者用と同じ中継(観客ごとに別の上流セッション) |
 
 ## 3. WebSocket `/ws`
 
@@ -78,15 +90,15 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 ### 3.1 サーバー → クライアント
 | `t` | ペイロード | 周期 |
 |---|---|---|
-| `snapshot` | `{vehicles: [...], cameras: [...]}` | 接続時 |
+| `snapshot` | `{vehicles: [VehicleState], cameras: [CameraSnapshot{sysid, caps, state}]}` | 接続時 |
 | `telemetry` | `{sysid, diff: Partial<VehicleState>}` | 10 Hz(変化分のみ) |
-| `camera_state` | `{sysid, state: CameraState}` | 変化時 + 1 Hz |
+| `camera_state` | `{sysid, state: CameraState}` | 変化時 + 1 Hz(サーバーが再送) |
 | `roi_status` | `{sysid, status: RoiStatus}` | 2 Hz(追従中) |
 | `video_source` | `{sysid, status: VideoSourceStatus}` | 変化時 |
 | `vehicle_message` | `{sysid, id, severity, text, ts}`。機体の STATUSTEXT は原文(50 バイトのチャンクはサーバーで結合)。サーバー生成の `text` は固定コード `comms_delay` / `link_lost` / `link_restored`(UI が翻訳) | 発生時 |
 | `command_result` | `{id, sysid, cmd, ok, reason?, ts}` | 完了時 |
 | `vehicle_discovered` / `vehicle_lost` | `{sysid}` | 発生時 |
-| `input_state` | `{deadman: ok\|lost}` | 変化時 |
+| `input_state` | `{deadman: ok\|lost}` | 変化時(`input_hb` 1.5 s 途絶で `lost`、サーバーは速度 0 を 1 回送る) |
 | `error` | `{code, message}` | 入力拒否時 |
 
 ### 3.2 クライアント → サーバー
