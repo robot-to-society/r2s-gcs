@@ -1475,6 +1475,7 @@ name = "rgcs-mission"
 version = "0.1.0"
 dependencies = [
  "mavlink",
+ "num-traits",
  "rgcs-core",
  "serde",
  "thiserror",
