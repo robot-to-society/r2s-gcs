@@ -5,6 +5,7 @@ pub mod audit;
 pub mod camera_profiles;
 pub mod input_profile;
 pub mod lockout;
+pub mod missions;
 pub mod password;
 pub mod presentation;
 pub mod sessions;
@@ -31,6 +32,8 @@ pub enum StoreError {
     Password(String),
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("invalid stored data: {0}")]
+    Invalid(String),
 }
 
 pub type Result<T> = std::result::Result<T, StoreError>;

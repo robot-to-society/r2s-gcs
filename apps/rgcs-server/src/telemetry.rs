@@ -62,7 +62,7 @@ pub fn event_frame(ev: RouterEvent, now_ms: u64) -> Option<ServerMessage> {
                 ts: now_ms,
             }))
         }
-        RouterEvent::Updated(_) | RouterEvent::ParamValue { .. } => None,
+        RouterEvent::Updated(_) | RouterEvent::ParamValue { .. } | RouterEvent::Mission { .. } => None,
     }
 }
 

@@ -12,6 +12,7 @@ use tokio::sync::watch;
 
 use crate::decode;
 use crate::heartbeat::{is_flight_controller, link_status};
+use crate::mission_frame::MissionFrame;
 use crate::statustext::{is_full_chunk, Complete, Joiner};
 
 /// Timestamps supplied by the caller: a monotonic clock for ages, wall time for messages.
@@ -39,6 +40,11 @@ pub enum RouterEvent {
         value: f32,
         index: u16,
         count: u16,
+    },
+    /// A Mission Protocol frame from the flight controller (upload / download / MISSION_CURRENT).
+    Mission {
+        sysid: SysId,
+        frame: MissionFrame,
     },
 }
 
@@ -98,6 +104,11 @@ impl Router {
                 self.joiner = joiner;
                 if let Some(c) = done {
                     events.push(self.message_event(c, clock.unix_ms));
+                }
+            }
+            m if MissionFrame::from_message(m).is_some() => {
+                if let Some(frame) = MissionFrame::from_message(m) {
+                    events.push(RouterEvent::Mission { sysid, frame });
                 }
             }
             MavMessage::PARAM_VALUE(pv) => events.push(RouterEvent::ParamValue {
@@ -188,6 +199,11 @@ impl Router {
         self.slots.get(&sysid).map(|s| &s.state)
     }
 
+    /// Component id of the vehicle's flight controller (the target for mission frames).
+    pub fn fc_component(&self, sysid: SysId) -> Option<u8> {
+        self.slots.get(&sysid).map(|s| s.fc_component)
+    }
+
     pub fn subscribe(&self, sysid: SysId) -> Option<watch::Receiver<VehicleState>> {
         self.slots.get(&sysid).map(|s| s.tx.subscribe())
     }
@@ -266,6 +282,51 @@ mod tests {
             .on_message(&header(7), &MavMessage::VFR_HUD(Default::default()), clock(0))
             .is_empty());
         assert!(r.states().is_empty());
+    }
+
+    #[test]
+    fn mission_frames_become_mission_events() {
+        use mavlink::dialects::ardupilotmega::{
+            MavMissionResult, MavMissionType, MISSION_ACK_DATA, MISSION_CURRENT_DATA,
+        };
+        let mut r = Router::default();
+        r.on_message(&header(1), &fc_heartbeat(), clock(0));
+        let current = MavMessage::MISSION_CURRENT(MISSION_CURRENT_DATA {
+            seq: 3,
+            ..MISSION_CURRENT_DATA::DEFAULT
+        });
+        let ack = MavMessage::MISSION_ACK(MISSION_ACK_DATA {
+            target_system: 255,
+            target_component: 190,
+            mavtype: MavMissionResult::MAV_MISSION_ACCEPTED,
+            mission_type: MavMissionType::MAV_MISSION_TYPE_MISSION,
+            opaque_id: 0,
+        });
+        let a = r.on_message(&header(1), &current, clock(10));
+        assert!(
+            matches!(&a[0], RouterEvent::Mission { sysid: 1, frame: MissionFrame::Current(c) } if c.seq == 3),
+            "{a:?}"
+        );
+        let b = r.on_message(&header(1), &ack, clock(20));
+        assert!(
+            matches!(
+                &b[0],
+                RouterEvent::Mission {
+                    sysid: 1,
+                    frame: MissionFrame::Ack(_)
+                }
+            ),
+            "{b:?}"
+        );
+        // another component on the same sysid (a camera) is not the flight controller
+        let other = MavHeader {
+            system_id: 1,
+            component_id: 100,
+            sequence: 0,
+        };
+        assert!(r.on_message(&other, &current, clock(30)).is_empty());
+        assert_eq!(r.fc_component(1), Some(1));
+        assert_eq!(r.fc_component(9), None);
     }
 
     #[test]

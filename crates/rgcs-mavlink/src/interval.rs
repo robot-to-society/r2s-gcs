@@ -13,6 +13,7 @@ pub const MSG_ID_ATTITUDE: u32 = 30;
 pub const MSG_ID_VFR_HUD: u32 = 74;
 pub const MSG_ID_SYS_STATUS: u32 = 1;
 pub const MSG_ID_GPS_RAW_INT: u32 = 24;
+pub const MSG_ID_MISSION_CURRENT: u32 = 42;
 
 const GRACE_MS: u64 = 10_000;
 const RETRY_MS: u64 = 5_000;
@@ -26,6 +27,7 @@ pub const WANTED: &[(u32, u32)] = &[
     (MSG_ID_VFR_HUD, 250_000),
     (MSG_ID_SYS_STATUS, 500_000),
     (MSG_ID_GPS_RAW_INT, 500_000),
+    (MSG_ID_MISSION_CURRENT, 1_000_000),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,6 +81,11 @@ mod tests {
 
     fn ids(reqs: &[IntervalRequest]) -> Vec<u32> {
         reqs.iter().map(|r| r.msg_id).collect()
+    }
+
+    #[test]
+    fn mission_current_is_a_wanted_stream() {
+        assert!(WANTED.contains(&(MSG_ID_MISSION_CURRENT, 1_000_000)));
     }
 
     #[test]
