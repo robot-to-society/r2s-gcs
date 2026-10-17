@@ -12,6 +12,7 @@ pub mod commands;
 pub mod config;
 pub mod confirm;
 pub mod guided;
+pub mod input_api;
 pub mod params;
 pub mod settings;
 pub mod telemetry;

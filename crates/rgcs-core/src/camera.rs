@@ -338,7 +338,7 @@ fn rtsp_targets_camera(resolved_url: &str, host: &str) -> bool {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProfileError {
-    pub field: &'static str,
+    pub field: String,
     pub message: String,
 }
 
@@ -374,9 +374,9 @@ impl CameraProfile {
 
     /// Range / format checks from spec 60 §3.3; the first failing field is reported.
     pub fn validate(&self) -> Result<(), ProfileError> {
-        let err = |field: &'static str, message: &str| {
+        let err = |field: &str, message: &str| {
             Err(ProfileError {
-                field,
+                field: field.into(),
                 message: message.into(),
             })
         };
@@ -400,6 +400,129 @@ impl CameraProfile {
         }
         if !(self.thermal_palette == 0 || (2..=11).contains(&self.thermal_palette)) {
             return err("thermal_palette", "must be 0 or 2-11");
+        }
+        Ok(())
+    }
+}
+
+/// Joystick axis functions for the gimbal profile (spec 40 §6; zoom functions arrive with P3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export, rename_all = "snake_case")]
+pub enum AxisFunction {
+    None,
+    Pan,
+    Tilt,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export, rename_all = "snake_case")]
+pub enum ButtonFunction {
+    None,
+    Shutter,
+    RecordToggle,
+    CenterGimbal,
+    ThermalToggle,
+    GimbalStop,
+    ZoomInStep,
+    ZoomOutStep,
+    #[serde(rename = "zoom_1x")]
+    #[ts(rename = "zoom_1x")]
+    Zoom1x,
+    ModeLock,
+    ModeFollow,
+    ModeFpv,
+    ModeCycle,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AxisMapping {
+    pub axis: u8,
+    #[serde(rename = "fn")]
+    #[ts(rename = "fn")]
+    pub func: AxisFunction,
+    /// 0–0.5
+    pub deadzone: f32,
+    pub invert: bool,
+    /// 0.1–2
+    pub scale: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct ButtonMapping {
+    pub button: u8,
+    #[serde(rename = "fn")]
+    #[ts(rename = "fn")]
+    pub func: ButtonFunction,
+}
+
+/// Browser-side gamepad → gimbal profile (spec 40 §6, 60 §3).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct GimbalInputProfile {
+    pub device_id: Option<String>,
+    pub axes: Vec<AxisMapping>,
+    pub buttons: Vec<ButtonMapping>,
+    /// 1–100, yaw rate at full deflection.
+    pub max_pan_speed: f32,
+    /// 1–100, pitch rate at full deflection.
+    pub max_tilt_speed: f32,
+}
+
+impl Default for GimbalInputProfile {
+    fn default() -> Self {
+        let axis = |axis: u8, func: AxisFunction, invert: bool| AxisMapping {
+            axis,
+            func,
+            deadzone: 0.08,
+            invert,
+            scale: 1.0,
+        };
+        let button = |button: u8, func: ButtonFunction| ButtonMapping { button, func };
+        Self {
+            device_id: None,
+            axes: vec![
+                axis(0, AxisFunction::Pan, false),
+                axis(1, AxisFunction::Tilt, true),
+            ],
+            buttons: vec![
+                button(0, ButtonFunction::RecordToggle),
+                button(1, ButtonFunction::Shutter),
+                button(2, ButtonFunction::CenterGimbal),
+                button(3, ButtonFunction::ThermalToggle),
+            ],
+            max_pan_speed: 30.0,
+            max_tilt_speed: 20.0,
+        }
+    }
+}
+
+impl GimbalInputProfile {
+    pub fn validate(&self) -> Result<(), ProfileError> {
+        let err = |field: String, message: &str| {
+            Err(ProfileError {
+                field,
+                message: message.into(),
+            })
+        };
+        for (name, v) in [
+            ("max_pan_speed", self.max_pan_speed),
+            ("max_tilt_speed", self.max_tilt_speed),
+        ] {
+            if !(1.0..=100.0).contains(&v) {
+                return err(name.into(), "must be 1-100");
+            }
+        }
+        for (i, a) in self.axes.iter().enumerate() {
+            if !(0.0..=0.5).contains(&a.deadzone) {
+                return err(format!("axes[{i}].deadzone"), "must be 0-0.5");
+            }
+            if !(0.1..=2.0).contains(&a.scale) {
+                return err(format!("axes[{i}].scale"), "must be 0.1-2");
+            }
         }
         Ok(())
     }
@@ -478,7 +601,7 @@ mod tests {
         assert_eq!(
             bad_host.validate(),
             Err(ProfileError {
-                field: "host",
+                field: "host".into(),
                 message: "must be an IPv4 address".into()
             })
         );
@@ -535,6 +658,48 @@ mod tests {
             ..ok.clone()
         };
         assert_eq!(spaced.validate().unwrap_err().field, "rtsp_url");
+    }
+
+    #[test]
+    fn gimbal_input_profile_defaults_and_validation() {
+        let d = GimbalInputProfile::default();
+        assert_eq!((d.max_pan_speed, d.max_tilt_speed), (30.0, 20.0));
+        assert_eq!(
+            d.axes[0],
+            AxisMapping {
+                axis: 0,
+                func: AxisFunction::Pan,
+                deadzone: 0.08,
+                invert: false,
+                scale: 1.0
+            }
+        );
+        assert_eq!(d.axes[1].func, AxisFunction::Tilt);
+        assert!(d.axes[1].invert);
+        assert_eq!(
+            d.buttons[0],
+            ButtonMapping {
+                button: 0,
+                func: ButtonFunction::RecordToggle
+            }
+        );
+        assert_eq!(d.validate(), Ok(()));
+        let bad = GimbalInputProfile {
+            max_pan_speed: 500.0,
+            ..d.clone()
+        };
+        assert_eq!(bad.validate().unwrap_err().field, "max_pan_speed");
+        let mut axes = d.axes.clone();
+        axes[0].deadzone = 0.7;
+        let bad = GimbalInputProfile { axes, ..d.clone() };
+        assert_eq!(bad.validate().unwrap_err().field, "axes[0].deadzone");
+        let mut axes = d.axes.clone();
+        axes[1].scale = 5.0;
+        let bad = GimbalInputProfile { axes, ..d.clone() };
+        assert_eq!(bad.validate().unwrap_err().field, "axes[1].scale");
+        let json = serde_json::to_value(&d).unwrap();
+        assert_eq!(json["axes"][0]["fn"], "pan");
+        assert_eq!(json["buttons"][0]["fn"], "record_toggle");
     }
 
     #[test]

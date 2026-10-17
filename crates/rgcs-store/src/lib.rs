@@ -3,6 +3,7 @@
 
 pub mod audit;
 pub mod camera_profiles;
+pub mod input_profile;
 pub mod lockout;
 pub mod password;
 pub mod sessions;

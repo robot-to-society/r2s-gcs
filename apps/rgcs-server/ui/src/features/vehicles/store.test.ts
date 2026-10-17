@@ -63,3 +63,10 @@ describe('local results', () => {
     expect(s.getState().results).toEqual([r])
   })
 })
+
+describe('send', () => {
+  it('returns false when not connected', async () => {
+    const { VehicleStore } = await import('./store')
+    expect(new VehicleStore().send({ t: 'input_hb', sysid: 1 })).toBe(false)
+  })
+})

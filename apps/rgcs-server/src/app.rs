@@ -21,7 +21,7 @@ use crate::confirm::{ConfirmError, ConfirmTokens};
 use crate::params::ParamStore;
 use crate::settings;
 use crate::video::VideoHub;
-use crate::{api, auth, camera_api, commands, guided, video_api, ws};
+use crate::{api, auth, camera_api, commands, guided, input_api, video_api, ws};
 use axum::extract::DefaultBodyLimit;
 use rgcs_video::{Timings, WhepRelay, MAX_OFFER_BYTES};
 
@@ -228,6 +228,10 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
         )
         .route("/history/audit", get(api::audit_history))
         .route("/settings/app", get(settings::app_settings))
+        .route(
+            "/settings/input/gimbal",
+            get(input_api::get_gimbal).put(input_api::put_gimbal),
+        )
         .layer(middleware::from_fn(auth::csrf_guard));
     let app = AxumRouter::new().nest("/api", api).route("/ws", get(ws::handler));
     let app = match ui_dir {

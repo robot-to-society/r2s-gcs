@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { WsClient, defaultWsUrl } from '../../shared/ws/client'
-import type { CommandResult } from '../../shared/api/types'
+import type { ClientMessage, CommandResult } from '../../shared/api/types'
 import { addResult, initialState, reduce, setLink, type VehiclesState } from './reducer'
 
 type Listener = () => void
@@ -36,6 +36,11 @@ export class VehicleStore {
     this.client?.stop()
     this.client = null
     this.set(setLink(this.state, 'closed'))
+  }
+
+  /** Sends a client frame (joystick); false when the socket is not open. */
+  send(msg: ClientMessage): boolean {
+    return this.client?.send(msg) ?? false
   }
 
   /** A result that never went through the server (e.g. 503 on send); negative ids by convention. */
