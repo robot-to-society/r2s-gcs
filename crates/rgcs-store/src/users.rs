@@ -63,8 +63,8 @@ impl Store {
                 .fetch_optional(&self.pool)
                 .await?;
         let Some(row) = row else {
-            // Hash anyway so timing does not reveal whether the user exists.
-            let _ = verify_password(password, "");
+            // Pay the full KDF cost so timing does not reveal whether the user exists.
+            let _ = verify_password(password, crate::password::dummy_hash());
             return Ok(None);
         };
         let hash: String = row.get("password_hash");

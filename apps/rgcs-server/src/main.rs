@@ -1,13 +1,5 @@
-//! `rgcs-server`: MAVLink link → router → WebSocket telemetry, plus the static UI.
-
-mod api;
-mod app;
-mod auth;
-mod commands;
-mod config;
-mod confirm;
-mod telemetry;
-mod ws;
+//! `rgcs-server` binary: load `config.toml`, start the MAVLink link, the command queue and
+//! the telemetry pumps, then serve the API and UI.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -19,8 +11,9 @@ use tokio::sync::{broadcast, mpsc, Mutex};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-use crate::app::{AppState, BROADCAST_CAPACITY};
-use crate::config::Config;
+use rgcs_server::app::{self, AppState, BROADCAST_CAPACITY};
+use rgcs_server::config::{self, Config};
+use rgcs_server::telemetry;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "rgcs-server"
 path = "src/main.rs"
@@ -28,6 +31,7 @@ anyhow = { workspace = true }
 futures = { workspace = true }
 
 [dev-dependencies]
+mavlink = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }
 tower = { workspace = true, features = ["util"] }
 http-body-util = { workspace = true }

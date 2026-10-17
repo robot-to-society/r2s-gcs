@@ -95,6 +95,8 @@ pub async fn login(State(app): State<AppState>, jar: CookieJar, Json(body): Json
             "username must be 1-32 of [A-Za-z0-9_.-]",
         );
     }
+    let guard = app.login_guard(&username);
+    let _serialized = guard.lock().await;
     if let Some(secs) = app.locked_for(&username) {
         return err(
             StatusCode::TOO_MANY_REQUESTS,

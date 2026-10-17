@@ -1,5 +1,6 @@
 //! Shared server state and the axum router.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
@@ -19,6 +20,8 @@ use crate::confirm::{ConfirmError, ConfirmTokens};
 use crate::{api, auth, commands, ws};
 
 pub const BROADCAST_CAPACITY: usize = 1024;
+/// Distinct usernames tracked for login serialization before the map is reset.
+const MAX_LOGIN_GUARDS: usize = 1024;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -30,6 +33,9 @@ pub struct AppState {
     pub secure_cookies: bool,
     started: Instant,
     lockout: Arc<StdMutex<Lockout>>,
+    /// One async mutex per username so check-lockout → verify → record is serialized
+    /// (otherwise concurrent attempts slip past the 5-failure limit).
+    login_guards: Arc<StdMutex<HashMap<String, Arc<Mutex<()>>>>>,
     confirm: Arc<StdMutex<ConfirmTokens>>,
     next_command: Arc<AtomicU64>,
     dev_mode: Arc<AtomicBool>,
@@ -53,6 +59,7 @@ impl AppState {
             secure_cookies: false,
             started: Instant::now(),
             lockout: Arc::new(StdMutex::new(Lockout::default())),
+            login_guards: Arc::new(StdMutex::new(HashMap::new())),
             confirm: Arc::new(StdMutex::new(ConfirmTokens::default())),
             next_command: Arc::new(AtomicU64::new(1)),
             dev_mode: Arc::new(AtomicBool::new(dev_mode)),
@@ -73,6 +80,15 @@ impl AppState {
             .lock()
             .expect("lockout mutex")
             .locked_for(user, self.now_secs())
+    }
+
+    /// Guard to hold for the whole login attempt of `user`.
+    pub fn login_guard(&self, user: &str) -> Arc<Mutex<()>> {
+        let mut guards = self.login_guards.lock().expect("login guards mutex");
+        if guards.len() > MAX_LOGIN_GUARDS && !guards.contains_key(user) {
+            guards.clear();
+        }
+        guards.entry(user.to_string()).or_default().clone()
     }
 
     pub fn login_failed(&self, user: &str) {
