@@ -39,6 +39,7 @@ futures = { workspace = true }
 sim = ["rgcs-camera/sim"]
 
 [dev-dependencies]
+uuid = { workspace = true }
 rgcs-server = { path = ".", features = ["sim"] }
 mavlink = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }

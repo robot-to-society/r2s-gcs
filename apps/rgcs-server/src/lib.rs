@@ -6,6 +6,7 @@
 pub mod api;
 pub mod app;
 pub mod auth;
+pub mod branding;
 pub mod camera_api;
 pub mod cameras;
 pub mod commands;
@@ -14,6 +15,7 @@ pub mod confirm;
 pub mod guided;
 pub mod input_api;
 pub mod params;
+pub mod present_api;
 pub mod settings;
 pub mod telemetry;
 pub mod video;

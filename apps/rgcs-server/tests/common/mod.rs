@@ -47,6 +47,29 @@ pub async fn spawn_app_with_whep(upstream: &str) -> (AxumRouter, AppState) {
     (app::build(state.clone(), None), state)
 }
 
+/// Unique scratch directory for branding files etc.
+pub fn temp_data_dir() -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("rgcs-test-{}", uuid::Uuid::new_v4().simple()));
+    std::fs::create_dir_all(&dir).expect("temp data dir");
+    dir
+}
+
+/// Logs in as `username` / `password` and returns the cookie pair.
+pub async fn login_as(app: &AxumRouter, username: &str, password: &str) -> String {
+    let (status, _, headers) = call(
+        app,
+        req(
+            Method::POST,
+            "/api/auth/login",
+            None,
+            Some(login_body(username, password)),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "login as {username}");
+    cookie_pair(&headers)
+}
+
 async fn spawn_app_full(
     sim: Option<std::net::SocketAddr>,
 ) -> (AxumRouter, AppState, mpsc::Receiver<Outgoing>) {
@@ -70,7 +93,8 @@ async fn spawn_app_full(
     let cameras = CameraManager::new(store.clone(), tx.clone(), factory);
     let state = AppState::new(router, tx, store, queue_tx, dev_mode)
         .with_outgoing(outgoing_tx)
-        .with_cameras(cameras);
+        .with_cameras(cameras)
+        .with_data_dir(temp_data_dir());
     (app::build(state.clone(), None), state, outgoing_rx)
 }
 

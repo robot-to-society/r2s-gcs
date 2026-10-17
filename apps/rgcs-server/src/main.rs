@@ -51,6 +51,7 @@ async fn main() -> anyhow::Result<()> {
         .with_outgoing(outgoing_tx)
         .with_map(config.map_tile_url.clone(), config.map_attribution.clone())
         .with_whep_upstream(&config.whep_upstream)
+        .with_data_dir(config.data_dir.clone())
         .with_video_timings(rgcs_video::Timings {
             timeout: Duration::from_millis(config.video_probe_timeout_ms),
             ..rgcs_video::Timings::default()

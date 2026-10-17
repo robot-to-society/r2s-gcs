@@ -21,8 +21,9 @@ use crate::confirm::{ConfirmError, ConfirmTokens};
 use crate::params::ParamStore;
 use crate::settings;
 use crate::video::VideoHub;
-use crate::{api, auth, camera_api, commands, guided, input_api, video_api, ws};
+use crate::{api, auth, branding, camera_api, commands, guided, input_api, present_api, video_api, ws};
 use axum::extract::DefaultBodyLimit;
+use axum::routing::delete;
 use rgcs_video::{Timings, WhepRelay, MAX_OFFER_BYTES};
 
 pub const BROADCAST_CAPACITY: usize = 1024;
@@ -41,6 +42,8 @@ pub struct AppState {
     pub cameras: CameraManager,
     pub video: VideoHub,
     pub whep: WhepRelay,
+    /// Where branding files (and the database) live; `config.toml` `data_dir`.
+    pub data_dir: PathBuf,
     pub hostname: String,
     pub secure_cookies: bool,
     /// Map tile source handed to the UI by `GET /api/settings/app`.
@@ -83,6 +86,7 @@ impl AppState {
             cameras,
             video,
             whep,
+            data_dir: crate::config::Config::default().data_dir,
             hostname,
             secure_cookies: false,
             map_tile_url: crate::config::Config::default().map_tile_url,
@@ -112,6 +116,10 @@ impl AppState {
             self.whep.clone()
         });
         Self { whep, ..self }
+    }
+
+    pub fn with_data_dir(self, data_dir: PathBuf) -> Self {
+        Self { data_dir, ..self }
     }
 
     pub fn with_video_timings(self, timings: Timings) -> Self {
@@ -232,8 +240,37 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
             "/settings/input/gimbal",
             get(input_api::get_gimbal).put(input_api::put_gimbal),
         )
+        .route(
+            "/settings/presentation/tokens",
+            get(present_api::list_tokens).post(present_api::create_token),
+        )
+        .route(
+            "/settings/presentation/tokens/{prefix}",
+            delete(present_api::revoke_token),
+        )
+        .route(
+            "/settings/branding/logo",
+            axum::routing::put(branding::put_logo)
+                .delete(branding::delete_logo)
+                .layer(DefaultBodyLimit::max(branding::MAX_LOGO_BYTES + 1024)),
+        )
         .layer(middleware::from_fn(auth::csrf_guard));
-    let app = AxumRouter::new().nest("/api", api).route("/ws", get(ws::handler));
+    let present = AxumRouter::new()
+        .route("/config", get(present_api::config))
+        .route("/vehicle", get(present_api::vehicle))
+        .route("/logo", get(present_api::logo))
+        .route(
+            "/whep",
+            post(present_api::whep).layer(DefaultBodyLimit::max(MAX_OFFER_BYTES)),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            present_api::require_token,
+        ));
+    let app = AxumRouter::new()
+        .nest("/api", api)
+        .nest("/present", present)
+        .route("/ws", get(ws::handler));
     let app = match ui_dir {
         Some(dir) => {
             app.fallback_service(ServeDir::new(&dir).fallback(ServeFile::new(dir.join("index.html"))))

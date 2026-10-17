@@ -34,6 +34,21 @@ pub struct Me {
     pub hostname: String,
 }
 
+/// An admin session: `AuthUser` plus the role check (403 otherwise).
+pub struct AdminUser(pub Operator);
+
+impl FromRequestParts<AppState> for AdminUser {
+    type Rejection = Response;
+
+    async fn from_request_parts(parts: &mut Parts, app: &AppState) -> Result<Self, Self::Rejection> {
+        let AuthUser(op) = AuthUser::from_request_parts(parts, app).await?;
+        if op.role != rgcs_core::operator::Role::Admin {
+            return Err(err(StatusCode::FORBIDDEN, "forbidden", "admin role required"));
+        }
+        Ok(AdminUser(op))
+    }
+}
+
 /// The signed-in operator, resolved from the session cookie. Missing / expired → 401.
 #[derive(Debug, Clone)]
 pub struct AuthUser(pub Operator);

@@ -6,6 +6,7 @@ pub mod camera_profiles;
 pub mod input_profile;
 pub mod lockout;
 pub mod password;
+pub mod presentation;
 pub mod sessions;
 pub mod users;
 
@@ -17,6 +18,7 @@ use time::OffsetDateTime;
 
 pub use audit::AuditEntry;
 pub use lockout::Lockout;
+pub use presentation::PresentationToken;
 pub use users::UserRow;
 
 #[derive(Debug, thiserror::Error)]
