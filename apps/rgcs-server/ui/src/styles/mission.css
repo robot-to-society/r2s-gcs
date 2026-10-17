@@ -1,0 +1,83 @@
+/* Mission planning view (spec 10 §6, 2D subset). Panels float over the map like the ops view. */
+.mission-map.tool-add .maplibregl-canvas { cursor: crosshair; }
+.wp-mk {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--glass-strong); border: 2px solid var(--accent); color: var(--text);
+  font: 600 11px/20px var(--mono); text-align: center; cursor: grab; user-select: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+.wp-mk.sel { background: var(--accent); color: var(--on-accent); border-color: #fff; }
+.wp-mk.small { width: 18px; height: 18px; font-size: 9px; line-height: 14px; cursor: default; }
+.wp-mk.current { border-color: var(--caution); box-shadow: 0 0 0 4px var(--caution-tint); }
+.wp-mid {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--glass); border: 1px solid var(--accent-line);
+  color: var(--accent); font: 600 12px/14px var(--mono); text-align: center; cursor: copy; opacity: .8;
+}
+.wp-mid:hover { opacity: 1; background: var(--accent-tint); }
+
+.mission-left, .mission-right {
+  position: absolute; top: var(--top); bottom: calc(60px + var(--gap)); width: var(--aside-w);
+  background: var(--glass); -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--line-hi); border-radius: var(--r-panel); box-shadow: var(--shadow);
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+}
+.mission-left { left: var(--gap); }
+.mission-right { right: var(--gap); width: var(--right-w); }
+.mission-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.mission-meta label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-3); }
+.mission-meta label.wide { grid-column: 1 / -1; }
+.mission-meta input, .mission-meta select, .item-editor input, .item-editor select {
+  background: rgba(255,255,255,.06); border: 1px solid var(--line-hi); border-radius: var(--r-sm); padding: 5px 8px; color: var(--text);
+}
+.alt-pair { display: flex; gap: 6px; }
+.alt-pair select { width: 72px; }
+.wp-list { flex: 1; overflow: auto; margin: 0; padding: 6px 0; list-style: none; }
+.wp-row {
+  display: grid; grid-template-columns: 26px 1fr auto auto; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer;
+  border-left: 3px solid transparent;
+}
+.wp-row:hover { background: rgba(255,255,255,.04); }
+.wp-row.sel { background: var(--accent-tint); border-left-color: var(--accent); }
+.wp-row .badge { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--accent-line); font: 600 11px/20px var(--mono); text-align: center; }
+.wp-row .cmd { display: flex; flex-direction: column; min-width: 0; }
+.wp-row .cmd .key { font-weight: 500; }
+.wp-row .cmd .mav { font-family: var(--mono); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wp-row .chip { font: 500 11px var(--mono); padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,.08); color: var(--text-2); }
+.wp-row .reorder { display: flex; flex-direction: column; gap: 1px; }
+.wp-row .reorder button { padding: 0 4px; font-size: 9px; line-height: 12px; background: transparent; border: 0; color: var(--text-3); }
+.wp-row .reorder button:hover { color: var(--text); }
+.item-editor { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
+.item-editor .field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-3); }
+.item-editor .field.unused { opacity: .5; }
+.item-editor .tag { font-size: 10px; color: var(--text-4); margin-left: 6px; }
+.item-editor select.mav { font-family: var(--mono); }
+.item-editor .coords { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mission-summary { border-top: 1px solid var(--line); padding: 10px 14px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.mission-summary .kv { display: flex; flex-direction: column; }
+.mission-summary .kv .k { font-size: 11px; color: var(--text-3); }
+.mission-summary .warnings { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.mission-summary .warnings .fatal { color: var(--danger); }
+.mission-summary .warnings .warn { color: var(--caution); }
+.mission-footer {
+  position: absolute; left: calc(var(--aside-w) + 2 * var(--gap)); right: calc(var(--right-w) + 2 * var(--gap)); bottom: calc(60px + var(--gap));
+  display: flex; gap: 8px; align-items: center; padding: 8px 10px; flex-wrap: wrap;
+  background: var(--glass); -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--line-hi); border-radius: var(--r-ctl); box-shadow: var(--shadow);
+}
+.mission-footer .sep { width: 1px; height: 20px; background: var(--line-hi); }
+.mission-footer .dirty { color: var(--caution); font-size: 11px; }
+.ctx-menu {
+  position: fixed; z-index: 30; min-width: 160px; padding: 4px;
+  background: var(--glass-strong); border: 1px solid var(--line-hi); border-radius: var(--r-ctl); box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+}
+.ctx-menu button { text-align: left; background: transparent; border: 0; padding: 7px 10px; border-radius: var(--r-sm); color: var(--text); }
+.ctx-menu button:hover { background: var(--accent-tint); }
+.ctx-menu .danger { color: var(--danger); }
+.mission-picker { padding: 6px 0; list-style: none; margin: 0; max-height: 320px; overflow: auto; }
+.mission-picker li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 14px; cursor: pointer; }
+.mission-picker li:hover { background: var(--accent-tint); }
+.mission-picker .meta { color: var(--text-3); font-size: 11px; }
+.multi-note { padding: 14px; color: var(--text-2); display: flex; flex-direction: column; gap: 8px; }
+.mission-progress { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); }
+.mission-progress .num { font-family: var(--mono); }

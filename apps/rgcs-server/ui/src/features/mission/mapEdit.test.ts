@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest'
+import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl } from './mapEdit'
+import { appendWaypoint, emptyDraft, setCommand } from './model'
+
+describe('map editing helpers', () => {
+  it('badge_element_shows_seq_and_selected_class', () => {
+    const el = badgeEl(3, true, 'WAYPOINT')
+    expect(el.className).toBe('wp-mk sel')
+    expect(el.textContent).toBe('3')
+    expect(el.title).toBe('MAV_CMD_NAV_WAYPOINT')
+    updateBadgeEl(el, 4, false, 'TAKEOFF')
+    expect(el.className).toBe('wp-mk')
+    expect(el.textContent).toBe('4')
+    expect(el.title).toBe('MAV_CMD_NAV_TAKEOFF')
+    expect(handleEl().className).toBe('wp-mid')
+  })
+
+  it('mid_handles_sit_between_consecutive_positioned_items', () => {
+    const d = appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
+    const hs = midHandles(d)
+    expect(hs.map((h) => h.afterUid)).toEqual([1, 2])
+    expect(hs[0]!.lat).toBeCloseTo(36.15, 9)
+    expect(hs[0]!.lon).toBeCloseTo(139.15, 9)
+    expect(hs[1]!.lat).toBeCloseTo(36.25, 9)
+    // a DO_ command between two waypoints is skipped, and the handle inserts after the DO_ item
+    const withDo = setCommand(appendWaypoint(d, 36.4, 139.4), 3, 'DO_CHANGE_SPEED')
+    expect(midHandles(withDo).map((h) => h.afterUid)).toEqual([1, 3])
+    expect(midHandles(emptyDraft())).toEqual([])
+  })
+
+  it('drag_delta_is_the_difference_of_lat_lon', () => {
+    expect(dragDelta({ lat: 36, lon: 139 }, { lat: 36.5, lon: 139.25 })).toEqual({ dLat: 0.5, dLon: 0.25 })
+  })
+})
