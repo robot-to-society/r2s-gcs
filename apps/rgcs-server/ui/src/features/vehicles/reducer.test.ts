@@ -25,13 +25,13 @@ const uav: VehicleState = {
 
 describe('vehicles reducer', () => {
   it('snapshot replaces the vehicle map', () => {
-    const s = reduce(initialState, { t: 'snapshot', vehicles: [uav] })
+    const s = reduce(initialState, { t: 'snapshot', vehicles: [uav], cameras: [] })
     expect(s.vehicles.get(1)?.name).toBe('UAV-01')
     expect(initialState.vehicles.size).toBe(0)
   })
 
   it('telemetry applies a diff to a known vehicle and creates unknown ones', () => {
-    const s0 = reduce(initialState, { t: 'snapshot', vehicles: [uav] })
+    const s0 = reduce(initialState, { t: 'snapshot', vehicles: [uav], cameras: [] })
     const s1 = reduce(s0, { t: 'telemetry', sysid: 1, diff: { alt_rel: 90 } })
     expect(s1.vehicles.get(1)?.alt_rel).toBe(90)
     expect(s0.vehicles.get(1)?.alt_rel).toBe(80)

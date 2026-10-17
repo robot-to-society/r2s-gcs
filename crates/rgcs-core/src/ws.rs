@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::camera::{CameraSnapshot, CameraState, Deadman, VideoSourceStatus};
 use crate::command::CommandResult;
 use crate::vehicle::{SysId, VehicleState, VehicleStateDiff};
 
@@ -25,13 +26,37 @@ pub struct VehicleMessage {
 #[serde(tag = "t", rename_all = "snake_case")]
 #[ts(export, rename_all = "snake_case")]
 pub enum ServerMessage {
-    Snapshot { vehicles: Vec<VehicleState> },
-    Telemetry { sysid: SysId, diff: VehicleStateDiff },
+    Snapshot {
+        vehicles: Vec<VehicleState>,
+        cameras: Vec<CameraSnapshot>,
+    },
+    CameraState {
+        sysid: SysId,
+        state: CameraState,
+    },
+    VideoSource {
+        sysid: SysId,
+        status: VideoSourceStatus,
+    },
+    InputState {
+        deadman: Deadman,
+    },
+    Telemetry {
+        sysid: SysId,
+        diff: VehicleStateDiff,
+    },
     VehicleMessage(VehicleMessage),
     CommandResult(CommandResult),
-    VehicleDiscovered { sysid: SysId },
-    VehicleLost { sysid: SysId },
-    Error { code: String, message: String },
+    VehicleDiscovered {
+        sysid: SysId,
+    },
+    VehicleLost {
+        sysid: SysId,
+    },
+    Error {
+        code: String,
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

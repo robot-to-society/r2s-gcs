@@ -3,11 +3,17 @@
 //! Nothing here depends on MAVLink, tokio or the web framework: these are the
 //! values that cross the WebSocket / HTTP boundary (`docs/spec/50-api.md`).
 
+pub mod camera;
 pub mod command;
 pub mod operator;
 pub mod vehicle;
 pub mod ws;
 
+pub use camera::{
+    CameraCaps, CameraCommand, CameraKind, CameraSnapshot, CameraState, CenterMode, Deadman, Firmware,
+    GimbalAttitude, GimbalCaps, GimbalMode, RecordingState, VideoMode, VideoSource, VideoSourceMode,
+    VideoSourceStatus, ZoomCaps,
+};
 pub use command::{CommandResult, VehicleCommand};
 pub use operator::Operator;
 pub use vehicle::{
