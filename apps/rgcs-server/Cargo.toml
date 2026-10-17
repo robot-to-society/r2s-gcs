@@ -18,6 +18,7 @@ rgcs-core = { workspace = true }
 rgcs-mavlink = { workspace = true }
 rgcs-store = { workspace = true }
 rgcs-camera = { workspace = true }
+rgcs-video = { workspace = true }
 axum-extra = { workspace = true }
 uuid = { workspace = true }
 axum = { workspace = true }

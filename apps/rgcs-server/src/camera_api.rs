@@ -161,6 +161,7 @@ pub async fn put_profile(
         tracing::error!(error = %e, "audit write failed");
     }
     app.cameras.reload(sysid).await;
+    app.video.reload(sysid).await;
     ok(profile)
 }
 

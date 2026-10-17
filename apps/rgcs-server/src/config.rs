@@ -29,6 +29,10 @@ pub struct Config {
     /// Raster tile template for the operations map (`{z}/{x}/{y}`); swap for imagery on site.
     pub map_tile_url: String,
     pub map_attribution: String,
+    /// MediaMTX WHEP endpoint the browser offers are relayed to (spec 30 §5).
+    pub whep_upstream: String,
+    /// RTSP DESCRIBE probe timeout for the video source monitor.
+    pub video_probe_timeout_ms: u64,
 }
 
 impl Default for Config {
@@ -42,6 +46,8 @@ impl Default for Config {
             telemetry_interval_ms: 100,
             map_tile_url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png".into(),
             map_attribution: "© OpenStreetMap contributors".into(),
+            whep_upstream: "http://127.0.0.1:8889/mt11/whep".into(),
+            video_probe_timeout_ms: 2000,
         }
     }
 }
@@ -99,6 +105,15 @@ mod tests {
         .unwrap();
         assert_eq!(c.map_tile_url, "https://tiles.example/{z}/{x}/{y}.jpg");
         assert_eq!(c.map_attribution, "Example");
+    }
+
+    #[test]
+    fn video_defaults() {
+        let d = Config::default();
+        assert_eq!(d.whep_upstream, "http://127.0.0.1:8889/mt11/whep");
+        assert_eq!(d.video_probe_timeout_ms, 2000);
+        let c = Config::parse("whep_upstream = 'http://10.0.0.2:8889/cam/whep'").unwrap();
+        assert_eq!(c.whep_upstream, "http://10.0.0.2:8889/cam/whep");
     }
 
     #[test]

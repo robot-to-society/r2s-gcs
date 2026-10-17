@@ -24,3 +24,8 @@ telemetry_interval_ms = 100
 # Default: OpenStreetMap. Replace with the imagery provider used on site.
 map_tile_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 map_attribution = "© OpenStreetMap contributors"
+
+# MediaMTX WHEP endpoint the browser's offers are relayed to (local only; see deploy/mediamtx.yml).
+whep_upstream = "http://127.0.0.1:8889/mt11/whep"
+# RTSP DESCRIBE timeout used to decide whether the camera stream is up.
+video_probe_timeout_ms = 2000

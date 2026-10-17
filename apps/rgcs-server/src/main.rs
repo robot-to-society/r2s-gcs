@@ -49,7 +49,12 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx.clone(), acks_tx));
     let state = AppState::new(router.clone(), tx.clone(), store, queue_tx, dev_mode)
         .with_outgoing(outgoing_tx)
-        .with_map(config.map_tile_url.clone(), config.map_attribution.clone());
+        .with_map(config.map_tile_url.clone(), config.map_attribution.clone())
+        .with_whep_upstream(&config.whep_upstream)
+        .with_video_timings(rgcs_video::Timings {
+            timeout: Duration::from_millis(config.video_probe_timeout_ms),
+            ..rgcs_video::Timings::default()
+        });
     tokio::spawn(telemetry::pump_events(
         events_rx,
         tx.clone(),

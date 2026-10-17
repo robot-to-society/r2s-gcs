@@ -40,6 +40,13 @@ pub async fn spawn_app_with_sim() -> (AxumRouter, AppState, SimServer) {
     (app, state, sim)
 }
 
+/// `spawn_app` with the WHEP relay pointed at `upstream` (a fake MediaMTX in tests).
+pub async fn spawn_app_with_whep(upstream: &str) -> (AxumRouter, AppState) {
+    let (_app, state, _rx) = spawn_app_full(None).await;
+    let state = state.with_whep_upstream(upstream);
+    (app::build(state.clone(), None), state)
+}
+
 async fn spawn_app_full(
     sim: Option<std::net::SocketAddr>,
 ) -> (AxumRouter, AppState, mpsc::Receiver<Outgoing>) {

@@ -20,7 +20,10 @@ use crate::cameras::{CameraFactory, CameraManager};
 use crate::confirm::{ConfirmError, ConfirmTokens};
 use crate::params::ParamStore;
 use crate::settings;
-use crate::{api, auth, camera_api, commands, guided, ws};
+use crate::video::VideoHub;
+use crate::{api, auth, camera_api, commands, guided, video_api, ws};
+use axum::extract::DefaultBodyLimit;
+use rgcs_video::{Timings, WhepRelay, MAX_OFFER_BYTES};
 
 pub const BROADCAST_CAPACITY: usize = 1024;
 /// Distinct usernames tracked for login serialization before the map is reset.
@@ -36,6 +39,8 @@ pub struct AppState {
     pub outgoing: mpsc::Sender<Outgoing>,
     pub params: ParamStore,
     pub cameras: CameraManager,
+    pub video: VideoHub,
+    pub whep: WhepRelay,
     pub hostname: String,
     pub secure_cookies: bool,
     /// Map tile source handed to the UI by `GET /api/settings/app`.
@@ -65,6 +70,9 @@ impl AppState {
         // Without a link the sender has no receiver: direct sends fail → 503 link_lost.
         let (outgoing, _) = mpsc::channel(1);
         let cameras = CameraManager::new(store.clone(), tx.clone(), CameraFactory::Real);
+        let video = VideoHub::new(store.clone(), tx.clone(), Timings::default());
+        let whep = WhepRelay::new(&crate::config::Config::default().whep_upstream)
+            .expect("default whep upstream parses");
         Self {
             router,
             tx,
@@ -73,6 +81,8 @@ impl AppState {
             outgoing,
             params: ParamStore::default(),
             cameras,
+            video,
+            whep,
             hostname,
             secure_cookies: false,
             map_tile_url: crate::config::Config::default().map_tile_url,
@@ -93,6 +103,20 @@ impl AppState {
 
     pub fn with_cameras(self, cameras: CameraManager) -> Self {
         Self { cameras, ..self }
+    }
+
+    /// Points the WHEP relay at another MediaMTX (`config.toml` or a test fake).
+    pub fn with_whep_upstream(self, upstream: &str) -> Self {
+        let whep = WhepRelay::new(upstream).unwrap_or_else(|e| {
+            tracing::error!(error = %e, "whep_upstream is invalid; keeping the default");
+            self.whep.clone()
+        });
+        Self { whep, ..self }
+    }
+
+    pub fn with_video_timings(self, timings: Timings) -> Self {
+        let video = VideoHub::new(self.store.clone(), self.tx.clone(), timings);
+        Self { video, ..self }
     }
 
     pub fn guided_confirmed(&self, sysid: SysId) -> bool {
@@ -193,6 +217,14 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
         .route(
             "/vehicles/{sysid}/camera/profile",
             get(camera_api::get_profile).put(camera_api::put_profile),
+        )
+        .route(
+            "/vehicles/{sysid}/video/whep",
+            post(video_api::whep).layer(DefaultBodyLimit::max(MAX_OFFER_BYTES)),
+        )
+        .route(
+            "/vehicles/{sysid}/video/source",
+            get(video_api::get_source).put(video_api::put_source),
         )
         .route("/history/audit", get(api::audit_history))
         .route("/settings/app", get(settings::app_settings))

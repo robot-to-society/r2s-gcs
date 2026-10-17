@@ -15,4 +15,6 @@ pub mod guided;
 pub mod params;
 pub mod settings;
 pub mod telemetry;
+pub mod video;
+pub mod video_api;
 pub mod ws;
