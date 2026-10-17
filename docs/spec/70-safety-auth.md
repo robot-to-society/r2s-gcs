@@ -11,7 +11,7 @@
 | 禁止 | MT11 `0x48`(SD フォーマット) | ドライバ最下層で拒否。API にも存在しない |
 
 - サーバーは UI の状態を信用しない: ARM 済み機体への `arm` は `rejected`、DISARM 済みへの `disarm` も同様。
-- Guided 移動: 高度はジオフェンス上限(`FENCE_ALT_MAX`)を超える値を送信前に拒否。
+- Guided 移動: 高度はジオフェンス上限(`FENCE_ALT_MAX`)を超える値を送信前に拒否(`FENCE_ENABLE`=1 のとき)。両パラメータが未取得なら `PARAM_REQUEST_READ` を送り、`warning: fence_unknown` を付けて通す。「初回」= プロセス起動後に機体ごと 1 回の確認。
 - リンク喪失(`LinkLost`)中のコマンドは `503 link_lost`。`CommsDelay` 中は送るが結果待ちを 5 s に延ばす。
 - 全コマンドは `CommandQueue` で直列化し、ACK 必須のものは再送 3 回 / 1.5 s タイムアウト。結果は `command_result` でフッターとメッセージ欄へ。
 
@@ -38,7 +38,7 @@
 ## 5. 認証・セッション
 
 - モック(開発用): `admin` / `admin` をシード。`dev_mode` のとき UI に「開発用」バッジ。本番用にはアカウント管理(M5)で置換し、初回起動時にパスワード変更を強制する。
-- パスワードは argon2id。5 回失敗で 60 s ロック(ユーザー単位)。
+- パスワードは argon2id。5 回失敗で 60 s ロック(ユーザー単位、`429 locked`)。同一ユーザーのログイン試行はサーバーで直列化し、並行リクエストで上限を超えられない。未知ユーザーもダミーハッシュを検証して応答時間を揃える。
 - セッション: HttpOnly + SameSite=Strict クッキー、12 h。https で `Secure`。ログアウトで即時失効。
 - CSRF: `X-Requested-With: rgcs` ヘッダ必須 + SameSite。
 - WS: クッキーで認証。失効したら `close(4401)`。

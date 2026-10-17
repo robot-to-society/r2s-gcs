@@ -51,8 +51,9 @@ RGCS は ArduPilot(Copter / Rover)機体を監視・操作する地上局アプ�
 | 4 | 映像最大化 = カメラ操作卓 | `view:'video', maxVideo` | 10 §4.2 |
 | 5 | カメラ設定シート(接続 / 操作 / ROI / 映像) | `modal:'camera'` | 10 §5 |
 | 6 | ミッション作成(2D / 3D、標高プロファイル) | `view:'mission'` | 10 §6 |
-| 7 | メンテナンス: 機体設定 / 点検・校正 / ログ・AI 解析 / 変更履歴 / アプリ設定 | `view:'maint'` | 10 §7 |
+| 7 | メンテナンス: パラメータ / 点検・校正 / 日常点検 / 飛行日誌 / 変更履歴 / アプリ設定 | `view:'maint'` | 10 §7、追補 §5.4–5.7 |
 | 8 | ヘッダー・フッター(ログピル)・ユーザーポップオーバー | 常時 | 10 §1 |
+| 9 | 観客用画面(映像 + 小地図 + ロゴ、読み取り専用) | 新規 `/present`(P2) | 追補 §5.1 |
 
 ## 5. 要求の優先順位
 
@@ -79,6 +80,14 @@ RGCS は ArduPilot(Copter / Rover)機体を監視・操作する地上局アプ�
 - ログイン = オペレータ。モック認証は `admin` / `admin`。本番はアカウント管理に置換(M5)。
 - ジョイスティックは操作者 PC 側でブラウザの Gamepad API で読み、WebSocket で Pi へ送る(`gilrs` は使わない)。
 - デザインは Glass 版のトークン(`20-design-tokens.md`)を正とする。
+
+### 7.1 2026-10-17 の追加決定(年末デモ、`docs/superpowers/specs/2026-10-17-year-end-demo-design.md`)
+
+- ロードマップを P1〜P6(10 週)に並べ直し(`docs/plan/implementation-plan.md` v0.2)。ミッションを 3 番目に前倒し、ROI / サーマル / AI 追跡 / 3D / edge・hub / AI チャットはデモ後。
+- 観客用画面 `/present`、飛行日誌(国交省 3 様式)、飛行前点検チェックリスト、全パラメータ検索を新設。
+- 地図タイルは `config.toml` の `map_tile_url` / `map_attribution`(既定 OSM ラスタ)。衛星画像は現場の契約で差し替える。
+- SITL は docker ではなくローカルバイナリ(`scripts/dev.sh`)。E2E は `scripts/e2e.sh`。
+- Mission Planner は前日のシミュレーション専用。当日は RGCS だけを機体に接続する。
 
 ## 8. 文書の読み方
 

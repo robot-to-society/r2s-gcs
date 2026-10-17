@@ -21,7 +21,8 @@
 ### 2.1 認証
 | メソッド | パス | 本文 / 応答 |
 |---|---|---|
-| POST | `/api/auth/login` | `{username, password}` → `{username, role, dev_mode}` |
+| GET | `/api/health` | → `{status, hostname, version, dev_mode}`(未認証で可。ログイン画面の「開発用」バッジ用) |
+| POST | `/api/auth/login` | `{username, password}` → `{username, role, dev_mode, hostname}`(5 回失敗で `429 locked`) |
 | POST | `/api/auth/logout` | — |
 | GET | `/api/auth/me` | → `{username, role, dev_mode, hostname}` |
 
@@ -32,7 +33,7 @@
 | GET | `/api/vehicles/{sysid}` | → `VehicleState` |
 | POST | `/api/vehicles/{sysid}/command` | `{cmd, args, confirm_token?}` → `{id}`(結果は WS `command_result`) |
 | POST | `/api/vehicles/{sysid}/confirm` | `{cmd}` → `{confirm_token, expires_in: 30}`(70 §1) |
-| POST | `/api/vehicles/{sysid}/guided` | `{lat, lon, alt_mode: keep\|set, alt_rel?}` |
+| POST | `/api/vehicles/{sysid}/guided` | `{lat, lon, alt_mode: keep\|set, alt_rel?, confirm_token?}` → `{id, warning?: "fence_unknown"}`。`409 mode_required`(GUIDED 以外)/ `409 confirm_required`(機体ごと初回)/ `409 fence_alt`(`FENCE_ENABLE`=1 かつ `FENCE_ALT_MAX` 超)/ `400 invalid` / `503 link_lost`。フェンス値が未取得なら `PARAM_REQUEST_READ` を送って `fence_unknown` 付きで通す |
 | GET / PUT | `/api/vehicles/{sysid}/params` | `[{name, value}]` / `{changes: [{name, value}]}` → 書戻し検証結果 |
 | GET | `/api/vehicles/{sysid}/messages?since=` | `[{ts, severity, text, acked}]` |
 | POST | `/api/vehicles/{sysid}/messages/{id}/ack` | — |
@@ -62,7 +63,7 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 |---|---|---|
 | GET / PUT | `/api/settings/input/gimbal` | `GimbalInputProfile` |
 | GET / PUT | `/api/settings/input/vehicle` | `VehicleInputProfile`(M4) |
-| GET / PUT | `/api/settings/app` | `{lang, log_dir, tile_cache, terrain}` |
+| GET / PUT | `/api/settings/app` | `{lang, map_tile_url, map_attribution}`(P1 は GET のみ。`log_dir, tile_cache, terrain` は P4+) |
 | GET | `/api/history/params?sysid=&limit=` | `[{ts, operator, sysid, name, from, to}]` |
 | GET | `/api/history/audit?limit=` | `[{ts, operator, sysid, command, result}]` |
 
@@ -82,7 +83,7 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | `camera_state` | `{sysid, state: CameraState}` | 変化時 + 1 Hz |
 | `roi_status` | `{sysid, status: RoiStatus}` | 2 Hz(追従中) |
 | `video_source` | `{sysid, status: VideoSourceStatus}` | 変化時 |
-| `vehicle_message` | `{sysid, id, severity, text, ts}` | 発生時 |
+| `vehicle_message` | `{sysid, id, severity, text, ts}`。機体の STATUSTEXT は原文(50 バイトのチャンクはサーバーで結合)。サーバー生成の `text` は固定コード `comms_delay` / `link_lost` / `link_restored`(UI が翻訳) | 発生時 |
 | `command_result` | `{id, sysid, cmd, ok, reason?, ts}` | 完了時 |
 | `vehicle_discovered` / `vehicle_lost` | `{sysid}` | 発生時 |
 | `input_state` | `{deadman: ok\|lost}` | 変化時 |

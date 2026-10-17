@@ -26,7 +26,13 @@
 | `gimbal_input_profile` | ジンバル用ジョイスティック | Python 版 `joystick_config.json` |
 | `vehicle_input_profile` | 機体操作用ジョイスティック(M4) | 旧設計 `input_profiles` |
 | `app_settings` | 言語・保存先など | 旧設計 |
-| `missions` | 保存ミッション(M4) | 旧設計 |
+| `missions` | 保存ミッション(P3) | 旧設計 |
+| `inspection_templates` / `inspection_template_items` | 日常点検テンプレート(P5) | 追補 §5.5 |
+| `inspection_runs` / `inspection_results` | 日常点検の実施記録 = 様式 2(P5) | 追補 §5.5 |
+| `flights` / `flight_squawks` | 飛行記録 = 様式 1 と不具合記事(P5) | 追補 §5.6 |
+| `maintenance_records` | 点検整備記録 = 様式 3(P5) | 追補 §5.6 |
+| `flight_logs` | 取り出した DataFlash の保管(P5) | 追補 §5.6 |
+| `presentation_tokens` | 観客用画面の提示トークン(P2) | 追補 §5.1 |
 
 ## 3. 定義
 
