@@ -75,3 +75,20 @@ describe('AuthStore', () => {
     expect(listener).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('recheck()', () => {
+  it('drops to anon only on 401 and keeps the session through network failures', async () => {
+    const api = vi
+      .fn()
+      .mockResolvedValueOnce(me)
+      .mockRejectedValueOnce(new ApiError(0, 'network', 'offline'))
+      .mockRejectedValueOnce(new ApiError(401, 'unauthorized', 'expired'))
+    const s = storeWith(api)
+    await s.load()
+    const authed = s.getState()
+    await s.recheck()
+    expect(s.getState()).toBe(authed)
+    await s.recheck()
+    expect(s.getState()).toEqual({ status: 'anon', me: null, error: null })
+  })
+})

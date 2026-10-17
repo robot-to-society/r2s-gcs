@@ -83,6 +83,22 @@ describe('App auth gate', () => {
     expect(screen.getByTestId('link')).toHaveTextContent('サーバー接続')
   })
 
+  it('keeps the shell and reconnects when the socket drops but the server is merely unreachable', async () => {
+    const fetchMock = stubMe([200])
+    render(<App store={new AuthStore()} />)
+    await screen.findByText('RGCS')
+    fetchMock.mockImplementation(() => Promise.reject(new TypeError('Failed to fetch')))
+    await act(async () => {
+      FakeSocket.last!.onclose?.({ code: 1006 } as CloseEvent)
+    })
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 600)) // first reconnect backoff is 500 ms
+    })
+    expect(screen.getByText('RGCS')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'ログイン' })).not.toBeInTheDocument()
+    expect(FakeSocket.instances.length).toBeGreaterThanOrEqual(2)
+  })
+
   it('drops to the login screen when the socket closes because the session expired', async () => {
     stubMe([200, 401])
     render(<App store={new AuthStore()} />)

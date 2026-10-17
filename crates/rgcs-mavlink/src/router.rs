@@ -86,9 +86,15 @@ impl Router {
                     .trim_end_matches('\0')
                     .to_string();
                 let full = is_full_chunk(&*st.text);
-                let (joiner, done) = self
-                    .joiner
-                    .push(sysid, st.severity as u8, &raw, full, clock.mono_ms);
+                let (joiner, done) = self.joiner.push(
+                    sysid,
+                    st.severity as u8,
+                    &raw,
+                    st.id,
+                    st.chunk_seq,
+                    full,
+                    clock.mono_ms,
+                );
                 self.joiner = joiner;
                 if let Some(c) = done {
                     events.push(self.message_event(c, clock.unix_ms));
@@ -269,6 +275,7 @@ mod tests {
         let st = MavMessage::STATUSTEXT(STATUSTEXT_DATA {
             severity: MavSeverity::MAV_SEVERITY_WARNING,
             text: "PreArm: Compass not calibrated".into(),
+            ..STATUSTEXT_DATA::DEFAULT
         });
         let ev = r.on_message(&header(1), &st, clock(100));
         match &ev[0] {
@@ -310,25 +317,32 @@ mod tests {
     }
 
     #[test]
-    fn chunked_statustext_is_joined_and_stale_chunks_flush_on_tick() {
+    fn chunked_statustext_is_joined_by_id_and_stale_chunks_flush_on_tick() {
         let mut r = Router::default();
         r.on_message(&header(1), &fc_heartbeat(), clock(0));
         let head = "D".repeat(50);
-        let st = |t: &str| {
+        let st = |t: &str, id: u16, seq: u8| {
             MavMessage::STATUSTEXT(STATUSTEXT_DATA {
                 severity: MavSeverity::MAV_SEVERITY_INFO,
                 text: t.into(),
+                id,
+                chunk_seq: seq,
             })
         };
-        let ev = r.on_message(&header(1), &st(&head), clock(100));
+        // A full 50-byte message with id 0 is complete on its own (no 1 s delay).
+        let ev = r.on_message(&header(1), &st(&head, 0, 0), clock(50));
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, RouterEvent::Message(m) if m.text == head)));
+        let ev = r.on_message(&header(1), &st(&head, 7, 0), clock(100));
         assert!(!ev.iter().any(|e| matches!(e, RouterEvent::Message(_))));
-        let ev = r.on_message(&header(1), &st(" tail"), clock(150));
+        let ev = r.on_message(&header(1), &st(" tail", 7, 1), clock(150));
         let joined = ev.iter().find_map(|e| match e {
             RouterEvent::Message(m) => Some(m.text.clone()),
             _ => None,
         });
         assert_eq!(joined.as_deref(), Some(format!("{head} tail").as_str()));
-        r.on_message(&header(1), &st(&head), clock(200));
+        r.on_message(&header(1), &st(&head, 8, 0), clock(200));
         let ev = r.tick(clock(1_300));
         assert!(ev
             .iter()

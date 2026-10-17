@@ -1,6 +1,7 @@
-//! Joins chunked STATUSTEXT. ArduPilot splits long texts into 50-byte chunks; this dialect
-//! build exposes no `id` / `chunk_seq`, so a chunk that fills all 50 bytes means "more
-//! follows" and a shorter one ends the message. Stale partials flush after 1 s.
+//! Joins chunked STATUSTEXT (MAVLink 2 extensions `id` / `chunk_seq`). ArduPilot splits long
+//! texts into 50-byte chunks sharing an `id`; the chunk that does not fill all 50 bytes ends
+//! the message. `id == 0` is never chunked. Stale partials flush after 1 s, joined length is
+//! capped at [`MAX_CHUNKS`].
 
 use rgcs_core::SysId;
 
@@ -22,14 +23,44 @@ pub struct Complete {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct Partial {
-    sysid: SysId,
-    severity: u8,
+struct Chunk {
+    seq: u8,
     text: String,
-    started_ms: u64,
 }
 
-/// Immutable joiner: every call returns the next state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Partial {
+    sysid: SysId,
+    id: u16,
+    severity: u8,
+    chunks: Vec<Chunk>,
+    /// Set once by the first chunk; appends never postpone the flush.
+    started_ms: u64,
+    /// The end chunk (shorter than 50 bytes) has arrived; we only wait for missing seqs.
+    ended: bool,
+}
+
+impl Partial {
+    fn complete(self) -> Complete {
+        let mut chunks = self.chunks;
+        chunks.sort_by_key(|c| c.seq);
+        Complete {
+            sysid: self.sysid,
+            severity: self.severity,
+            text: chunks.into_iter().map(|c| c.text).collect(),
+        }
+    }
+
+    /// Every seq from 0 to the end chunk is present.
+    fn is_whole(&self) -> bool {
+        self.ended && {
+            let max = self.chunks.iter().map(|c| c.seq).max().unwrap_or(0) as usize;
+            self.chunks.len() == max + 1
+        }
+    }
+}
+
+/// Immutable joiner keyed by `(sysid, id)`; every call returns the next state.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Joiner {
     partials: Vec<Partial>,
@@ -37,57 +68,60 @@ pub struct Joiner {
 
 impl Joiner {
     /// `raw` is the chunk's text with trailing NULs removed; `full` is whether the wire chunk
-    /// used all 50 bytes.
+    /// used all 50 bytes (`id == 0` messages are never chunked and complete at once).
+    #[allow(clippy::too_many_arguments)]
     pub fn push(
         &self,
         sysid: SysId,
         severity: u8,
         raw: &str,
+        id: u16,
+        chunk_seq: u8,
         full: bool,
         now_ms: u64,
     ) -> (Self, Option<Complete>) {
-        let (kept, prev): (Vec<Partial>, Vec<Partial>) =
-            self.partials.iter().cloned().partition(|p| p.sysid != sysid);
-        // `started_ms` stays at the first chunk so appends never postpone the flush.
-        let (text, started_ms) = match prev.into_iter().next() {
-            Some(p) => (p.text + raw, p.started_ms),
-            None => (raw.to_string(), now_ms),
-        };
-        if full && text.len() < MAX_CHUNKS * CHUNK_LEN {
-            let mut partials = kept;
-            partials.push(Partial {
+        if id == 0 {
+            let done = Complete {
                 sysid,
                 severity,
-                text,
-                started_ms,
-            });
-            return (Self { partials }, None);
+                text: raw.to_string(),
+            };
+            return (self.clone(), Some(done));
         }
-        (
-            Self { partials: kept },
-            Some(Complete {
-                sysid,
-                severity,
-                text,
-            }),
-        )
+        let (kept, prev): (Vec<Partial>, Vec<Partial>) = self
+            .partials
+            .iter()
+            .cloned()
+            .partition(|p| !(p.sysid == sysid && p.id == id));
+        let mut partial = prev.into_iter().next().unwrap_or(Partial {
+            sysid,
+            id,
+            severity,
+            chunks: Vec::new(),
+            started_ms: now_ms,
+            ended: false,
+        });
+        partial.chunks.push(Chunk {
+            seq: chunk_seq,
+            text: raw.to_string(),
+        });
+        partial.ended |= !full;
+        if partial.is_whole() || partial.chunks.len() >= MAX_CHUNKS {
+            return (Self { partials: kept }, Some(partial.complete()));
+        }
+        let mut partials = kept;
+        partials.push(partial);
+        (Self { partials }, None)
     }
 
-    /// Emits partials older than [`FLUSH_AFTER_MS`] as-is (the tail never came).
+    /// Emits partials older than [`FLUSH_AFTER_MS`] with whatever chunks arrived (in seq order).
     pub fn flush(&self, now_ms: u64) -> (Self, Vec<Complete>) {
         let (stale, fresh): (Vec<Partial>, Vec<Partial>) = self
             .partials
             .iter()
             .cloned()
             .partition(|p| now_ms.saturating_sub(p.started_ms) >= FLUSH_AFTER_MS);
-        let done = stale
-            .into_iter()
-            .map(|p| Complete {
-                sysid: p.sysid,
-                severity: p.severity,
-                text: p.text,
-            })
-            .collect();
+        let done = stale.into_iter().map(Partial::complete).collect();
         (Self { partials: fresh }, done)
     }
 }
@@ -96,67 +130,75 @@ impl Joiner {
 mod tests {
     use super::*;
 
-    #[test]
-    fn short_chunk_completes_immediately() {
-        let (j, out) = Joiner::default().push(1, 4, "PreArm: Compass not calibrated", false, 0);
-        assert_eq!(j, Joiner::default());
-        assert_eq!(
-            out,
-            Some(Complete {
-                sysid: 1,
-                severity: 4,
-                text: "PreArm: Compass not calibrated".into()
-            })
-        );
+    fn push(j: &Joiner, id: u16, seq: u8, text: &str, full: bool, now: u64) -> (Joiner, Option<Complete>) {
+        j.push(1, 6, text, id, seq, full, now)
     }
 
     #[test]
-    fn full_chunk_waits_for_the_tail_and_joins_in_order() {
-        let head = "A".repeat(CHUNK_LEN);
-        let (j, out) = Joiner::default().push(1, 6, &head, true, 0);
-        assert_eq!(out, None);
-        let (j2, out) = j.push(1, 6, " tail", false, 10);
-        assert_eq!(out.unwrap().text, format!("{head} tail"));
+    fn id_zero_completes_immediately_even_when_it_fills_the_chunk() {
+        let fifty = "A".repeat(CHUNK_LEN);
+        let (j, out) = push(&Joiner::default(), 0, 0, &fifty, true, 0);
+        assert_eq!(j, Joiner::default());
+        assert_eq!(out.map(|c| c.text), Some(fifty));
+        let (_, out) = push(&Joiner::default(), 0, 0, "PreArm: Compass", false, 0);
+        assert_eq!(out.map(|c| c.text), Some("PreArm: Compass".into()));
+    }
+
+    #[test]
+    fn chunks_with_the_same_id_join_in_sequence_order() {
+        let head = "B".repeat(CHUNK_LEN);
+        let (j, out) = push(&Joiner::default(), 7, 1, " tail", false, 5);
+        assert_eq!(out, None, "the end chunk arrived first: wait for seq 0");
+        let (j2, out) = push(&j, 7, 0, &head, true, 10);
+        assert_eq!(out.map(|c| c.text), Some(format!("{head} tail")));
         assert_eq!(j2, Joiner::default());
         assert_eq!(j.partials.len(), 1, "push does not mutate the previous value");
     }
 
     #[test]
-    fn partials_are_per_vehicle() {
-        let head = "B".repeat(CHUNK_LEN);
-        let (j, _) = Joiner::default().push(1, 6, &head, true, 0);
-        let (j, out) = j.push(2, 6, "other vehicle", false, 5);
-        assert_eq!(out.unwrap().sysid, 2);
-        let (_, out) = j.push(1, 6, " end", false, 6);
-        assert_eq!(out.unwrap().text, format!("{head} end"));
+    fn different_ids_and_vehicles_never_mix() {
+        let a = "C".repeat(CHUNK_LEN);
+        let b = "D".repeat(CHUNK_LEN);
+        let (j, _) = push(&Joiner::default(), 1, 0, &a, true, 0);
+        let (j, _) = push(&j, 2, 0, &b, true, 1);
+        let (j, out) = j.push(2, 6, "other vehicle", 1, 0, true, 2);
+        assert_eq!(out, None);
+        let (j, out) = push(&j, 2, 1, " end-b", false, 3);
+        assert_eq!(out.map(|c| c.text), Some(format!("{b} end-b")));
+        let (j, out) = push(&j, 1, 1, " end-a", false, 4);
+        assert_eq!(out.map(|c| c.text), Some(format!("{a} end-a")));
+        assert_eq!(j.partials.len(), 1, "vehicle 2's partial is still waiting");
     }
 
     #[test]
-    fn a_stream_of_full_chunks_cannot_grow_forever() {
+    fn stale_partial_flushes_after_one_second_from_its_first_chunk() {
         let chunk = "E".repeat(CHUNK_LEN);
-        let mut j = Joiner::default();
-        let mut completed = None;
-        for i in 0..MAX_CHUNKS + 5 {
-            let (next, out) = j.push(1, 6, &chunk, true, i as u64 * 10);
-            j = next;
-            if let Some(c) = out {
-                completed = Some((i, c));
-                break;
-            }
-        }
-        let (at, c) = completed.expect("the cap emits the message");
-        assert_eq!(at + 1, MAX_CHUNKS);
-        assert_eq!(c.text.len(), MAX_CHUNKS * CHUNK_LEN);
+        let (j, _) = push(&Joiner::default(), 9, 0, &chunk, true, 0);
+        let (j, _) = push(&j, 9, 1, &chunk, true, 900);
+        let (j, out) = j.flush(999);
+        assert!(out.is_empty());
+        let (j, out) = j.flush(1_000);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].text.len(), 2 * CHUNK_LEN);
         assert_eq!(j, Joiner::default());
     }
 
     #[test]
-    fn started_ms_is_the_first_chunk_so_appends_do_not_postpone_the_flush() {
+    fn a_stream_of_full_chunks_is_capped() {
         let chunk = "F".repeat(CHUNK_LEN);
-        let (j, _) = Joiner::default().push(1, 6, &chunk, true, 0);
-        let (j, _) = j.push(1, 6, &chunk, true, 900);
-        let (_, out) = j.flush(1_000);
-        assert_eq!(out.len(), 1);
+        let mut j = Joiner::default();
+        let mut done = None;
+        for i in 0..MAX_CHUNKS + 5 {
+            let (next, out) = push(&j, 3, i as u8, &chunk, true, i as u64);
+            j = next;
+            if let Some(c) = out {
+                done = Some((i, c));
+                break;
+            }
+        }
+        let (at, c) = done.expect("the cap emits the message");
+        assert_eq!(at + 1, MAX_CHUNKS);
+        assert_eq!(c.text.len(), MAX_CHUNKS * CHUNK_LEN);
     }
 
     #[test]
@@ -166,17 +208,5 @@ mod tests {
         padded[CHUNK_LEN - 1] = 0;
         assert!(!is_full_chunk(&padded));
         assert!(!is_full_chunk(&[b'A'; 10]));
-    }
-
-    #[test]
-    fn stale_partial_is_flushed_after_one_second() {
-        let head = "C".repeat(CHUNK_LEN);
-        let (j, _) = Joiner::default().push(1, 6, &head, true, 0);
-        let (j, out) = j.flush(999);
-        assert!(out.is_empty());
-        let (j, out) = j.flush(1_000);
-        assert_eq!(out.len(), 1);
-        assert_eq!(out[0].text, head);
-        assert_eq!(j, Joiner::default());
     }
 }

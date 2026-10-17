@@ -26,7 +26,7 @@ export function App({ store = authStore }: Props) {
   useEffect(() => {
     if (auth.status !== 'authed') return
     vehicleStore.connect(defaultWsUrl(), (code) => {
-      if (RECHECK_SESSION_CODES.has(code)) void store.load()
+      if (RECHECK_SESSION_CODES.has(code)) void store.recheck()
     })
     return () => vehicleStore.disconnect()
   }, [auth.status, store])

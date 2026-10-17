@@ -51,6 +51,19 @@ export class AuthStore {
     }
   }
 
+  /**
+   * Re-validates the cookie after a WebSocket drop. Only a definite 401 signs the operator
+   * out; an unreachable server keeps the session so the socket's backoff can carry the outage.
+   */
+  async recheck(): Promise<void> {
+    try {
+      const me = await this.api<Me>('/api/auth/me')
+      if (this.state.status !== 'authed') this.set({ status: 'authed', me, error: null })
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) this.set(ANON)
+    }
+  }
+
   async login(username: string, password: string): Promise<void> {
     try {
       const me = await this.api<Me>('/api/auth/login', { method: 'POST', body: { username, password } })
