@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { authStore } from '../features/auth/store'
 import { CommandsSheet, ConfirmDialog, runCommand, type RunResult } from '../features/commands'
+import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../features/detail'
 import { FollowChip, MapView, clearFollow, mapUiStore, padding, rasterStyle, setFollow, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
@@ -35,8 +36,9 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, results } = useVehicles()
+  const { vehicles, link, results, messages } = useVehicles()
   const [selected, setSelected] = useState<number | null>(null)
+  const [acks, setAcks] = useState<MessagesState>(EMPTY_MESSAGES)
   const [view, setView] = useState<View>('ops')
   const [modal, setModal] = useState<Modal>(NO_MODAL)
   const tracks = useTracks()
@@ -47,6 +49,7 @@ export function Shell({ me, lang }: Props) {
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const current = selected ?? list[0]?.sysid ?? null
   const currentVehicle = current === null ? undefined : vehicles.get(current)
+  const detail = selected === null ? undefined : vehicles.get(selected)
 
   const settle = (sysid: number, result: RunResult, command: VehicleCommand) => {
     if (result.kind === 'needs_confirm') return setModal({ kind: 'confirm', sysid, command, message: result.message })
@@ -68,14 +71,14 @@ export function Shell({ me, lang }: Props) {
           onView={setView}
           onLogout={() => void authStore.logout()}
         />
-        <main className={`stage noright${mapUi.aside === 'rail' ? ' rail' : ''}`} style={{ position: 'absolute', inset: 0 }}>
+        <main className={`stage${detail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}`} style={{ position: 'absolute', inset: 0 }}>
           {settings && (
             <MapView
               vehicles={vehicles}
               tracks={tracks}
               follow={mapUi.follow}
               selected={current}
-              padding={padding(mapUi.aside, false)}
+              padding={padding(mapUi.aside, detail !== undefined)}
               style={rasterStyle(settings.map_tile_url, settings.map_attribution)}
               target={mapUi.target}
               onDragStart={() => mapUiStore.update(clearFollow)}
@@ -93,10 +96,16 @@ export function Shell({ me, lang }: Props) {
           {mapUi.follow !== null && (
             <FollowChip name={vehicles.get(mapUi.follow)?.name ?? `#${mapUi.follow}`} dict={dict} onClear={() => mapUiStore.update(clearFollow)} />
           )}
-          {currentVehicle && modal.kind === 'none' && (
-            <button type="button" className="g btn btn-sm float map-r top1 commands-launch" onClick={() => setModal({ kind: 'commands', sysid: currentVehicle.sysid })}>
-              {dict.allCommands}
-            </button>
+          {detail && modal.kind !== 'commands' && (
+            <DetailPanel
+              vehicle={detail}
+              messages={messages}
+              acked={acks.acked}
+              dict={dict}
+              onAck={(id) => setAcks((s) => ack(s, id))}
+              onClose={() => setSelected(null)}
+              onOpenCommands={() => setModal({ kind: 'commands', sysid: detail.sysid })}
+            />
           )}
           {modal.kind === 'commands' && currentVehicle && (
             <CommandsSheet

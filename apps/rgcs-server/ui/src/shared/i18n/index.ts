@@ -59,6 +59,19 @@ const ja = {
   follow: '追従',
   following: '追従中',
   unfollow: '追従を解除',
+  videoNotConnected: '映像未接続',
+  altitude: '高度',
+  speed: '速度',
+  battery: 'バッテリー',
+  maintenance: 'メンテナンス',
+  history: '履歴',
+  messages: 'メッセージ',
+  noMessages: 'メッセージはありません',
+  ack: '確認',
+  pinned: 'ピン留め',
+  commsDelay: '通信遅延',
+  linkLost: '通信喪失',
+  linkRestored: '通信復帰',
 } as const
 
 const en: Record<keyof typeof ja, string> = {
@@ -120,6 +133,19 @@ const en: Record<keyof typeof ja, string> = {
   follow: 'Follow',
   following: 'Following',
   unfollow: 'Stop following',
+  videoNotConnected: 'No video',
+  altitude: 'Altitude',
+  speed: 'Speed',
+  battery: 'Battery',
+  maintenance: 'Maintenance',
+  history: 'History',
+  messages: 'Messages',
+  noMessages: 'No messages',
+  ack: 'Acknowledge',
+  pinned: 'Pinned',
+  commsDelay: 'Comms delay',
+  linkLost: 'Link lost',
+  linkRestored: 'Link restored',
 }
 
 export type Dict = Record<keyof typeof ja, string>

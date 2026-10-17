@@ -296,3 +296,75 @@
   cursor: pointer;
   padding: 0 2px;
 }
+
+/* ---- detail panel (spec 10 §3.3) ---- */
+.detail-body {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.detail-video {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin: 0 12px 12px;
+  border-radius: var(--r-ctl);
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.3);
+}
+.detail-telemetry {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.detail-telemetry .kv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.big {
+  font-size: 22px;
+  font-weight: 300;
+}
+.big .unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  margin-left: 3px;
+}
+.detail-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.detail-messages .sec-title {
+  justify-content: space-between;
+}
+.msg-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 30px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 13px;
+}
+.msg-row.acked {
+  opacity: 0.6;
+}
+.msg-text.danger {
+  color: var(--danger);
+}
+.msg-text.caution {
+  color: var(--caution);
+}
+.msg-text.ok {
+  color: var(--ok);
+}
+.detail-pin {
+  font-size: 14px;
+}

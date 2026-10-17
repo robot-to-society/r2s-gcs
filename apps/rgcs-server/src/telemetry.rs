@@ -2,10 +2,11 @@
 //! messages, and a 10 Hz diff of every vehicle state (spec 30 §3, 50 §3.1).
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use rgcs_core::{diff, ServerMessage, SysId, VehicleState, VehicleStateDiff};
+use rgcs_core::{diff, LinkStatus, ServerMessage, SysId, VehicleMessage, VehicleState, VehicleStateDiff};
 use rgcs_mavlink::{Router, RouterEvent};
 use tokio::sync::{broadcast, mpsc, Mutex};
 
@@ -33,15 +34,42 @@ pub fn diff_frames(
     (frames, next)
 }
 
-/// Forwards discovery / message events straight to the clients.
+/// Link-change messages are minted here, not by the router; keep their ids far from its range.
+pub const LINK_MESSAGE_ID_BASE: u64 = 1 << 40;
+static NEXT_LINK_MESSAGE_ID: AtomicU64 = AtomicU64::new(LINK_MESSAGE_ID_BASE);
+
+/// Text codes the UI translates (spec 50 §3.1 `vehicle_message`); vehicle text stays verbatim.
+fn link_code(to: LinkStatus) -> (&'static str, u8) {
+    match to {
+        LinkStatus::Delay => ("comms_delay", 4),
+        LinkStatus::Lost => ("link_lost", 4),
+        LinkStatus::Ok => ("link_restored", 6),
+    }
+}
+
+/// The WebSocket frame for one router event, if the clients need to hear about it.
+pub fn event_frame(ev: RouterEvent, now_ms: u64) -> Option<ServerMessage> {
+    match ev {
+        RouterEvent::Discovered(sysid) => Some(ServerMessage::VehicleDiscovered { sysid }),
+        RouterEvent::Message(m) => Some(ServerMessage::VehicleMessage(m)),
+        RouterEvent::LinkChanged { sysid, to, .. } => {
+            let (text, severity) = link_code(to);
+            Some(ServerMessage::VehicleMessage(VehicleMessage {
+                sysid,
+                id: NEXT_LINK_MESSAGE_ID.fetch_add(1, Ordering::Relaxed),
+                severity,
+                text: text.into(),
+                ts: now_ms,
+            }))
+        }
+        RouterEvent::Updated(_) | RouterEvent::ParamValue { .. } => None,
+    }
+}
+
+/// Forwards discovery / message / link events straight to the clients.
 pub async fn pump_events(mut events: mpsc::Receiver<RouterEvent>, tx: broadcast::Sender<ServerMessage>) {
     while let Some(ev) = events.recv().await {
-        let frame = match ev {
-            RouterEvent::Discovered(sysid) => Some(ServerMessage::VehicleDiscovered { sysid }),
-            RouterEvent::Message(m) => Some(ServerMessage::VehicleMessage(m)),
-            RouterEvent::Updated(_) => None,
-        };
-        if let Some(f) = frame {
+        if let Some(f) = event_frame(ev, crate::app::unix_ms()) {
             let _ = tx.send(f);
         }
     }
@@ -67,6 +95,59 @@ pub async fn diff_loop(router: Arc<Mutex<Router>>, tx: broadcast::Sender<ServerM
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rgcs_core::LinkStatus;
+
+    #[test]
+    fn link_changes_become_vehicle_messages_with_stable_codes() {
+        let f = |from, to| event_frame(RouterEvent::LinkChanged { sysid: 1, from, to }, 1_000);
+        let texts: Vec<(u8, String)> = [
+            f(LinkStatus::Ok, LinkStatus::Delay),
+            f(LinkStatus::Delay, LinkStatus::Lost),
+            f(LinkStatus::Lost, LinkStatus::Ok),
+        ]
+        .into_iter()
+        .map(|fr| match fr {
+            Some(ServerMessage::VehicleMessage(m)) => (m.severity, m.text),
+            other => panic!("{other:?}"),
+        })
+        .collect();
+        assert_eq!(
+            texts,
+            vec![
+                (4, "comms_delay".into()),
+                (4, "link_lost".into()),
+                (6, "link_restored".into())
+            ]
+        );
+        assert!(event_frame(RouterEvent::Updated(1), 0).is_none());
+    }
+
+    #[test]
+    fn link_message_ids_are_unique_and_do_not_collide_with_router_ids() {
+        let a = event_frame(
+            RouterEvent::LinkChanged {
+                sysid: 1,
+                from: LinkStatus::Ok,
+                to: LinkStatus::Delay,
+            },
+            0,
+        );
+        let b = event_frame(
+            RouterEvent::LinkChanged {
+                sysid: 1,
+                from: LinkStatus::Delay,
+                to: LinkStatus::Ok,
+            },
+            0,
+        );
+        let id = |f: Option<ServerMessage>| match f {
+            Some(ServerMessage::VehicleMessage(m)) => m.id,
+            other => panic!("{other:?}"),
+        };
+        let (ia, ib) = (id(a), id(b));
+        assert_ne!(ia, ib);
+        assert!(ia >= LINK_MESSAGE_ID_BASE && ib >= LINK_MESSAGE_ID_BASE);
+    }
 
     #[test]
     fn first_sight_sends_the_full_state_then_only_changes() {

@@ -7,11 +7,12 @@ use std::collections::HashMap;
 
 use mavlink::dialects::ardupilotmega::MavMessage;
 use mavlink::{MavHeader, Message};
-use rgcs_core::{SysId, VehicleMessage, VehicleState};
+use rgcs_core::{LinkStatus, SysId, VehicleMessage, VehicleState};
 use tokio::sync::watch;
 
 use crate::decode;
 use crate::heartbeat::{is_flight_controller, link_status};
+use crate::statustext::{Complete, Joiner, CHUNK_LEN};
 
 /// Timestamps supplied by the caller: a monotonic clock for ages, wall time for messages.
 #[derive(Debug, Clone, Copy, Default)]
@@ -25,6 +26,20 @@ pub enum RouterEvent {
     Discovered(SysId),
     Updated(SysId),
     Message(VehicleMessage),
+    /// Heartbeat-derived link health crossed a threshold (3 s / 10 s) or came back.
+    LinkChanged {
+        sysid: SysId,
+        from: LinkStatus,
+        to: LinkStatus,
+    },
+    /// One PARAM_VALUE frame (answer to a read or part of a full list).
+    ParamValue {
+        sysid: SysId,
+        name: String,
+        value: f32,
+        index: u16,
+        count: u16,
+    },
 }
 
 struct Slot {
@@ -41,6 +56,7 @@ struct Slot {
 pub struct Router {
     slots: HashMap<SysId, Slot>,
     next_message_id: u64,
+    joiner: Joiner,
 }
 
 impl Router {
@@ -58,33 +74,53 @@ impl Router {
                 _ => return events,
             }
         }
-        let message_id = self.alloc_message_id(msg);
         let slot = self.slots.get_mut(&sysid).expect("slot inserted above");
         if header.component_id != slot.fc_component {
             return events;
         }
         slot.last_rx_ms = clock.mono_ms;
         slot.last_seen.insert(msg.message_id(), clock.mono_ms);
-        if let (MavMessage::STATUSTEXT(st), Some(id)) = (msg, message_id) {
-            let text = String::from_utf8_lossy(&*st.text)
-                .trim_end_matches('\0')
-                .to_string();
-            let severity = st.severity as u8;
-            events.push(RouterEvent::Message(VehicleMessage {
+        match msg {
+            MavMessage::STATUSTEXT(st) => {
+                let raw = String::from_utf8_lossy(&*st.text)
+                    .trim_end_matches('\0')
+                    .to_string();
+                let full = raw.len() >= CHUNK_LEN;
+                let (joiner, done) = self
+                    .joiner
+                    .push(sysid, st.severity as u8, &raw, full, clock.mono_ms);
+                self.joiner = joiner;
+                if let Some(c) = done {
+                    events.push(self.message_event(c, clock.unix_ms));
+                }
+            }
+            MavMessage::PARAM_VALUE(pv) => events.push(RouterEvent::ParamValue {
                 sysid,
-                id,
-                severity,
-                text,
-                ts: clock.unix_ms,
-            }));
+                name: String::from_utf8_lossy(&*pv.param_id)
+                    .trim_end_matches('\0')
+                    .to_string(),
+                value: pv.param_value,
+                index: pv.param_index,
+                count: pv.param_count,
+            }),
+            _ => {}
         }
+        let slot = self.slots.get_mut(&sysid).expect("slot inserted above");
         if let Some(next) = decode::apply(&slot.state, msg) {
             // A frame from the FC proves the link is alive right now; `tick` ages it again.
+            let from = slot.state.link;
             let next = VehicleState {
                 last_rx_ms: 0,
                 link: link_status(0),
                 ..next
             };
+            if from != next.link {
+                events.push(RouterEvent::LinkChanged {
+                    sysid,
+                    from,
+                    to: next.link,
+                });
+            }
             slot.state = next.clone();
             let _ = slot.tx.send(next);
             events.push(RouterEvent::Updated(sysid));
@@ -92,13 +128,16 @@ impl Router {
         events
     }
 
-    fn alloc_message_id(&mut self, msg: &MavMessage) -> Option<u64> {
-        if !matches!(msg, MavMessage::STATUSTEXT(_)) {
-            return None;
-        }
+    fn message_event(&mut self, c: Complete, unix_ms: u64) -> RouterEvent {
         let id = self.next_message_id;
         self.next_message_id += 1;
-        Some(id)
+        RouterEvent::Message(VehicleMessage {
+            sysid: c.sysid,
+            id,
+            severity: c.severity,
+            text: c.text,
+            ts: unix_ms,
+        })
     }
 
     /// Refresh link health / message ages. Call about once a second.
@@ -107,6 +146,13 @@ impl Router {
         for (sysid, slot) in self.slots.iter_mut() {
             let age = clock.mono_ms.saturating_sub(slot.last_rx_ms);
             let link = link_status(age);
+            if slot.state.link != link {
+                events.push(RouterEvent::LinkChanged {
+                    sysid: *sysid,
+                    from: slot.state.link,
+                    to: link,
+                });
+            }
             if slot.state.link != link || slot.state.last_rx_ms != age {
                 let next = VehicleState {
                     link,
@@ -117,6 +163,11 @@ impl Router {
                 let _ = slot.tx.send(next);
                 events.push(RouterEvent::Updated(*sysid));
             }
+        }
+        let (joiner, stale) = self.joiner.flush(clock.mono_ms);
+        self.joiner = joiner;
+        for c in stale {
+            events.push(self.message_event(c, clock.unix_ms));
         }
         events
     }
@@ -228,6 +279,82 @@ mod tests {
             }
             other => panic!("unexpected {other:?}"),
         }
+    }
+
+    #[test]
+    fn link_changes_are_reported_as_events() {
+        let mut r = Router::default();
+        r.on_message(&header(1), &fc_heartbeat(), clock(0));
+        let ev = r.tick(clock(3_500));
+        assert!(ev.contains(&RouterEvent::LinkChanged {
+            sysid: 1,
+            from: LinkStatus::Ok,
+            to: LinkStatus::Delay
+        }));
+        let ev = r.tick(clock(12_000));
+        assert!(ev.contains(&RouterEvent::LinkChanged {
+            sysid: 1,
+            from: LinkStatus::Delay,
+            to: LinkStatus::Lost
+        }));
+        assert!(!r
+            .tick(clock(13_000))
+            .iter()
+            .any(|e| matches!(e, RouterEvent::LinkChanged { .. })));
+        let ev = r.on_message(&header(1), &fc_heartbeat(), clock(13_100));
+        assert!(ev.contains(&RouterEvent::LinkChanged {
+            sysid: 1,
+            from: LinkStatus::Lost,
+            to: LinkStatus::Ok
+        }));
+    }
+
+    #[test]
+    fn chunked_statustext_is_joined_and_stale_chunks_flush_on_tick() {
+        let mut r = Router::default();
+        r.on_message(&header(1), &fc_heartbeat(), clock(0));
+        let head = "D".repeat(50);
+        let st = |t: &str| {
+            MavMessage::STATUSTEXT(STATUSTEXT_DATA {
+                severity: MavSeverity::MAV_SEVERITY_INFO,
+                text: t.into(),
+            })
+        };
+        let ev = r.on_message(&header(1), &st(&head), clock(100));
+        assert!(!ev.iter().any(|e| matches!(e, RouterEvent::Message(_))));
+        let ev = r.on_message(&header(1), &st(" tail"), clock(150));
+        let joined = ev.iter().find_map(|e| match e {
+            RouterEvent::Message(m) => Some(m.text.clone()),
+            _ => None,
+        });
+        assert_eq!(joined.as_deref(), Some(format!("{head} tail").as_str()));
+        r.on_message(&header(1), &st(&head), clock(200));
+        let ev = r.tick(clock(1_300));
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, RouterEvent::Message(m) if m.text == head)));
+    }
+
+    #[test]
+    fn param_value_becomes_an_event() {
+        use mavlink::dialects::ardupilotmega::{MavParamType, PARAM_VALUE_DATA};
+        let mut r = Router::default();
+        r.on_message(&header(1), &fc_heartbeat(), clock(0));
+        let pv = MavMessage::PARAM_VALUE(PARAM_VALUE_DATA {
+            param_value: 120.0,
+            param_count: 900,
+            param_index: 7,
+            param_id: "FENCE_ALT_MAX".into(),
+            param_type: MavParamType::MAV_PARAM_TYPE_REAL32,
+        });
+        let ev = r.on_message(&header(1), &pv, clock(10));
+        assert!(ev.contains(&RouterEvent::ParamValue {
+            sysid: 1,
+            name: "FENCE_ALT_MAX".into(),
+            value: 120.0,
+            index: 7,
+            count: 900
+        }));
     }
 
     #[test]

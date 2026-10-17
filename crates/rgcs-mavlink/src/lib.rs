@@ -11,6 +11,7 @@ pub mod link;
 pub mod modes;
 pub mod queue;
 pub mod router;
+pub mod statustext;
 
 pub use connection::{run_link, LinkChannels};
 pub use link::{LinkUrl, LinkUrlError};
