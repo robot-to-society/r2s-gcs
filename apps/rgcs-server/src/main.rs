@@ -46,16 +46,21 @@ async fn main() -> anyhow::Result<()> {
         acks: acks_tx.clone(),
     };
     tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), channels));
-    tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx, acks_tx));
-    tokio::spawn(telemetry::pump_events(events_rx, tx.clone()));
+    tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx.clone(), acks_tx));
+    let state = AppState::new(router.clone(), tx.clone(), store, queue_tx, dev_mode)
+        .with_outgoing(outgoing_tx)
+        .with_map(config.map_tile_url.clone(), config.map_attribution.clone());
+    tokio::spawn(telemetry::pump_events(
+        events_rx,
+        tx.clone(),
+        state.params.clone(),
+    ));
     tokio::spawn(telemetry::diff_loop(
         router.clone(),
         tx.clone(),
         Duration::from_millis(config.telemetry_interval_ms.max(20)),
     ));
 
-    let state = AppState::new(router, tx, store, queue_tx, dev_mode)
-        .with_map(config.map_tile_url.clone(), config.map_attribution.clone());
     let app = app::build(state, config.ui_dir.clone());
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     axum::serve(listener, app)

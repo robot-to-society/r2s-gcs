@@ -72,6 +72,17 @@ const ja = {
   commsDelay: '通信遅延',
   linkLost: '通信喪失',
   linkRestored: '通信復帰',
+  guided: 'Guided 移動',
+  targetLabel: '目標',
+  pickTarget: '地図をクリックして目標を指定',
+  pickOnMap: '地図で指定',
+  altKeep: '現在維持',
+  altSet: '指定(ホーム相対)',
+  startMove: '移動開始',
+  switchToGuided: 'GUIDED に切替',
+  modeRequired: 'Guided 移動には GUIDED モードが必要です',
+  confirmGuided: '確認して移動開始',
+  fenceUnknown: 'ジオフェンス設定を未確認です',
 } as const
 
 const en: Record<keyof typeof ja, string> = {
@@ -146,6 +157,17 @@ const en: Record<keyof typeof ja, string> = {
   commsDelay: 'Comms delay',
   linkLost: 'Link lost',
   linkRestored: 'Link restored',
+  guided: 'Guided move',
+  targetLabel: 'Target',
+  pickTarget: 'Click the map to set a target',
+  pickOnMap: 'Pick on map',
+  altKeep: 'Keep current',
+  altSet: 'Set (relative to home)',
+  startMove: 'Start move',
+  switchToGuided: 'Switch to GUIDED',
+  modeRequired: 'Guided moves need GUIDED mode',
+  confirmGuided: 'Confirm and start',
+  fenceUnknown: 'Geofence settings not verified',
 }
 
 export type Dict = Record<keyof typeof ja, string>

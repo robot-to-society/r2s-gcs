@@ -368,3 +368,18 @@
 .detail-pin {
   font-size: 14px;
 }
+
+/* ---- guided modal ---- */
+.guided-target {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.guided-alt {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.guided-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

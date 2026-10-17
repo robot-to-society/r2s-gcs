@@ -9,6 +9,8 @@ pub mod auth;
 pub mod commands;
 pub mod config;
 pub mod confirm;
+pub mod guided;
+pub mod params;
 pub mod settings;
 pub mod telemetry;
 pub mod ws;

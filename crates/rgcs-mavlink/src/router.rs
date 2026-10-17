@@ -12,7 +12,7 @@ use tokio::sync::watch;
 
 use crate::decode;
 use crate::heartbeat::{is_flight_controller, link_status};
-use crate::statustext::{Complete, Joiner, CHUNK_LEN};
+use crate::statustext::{is_full_chunk, Complete, Joiner};
 
 /// Timestamps supplied by the caller: a monotonic clock for ages, wall time for messages.
 #[derive(Debug, Clone, Copy, Default)]
@@ -85,7 +85,7 @@ impl Router {
                 let raw = String::from_utf8_lossy(&*st.text)
                     .trim_end_matches('\0')
                     .to_string();
-                let full = raw.len() >= CHUNK_LEN;
+                let full = is_full_chunk(&*st.text);
                 let (joiner, done) = self
                     .joiner
                     .push(sysid, st.severity as u8, &raw, full, clock.mono_ms);

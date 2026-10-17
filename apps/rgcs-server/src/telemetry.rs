@@ -66,9 +66,14 @@ pub fn event_frame(ev: RouterEvent, now_ms: u64) -> Option<ServerMessage> {
     }
 }
 
-/// Forwards discovery / message / link events straight to the clients.
-pub async fn pump_events(mut events: mpsc::Receiver<RouterEvent>, tx: broadcast::Sender<ServerMessage>) {
+/// Forwards discovery / message / link events straight to the clients; caches PARAM_VALUEs.
+pub async fn pump_events(
+    mut events: mpsc::Receiver<RouterEvent>,
+    tx: broadcast::Sender<ServerMessage>,
+    params: crate::params::ParamStore,
+) {
     while let Some(ev) = events.recv().await {
+        params.apply(&ev);
         if let Some(f) = event_frame(ev, crate::app::unix_ms()) {
             let _ = tx.send(f);
         }

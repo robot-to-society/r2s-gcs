@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { authStore } from '../features/auth/store'
 import { CommandsSheet, ConfirmDialog, runCommand, type RunResult } from '../features/commands'
 import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../features/detail'
-import { FollowChip, MapView, clearFollow, mapUiStore, padding, rasterStyle, setFollow, tracksStore, useMapUi, useTracks } from '../features/map'
+import { GuidedModal } from '../features/guided'
+import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
@@ -82,7 +83,7 @@ export function Shell({ me, lang }: Props) {
               style={rasterStyle(settings.map_tile_url, settings.map_attribution)}
               target={mapUi.target}
               onDragStart={() => mapUiStore.update(clearFollow)}
-              onClick={() => {}}
+              onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
             />
           )}
           <VehicleList
@@ -114,6 +115,25 @@ export function Shell({ me, lang }: Props) {
               onClose={() => setModal(NO_MODAL)}
               onOpen={(target) => target === 'guided' && setModal({ kind: 'guided', sysid: currentVehicle.sysid })}
               onPick={(command) => void runCommand(currentVehicle.sysid, command).then((r) => settle(currentVehicle.sysid, r, command))}
+            />
+          )}
+          {modal.kind === 'guided' && currentVehicle && (
+            <GuidedModal
+              vehicle={currentVehicle}
+              target={mapUi.target}
+              dict={dict}
+              onPickTarget={() => mapUiStore.update((s) => startPick(s, 'guided-target'))}
+              onClose={() => {
+                mapUiStore.update(cancelPick)
+                setModal(NO_MODAL)
+              }}
+              onSwitchToGuided={() => setModal({ kind: 'confirm', sysid: currentVehicle.sysid, command: { cmd: 'set_mode', args: { mode: 'GUIDED' } } })}
+              onDone={(outcome) => {
+                if (outcome.kind === 'error') {
+                  vehicleStore.pushLocalResult({ id: -Date.now(), sysid: currentVehicle.sysid, cmd: 'guided', ok: false, reason: outcome.message, ts: Date.now() })
+                }
+                setModal(NO_MODAL)
+              }}
             />
           )}
           {modal.kind === 'confirm' && (

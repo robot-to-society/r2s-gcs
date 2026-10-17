@@ -12,7 +12,7 @@ use mavlink::dialects::ardupilotmega::{
     MavAutopilot, MavMessage, MavModeFlag, MavState, MavType, HEARTBEAT_DATA,
 };
 use mavlink::MavHeader;
-use rgcs_mavlink::{Clock, Outcome, QueuedCommand, Router};
+use rgcs_mavlink::{Clock, Outcome, Outgoing, QueuedCommand, Router};
 use rgcs_server::app::{self, AppState, BROADCAST_CAPACITY};
 use rgcs_store::Store;
 use serde_json::Value;
@@ -22,6 +22,13 @@ use tower::ServiceExt;
 pub const CSRF: (&str, &str) = ("x-requested-with", "rgcs");
 
 pub async fn spawn_app() -> (AxumRouter, AppState) {
+    let (app, state, _rx) = spawn_app_with_link().await;
+    (app, state)
+}
+
+/// Like `spawn_app`, but also hands back the receiver of frames sent straight to the link.
+pub async fn spawn_app_with_link() -> (AxumRouter, AppState, mpsc::Receiver<Outgoing>) {
+    let (outgoing_tx, outgoing_rx) = mpsc::channel::<Outgoing>(16);
     let store = Store::open_memory().await.expect("memory store");
     let dev_mode = store.dev_mode().await.expect("dev_mode");
     let router = Arc::new(Mutex::new(Router::default()));
@@ -37,12 +44,24 @@ pub async fn spawn_app() -> (AxumRouter, AppState) {
         let mut rx = _keep;
         while rx.recv().await.is_ok() {}
     });
-    let state = AppState::new(router, tx, store, queue_tx, dev_mode);
-    (app::build(state.clone(), None), state)
+    let state = AppState::new(router, tx, store, queue_tx, dev_mode).with_outgoing(outgoing_tx);
+    (app::build(state.clone(), None), state, outgoing_rx)
+}
+
+/// ArduCopter custom mode numbers used by the tests.
+pub const COPTER_STABILIZE: u32 = 0;
+pub const COPTER_GUIDED: u32 = 4;
+
+pub fn seed_param(app: &AppState, sysid: u8, name: &str, value: f32) {
+    app.params.set(sysid, name, value);
 }
 
 /// Registers an ArduCopter flight controller for `sysid`; `lost` ages the link past 10 s.
 pub async fn seed_vehicle(app: &AppState, sysid: u8, armed: bool, lost: bool) {
+    seed_copter(app, sysid, COPTER_STABILIZE, armed, lost).await;
+}
+
+pub async fn seed_copter(app: &AppState, sysid: u8, custom_mode: u32, armed: bool, lost: bool) {
     let header = MavHeader {
         system_id: sysid,
         component_id: 1,
@@ -53,7 +72,7 @@ pub async fn seed_vehicle(app: &AppState, sysid: u8, armed: bool, lost: bool) {
         base_mode |= MavModeFlag::MAV_MODE_FLAG_SAFETY_ARMED;
     }
     let hb = HEARTBEAT_DATA {
-        custom_mode: 0,
+        custom_mode,
         mavtype: MavType::MAV_TYPE_QUADROTOR,
         autopilot: MavAutopilot::MAV_AUTOPILOT_ARDUPILOTMEGA,
         base_mode,

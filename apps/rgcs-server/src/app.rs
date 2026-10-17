@@ -1,6 +1,6 @@
 //! Shared server state and the axum router.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
@@ -10,15 +10,16 @@ use axum::response::Html;
 use axum::routing::{get, post};
 use axum::{middleware, Router as AxumRouter};
 use rgcs_core::{ServerMessage, SysId};
-use rgcs_mavlink::{QueuedCommand, Router};
+use rgcs_mavlink::{Outgoing, QueuedCommand, Router};
 use rgcs_store::{Lockout, Store};
 use tokio::sync::{broadcast, mpsc, Mutex};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
 use crate::confirm::{ConfirmError, ConfirmTokens};
+use crate::params::ParamStore;
 use crate::settings;
-use crate::{api, auth, commands, ws};
+use crate::{api, auth, commands, guided, ws};
 
 pub const BROADCAST_CAPACITY: usize = 1024;
 /// Distinct usernames tracked for login serialization before the map is reset.
@@ -30,6 +31,9 @@ pub struct AppState {
     pub tx: broadcast::Sender<ServerMessage>,
     pub store: Store,
     pub queue: mpsc::Sender<QueuedCommand>,
+    /// Frames sent straight to the link without waiting for an ACK (Guided targets, param reads).
+    pub outgoing: mpsc::Sender<Outgoing>,
+    pub params: ParamStore,
     pub hostname: String,
     pub secure_cookies: bool,
     /// Map tile source handed to the UI by `GET /api/settings/app`.
@@ -40,6 +44,8 @@ pub struct AppState {
     /// One async mutex per username so check-lockout → verify → record is serialized
     /// (otherwise concurrent attempts slip past the 5-failure limit).
     login_guards: Arc<StdMutex<HashMap<String, Arc<Mutex<()>>>>>,
+    /// Vehicles whose first Guided target was confirmed in this process (spec 70 §1 "初回").
+    guided_confirmed: Arc<StdMutex<HashSet<SysId>>>,
     confirm: Arc<StdMutex<ConfirmTokens>>,
     next_command: Arc<AtomicU64>,
     dev_mode: Arc<AtomicBool>,
@@ -54,11 +60,15 @@ impl AppState {
         dev_mode: bool,
     ) -> Self {
         let hostname = std::env::var("HOSTNAME").unwrap_or_else(|_| "rgcs".into());
+        // Without a link the sender has no receiver: direct sends fail → 503 link_lost.
+        let (outgoing, _) = mpsc::channel(1);
         Self {
             router,
             tx,
             store,
             queue,
+            outgoing,
+            params: ParamStore::default(),
             hostname,
             secure_cookies: false,
             map_tile_url: crate::config::Config::default().map_tile_url,
@@ -66,10 +76,26 @@ impl AppState {
             started: Instant::now(),
             lockout: Arc::new(StdMutex::new(Lockout::default())),
             login_guards: Arc::new(StdMutex::new(HashMap::new())),
+            guided_confirmed: Arc::new(StdMutex::new(HashSet::new())),
             confirm: Arc::new(StdMutex::new(ConfirmTokens::default())),
             next_command: Arc::new(AtomicU64::new(1)),
             dev_mode: Arc::new(AtomicBool::new(dev_mode)),
         }
+    }
+
+    pub fn with_outgoing(self, outgoing: mpsc::Sender<Outgoing>) -> Self {
+        Self { outgoing, ..self }
+    }
+
+    pub fn guided_confirmed(&self, sysid: SysId) -> bool {
+        self.guided_confirmed
+            .lock()
+            .expect("guided mutex")
+            .contains(&sysid)
+    }
+
+    pub fn mark_guided_confirmed(&self, sysid: SysId) {
+        self.guided_confirmed.lock().expect("guided mutex").insert(sysid);
     }
 
     pub fn with_map(self, tile_url: String, attribution: String) -> Self {
@@ -153,6 +179,7 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
         .route("/vehicles/{sysid}", get(api::get_vehicle))
         .route("/vehicles/{sysid}/confirm", post(commands::confirm))
         .route("/vehicles/{sysid}/command", post(commands::command))
+        .route("/vehicles/{sysid}/guided", post(guided::guided))
         .route("/history/audit", get(api::audit_history))
         .route("/settings/app", get(settings::app_settings))
         .layer(middleware::from_fn(auth::csrf_guard));

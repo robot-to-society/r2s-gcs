@@ -110,6 +110,18 @@ describe('MapView', () => {
     expect(map.eased.at(-1)).toMatchObject({ center: [139.38, 36.17] })
   })
 
+  it('draws the guided line from the selected vehicle to the target', () => {
+    const vehicles = new Map([[1, v(1, 3)]])
+    const target = { lat: 36.2, lon: 139.4 }
+    render(
+      <MapView vehicles={vehicles} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={target} />,
+    )
+    const src = created.maps[0]!.sources.get('guided')!
+    const last = src.setData.mock.calls.at(-1)![0] as { features: { geometry: { coordinates: number[][] } }[] }
+    expect(last.features[0]?.geometry.coordinates).toEqual([[139.37, 36.16], [139.4, 36.2]])
+    expect(created.markers.some((m) => m.el.className === 'rg-tgt')).toBe(true)
+  })
+
   it('reports drag start so the shell can release follow', () => {
     const onDragStart = vi.fn()
     render(

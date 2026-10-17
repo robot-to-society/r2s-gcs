@@ -124,7 +124,7 @@ pub async fn command(
     ok(Queued { id })
 }
 
-fn confirm_failure(verdict: Option<Result<(), ConfirmError>>) -> Option<&'static str> {
+pub fn confirm_failure(verdict: Option<Result<(), ConfirmError>>) -> Option<&'static str> {
     match verdict {
         None => Some("confirm token required"),
         Some(Err(ConfirmError::Missing)) => Some("unknown confirm token"),

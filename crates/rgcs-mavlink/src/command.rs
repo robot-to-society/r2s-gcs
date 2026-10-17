@@ -1,6 +1,9 @@
 //! [`VehicleCommand`] → MAVLink messages for ArduPilot, plus the ACK each one expects.
 
-use mavlink::dialects::ardupilotmega::{MavCmd, MavMessage, COMMAND_LONG_DATA};
+use mavlink::dialects::ardupilotmega::{
+    MavCmd, MavFrame, MavMessage, PositionTargetTypemask, COMMAND_LONG_DATA, PARAM_REQUEST_READ_DATA,
+    SET_POSITION_TARGET_GLOBAL_INT_DATA,
+};
 use rgcs_core::{VehicleCommand, VehicleKind};
 
 use crate::modes::mode_number;
@@ -98,6 +101,42 @@ pub fn encode(cmd: &VehicleCommand, kind: VehicleKind, target: u8) -> Result<Enc
     }
 }
 
+/// Ignore velocity, acceleration, yaw and yaw rate: position-only setpoint (not FORCE_SET).
+pub const GUIDED_POSITION_ONLY_MASK: u16 = 0x0DF8;
+
+/// Guided target as `SET_POSITION_TARGET_GLOBAL_INT` in the relative-altitude frame (spec 10 §3.5).
+pub fn encode_guided_target(target: u8, lat: f64, lon: f64, alt_rel: f32) -> MavMessage {
+    MavMessage::SET_POSITION_TARGET_GLOBAL_INT(SET_POSITION_TARGET_GLOBAL_INT_DATA {
+        time_boot_ms: 0,
+        lat_int: (lat * 1e7).round() as i32,
+        lon_int: (lon * 1e7).round() as i32,
+        alt: alt_rel,
+        vx: 0.0,
+        vy: 0.0,
+        vz: 0.0,
+        afx: 0.0,
+        afy: 0.0,
+        afz: 0.0,
+        yaw: 0.0,
+        yaw_rate: 0.0,
+        type_mask: PositionTargetTypemask::from_bits_truncate(GUIDED_POSITION_ONLY_MASK),
+        target_system: target,
+        target_component: 1,
+        // The *_INT frame names are deprecated synonyms; RELATIVE_ALT (3) is what ArduPilot reads.
+        coordinate_frame: MavFrame::MAV_FRAME_GLOBAL_RELATIVE_ALT,
+    })
+}
+
+/// Ask for one parameter by name; the answer arrives as a PARAM_VALUE router event.
+pub fn encode_param_request_read(target: u8, name: &str) -> MavMessage {
+    MavMessage::PARAM_REQUEST_READ(PARAM_REQUEST_READ_DATA {
+        param_index: -1,
+        target_system: target,
+        target_component: 1,
+        param_id: name.into(),
+    })
+}
+
 /// MAV_CMD number → dialect enum (the generated enum derives `FromPrimitive`).
 fn mav_cmd_from_u16(n: u16) -> Option<MavCmd> {
     <MavCmd as num_traits::FromPrimitive>::from_u32(u32::from(n))
@@ -106,6 +145,39 @@ fn mav_cmd_from_u16(n: u16) -> Option<MavCmd> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mavlink::dialects::ardupilotmega::{MavFrame, PositionTargetTypemask};
+
+    #[test]
+    fn guided_target_is_a_position_only_relative_alt_setpoint() {
+        let m = encode_guided_target(1, 36.162, 139.372, 50.0);
+        let MavMessage::SET_POSITION_TARGET_GLOBAL_INT(d) = m else {
+            panic!("{m:?}")
+        };
+        assert_eq!(d.coordinate_frame, MavFrame::MAV_FRAME_GLOBAL_RELATIVE_ALT);
+        assert_eq!(
+            d.type_mask,
+            PositionTargetTypemask::from_bits_truncate(GUIDED_POSITION_ONLY_MASK)
+        );
+        assert_eq!(GUIDED_POSITION_ONLY_MASK, 0x0DF8);
+        assert_eq!(d.lat_int, 361_620_000);
+        assert_eq!(d.lon_int, 1_393_720_000);
+        assert_eq!(d.alt, 50.0);
+        assert_eq!((d.target_system, d.target_component), (1, 1));
+    }
+
+    #[test]
+    fn param_request_read_names_the_parameter() {
+        let m = encode_param_request_read(3, "FENCE_ALT_MAX");
+        let MavMessage::PARAM_REQUEST_READ(d) = m else {
+            panic!("{m:?}")
+        };
+        assert_eq!(d.target_system, 3);
+        assert_eq!(d.param_index, -1);
+        assert_eq!(
+            String::from_utf8_lossy(&*d.param_id).trim_end_matches('\0'),
+            "FENCE_ALT_MAX"
+        );
+    }
 
     fn params(e: &Encoded) -> (MavCmd, f32, f32) {
         match &e.message {

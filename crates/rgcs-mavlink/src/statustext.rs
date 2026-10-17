@@ -6,6 +6,13 @@ use rgcs_core::SysId;
 
 pub const CHUNK_LEN: usize = 50;
 pub const FLUSH_AFTER_MS: u64 = 1_000;
+/// A joined message never exceeds this many chunks; the cap emits it (bounded memory).
+pub const MAX_CHUNKS: usize = 32;
+
+/// A chunk that uses every byte of the 50-byte wire field means "more follows".
+pub fn is_full_chunk(wire: &[u8]) -> bool {
+    wire.len() >= CHUNK_LEN && wire[..CHUNK_LEN].iter().all(|b| *b != 0)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Complete {
@@ -41,17 +48,18 @@ impl Joiner {
     ) -> (Self, Option<Complete>) {
         let (kept, prev): (Vec<Partial>, Vec<Partial>) =
             self.partials.iter().cloned().partition(|p| p.sysid != sysid);
-        let text = match prev.into_iter().next() {
-            Some(p) => p.text + raw,
-            None => raw.to_string(),
+        // `started_ms` stays at the first chunk so appends never postpone the flush.
+        let (text, started_ms) = match prev.into_iter().next() {
+            Some(p) => (p.text + raw, p.started_ms),
+            None => (raw.to_string(), now_ms),
         };
-        if full {
+        if full && text.len() < MAX_CHUNKS * CHUNK_LEN {
             let mut partials = kept;
             partials.push(Partial {
                 sysid,
                 severity,
                 text,
-                started_ms: now_ms,
+                started_ms,
             });
             return (Self { partials }, None);
         }
@@ -121,6 +129,43 @@ mod tests {
         assert_eq!(out.unwrap().sysid, 2);
         let (_, out) = j.push(1, 6, " end", false, 6);
         assert_eq!(out.unwrap().text, format!("{head} end"));
+    }
+
+    #[test]
+    fn a_stream_of_full_chunks_cannot_grow_forever() {
+        let chunk = "E".repeat(CHUNK_LEN);
+        let mut j = Joiner::default();
+        let mut completed = None;
+        for i in 0..MAX_CHUNKS + 5 {
+            let (next, out) = j.push(1, 6, &chunk, true, i as u64 * 10);
+            j = next;
+            if let Some(c) = out {
+                completed = Some((i, c));
+                break;
+            }
+        }
+        let (at, c) = completed.expect("the cap emits the message");
+        assert_eq!(at + 1, MAX_CHUNKS);
+        assert_eq!(c.text.len(), MAX_CHUNKS * CHUNK_LEN);
+        assert_eq!(j, Joiner::default());
+    }
+
+    #[test]
+    fn started_ms_is_the_first_chunk_so_appends_do_not_postpone_the_flush() {
+        let chunk = "F".repeat(CHUNK_LEN);
+        let (j, _) = Joiner::default().push(1, 6, &chunk, true, 0);
+        let (j, _) = j.push(1, 6, &chunk, true, 900);
+        let (_, out) = j.flush(1_000);
+        assert_eq!(out.len(), 1);
+    }
+
+    #[test]
+    fn fullness_is_decided_on_the_wire_bytes() {
+        assert!(is_full_chunk(&[b'A'; CHUNK_LEN]));
+        let mut padded = [b'A'; CHUNK_LEN];
+        padded[CHUNK_LEN - 1] = 0;
+        assert!(!is_full_chunk(&padded));
+        assert!(!is_full_chunk(&[b'A'; 10]));
     }
 
     #[test]

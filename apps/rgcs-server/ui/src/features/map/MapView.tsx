@@ -21,6 +21,7 @@ interface Props {
 
 const HOME: [number, number] = [139.372, 36.162]
 const TRACKS = 'tracks'
+const GUIDED = 'guided'
 /** The arrow is 34 px wide at the element's left edge; pull it back so its centre sits on the position. */
 const ARROW_OFFSET: [number, number] = [-17, 0]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
@@ -57,6 +58,13 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         source: TRACKS,
         filter: ['get', 'selected'],
         paint: { 'line-color': '#f2b544', 'line-width': 3 },
+      })
+      m.addSource(GUIDED, { type: 'geojson', data: EMPTY })
+      m.addLayer({
+        id: 'guided-line',
+        type: 'line',
+        source: GUIDED,
+        paint: { 'line-color': '#9cc9ff', 'line-width': 2, 'line-dasharray': [1, 2] },
       })
       loaded.current = true
     })
@@ -112,6 +120,20 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     const src = map.current?.getSource(TRACKS) as { setData: (d: unknown) => void } | undefined
     src?.setData(tracksGeoJson(tracks, selected))
   }, [tracks, selected])
+
+  useEffect(() => {
+    if (!loaded.current) return
+    const src = map.current?.getSource(GUIDED) as { setData: (d: unknown) => void } | undefined
+    const from = selected === null ? undefined : vehicles.get(selected)
+    const line: FeatureCollection =
+      target && from && hasPosition(from)
+        ? {
+            type: 'FeatureCollection',
+            features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[from.lon, from.lat], [target.lon, target.lat]] } }],
+          }
+        : EMPTY
+    src?.setData(line)
+  }, [target, vehicles, selected])
 
   useEffect(() => {
     const m = map.current
