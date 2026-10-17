@@ -9,6 +9,8 @@ pub const CHUNK_LEN: usize = 50;
 pub const FLUSH_AFTER_MS: u64 = 1_000;
 /// A joined message never exceeds this many chunks; the cap emits it (bounded memory).
 pub const MAX_CHUNKS: usize = 32;
+/// Partials held at once; beyond this the oldest is emitted as-is (bounded memory per link).
+pub const MAX_PARTIALS: usize = 16;
 
 /// A chunk that uses every byte of the 50-byte wire field means "more follows".
 pub fn is_full_chunk(wire: &[u8]) -> bool {
@@ -101,17 +103,30 @@ impl Joiner {
             started_ms: now_ms,
             ended: false,
         });
-        partial.chunks.push(Chunk {
-            seq: chunk_seq,
-            text: raw.to_string(),
-        });
+        if partial.chunks.iter().all(|c| c.seq != chunk_seq) {
+            partial.chunks.push(Chunk {
+                seq: chunk_seq,
+                text: raw.to_string(),
+            });
+        }
         partial.ended |= !full;
         if partial.is_whole() || partial.chunks.len() >= MAX_CHUNKS {
             return (Self { partials: kept }, Some(partial.complete()));
         }
         let mut partials = kept;
+        let evicted = if partials.len() >= MAX_PARTIALS {
+            let oldest = partials
+                .iter()
+                .enumerate()
+                .min_by_key(|(_, p)| p.started_ms)
+                .map(|(i, _)| i)
+                .expect("non-empty");
+            Some(partials.remove(oldest).complete())
+        } else {
+            None
+        };
         partials.push(partial);
-        (Self { partials }, None)
+        (Self { partials }, evicted)
     }
 
     /// Emits partials older than [`FLUSH_AFTER_MS`] with whatever chunks arrived (in seq order).
@@ -199,6 +214,32 @@ mod tests {
         let (at, c) = done.expect("the cap emits the message");
         assert_eq!(at + 1, MAX_CHUNKS);
         assert_eq!(c.text.len(), MAX_CHUNKS * CHUNK_LEN);
+    }
+
+    #[test]
+    fn concurrent_partials_are_bounded_and_the_oldest_is_emitted() {
+        let chunk = "G".repeat(CHUNK_LEN);
+        let mut j = Joiner::default();
+        let mut emitted = Vec::new();
+        for id in 1..=(MAX_PARTIALS as u16 + 3) {
+            let (next, out) = push(&j, id, 0, &chunk, true, id as u64);
+            j = next;
+            emitted.extend(out);
+        }
+        assert_eq!(j.partials.len(), MAX_PARTIALS);
+        assert_eq!(emitted.len(), 3, "the oldest partials were flushed to make room");
+        assert_eq!(emitted[0].text, chunk);
+    }
+
+    #[test]
+    fn duplicate_chunk_seq_is_ignored() {
+        let chunk = "H".repeat(CHUNK_LEN);
+        let (j, _) = push(&Joiner::default(), 5, 0, &chunk, true, 0);
+        let (j, out) = push(&j, 5, 0, &chunk, true, 1);
+        assert_eq!(out, None);
+        assert_eq!(j.partials[0].chunks.len(), 1);
+        let (_, out) = push(&j, 5, 1, " end", false, 2);
+        assert_eq!(out.map(|c| c.text), Some(format!("{chunk} end")));
     }
 
     #[test]
