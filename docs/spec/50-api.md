@@ -37,10 +37,24 @@
 | GET / PUT | `/api/vehicles/{sysid}/params` | `[{name, value}]` / `{changes: [{name, value}]}` → 書戻し検証結果 |
 | GET | `/api/vehicles/{sysid}/messages?since=` | `[{ts, severity, text, acked}]` |
 | POST | `/api/vehicles/{sysid}/messages/{id}/ack` | — |
-| GET / PUT | `/api/vehicles/{sysid}/mission` | `Mission` / `Mission` → 検証警告 + 書込結果 |
 | POST | `/api/vehicles/{sysid}/calibration` | `{kind: accel\|compass\|level\|rc\|esc}` |
 
 `cmd` の列挙: `pause`, `resume`, `rtl`, `land`, `change_alt`, `change_speed`, `set_mode`, `mission_start`, `mission_resume`, `arm`, `disarm`, `other(mav_cmd, params)`。
+
+### 2.2.1 ミッション(P3、2026-10-17 追補 §5.2 / §5.9)
+| メソッド | パス | 本文 / 応答 |
+|---|---|---|
+| PUT | `/api/vehicles/{sysid}/mission` | `Mission` → `UploadReport{items, verified, mismatched[], findings[]}`。書込 → 読込 → 一致検証。`409 vehicle_armed` / `409 mission_busy` / `409 mission_invalid`(`data.findings` に致命) / `409 mission_rejected`(MISSION_ACK) / `503 link_lost` / `504 mission_timeout`(1.5 s × 3 回)。監査 target `mission` |
+| POST | `/api/vehicles/{sysid}/mission/upload` | `{mission_id}` → 保存済みミッションを同じ手順で書込 |
+| GET | `/api/vehicles/{sysid}/mission` | 機体から読込 → `Mission`(`sysid` 入り) |
+| GET | `/api/vehicles/{sysid}/mission/progress` | → `MissionProgress{seq, total}` または `null` |
+| GET / POST | `/api/missions` | 一覧 `[MissionSummaryRow]` / `Mission` → `201 Mission`(id 付き)。`name` 1〜64 文字、`items` ≤ 700(`400 validation`) |
+| GET / PUT / DELETE | `/api/missions/{id}` | `Mission` / `Mission` → `Mission` / `204` |
+| GET | `/api/missions/{id}/export?format=waypoints` | `text/plain`、`Content-Disposition: attachment; filename="<name>.waypoints"`(QGC WPL 110、行 0 = home) |
+| POST | `/api/missions/import` | 本文 = `.waypoints` テキスト(≤ 1 MB)、`X-Mission-Name` → 未保存の `Mission`。`400 invalid_waypoints` |
+| POST | `/api/missions/validate?sysid=` | `Mission` → `{findings: [Finding{level, code, seq, message}], stats: {distance_m, duration_s, max_alt}}`。`sysid` があれば機体のフェンス値で判定(未取得なら `fence_unknown` を付け `PARAM_REQUEST_READ`) |
+
+`Finding.code`: 致命 `empty` / `first_not_takeoff` / `fence_alt` / `fence_radius` / `jump_target`、警告 `fence_unknown` / `fence_frame_unchecked` / `mixed_frames` / `terrain_frame` / `zero_position` / `no_land_or_rtl` / `long_flight`。
 
 ### 2.3 カメラ
 | メソッド | パス | 本文 / 応答 |
@@ -98,6 +112,7 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | `vehicle_message` | `{sysid, id, severity, text, ts}`。機体の STATUSTEXT は原文(50 バイトのチャンクはサーバーで結合)。サーバー生成の `text` は固定コード `comms_delay` / `link_lost` / `link_restored`(UI が翻訳) | 発生時 |
 | `command_result` | `{id, sysid, cmd, ok, reason?, ts}` | 完了時 |
 | `vehicle_discovered` / `vehicle_lost` | `{sysid}` | 発生時 |
+| `mission_progress` | `{sysid, progress: {seq, total}}` | `MISSION_CURRENT` の変化時 + 1 Hz(サーバーが再送)。`total` はサーバーが書込 / 読込したミッションの項目数 + 1(home) |
 | `input_state` | `{deadman: ok\|lost}` | 変化時(`input_hb` 1.5 s 途絶で `lost`、サーバーは速度 0 を 1 回送る) |
 | `error` | `{code, message}` | 入力拒否時 |
 

@@ -1,7 +1,7 @@
 //! Mission endpoints (spec 50 §2.4, addendum §5.9): vehicle upload / download / progress.
 
 use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use rgcs_core::{FenceInfo, Finding, LinkStatus, Mission, ServerMessage, SysId, UploadReport, VehicleState};
@@ -265,5 +265,231 @@ async fn audit_plain(
     };
     if let Err(e) = app.store.record_audit(entry).await {
         tracing::error!(error = %e, "audit write failed");
+    }
+}
+
+// ---- saved missions, files, validation -------------------------------------------------------
+
+pub const MAX_NAME_CHARS: usize = 64;
+/// ArduPilot's practical mission size.
+pub const MAX_ITEMS: usize = 700;
+pub const MAX_IMPORT_BYTES: usize = 1024 * 1024;
+
+#[derive(Debug, Deserialize)]
+pub struct ExportQuery {
+    pub format: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ValidateQuery {
+    pub sysid: Option<SysId>,
+}
+
+#[derive(serde::Serialize)]
+pub struct ValidateReply {
+    pub findings: Vec<Finding>,
+    pub stats: rgcs_core::MissionStats,
+}
+
+/// Name 1..=64 chars (trimmed), at most 700 items. `Err(field)` names the offending field.
+pub fn check_mission(m: &Mission) -> Result<Mission, &'static str> {
+    let name = m.name.trim();
+    if name.is_empty() || name.chars().count() > MAX_NAME_CHARS {
+        return Err("name");
+    }
+    if m.items.len() > MAX_ITEMS {
+        return Err("items");
+    }
+    Ok(Mission {
+        name: name.to_string(),
+        ..m.clone()
+    })
+}
+
+fn validation_error(field: &str) -> Response {
+    err(
+        StatusCode::BAD_REQUEST,
+        "validation",
+        format!("{field} is out of range"),
+    )
+}
+
+fn store_error(e: rgcs_store::StoreError) -> Response {
+    err(StatusCode::INTERNAL_SERVER_ERROR, "store", e.to_string())
+}
+
+/// `GET /api/missions`
+pub async fn list_missions(State(app): State<AppState>, AuthUser(_op): AuthUser) -> Response {
+    match app.store.list_missions().await {
+        Ok(rows) => ok(rows),
+        Err(e) => store_error(e),
+    }
+}
+
+/// `POST /api/missions` → 201 with the new id.
+pub async fn create_mission(
+    State(app): State<AppState>,
+    AuthUser(op): AuthUser,
+    Json(mission): Json<Mission>,
+) -> Response {
+    let mission = match check_mission(&mission) {
+        Ok(m) => m,
+        Err(field) => return validation_error(field),
+    };
+    match app.store.create_mission(&mission, &op.username).await {
+        Ok(saved) => (
+            StatusCode::CREATED,
+            Json(json!({ "success": true, "data": saved })),
+        )
+            .into_response(),
+        Err(e) => store_error(e),
+    }
+}
+
+fn not_found(id: i64) -> Response {
+    err(
+        StatusCode::NOT_FOUND,
+        "not_found",
+        format!("mission {id} does not exist"),
+    )
+}
+
+/// `GET /api/missions/{id}`
+pub async fn get_saved_mission(
+    State(app): State<AppState>,
+    AuthUser(_op): AuthUser,
+    Path(id): Path<i64>,
+) -> Response {
+    match app.store.get_mission(id).await {
+        Ok(Some(m)) => ok(m),
+        Ok(None) => not_found(id),
+        Err(e) => store_error(e),
+    }
+}
+
+/// `PUT /api/missions/{id}`
+pub async fn update_mission(
+    State(app): State<AppState>,
+    AuthUser(_op): AuthUser,
+    Path(id): Path<i64>,
+    Json(mission): Json<Mission>,
+) -> Response {
+    let mission = match check_mission(&mission) {
+        Ok(m) => m,
+        Err(field) => return validation_error(field),
+    };
+    match app.store.update_mission(id, &mission).await {
+        Ok(Some(m)) => ok(m),
+        Ok(None) => not_found(id),
+        Err(e) => store_error(e),
+    }
+}
+
+/// `DELETE /api/missions/{id}` → 204.
+pub async fn delete_mission(
+    State(app): State<AppState>,
+    AuthUser(_op): AuthUser,
+    Path(id): Path<i64>,
+) -> Response {
+    match app.store.delete_mission(id).await {
+        Ok(true) => StatusCode::NO_CONTENT.into_response(),
+        Ok(false) => not_found(id),
+        Err(e) => store_error(e),
+    }
+}
+
+/// `[A-Za-z0-9_-]` only; empty → "mission".
+pub fn file_stem(name: &str) -> String {
+    let stem: String = name
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+        .collect();
+    if stem.is_empty() {
+        "mission".into()
+    } else {
+        stem
+    }
+}
+
+/// `GET /api/missions/{id}/export?format=waypoints` → the QGC WPL 110 text as an attachment.
+pub async fn export_mission(
+    State(app): State<AppState>,
+    AuthUser(_op): AuthUser,
+    Path(id): Path<i64>,
+    axum::extract::Query(q): axum::extract::Query<ExportQuery>,
+) -> Response {
+    if q.format.as_deref().is_some_and(|f| f != "waypoints") {
+        return err(StatusCode::BAD_REQUEST, "invalid", "format must be waypoints");
+    }
+    let mission = match app.store.get_mission(id).await {
+        Ok(Some(m)) => m,
+        Ok(None) => return not_found(id),
+        Err(e) => return store_error(e),
+    };
+    let disposition = format!("attachment; filename=\"{}.waypoints\"", file_stem(&mission.name));
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "text/plain; charset=utf-8".to_string()),
+            (header::CONTENT_DISPOSITION, disposition),
+            (header::CACHE_CONTROL, "no-store".to_string()),
+        ],
+        rgcs_mission::to_wpl(&mission),
+    )
+        .into_response()
+}
+
+/// `POST /api/missions/import` (text body) → an unsaved `Mission`.
+pub async fn import_mission(
+    State(_app): State<AppState>,
+    AuthUser(_op): AuthUser,
+    headers: HeaderMap,
+    body: String,
+) -> Response {
+    let name = headers
+        .get("x-mission-name")
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .unwrap_or("imported");
+    match rgcs_mission::from_wpl(&body) {
+        Ok(m) => ok(Mission {
+            name: name.chars().take(MAX_NAME_CHARS).collect(),
+            ..m
+        }),
+        Err(e) => err(StatusCode::BAD_REQUEST, "invalid_waypoints", e.to_string()),
+    }
+}
+
+/// `POST /api/missions/validate?sysid=` → findings + stats (fence from the vehicle's params when given).
+pub async fn validate_mission(
+    State(app): State<AppState>,
+    AuthUser(_op): AuthUser,
+    axum::extract::Query(q): axum::extract::Query<ValidateQuery>,
+    Json(mission): Json<Mission>,
+) -> Response {
+    let fence = match q.sysid {
+        Some(sysid) => {
+            let f = fence_from_cache(&app, sysid);
+            request_missing_fence_params(&app, sysid, &f);
+            f
+        }
+        None => FenceInfo::default(),
+    };
+    ok(ValidateReply {
+        findings: mission.validate(&fence),
+        stats: mission.stats(),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_stem_keeps_only_safe_characters() {
+        assert_eq!(file_stem("demo20"), "demo20");
+        assert_eq!(file_stem("前日 ミッション/1"), "1");
+        assert_eq!(file_stem("///"), "mission");
     }
 }

@@ -247,6 +247,22 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
             "/vehicles/{sysid}/mission/progress",
             get(mission_api::get_progress),
         )
+        .route(
+            "/missions",
+            get(mission_api::list_missions).post(mission_api::create_mission),
+        )
+        .route(
+            "/missions/{id}",
+            get(mission_api::get_saved_mission)
+                .put(mission_api::update_mission)
+                .delete(mission_api::delete_mission),
+        )
+        .route("/missions/{id}/export", get(mission_api::export_mission))
+        .route(
+            "/missions/import",
+            post(mission_api::import_mission).layer(DefaultBodyLimit::max(mission_api::MAX_IMPORT_BYTES)),
+        )
+        .route("/missions/validate", post(mission_api::validate_mission))
         .route("/vehicles/{sysid}/camera", get(camera_api::get_camera))
         .route("/vehicles/{sysid}/camera/command", post(camera_api::command))
         .route(
