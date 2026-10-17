@@ -1,4 +1,4 @@
-import type { ServerMessage, SysId, VehicleMessage, VehicleState } from '../../shared/api/types'
+import type { CommandResult, ServerMessage, SysId, VehicleMessage, VehicleState } from '../../shared/api/types'
 import { applyDiff } from '../../shared/ws/apply'
 
 export type LinkState = 'connecting' | 'open' | 'closed'
@@ -6,12 +6,21 @@ export type LinkState = 'connecting' | 'open' | 'closed'
 export interface VehiclesState {
   readonly vehicles: ReadonlyMap<SysId, VehicleState>
   readonly messages: readonly VehicleMessage[]
+  /** `command_result` frames, newest first, unique by id (the footer shows the top two). */
+  readonly results: readonly CommandResult[]
   readonly link: LinkState
 }
 
-export const initialState: VehiclesState = { vehicles: new Map(), messages: [], link: 'connecting' }
+export const initialState: VehiclesState = { vehicles: new Map(), messages: [], results: [], link: 'connecting' }
 
 const MAX_MESSAGES = 200
+const MAX_RESULTS = 50
+
+/** Newest first; a result whose id is already present is ignored (HTTP reply vs WS race). */
+export function addResult(results: readonly CommandResult[], r: CommandResult): readonly CommandResult[] {
+  if (results.some((x) => x.id === r.id)) return results
+  return [r, ...results].slice(0, MAX_RESULTS)
+}
 
 function placeholder(sysid: SysId): VehicleState {
   return {
@@ -61,6 +70,11 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
     case 'vehicle_message': {
       const { t: _t, ...m } = msg
       return { ...state, messages: [m, ...state.messages].slice(0, MAX_MESSAGES) }
+    }
+    case 'command_result': {
+      const { t: _t, ...r } = msg
+      const results = addResult(state.results, r)
+      return results === state.results ? state : { ...state, results }
     }
     default:
       return state

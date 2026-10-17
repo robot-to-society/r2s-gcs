@@ -156,3 +156,51 @@
   display: flex;
   align-items: center;
 }
+
+/* ---- header nav / user / footer (spec 10 §1, 20 §4) ---- */
+.header .nav {
+  width: 560px;
+  height: 36px;
+}
+.header .user {
+  font-weight: 500;
+}
+.header-clock {
+  font-size: 13px;
+  padding: 0 8px;
+}
+.pop-user {
+  font-size: 15px;
+  font-weight: 500;
+}
+.pop-note {
+  font-size: 12px;
+}
+.footer-log {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(720px, calc(100% - 24px));
+  z-index: 4;
+}
+.footer-log .pill {
+  color: var(--text-2);
+}
+.footer-log .pill.danger {
+  color: var(--danger);
+  border: 1px solid var(--danger-line);
+}
+.footer-clock {
+  font-size: 12px;
+  padding: 0 6px;
+}
+.t2 {
+  color: var(--text-2);
+}
+.grow {
+  flex: 1;
+}

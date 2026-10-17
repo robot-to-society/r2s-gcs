@@ -60,3 +60,25 @@ describe('vehicles reducer', () => {
     expect(setLink(s1, 'open')).toBe(s1)
   })
 })
+
+describe('command results', () => {
+  const result = (id: number, ok = true) => ({ t: 'command_result' as const, id, sysid: 1, cmd: 'arm', ok, reason: null, ts: 1000 + id })
+
+  it('keeps results newest first and dedupes by id', () => {
+    const s1 = reduce(initialState, result(1))
+    const s2 = reduce(s1, result(2))
+    const s3 = reduce(s2, result(2, false))
+    expect(s3.results.map((r) => r.id)).toEqual([2, 1])
+    expect(s3.results[0]?.ok).toBe(true)
+    expect(s1.results.map((r) => r.id)).toEqual([1])
+  })
+
+  it('caps results at 50 and leaves state untouched on unrelated frames', () => {
+    const full = Array.from({ length: 51 }, (_, i) => result(i + 1)).reduce(reduce, initialState)
+    expect(full.results).toHaveLength(50)
+    expect(full.results[0]?.id).toBe(51)
+    expect(full.results.at(-1)?.id).toBe(2)
+    const same = reduce(full, { t: 'vehicle_discovered', sysid: 9 })
+    expect(same.results).toBe(full.results)
+  })
+})

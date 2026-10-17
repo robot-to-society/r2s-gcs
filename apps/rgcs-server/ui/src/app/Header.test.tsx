@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { t } from '../shared/i18n'
 import type { VehicleState } from '../shared/api/types'
 import { Header } from './Header'
@@ -33,6 +33,10 @@ describe('Header', () => {
         link="open"
         dict={t('en')}
         clock="2026/10/16 (Thu) 12:00"
+        me={{ username: 'op', role: 'operator', dev_mode: false, hostname: 'rgcs' }}
+        view="ops"
+        onView={() => {}}
+        onLogout={() => {}}
       />,
     )
     expect(screen.getByTitle('Copters')).toHaveTextContent('2')
@@ -42,7 +46,36 @@ describe('Header', () => {
   })
 
   it('shows the disconnected state', () => {
-    render(<Header vehicles={[]} link="closed" dict={t('ja')} clock="" />)
+    render(
+      <Header
+        vehicles={[]}
+        link="closed"
+        dict={t('ja')}
+        clock=""
+        me={{ username: 'op', role: 'operator', dev_mode: false, hostname: 'rgcs' }}
+        view="ops"
+        onView={() => {}}
+        onLogout={() => {}}
+      />,
+    )
     expect(screen.getByTestId('link')).toHaveTextContent('サーバー未接続')
+  })
+})
+
+describe('Header user menu', () => {
+  const me = { username: 'admin', role: 'admin' as const, dev_mode: true, hostname: 'rgcs' }
+
+  it('toggles the popover from the username and logs out through it', () => {
+    const onLogout = vi.fn()
+    render(
+      <Header vehicles={[]} link="open" dict={t('ja')} clock="" me={me} view="ops" onView={() => {}} onLogout={onLogout} />,
+    )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'admin' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'ログアウト' }))
+    expect(onLogout).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'admin' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

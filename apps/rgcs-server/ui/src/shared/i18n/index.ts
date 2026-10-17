@@ -26,6 +26,23 @@ const ja = {
   roleOperator: 'オペレータ',
   roleAdmin: '管理者',
   auditNote: '操作履歴にはこの名前で記録されます',
+  comingSoon: '準備中',
+  all: '全体',
+  ok: '成功',
+  failed: '失敗',
+  cmd_arm: 'ARM',
+  cmd_disarm: 'DISARM',
+  cmd_rtl: 'RTL',
+  cmd_land: '着陸',
+  cmd_pause: '一時停止',
+  cmd_resume: '再開',
+  cmd_change_alt: '高度変更',
+  cmd_change_speed: '速度変更',
+  cmd_set_mode: 'モード変更',
+  cmd_mission_start: 'ミッション開始',
+  cmd_mission_resume: 'ミッション再開',
+  cmd_other: 'その他',
+  cmd_guided: 'Guided 移動',
 } as const
 
 const en: Record<keyof typeof ja, string> = {
@@ -54,6 +71,23 @@ const en: Record<keyof typeof ja, string> = {
   roleOperator: 'Operator',
   roleAdmin: 'Administrator',
   auditNote: 'Your actions are recorded under this name',
+  comingSoon: 'Coming soon',
+  all: 'All',
+  ok: 'OK',
+  failed: 'failed',
+  cmd_arm: 'ARM',
+  cmd_disarm: 'DISARM',
+  cmd_rtl: 'RTL',
+  cmd_land: 'Land',
+  cmd_pause: 'Pause',
+  cmd_resume: 'Resume',
+  cmd_change_alt: 'Change altitude',
+  cmd_change_speed: 'Change speed',
+  cmd_set_mode: 'Change mode',
+  cmd_mission_start: 'Start mission',
+  cmd_mission_resume: 'Resume mission',
+  cmd_other: 'Other',
+  cmd_guided: 'Guided move',
 }
 
 export type Dict = Record<keyof typeof ja, string>
@@ -62,4 +96,10 @@ export const dictionaries: Record<Lang, Dict> = { ja, en }
 
 export function t(lang: Lang): Dict {
   return dictionaries[lang]
+}
+
+/** Label for a command name (`arm`, `set_mode`, `guided`, …); unknown names are shown raw. */
+export function cmdLabel(name: string, dict: Dict): string {
+  const key = `cmd_${name}` as keyof Dict
+  return key in dict ? dict[key] : name
 }
