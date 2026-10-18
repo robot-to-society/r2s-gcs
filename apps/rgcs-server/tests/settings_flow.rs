@@ -82,3 +82,59 @@ async fn gimbal_input_profile_defaults_validation_and_round_trip() {
     .await;
     assert_eq!(audit["data"][0]["command"], "input_profile");
 }
+
+#[tokio::test]
+async fn app_settings_map_flag_round_trips() {
+    let (app, _) = spawn_app().await;
+    let cookie = login(&app).await;
+    let (_, body, _) = call(&app, req(Method::GET, "/api/settings/app", Some(&cookie), None)).await;
+    assert_eq!(
+        body["data"]["map"]["gimbal_ground_projection"], false,
+        "default off"
+    );
+
+    let put = serde_json::json!({ "map": { "gimbal_ground_projection": true } });
+    let (status, body, _) = call(
+        &app,
+        req(Method::PUT, "/api/settings/app", Some(&cookie), Some(put)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["map"]["gimbal_ground_projection"], true);
+    assert_eq!(body["data"]["lang"], "ja", "the full settings come back");
+    let (_, body, _) = call(&app, req(Method::GET, "/api/settings/app", Some(&cookie), None)).await;
+    assert_eq!(body["data"]["map"]["gimbal_ground_projection"], true);
+
+    let (_, audit, _) = call(
+        &app,
+        req(Method::GET, "/api/history/audit?limit=20", Some(&cookie), None),
+    )
+    .await;
+    let rows: Vec<_> = audit["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["command"] == "app_settings_put")
+        .collect();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["target"], "settings");
+
+    let bad = serde_json::json!({ "map": { "gimbal_ground_projection": "yes" } });
+    let (status, _, _) = call(
+        &app,
+        req(Method::PUT, "/api/settings/app", Some(&cookie), Some(bad)),
+    )
+    .await;
+    assert!(status.is_client_error(), "{status}");
+    let (status, _, _) = call(
+        &app,
+        req(
+            Method::PUT,
+            "/api/settings/app",
+            None,
+            Some(serde_json::json!({})),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}

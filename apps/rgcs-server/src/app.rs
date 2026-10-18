@@ -386,7 +386,10 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
             get(video_api::get_source).put(video_api::put_source),
         )
         .route("/history/audit", get(api::audit_history))
-        .route("/settings/app", get(settings::app_settings))
+        .route(
+            "/settings/app",
+            get(settings::app_settings).put(settings::put_app_settings),
+        )
         .route(
             "/settings/input/gimbal",
             get(input_api::get_gimbal).put(input_api::put_gimbal),

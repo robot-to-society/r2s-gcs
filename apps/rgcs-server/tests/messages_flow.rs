@@ -256,6 +256,11 @@ async fn command_results_are_logged_and_broadcast_as_log_entries() {
         ts: 3_000,
     }));
     let frame = next_frame(&mut rx, |m| matches!(m, ServerMessage::LogEntry(_))).await;
-    let ServerMessage::LogEntry(e) = frame else { unreachable!() };
-    assert_eq!((e.severity, e.text.as_str()), (Severity::Ok, "mission_upload verified"));
+    let ServerMessage::LogEntry(e) = frame else {
+        unreachable!()
+    };
+    assert_eq!(
+        (e.severity, e.text.as_str()),
+        (Severity::Ok, "mission_upload verified")
+    );
 }
