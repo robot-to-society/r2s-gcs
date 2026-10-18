@@ -9,6 +9,7 @@ pub mod input_profile;
 pub mod inspections;
 pub mod lockout;
 pub mod maintenance;
+pub mod messages;
 pub mod missions;
 pub mod param_history;
 pub mod password;

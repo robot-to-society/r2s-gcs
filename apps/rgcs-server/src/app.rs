@@ -23,7 +23,7 @@ use crate::settings;
 use crate::video::VideoHub;
 use crate::{
     api, auth, branding, camera_api, commands, export_api, flight_api, guided, input_api, logbook_api,
-    logs_api, mission_api, param_api, present_api, video_api, ws,
+    logs_api, messages_api, mission_api, param_api, present_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -50,6 +50,8 @@ pub struct AppState {
     pub flights: crate::flights::FlightTracker,
     /// DataFlash retrieval over LOG_REQUEST_* (addendum §9).
     pub logs: crate::logs::LogHub,
+    /// Persistent message log (footer, history sheet, acknowledgements).
+    pub messages: crate::message_log::MessageLog,
     /// Where branding files (and the database) live; `config.toml` `data_dir`.
     pub data_dir: PathBuf,
     pub hostname: String,
@@ -86,6 +88,7 @@ impl AppState {
         let params = ParamCache::new(tx.clone());
         let flights = crate::flights::FlightTracker::new(store.clone(), tx.clone());
         let logs = crate::logs::LogHub::new(tx.clone(), true);
+        let messages = crate::message_log::MessageLog::new(store.clone(), tx.clone());
         let whep = WhepRelay::new(&crate::config::Config::default().whep_upstream)
             .expect("default whep upstream parses");
         Self {
@@ -101,6 +104,7 @@ impl AppState {
             missions,
             flights,
             logs,
+            messages,
             data_dir: crate::config::Config::default().data_dir,
             hostname,
             secure_cookies: false,
@@ -348,6 +352,9 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         )
         .route("/vehicles/{sysid}/logs/{id}/file", get(logs_api::file))
         .route("/vehicles/{sysid}/logbook/export", get(export_api::export))
+        .route("/messages", get(messages_api::list_all))
+        .route("/vehicles/{sysid}/messages", get(messages_api::list_vehicle))
+        .route("/vehicles/{sysid}/messages/{id}/ack", post(messages_api::ack))
         .route(
             "/missions",
             get(mission_api::list_missions).post(mission_api::create_mission),

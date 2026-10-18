@@ -162,13 +162,14 @@ impl Router {
     fn message_event(&mut self, c: Complete, unix_ms: u64) -> RouterEvent {
         let id = self.next_message_id;
         self.next_message_id += 1;
-        RouterEvent::Message(VehicleMessage {
-            sysid: c.sysid,
+        RouterEvent::Message(VehicleMessage::new(
+            c.sysid,
             id,
-            severity: c.severity,
-            text: c.text,
-            ts: unix_ms,
-        })
+            c.severity,
+            c.text,
+            unix_ms,
+            rgcs_core::MessageSource::Vehicle,
+        ))
     }
 
     /// Refresh link health / message ages. Call about once a second.
