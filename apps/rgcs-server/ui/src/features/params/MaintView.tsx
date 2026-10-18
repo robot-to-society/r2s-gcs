@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import type { Flight, LogFetchProgress, MaintenanceInput, Operator, ParamProgress, SysId, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconCopter, IconRover } from '../../shared/ui/icons'
+import { AppTab } from '../app-settings'
 import { DailyTab } from '../logbook/DailyTab'
 import { LogbookTab } from '../logbook/LogbookTab'
 import { HistoryTab } from './HistoryTab'
@@ -43,7 +44,6 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
     setTab('logbook')
   }, [setTab])
   const onMaintDraftConsumed = useCallback(() => setMaintDraft(null), [])
-  void onOpenPresent
   const tabIndex = MAINT_TABS.indexOf(tab)
   return (
     <section className="float map-l top1 maint" data-testid="maint-view">
@@ -106,6 +106,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
           onMaintDraftConsumed={onMaintDraftConsumed}
         />
       )}
+      {tab === 'app' && <AppTab sysid={sysid} vehicle={vehicle} me={me} dict={dict} onOpenPresent={onOpenPresent ?? (() => {})} />}
       {tab === 'history' && (
         <div className="maint-body">
           <HistoryTab sysid={sysid} vehicles={vehicles} dict={dict} version={writes} />
