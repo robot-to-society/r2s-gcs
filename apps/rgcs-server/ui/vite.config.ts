@@ -11,6 +11,11 @@ export default defineConfig({
     proxy: {
       '/api': SERVER,
       '/ws': { target: SERVER.replace(/^http/, 'ws'), ws: true },
+      // Audience endpoints (the /present page itself stays with Vite's SPA fallback).
+      '/present/config': SERVER,
+      '/present/vehicle': SERVER,
+      '/present/logo': SERVER,
+      '/present/whep': SERVER,
     },
   },
   test: {
