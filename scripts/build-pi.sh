@@ -3,6 +3,8 @@
 #   rgcs-server  aarch64, release, UI embedded (feature embed-ui)
 #   siyi_sim     aarch64 MT11 simulator (for the Docker Pi equivalent)
 #   VERSION      <crate version>+<git sha>
+#   rgcs-pi-<version>.tar.gz  rgcs-server + install.sh + unit + config example (copy to the Pi,
+#                extract, `sudo ./install.sh`)
 # The UI is built on the host (platform independent); Rust builds natively in a
 # linux/arm64 rust:bookworm container with cargo caches in named volumes, so the host
 # target/ directory is not touched.
@@ -29,9 +31,17 @@ docker run --rm --platform linux/arm64 \
     cargo build --release --locked -p rgcs-server --features embed-ui &&
     cargo build --release --locked -p rgcs-camera --features sim --example siyi_sim &&
     mkdir -p /src/dist/pi &&
-    cp /target/release/rgcs-server /src/dist/pi/rgcs-server &&
-    cp /target/release/examples/siyi_sim /src/dist/pi/siyi_sim'
+    cp /target/release/rgcs-server /src/dist/pi/rgcs-server.new &&
+    cp /target/release/examples/siyi_sim /src/dist/pi/siyi_sim.new &&
+    mv -f /src/dist/pi/rgcs-server.new /src/dist/pi/rgcs-server &&
+    mv -f /src/dist/pi/siyi_sim.new /src/dist/pi/siyi_sim'
 
 version=$(grep -m1 '^version' "$ROOT/Cargo.toml" | sed 's/.*"\(.*\)"/\1/')
 echo "$version+$(git -C "$ROOT" rev-parse --short HEAD)" >"$OUT/VERSION"
-echo "[build-pi] done: $(cat "$OUT/VERSION") -> $OUT"
+ver="$(cat "$OUT/VERSION")"
+PKG="$OUT/rgcs-pi-$ver"
+rm -rf "$PKG" && mkdir -p "$PKG"
+cp "$OUT/rgcs-server" "$OUT/VERSION" "$ROOT/deploy/install.sh" "$ROOT/deploy/rgcs-server.service" \
+   "$ROOT/deploy/config.toml.example" "$PKG/"
+tar -C "$OUT" -czf "$PKG.tar.gz" "rgcs-pi-$ver" && rm -rf "$PKG"
+echo "[build-pi] done: $ver -> $OUT (package rgcs-pi-$ver.tar.gz)"

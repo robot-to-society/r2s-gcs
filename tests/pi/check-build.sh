@@ -18,4 +18,10 @@ echo "    highest glibc symbol: $max"
 [ "$(printf '%s\nGLIBC_2.36\n' "$max" | sort -V | tail -1)" = "GLIBC_2.36" ] || fail "needs $max (> bookworm's 2.36)"
 size=$(wc -c <"$BIN" | tr -d ' ')
 echo "    size: $((size / 1024 / 1024)) MB"
+pkg=$(find "$ROOT/dist/pi" -maxdepth 1 -name "rgcs-pi-*.tar.gz" | sort | tail -1)
+[ -n "$pkg" ] || fail "no rgcs-pi-*.tar.gz package"
+for f in rgcs-server install.sh rgcs-server.service config.toml.example VERSION; do
+  tar -tzf "$pkg" | grep -q "/$f$" || fail "package lacks $f"
+done
+echo "    package: $(basename "$pkg")"
 echo "CHECK build: OK"

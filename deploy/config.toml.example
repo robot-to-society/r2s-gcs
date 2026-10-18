@@ -1,31 +1,23 @@
-# /etc/rgcs/config.toml — only what rgcs-server needs to start.
-# Camera, ROI and joystick settings live in the SQLite database and are edited from the UI.
+# /etc/rgcs/config.toml — rgcs-server の起動設定(それ以外の設定は画面から SQLite に保存)
+# install.sh はこのファイルが無いときだけ作成し、既存のファイルは上書きしません。
 
-# HTTP + WebSocket listen address (browser connects here).
+# 待受アドレス(ブラウザは http://<Pi の IP>:8000)
 listen = "0.0.0.0:8000"
 
-# MAVLink link: udpin|udpout|udp|tcp:<host>:<port> or /dev/tty*[,baud].
-# On a Pi with Rpanion-server add 127.0.0.1:15555 to its telemetry destinations.
+# FC との接続: Rpanion-server の配信先(既定)。シリアル直結なら "/dev/ttyAMA0,921600" など
 mavlink_url = "udpin:127.0.0.1:15555"
 
-# Database, logs and recordings.
+# データベース・ロゴ・取り出したログの保存先
 data_dir = "/var/lib/rgcs"
 
-# standalone (1 Pi = 1 vehicle) | edge (forward to a hub) | hub (aggregate edges)
 role = "standalone"
 
-# Built UI (apps/rgcs-server/ui/dist). Omit to serve a placeholder page.
-ui_dir = "/opt/rgcs/ui"
+# MediaMTX の WHEP(MT11 の RTSP を WebRTC 化したもの)
+# whep_upstream = "http://127.0.0.1:8889/mt11/whep"
 
-# Telemetry diff interval for the WebSocket, in milliseconds (10 Hz).
-telemetry_interval_ms = 100
+# 地図タイル(現場の契約に合わせて差し替え)
+# map_tile_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+# map_attribution = "© OpenStreetMap contributors"
 
-# Raster tiles for the operations map ({z}/{x}/{y} template) and their attribution.
-# Default: OpenStreetMap. Replace with the imagery provider used on site.
-map_tile_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-map_attribution = "© OpenStreetMap contributors"
-
-# MediaMTX WHEP endpoint the browser's offers are relayed to (local only; see deploy/mediamtx.yml).
-whep_upstream = "http://127.0.0.1:8889/mt11/whep"
-# RTSP DESCRIBE timeout used to decide whether the camera stream is up.
-video_probe_timeout_ms = 2000
+# ログ取り出し: auto = tcp/udp と 921600 bps 以上のシリアルで有効
+# log_fetch = "auto"
