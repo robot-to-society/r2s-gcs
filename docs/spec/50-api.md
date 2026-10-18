@@ -37,8 +37,9 @@
 | GET / PUT | `/api/vehicles/{sysid}/params` | GET: `{entries: [{name, value, index, ptype}], progress}` / PUT: `{changes: [{name, value}], confirm_token}` → `[{name, requested, actual, verified, reason?}]`(要確認 `param_write`、アーム中は `409 vehicle_armed`、各変更の前にインターロック再確認、≤ 50 件、名前 ≤ 16 文字) |
 | POST | `/api/vehicles/{sysid}/params/refresh` | 全件取得を開始 → `202 {received, total, complete, downloading}`(実行中なら現状を返す) |
 | GET | `/api/vehicles/{sysid}/params/progress` | `{received, total, complete, downloading}`(WS `param_progress` でも 25 件ごと + 完了時に配信) |
-| GET | `/api/vehicles/{sysid}/messages?since=` | `[{ts, severity, text, acked}]` |
-| POST | `/api/vehicles/{sysid}/messages/{id}/ack` | — |
+| GET | `/api/vehicles/{sysid}/messages?since=` | `[{id, ts, severity, text, acked_by?, acked_at?}]` |
+| POST | `/api/vehicles/{sysid}/messages/{id}/ack` | 警告・エラー(STATUSTEXT severity ≤ 4、またはサーバー生成の警告)だけ受け付ける。それ以外は `400 not_ackable`。結果は WS `message_ack` で全クライアントへ。監査 `message_ack` |
+| GET | `/api/messages?since=&severity=&sysid=&limit=` | 全体ログ(機体メッセージ + `command_result` + システム)。新しい順、`limit` 既定 500。フッターと履歴シートの初期表示(10 §1) |
 | POST | `/api/vehicles/{sysid}/calibration` | `{kind: accel\|compass\|level\|rc\|esc}` |
 
 `cmd` の列挙: `pause`, `resume`, `rtl`, `land`, `change_alt`, `change_speed`, `set_mode`, `mission_start`, `mission_resume`, `arm`, `disarm`, `other(mav_cmd, params)`。
@@ -83,7 +84,7 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | DELETE | `/api/settings/presentation/tokens/{prefix}` | 無効化(admin) |
 | PUT / DELETE | `/api/settings/branding/logo` | 本文 = 画像そのもの(`image/png` / `image/svg+xml`、≤ 1 MB、admin) |
 | GET / PUT | `/api/settings/input/vehicle` | `VehicleInputProfile`(M4) |
-| GET / PUT | `/api/settings/app` | `{lang, map_tile_url, map_attribution}`(P1 は GET のみ。`log_dir, tile_cache, terrain` は P4+) |
+| GET / PUT | `/api/settings/app` | `{lang, map_tile_url, map_attribution, map: {gimbal_ground_projection}}`(P1 は GET のみ。`log_dir, tile_cache, terrain` は P4+。`map.gimbal_ground_projection` は 2026-10-18 追加、既定 false) |
 | GET | `/api/history/params?sysid=&limit=` | `[{id, ts, operator, sysid, name, old_value, new_value, verified}]`(新しい順、limit 既定 100 / 上限 1000) |
 | GET | `/api/history/audit?limit=` | `[{ts, operator, sysid, command, result}]` |
 
@@ -123,6 +124,11 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 
 `config.toml` `log_fetch = "auto" | "on" | "off"`(auto: tcp/udp と 921600 bps 以上のシリアルで有効)。
 
+### 2.8 ネットワーク(M5、案、80 §4)
+| メソッド | パス | 本文 |
+|---|---|---|
+| GET | `/api/network` | `NetworkTopology`(現場、機体ごとのノード・COMPID・LTE 状態・経路、メッシュの SNR、ユーザー、外部サービス) |
+
 ## 3. WebSocket `/ws`
 
 - 1 セッション 1 接続。サーバー → クライアントは JSON テキストフレーム `{ "t": "<type>", ... }`。クライアント → サーバーも同形式。
@@ -138,6 +144,8 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | `video_source` | `{sysid, status: VideoSourceStatus}` | 変化時 + 1 Hz(サーバーが再送) |
 | `vehicle_message` | `{sysid, id, severity, text, ts}`。機体の STATUSTEXT は原文(50 バイトのチャンクはサーバーで結合)。サーバー生成の `text` は固定コード `comms_delay` / `link_lost` / `link_restored`(UI が翻訳) | 発生時 |
 | `command_result` | `{id, sysid, cmd, ok, reason?, ts}` | 完了時 |
+| `message_ack` | `{sysid, id, by, ts}` | 確認時 |
+| `network_status` | `{diff: Partial<NetworkTopology>}` | 1 Hz(M5、80 §4) |
 | `vehicle_discovered` / `vehicle_lost` | `{sysid}` | 発生時 |
 | `mission_progress` | `{sysid, progress: {seq, total}}` | `MISSION_CURRENT` の変化時 + 1 Hz(サーバーが再送)。`total` はサーバーが書込 / 読込したミッションの項目数(未知なら機体の `MISSION_CURRENT.total`) |
 | `flight_draft_created` | `{sysid, flight: Flight}` | DISARM 時(初回 ARM から最後の DISARM までが 1 飛行。10 分以内の再 ARM は同じ飛行、リンク喪失 10 分で最終受信時刻に着陸扱い) |
@@ -172,6 +180,8 @@ type GimbalInputProfile = { enabled: boolean; device_name: string; max_pan_speed
 ```
 
 ## 5. edge ⇄ hub(M5)
+
+- 2026-10-18: 構成を 80 に改めた(クラウドの RGCS Hub は AWS IoT Core を応用し、ノード ⇄ Hub は MQTT)。以下は旧案で、M5 で 80 に合わせて書き直す。
 
 - edge は hub へ `wss://hub/edge`(mTLS)で接続し、§3.1 のメッセージをそのまま転送する(`sysid` は hub が名前空間を付与)。
 - hub → edge: `{t:'command', ...}`(§2.2 / 2.3 の本文 + hub 側の監査 ID)、`gimbal_rate` / `manual` / `input_hb` の透過転送。

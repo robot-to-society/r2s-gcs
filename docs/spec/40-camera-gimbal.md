@@ -147,6 +147,16 @@ pub trait Camera: Send + Sync {
 - 未実装(デモ後): サーマル温度(0x12 / 0x14 / 0x37 / 0x38 / 0x1B)、AI 追跡(0x50 / 0x51 / 0x55 / 0x56 / 0x5F)、エンコード(0x20 / 0x21)、時刻同期(0x30 / 0x40)、SD(0x49)、ROI、MAVLink カメラ、Android ソース。
 - ジョイスティック(§6)は pan / tilt 軸とボタン機能(shutter, record_toggle, center_gimbal, thermal_toggle, gimbal_stop, zoom_in_step, zoom_out_step, zoom_1x, mode_*)を実装。zoom_abs / zoom_speed / zoom_step 軸は未実装。
 
+## 7.2 地図上の撮影方向(2026-10-18 デザイン、10 §3.1)
+
+- 対象: `caps.gimbal_rate` を持ち、ジンバル姿勢(ヨー / ピッチ)が取れている機体。
+- 方位: `bearing = (heading − gimbal.yaw + 360) mod 360`(視線と同じ規約)。
+- 水平画角: `hfov = 2·atan(tan(hfov₁ / 2) / zoom)`。`hfov₁` は 1 倍時の水平画角で、カメラ種別ごとの値を `CameraCaps` に持たせる(プロトタイプは 62° 固定)。垂直画角は 16:9 から求める。
+- 2D: 機体マーカーから扇。長さ `48 + 64·cos(pitch)` px(下を向くほど短い)。ピッチ −80° 以下は機体を囲む点線の輪(真下)。
+- 3D: 機体の空中位置(ホーム標高 + 相対高度)から中心と 4 隅の光線で四角錐を描き、先端(既定 120 m)に半透明の面。上を向いていても表示する。
+- 地面に投影(`app_settings` の `map.gimbal_ground_projection`、既定オフ): 4 隅の光線を DSM / DEM と交わるまで 15 m 刻みで進め、二分探索で詰める(最大 1.5 km)。4 隅とも当たれば地面に撮影範囲を塗る(2D・3D)。1 本でも当たらなければ(水平線より上)先端の面の表示に戻す。2D で地形が無いときはホーム標高の平面とみなす。
+- 選択機は濃く、他の機体は薄く描く。
+
 ## 8. 受け入れ条件
 
 - MT11 疑似サーバー(`tests/siyi-sim`、Python 版の応答を再現)に対して全 CMD の送受信が通る。

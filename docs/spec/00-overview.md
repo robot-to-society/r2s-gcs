@@ -1,9 +1,9 @@
 # RGCS 仕様書 00 — 概要・スコープ・用語
 
-- 版: 0.1(2026-10-16)
+- 版: 0.2(2026-10-18、デザイン改訂とネットワーク構成を反映)
 - 対象: RGCS(ArduPilot 対応地上局)スタンドアローン Pi 版 → クラウド版
-- 正本デザイン: `design_base/project/RGCS Prototype Glass.dc.html`(コミット `f18b6d4` 以降)
-- 関連: `10-screens.md` 画面仕様 / `20-design-tokens.md` / `30-architecture.md` / `40-camera-gimbal.md` / `50-api.md` / `60-data-model.md` / `70-safety-auth.md` / `../plan/implementation-plan.md`
+- 正本デザイン: `design_base/project/RGCS Prototype Glass.dc.html`(2026-10-18 `a83e98b` 時点)。画面画像は `design_base/screenshots/glass_*.png`
+- 関連: `10-screens.md` 画面仕様 / `20-design-tokens.md` / `30-architecture.md` / `40-camera-gimbal.md` / `50-api.md` / `60-data-model.md` / `70-safety-auth.md` / `80-network.md` / `../plan/implementation-plan.md`
 
 ## 1. 目的
 
@@ -16,13 +16,18 @@ RGCS は ArduPilot(Copter / Rover)機体を監視・操作する地上局アプ�
 
 ## 2. 配置形態
 
-| 形態 | 時期 | 構成 | 備考 |
-|---|---|---|---|
-| **スタンドアローン(Pi)** | M1〜M3 で出荷 | 機体側 companion Pi で `rgcs-server --role standalone`。1 Pi = 1 機体。ブラウザが UI。 | Rpanion-server(MAVLink 配信)と MediaMTX(RTSP → WebRTC)は既存のまま同居 |
-| **edge + hub(クラウド)** | M5 | 各 Pi が `--role edge` で集約サーバー(`--role hub`)へ WSS でアウトバウンド登録。hub が多機体 UI を配信 | MAVLink をクラウドで終端しない。映像・カメラ TCP は Pi で終端 |
-| **デスクトップ殻** | M5 以降(任意) | Tauri で同じ UI を包む(地上 PC 常駐、オフラインタイル) | M1〜M4 では作らない |
+構成は 1 つ(2026-10-18 決定、詳細は `80-network.md`)。機体の台数が違うだけで、スタンドアローン運用は「機体が 1 台だけ接続された状態」として扱い、別モードにしない。
 
-内部データモデルは最初から **sysid キーの多機体構造** を持つ。スタンドアローン版でも UI の機体リストは存在し、1 台だけが並ぶ。
+| 要素 | 置き場所 | 時期 | 役割 |
+|---|---|---|---|
+| **機上ノード**(`rgcs-node`、現行の `rgcs-server`) | 各機体の companion Pi | M1〜(P6 で Pi 配備) | MAVLink ルーティング、カメラ制御、映像中継(MediaMTX)、Web UI。機体と一体で扱う。Rpanion-server と MediaMTX は既存のまま同居 |
+| **メッシュ + 地上ゲートウェイ + 現場 PC** | 機体間 / 現場 | M5 | 機体どうしの直接波(中継可)。現場 PC は GW の LAN からインターネットを通らずに操作する |
+| **RGCS Hub** | クラウド(AWS IoT Core を応用) | M5 | 組織・アカウント・ユーザー・ロール・機体の管理、MQTT の中継、WebRTC のシグナリング |
+| **デスクトップ殻** | 任意 | M5 以降 | Tauri で同じ UI を包む。M1〜M4 では作らない |
+
+- 内部データモデルは最初から **sysid キーの多機体構造** を持つ。1 台構成でも UI の機体リストは存在し、1 台だけが並ぶ。
+- ユーザーへの映像とテレメトリは WebRTC。Mission Planner の接続は当面対象外。
+- 30 §7 の `--role standalone|edge|hub` は P6 の統合後に本節と 80 に合わせて書き直す。
 
 ## 3. 用語
 
@@ -54,6 +59,7 @@ RGCS は ArduPilot(Copter / Rover)機体を監視・操作する地上局アプ�
 | 7 | メンテナンス: パラメータ / 点検・校正 / 日常点検 / 飛行日誌 / 変更履歴 / アプリ設定 | `view:'maint'` | 10 §7、追補 §5.4–5.7 |
 | 8 | ヘッダー・フッター(ログピル)・ユーザーポップオーバー | 常時 | 10 §1 |
 | 9 | 観客用画面(映像 + 小地図 + ロゴ、読み取り専用) | 新規 `/present`(P2) | 追補 §5.1 |
+| 10 | ネットワーク(構成図、無限キャンバス) | `view:'network'` | 10 §8、80 |
 
 ## 5. 要求の優先順位
 
@@ -88,6 +94,15 @@ RGCS は ArduPilot(Copter / Rover)機体を監視・操作する地上局アプ�
 - 地図タイルは `config.toml` の `map_tile_url` / `map_attribution`(既定 OSM ラスタ)。衛星画像は現場の契約で差し替える。
 - SITL は docker ではなくローカルバイナリ(`scripts/dev.sh`)。E2E は `scripts/e2e.sh`。
 - Mission Planner は前日のシミュレーション専用。当日は RGCS だけを機体に接続する。
+
+### 7.2 2026-10-18 の追加決定(デザイン改訂、`a83e98b`)
+
+- グラスの視認性: パネルの背後を暗く落とす(`backdrop-filter … brightness(.6)`)。明るい地図でも文字が読める(20 §2)。
+- アイコンは Lucide に統一し、マルチコプターだけ自作(20 §9)。メンテナンスはスパナ、設定は歯車、ローバーは車。
+- 地図: 機体マーカーは白縁の円 + 種別アイコン + 機首方位の三角。ホームは別マーカー。レイヤー順は 地図 → DSM → ミッション経路 → 飛行の軌跡 → 機体(10 §3.1)。
+- ジンバル: 2D は撮影方向の扇、3D は四角錐 + 先端の半透明の面。アプリ設定「ジンバルを地面に投影」で撮影範囲を地面に描く(40 §7.2)。
+- メッセージ: 確認が要るのは機体からの警告・エラーだけ。フッターは最新 1 件 + 未読警告数、押すと履歴シート(10 §1、§3.3)。
+- ネットワーク画面を新設(10 §8、80)。構成は 1 つ、クラウドの RGCS Hub、機体間メッシュ、地上操作、WebRTC。
 
 ## 8. 文書の読み方
 

@@ -121,7 +121,7 @@ CREATE TABLE param_history (
 `enabled`, `device_name`, `mode`(`manual_control` / `rc_override`), `axes`(roll / pitch / throttle / yaw)、`buttons`(arm_hold / rtl_hold / mode_x…)、`rate_hz` 50。
 
 ### 3.7 app_settings(key-value)
-`lang`(`ja` / `en`)、`log_dir`、`tile_cache_path`、`terrain_path`、`units`(metric 固定)。
+`lang`(`ja` / `en`)、`log_dir`、`tile_cache_path`、`terrain_path`、`units`(metric 固定)、`map.gimbal_ground_projection`(bool、既定 false、2026-10-18 追加、40 §7.2)。
 
 ### 3.8 vehicles / missions
 - `vehicles(sysid PK, name, kind, first_seen, last_seen, notes)`。表示名は `UAV-xx` 既定、UI で変更可。
