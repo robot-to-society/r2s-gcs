@@ -111,12 +111,6 @@ impl Store {
         Ok(v.unwrap_or(0).max(0) as u32)
     }
 
-    /// Initial minutes + every landed flight. The flights part arrives with `flights.rs` (Task 3);
-    /// until then the total is the initial value.
-    pub async fn total_flight_minutes(&self, sysid: SysId) -> Result<u32> {
-        self.initial_flight_minutes(sysid).await
-    }
-
     pub async fn pilot(&self, username: &str) -> Result<Option<PilotInfo>> {
         let row = sqlx::query("SELECT username, full_name, license_no FROM users WHERE username = ?1")
             .bind(username)

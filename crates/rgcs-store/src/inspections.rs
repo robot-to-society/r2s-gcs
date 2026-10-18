@@ -7,14 +7,7 @@ use rgcs_core::{
 };
 use sqlx::Row;
 
-use crate::{Result, Store, StoreError};
-
-fn unix_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
+use crate::{unix_ms, Result, Store, StoreError};
 
 fn template_header(r: &sqlx::sqlite::SqliteRow, items: Vec<InspectionItem>) -> InspectionTemplate {
     InspectionTemplate {

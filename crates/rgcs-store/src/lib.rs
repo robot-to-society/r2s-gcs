@@ -3,9 +3,12 @@
 
 pub mod audit;
 pub mod camera_profiles;
+pub mod flight_logs;
+pub mod flights;
 pub mod input_profile;
 pub mod inspections;
 pub mod lockout;
+pub mod maintenance;
 pub mod missions;
 pub mod param_history;
 pub mod password;
@@ -87,6 +90,14 @@ impl Store {
 /// Current time as RFC 3339 UTC, the format every `ts` column uses.
 pub fn now_iso() -> String {
     OffsetDateTime::now_utc().format(&Rfc3339).unwrap_or_default()
+}
+
+/// Unix milliseconds (INTEGER timestamp columns of the P3+ tables).
+pub fn unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// RFC 3339 for a given instant (tests and expiries).
