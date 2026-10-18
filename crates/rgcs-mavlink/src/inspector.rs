@@ -12,6 +12,9 @@ use rgcs_core::{InspectorDetail, InspectorDir, InspectorRow};
 
 /// Rates are counted over windows of this length.
 const WINDOW_MS: u64 = 2_000;
+/// Rows kept at most: forged system / component ids on the link cannot grow the table without
+/// bound; the least recently seen row makes room.
+pub const MAX_ROWS: usize = 4_096;
 
 type Key = (InspectorDir, u8, u8, u32);
 
@@ -50,6 +53,11 @@ impl Inspector {
     pub fn record(&self, dir: InspectorDir, header: &MavHeader, msg: &MavMessage, now_ms: u64) {
         let key = (dir, header.system_id, header.component_id, msg.message_id());
         let mut map = self.rows.lock().expect("inspector mutex");
+        if map.len() >= MAX_ROWS && !map.contains_key(&key) {
+            if let Some(oldest) = map.iter().min_by_key(|(_, e)| e.last_ms).map(|(k, _)| *k) {
+                map.remove(&oldest);
+            }
+        }
         let e = map.entry(key).or_insert_with(|| Entry {
             count: 0,
             last_ms: now_ms,
@@ -192,5 +200,20 @@ mod tests {
         assert_eq!(d.row.name, "HEARTBEAT");
         assert_eq!(d.fields["custom_mode"], 4);
         assert!(ins.detail(InspectorDir::Rx, 255, 190, 0, 10).is_none());
+    }
+
+    #[test]
+    fn rows_are_capped_and_the_least_recently_seen_go_first() {
+        let ins = Inspector::default();
+        // a spray of forged system / component ids
+        for i in 0..(MAX_ROWS as u64 + 500) {
+            ins.record(InspectorDir::Rx, &hdr((i % 251) as u8, (i / 251) as u8), &hb(), i);
+        }
+        let rows = ins.rows(MAX_ROWS as u64 + 500);
+        assert_eq!(rows.len(), MAX_ROWS);
+        assert!(
+            rows.iter().all(|r| !(r.sysid == 0 && r.compid == 0)),
+            "the oldest row was evicted"
+        );
     }
 }
