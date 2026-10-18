@@ -1349,6 +1349,36 @@ function altColor(v,lo,hi){ const t=hi>lo?Math.min(1,Math.max(0,(v-lo)/(hi-lo)))
 function mavFontSize(name){ const n=name.length; return n<=16?'10px':n<=22?'9px':n<=28?'8px':'7px'; }
 // ---- 3D flight path: a MapLibre custom layer drawing a real 3D polyline. Each vertex carries its own altitude, the
 // width is constant in screen pixels (extruded in the vertex shader), edges are feathered and depth-tested against terrain.
+// Custom-layer matrix: fold the origin translation into it (vertex positions stay float32-safe) and undo the terrain offset —
+// MapLibre 4.7 builds the custom-layer matrix BEFORE the terrain centre-elevation translation every other layer gets.
+function airFoldMatrix(map,m,o){ const tr=map.transform; const ez=tr.elevation?maplibregl.MercatorCoordinate.fromLngLat(map.getCenter(),tr.elevation).z:0;
+  for(let r=0;r<4;r++) m[12+r]+=m[r]*o[0]+m[4+r]*o[1]+m[8+r]*(o[2]-ez); }
+// Translucent quads in 3D (camera image plane at the frustum tip).
+class AirPlaneLayer{
+  constructor(id){ this.id=id; this.type='custom'; this.renderingMode='3d'; this.visible=true; this.count=0; this.origin=[0,0,0]; this.pendingData=null; }
+  onAdd(map,gl){ this.map=map; this.gl=gl;
+    const vs='attribute vec3 a_pos;attribute vec4 a_col;uniform mat4 u_matrix;varying vec4 v_col;void main(){gl_Position=u_matrix*vec4(a_pos,1.0);v_col=a_col;}';
+    const fs='precision mediump float;varying vec4 v_col;void main(){gl_FragColor=vec4(v_col.rgb*v_col.a,v_col.a);}';
+    const sh=(type,src)=>{ const o=gl.createShader(type); gl.shaderSource(o,src); gl.compileShader(o); if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)) console.error('[plane3d]',gl.getShaderInfoLog(o)); return o; };
+    const pr=gl.createProgram(); gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs)); gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(pr); this.prog=pr;
+    this.loc={pos:gl.getAttribLocation(pr,'a_pos'),col:gl.getAttribLocation(pr,'a_col'),matrix:gl.getUniformLocation(pr,'u_matrix')};
+    this.buf=gl.createBuffer(); const ext=gl.createVertexArray?null:gl.getExtension('OES_vertex_array_object');
+    this.vao=gl.createVertexArray?gl.createVertexArray():ext&&ext.createVertexArrayOES(); this.vaoBind=v=>{ if(gl.bindVertexArray) gl.bindVertexArray(v); else if(ext) ext.bindVertexArrayOES(v); };
+    if(this._pending){ this.setQuads(this._pending); this._pending=null; } }
+  onRemove(map,gl){ if(this.buf) gl.deleteBuffer(this.buf); if(this.prog) gl.deleteProgram(this.prog); }
+  // quads: [{pts:[{x,y,z}×4] (mercator), col:[r,g,b,a]}]
+  setQuads(quads){ if(!this.gl){ this._pending=quads; return; } if(!quads.length){ this.count=0; this.pendingData=null; return; }
+    const o=this.origin=[quads[0].pts[0].x,quads[0].pts[0].y,quads[0].pts[0].z]; const out=[];
+    quads.forEach(q=>[0,1,2,0,2,3].forEach(i=>{ const p=q.pts[i]; out.push(p.x-o[0],p.y-o[1],p.z-o[2],...q.col); }));
+    this.pendingData=new Float32Array(out); }
+  render(gl,matrix){ if(this.pendingData){ this.vaoBind(this.vao); gl.bindBuffer(gl.ARRAY_BUFFER,this.buf); gl.bufferData(gl.ARRAY_BUFFER,this.pendingData,gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(this.loc.pos); gl.vertexAttribPointer(this.loc.pos,3,gl.FLOAT,false,28,0); gl.enableVertexAttribArray(this.loc.col); gl.vertexAttribPointer(this.loc.col,4,gl.FLOAT,false,28,12);
+      this.count=this.pendingData.length/7; this.pendingData=null; }
+    if(!this.visible||!this.count) return; const m=new Float64Array(matrix); airFoldMatrix(this.map,m,this.origin);
+    gl.useProgram(this.prog); gl.uniformMatrix4fv(this.loc.matrix,false,new Float32Array(m)); this.vaoBind(this.vao);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA); gl.disable(gl.CULL_FACE); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);
+    gl.drawArrays(gl.TRIANGLES,0,this.count); gl.depthMask(true); this.vaoBind(null); }
+}
 class AirPathLayer{
   constructor(id){ this.id=id||'mission-air3d'; this.type='custom'; this.renderingMode='3d'; this.widthPx=4; this.postPx=2; this.visible=true; this.count=0; this.postStart=0; this.postCount=0; this.origin=[0,0,0]; }
   onAdd(map,gl){ this.map=map; this.gl=gl;
@@ -1387,9 +1417,7 @@ class AirPathLayer{
   render(gl,matrix){ if(this.pendingData) this._upload(gl); if(!this.visible||!(this.count||this.postCount)) return; const o=this.origin; const m=new Float64Array(matrix);
     // MapLibre 4.7 builds the custom-layer matrix BEFORE applying the terrain centre-elevation translation that every other
     // layer (and the DOM markers) gets, so with terrain the layer would float by transform.elevation. Compensate here.
-    const tr=this.map.transform; const ez=tr.elevation?maplibregl.MercatorCoordinate.fromLngLat(this.map.getCenter(),tr.elevation).z:0;
-    // fold the origin translation (and the elevation fix) into the matrix so vertex positions stay small (float32-safe)
-    for(let r=0;r<4;r++) m[12+r]+=m[r]*o[0]+m[4+r]*o[1]+m[8+r]*(o[2]-ez);
+    airFoldMatrix(this.map,m,o);
     gl.useProgram(this.prog); gl.uniformMatrix4fv(this.loc.matrix,false,new Float32Array(m)); gl.uniform2f(this.loc.res,gl.drawingBufferWidth,gl.drawingBufferHeight);
     const dpr=window.devicePixelRatio||1; this.vaoBind(this.vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
@@ -1547,7 +1575,7 @@ class Component extends DCLogic {
     const gnd=map.getSource('mission-ground'); if(gnd) gnd.setData({type:'FeatureCollection',features:wpPts.map(r=>({type:'Feature',properties:{sel:sel.has(r.id)?1:0},geometry:{type:'Point',coordinates:[r.lng,r.lat]}}))}); }
   // Draw order, bottom → top: basemap, DSM shading, mission path, flight trails, vehicle overlays (guided / camera sight / 3D posts).
   // Vehicle icons (heading + gimbal fan) are DOM markers and always sit above every GL layer.
-  orderLayers(map){ ['bg','osm','dsm','lbl','mission-casing','mission','mission-foot','mission-ground','mission-air3d','ops-mission-casing','ops-mission','trails','guided','sight-casing','sight','veh-ground','veh-air3d','cam-foot','cam-air3d']
+  orderLayers(map){ ['bg','osm','dsm','lbl','mission-casing','mission','mission-foot','mission-ground','mission-air3d','ops-mission-casing','ops-mission','trails','guided','sight-casing','sight','veh-ground','veh-air3d','cam-foot','cam-plane3d','cam-air3d']
     .forEach(id=>{ if(map.getLayer(id)) map.moveLayer(id); }); }
   addDsm(map){ map.addSource('dsm',{type:'raster-dem',tiles:DEM_TILES,tileSize:256,encoding:'terrarium',maxzoom:15});
     map.addLayer({id:'dsm',type:'hillshade',source:'dsm',paint:{'hillshade-exaggeration':.35,'hillshade-shadow-color':'#0b1018','hillshade-highlight-color':'rgba(255,255,255,.18)','hillshade-accent-color':'#0b1018'}}); }
@@ -1645,7 +1673,7 @@ class Component extends DCLogic {
     if(!el){ if(this.map){ this.map.remove(); this.map=null; this.markers={}; } return; }
     if(this.map&&this.map.getContainer()===el) return;
     if(!window.maplibregl){ clearTimeout(this._retry); this._retry=setTimeout(()=>this.ensureMap(),250); return; }
-    if(this.map){ this.map.remove(); this._mapReady=false; this.markers={}; this.wpMarkers=[]; this.vehAir=null; this.camAir=null; this.airLayer=null; this._nextId=100; this._onKey=e=>this.onKey(e); }
+    if(this.map){ this.map.remove(); this._mapReady=false; this.markers={}; this.wpMarkers=[]; this.vehAir=null; this.camAir=null; this.camPlane=null; this.airLayer=null; this._nextId=100; this._onKey=e=>this.onKey(e); }
     const kind=this.state.view==='maint'?'log':this.state.view==='mission'?'mission':'ops'; this.mapKind=kind;
     const is3d=kind!=='log'&&this.state.mapMode==='3d';
     const map=new maplibregl.Map({container:el,attributionControl:false,center:CENTER,zoom:kind==='log'?13:13.3,pitch:is3d?60:0,bearing:is3d?-25:0,maxPitch:70,boxZoom:kind!=='mission',
@@ -1748,21 +1776,24 @@ class Component extends DCLogic {
     const dir=(sx,sy)=>{ const d=[0,1,2].map(i=>f[i]+sx*th*r[i]+sy*tv*u[i]); const n=Math.hypot(...d); return d.map(x=>x/n); };
     const kLat=1/111320, kLng=1/(111320*Math.cos(v.lat*rad));
     const ahead=d=>({lng:v.lng+d[0]*CAM_DIR_LEN*kLng,lat:v.lat+d[1]*CAM_DIR_LEN*kLat,z:a.amsl+d[2]*CAM_DIR_LEN,hit:false});
-    const march=this.state.camProject?d=>{ const at=t=>({lng:v.lng+d[0]*t*kLng,lat:v.lat+d[1]*t*kLat,z:a.amsl+d[2]*t}); const gnd=q=>{ const g=this.groundElev(q.lng,q.lat); return g==null?a.ground:g; };
+    const march=d=>{ const at=t=>({lng:v.lng+d[0]*t*kLng,lat:v.lat+d[1]*t*kLat,z:a.amsl+d[2]*t}); const gnd=q=>{ const g=this.groundElev(q.lng,q.lat); return g==null?a.ground:g; };
       let prev=0; for(let t=15;t<=CAM_RANGE;t+=15){ const q=at(t); if(q.z<=gnd(q)){ let lo=prev,hi=t; for(let i=0;i<6;i++){ const m=(lo+hi)/2, w=at(m); if(w.z<=gnd(w)) hi=m; else lo=m; } const w=at(hi); return {...w,z:gnd(w),hit:true}; } prev=t; }
-      return {...at(CAM_RANGE),hit:false}; }:ahead;
-    return {center:march(dir(0,0)),corners:[[-1,1],[1,1],[1,-1],[-1,-1]].map(([x,y])=>march(dir(x,y)))}; }
+      return {...at(CAM_RANGE),hit:false}; };
+    const ds=[[-1,1],[1,1],[1,-1],[-1,-1]].map(([x,y])=>dir(x,y)), c0=dir(0,0);
+    if(this.state.camProject){ const hit=ds.map(march); if(hit.every(q=>q.hit)) return {center:march(c0),corners:hit,ground:true}; }
+    return {center:ahead(c0),corners:ds.map(ahead),ground:false}; }
   // Default: a short frustum that only shows where the camera looks (works when the gimbal points up too).
   // App setting camProject: rays run to the terrain and the footprint is filled (2D and 3D).
   updateCamFrustum(){ const map=this.map; if(!map||!this.camAir) return; const is3d=this.state.mapMode==='3d'&&!!map.terrain; const sel=this.state.selectedId, proj=!!this.state.camProject;
-    const lines=[], foot=[]; const toM=(q,col)=>{ const m=maplibregl.MercatorCoordinate.fromLngLat({lng:q.lng,lat:q.lat},q.z); return {x:m.x,y:m.y,z:m.z,c:col}; };
+    const lines=[], foot=[], planes=[]; const toM=(q,col)=>{ const m=maplibregl.MercatorCoordinate.fromLngLat({lng:q.lng,lat:q.lat},q.z); return {x:m.x,y:m.y,z:m.z,c:col}; };
     if(is3d||proj) this.vehicles.forEach(v=>{ const c=v.camera, caps=c&&c.kind?CAM_CAPS[c.kind]:null; if(!caps||!caps.gimbalRate||!c.att||v.alt<1) return;
       const a=this.vehicleAir(v)||(v.type==='copter'?{ground:0,amsl:v.alt}:null); if(!a) return; // 2D without DEM samples: flat ground at home level
       const col=v.name===sel?[.37,.83,.61]:[.24,.55,.41]; const o={lng:v.lng,lat:v.lat,z:a.amsl}; const R=this.camRays(v,a);
-      [R.center,...R.corners].forEach(q=>lines.push([toM(o,col),toM(q,col)]));
-      if(proj&&R.corners.every(q=>q.hit)){ lines.push([...R.corners,R.corners[0]].map(q=>toM(q,col)));
-        foot.push({type:'Feature',properties:{sel:v.name===sel?1:0},geometry:{type:'Polygon',coordinates:[[...R.corners,R.corners[0]].map(q=>[q.lng,q.lat])]}}); } });
-    this.camAir.visible=is3d; this.camAir.setLines(lines,[]); const src=map.getSource('cam-foot'); if(src) src.setData({type:'FeatureCollection',features:foot}); map.triggerRepaint(); }
+      [R.center,...R.corners].forEach(q=>lines.push([toM(o,col),toM(q,col)])); lines.push([...R.corners,R.corners[0]].map(q=>toM(q,col)));
+      // the image plane: in the air at the frustum tip, or draped on the DSM when projected (same tint either way)
+      if(R.ground) foot.push({type:'Feature',properties:{sel:v.name===sel?1:0},geometry:{type:'Polygon',coordinates:[[...R.corners,R.corners[0]].map(q=>[q.lng,q.lat])]}});
+      else if(is3d) planes.push({pts:R.corners.map(q=>toM(q,col)),col:[...col,v.name===sel?.24:.13]}); });
+    this.camAir.visible=is3d; this.camAir.setLines(lines,[]); if(this.camPlane){ this.camPlane.visible=is3d; this.camPlane.setQuads(planes); } const src=map.getSource('cam-foot'); if(src) src.setData({type:'FeatureCollection',features:foot}); map.triggerRepaint(); }
   // Vehicle altitude in 3D: ArduPilot reports altitude relative to home, so AMSL = ground elevation at the take-off point
   // (first trail sample) + relative altitude; the anchor post runs from the DSM/DEM ground under the vehicle up to that height.
   vehicleAir(v){ if(v.type!=='copter') return null; if(v.homeElev==null){ const h=(v.trail&&v.trail[0])||[v.lng,v.lat]; const e=this.groundElev(h[0],h[1]); if(e==null) return null; v.homeElev=e; }
@@ -1777,7 +1808,8 @@ class Component extends DCLogic {
     map.addLayer({id:'veh-ground',type:'circle',source:'veh-ground',layout:{visibility:'none'},paint:{'circle-radius':6,'circle-color':['case',['==',['get','sel'],1],AMBER,CYAN],'circle-stroke-color':'#0f1824','circle-stroke-width':2,'circle-opacity':.9,'circle-pitch-alignment':'map'}});
     this.vehAir=new AirPathLayer('veh-air3d'); map.addLayer(this.vehAir);
     map.addSource('cam-foot',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-    map.addLayer({id:'cam-foot',type:'fill',minzoom:0,source:'cam-foot',paint:{'fill-color':'#5fd39b','fill-opacity':['case',['==',['get','sel'],1],.22,.12]}});
+    map.addLayer({id:'cam-foot',type:'fill',minzoom:0,source:'cam-foot',paint:{'fill-color':'#5fd39b','fill-opacity':['case',['==',['get','sel'],1],.26,.14]}});
+    this.camPlane=new AirPlaneLayer('cam-plane3d'); map.addLayer(this.camPlane);
     this.camAir=new AirPathLayer('cam-air3d'); this.camAir.widthPx=1.5; map.addLayer(this.camAir); map.on('move',()=>this.floatMarkers()); }
   updateGuided(){
     if(!this.map||this.mapKind!=='ops') return; const src=this.map.getSource('guided'); if(!src) return;
