@@ -119,6 +119,20 @@ describe('camera, video source and input frames', () => {
     expect(initialState.paramProgress.size).toBe(0)
   })
 
+  it('flight_draft_created_is_stored', () => {
+    const flight = { id: 3, sysid: 1, status: 'draft' as const, pilot: 'admin', pilot_license: '', takeoff_at: 1, landed_at: 2, takeoff_lat: null, takeoff_lon: null, landing_lat: null, landing_lon: null, takeoff_place: '', landing_place: '', purposes: [], specific_flight: [], summary: '', safety_notes: '', flight_minutes: 1, total_minutes: 1, squawks: [], supersedes: null, created_by: 'system', created_at: 0, updated_at: 0 }
+    const s1 = reduce(initialState, { t: 'flight_draft_created', sysid: 1, flight })
+    expect(s1.flightDrafts.get(1)).toBe(flight)
+    expect(initialState.flightDrafts.size).toBe(0)
+  })
+
+  it('log_fetch_progress_is_stored', () => {
+    const p = { fc_log_id: 7, received: 65536, total: 1_000_000, done: false, error: null }
+    const s1 = reduce(initialState, { t: 'log_fetch_progress', sysid: 1, progress: p })
+    expect(s1.logFetch.get(1)).toEqual(p)
+    expect(reduce(s1, { t: 'log_fetch_progress', sysid: 1, progress: { ...p } })).toBe(s1)
+  })
+
   it('vehicle_mission_is_stored_locally', () => {
     const m = { id: 1, name: 'm', sysid: 1, default_alt: 50, default_frame: 'rel' as const, speed: 8, home: null, items: [] }
     const s1 = withVehicleMission(initialState, 1, m)

@@ -47,6 +47,12 @@ function setup(opts: { progress?: typeof done; armed?: boolean } = {}) {
 describe('MaintView', () => {
   afterEach(() => vi.unstubAllGlobals())
 
+  it('the_daily_logbook_and_app_tabs_are_enabled', () => {
+    setup()
+    for (const name of ['日常点検', '飛行日誌', 'アプリ設定']) expect(screen.getByRole('button', { name })).not.toHaveAttribute('aria-disabled')
+    expect(screen.getByRole('button', { name: '点検・校正' })).toHaveAttribute('aria-disabled', 'true')
+  })
+
   it('maint_view_shows_progress_then_rows_and_writes_a_change_set', async () => {
     const { calls } = setup()
     // header + tabs

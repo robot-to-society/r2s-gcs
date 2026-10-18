@@ -1,4 +1,4 @@
-import type { CameraSnapshot, CommandResult, Deadman, Mission, MissionProgress, ParamProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CameraSnapshot, CommandResult, Deadman, Flight, LogFetchProgress, Mission, MissionProgress, ParamProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { applyDiff } from '../../shared/ws/apply'
 
 export type LinkState = 'connecting' | 'open' | 'closed'
@@ -16,6 +16,10 @@ export interface VehiclesState {
   readonly vehicleMissions: ReadonlyMap<SysId, Mission>
   /** Last `param_progress` per vehicle. */
   readonly paramProgress: ReadonlyMap<SysId, ParamProgress>
+  /** Last `flight_draft_created` per vehicle (a DISARM closed or moved a draft). */
+  readonly flightDrafts: ReadonlyMap<SysId, Flight>
+  /** Last `log_fetch_progress` per vehicle. */
+  readonly logFetch: ReadonlyMap<SysId, LogFetchProgress>
   readonly deadman: Deadman
   readonly link: LinkState
 }
@@ -29,6 +33,8 @@ export const initialState: VehiclesState = {
   missionProgress: new Map(),
   vehicleMissions: new Map(),
   paramProgress: new Map(),
+  flightDrafts: new Map(),
+  logFetch: new Map(),
   deadman: 'ok',
   link: 'connecting',
 }
@@ -106,6 +112,19 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
       const paramProgress = new Map(state.paramProgress)
       paramProgress.set(msg.sysid, p)
       return { ...state, paramProgress }
+    }
+    case 'flight_draft_created': {
+      const flightDrafts = new Map(state.flightDrafts)
+      flightDrafts.set(msg.sysid, msg.flight)
+      return { ...state, flightDrafts }
+    }
+    case 'log_fetch_progress': {
+      const prev = state.logFetch.get(msg.sysid)
+      const p = msg.progress
+      if (prev && prev.fc_log_id === p.fc_log_id && prev.received === p.received && prev.total === p.total && prev.done === p.done && prev.error === p.error) return state
+      const logFetch = new Map(state.logFetch)
+      logFetch.set(msg.sysid, p)
+      return { ...state, logFetch }
     }
     case 'input_state':
       return state.deadman === msg.deadman ? state : { ...state, deadman: msg.deadman }

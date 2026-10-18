@@ -1,6 +1,8 @@
+import { logbookEn, logbookJa } from './logbook'
+
 export type Lang = 'ja' | 'en'
 
-const ja = {
+const baseJa = {
   vehicles: '機体',
   filterVehicles: '機体を絞り込み (名前・モード)',
   ground: '地表',
@@ -378,7 +380,9 @@ const ja = {
   cmd_param_write: 'パラメータ書込',
 } as const
 
-const en: Record<keyof typeof ja, string> = {
+const ja = { ...baseJa, ...logbookJa } as const
+
+const baseEn: Record<keyof typeof baseJa, string> = {
   vehicles: 'Vehicles',
   filterVehicles: 'Filter vehicles (name, mode)',
   ground: 'GROUND',
@@ -755,6 +759,8 @@ const en: Record<keyof typeof ja, string> = {
   histChange: 'Change',
   cmd_param_write: 'Parameter write',
 }
+
+const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn }
 
 export type Dict = Record<keyof typeof ja, string>
 
