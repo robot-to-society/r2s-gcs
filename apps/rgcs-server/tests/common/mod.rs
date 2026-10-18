@@ -339,13 +339,31 @@ fn fake_param_entry(index: u16) -> ParamEntry {
 }
 
 /// Streams a 1,200-parameter list, answers index reads and echoes PARAM_SET like ArduPilot.
-/// `index_reads` counts PARAM_REQUEST_READ frames by index.
+/// `index_reads` counts PARAM_REQUEST_READ frames; `sets` counts PARAM_SET frames.
 pub fn fake_vehicle_params(
+    rx: mpsc::Receiver<Outgoing>,
+    cache: ParamCache,
+    sysid: u8,
+    mode: FakeParamMode,
+    index_reads: Arc<std::sync::atomic::AtomicUsize>,
+) -> tokio::task::JoinHandle<()> {
+    fake_vehicle_params_counting(
+        rx,
+        cache,
+        sysid,
+        mode,
+        index_reads,
+        Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+    )
+}
+
+pub fn fake_vehicle_params_counting(
     mut rx: mpsc::Receiver<Outgoing>,
     cache: ParamCache,
     sysid: u8,
     mode: FakeParamMode,
     index_reads: Arc<std::sync::atomic::AtomicUsize>,
+    sets: Arc<std::sync::atomic::AtomicUsize>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut values: std::collections::HashMap<u16, ParamEntry> =
@@ -379,6 +397,7 @@ pub fn fake_vehicle_params(
                     }
                 }
                 MavMessage::PARAM_SET(d) => {
+                    sets.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     if mode == FakeParamMode::SilentSet {
                         continue;
                     }

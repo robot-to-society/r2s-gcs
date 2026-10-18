@@ -287,20 +287,28 @@ pub async fn write_one(
                 .is_some_and(|t| t >= sent_at)
             {
                 let actual = cache.get(sysid, &change.name);
+                let verified = actual.is_some_and(|a| matches(change.value, a));
                 return ParamWriteResult {
                     name: change.name.clone(),
                     requested: change.value,
                     actual,
-                    verified: actual.is_some_and(|a| matches(change.value, a)),
+                    verified,
+                    reason: (!verified).then(|| "mismatch".to_string()),
                 };
             }
         }
     }
+    unverified(change, "no_echo")
+}
+
+/// A result for a change that was not (successfully) written.
+pub fn unverified(change: &ParamChange, reason: &str) -> ParamWriteResult {
     ParamWriteResult {
         name: change.name.clone(),
         requested: change.value,
         actual: None,
         verified: false,
+        reason: Some(reason.to_string()),
     }
 }
 

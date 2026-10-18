@@ -44,6 +44,8 @@ pub struct ParamWriteResult {
     pub requested: f32,
     pub actual: Option<f32>,
     pub verified: bool,
+    /// Why it is unverified: `no_echo`, `mismatch`, `vehicle_armed` (aborted, never sent), `link_lost`.
+    pub reason: Option<String>,
 }
 
 /// A `param_history` row (spec 60 §3.2).
@@ -83,6 +85,7 @@ mod tests {
             requested: 1.0,
             actual: None,
             verified: false,
+            reason: Some("no_echo".into()),
         };
         assert_eq!(
             serde_json::to_value(&r).unwrap()["actual"],

@@ -3,4 +3,8 @@
 /**
  * Outcome of one PARAM_SET: the echoed value and whether it matched the request.
  */
-export type ParamWriteResult = { name: string, requested: number, actual: number | null, verified: boolean, };
+export type ParamWriteResult = { name: string, requested: number, actual: number | null, verified: boolean, 
+/**
+ * Why it is unverified: `no_echo`, `mismatch`, `vehicle_armed` (aborted, never sent), `link_lost`.
+ */
+reason: string | null, };

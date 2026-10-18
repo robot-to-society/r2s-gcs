@@ -15,7 +15,7 @@ use crate::api::{err, ok};
 use crate::app::AppState;
 use crate::auth::AuthUser;
 use crate::commands::confirm_failure;
-use crate::params::{download, write_one};
+use crate::params::{download, unverified, write_one};
 
 pub const CMD_NAME: &str = "param_write";
 pub const MAX_CHANGES: usize = 50;
@@ -97,6 +97,16 @@ pub async fn refresh(
         .into_response()
 }
 
+/// Why writing must stop right now: armed, link lost or vehicle gone.
+async fn interlock(app: &AppState, sysid: SysId) -> Option<&'static str> {
+    match app.router.lock().await.state(sysid) {
+        None => Some("not_found"),
+        Some(v) if v.armed => Some("vehicle_armed"),
+        Some(v) if v.link == LinkStatus::Lost => Some("link_lost"),
+        Some(_) => None,
+    }
+}
+
 fn validate(changes: &[ParamChange]) -> Option<String> {
     if changes.is_empty() || changes.len() > MAX_CHANGES {
         return Some(format!("changes must have 1..={MAX_CHANGES} entries"));
@@ -154,7 +164,16 @@ pub async fn write(
         return err(StatusCode::CONFLICT, "confirm_required", reason);
     }
     let mut results: Vec<ParamWriteResult> = Vec::with_capacity(body.changes.len());
-    for change in &body.changes {
+    let mut attempted = 0usize;
+    for (i, change) in body.changes.iter().enumerate() {
+        // A batch can take minutes; the interlock is re-checked before every PARAM_SET.
+        if let Some(reason) = interlock(&app, sysid).await {
+            let rest = &body.changes[i..];
+            audit(&app, &op.username, sysid, rest, "rejected", Some(reason)).await;
+            results.extend(rest.iter().map(|c| unverified(c, reason)));
+            break;
+        }
+        attempted += 1;
         let old_value = app.params.get(sysid, &change.name);
         let result = write_one(&app.params, sysid, change, &app.outgoing).await;
         let row = ParamHistoryInput {
@@ -170,16 +189,19 @@ pub async fn write(
         }
         results.push(result);
     }
-    let all_ok = results.iter().all(|r| r.verified);
-    audit(
-        &app,
-        &op.username,
-        sysid,
-        &body.changes,
-        if all_ok { "ok" } else { "failed" },
-        (!all_ok).then(|| "unverified".to_string()).as_deref(),
-    )
-    .await;
+    if attempted > 0 {
+        let all_ok = results.iter().take(attempted).all(|r| r.verified);
+        let sent = &body.changes[..attempted];
+        audit(
+            &app,
+            &op.username,
+            sysid,
+            sent,
+            if all_ok { "ok" } else { "failed" },
+            (!all_ok).then_some("unverified"),
+        )
+        .await;
+    }
     ok(results)
 }
 

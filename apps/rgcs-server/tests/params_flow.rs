@@ -9,6 +9,7 @@ use std::time::Duration;
 use axum::http::{Method, StatusCode};
 use common::*;
 use rgcs_core::ServerMessage;
+use rgcs_server::params::SET_ATTEMPTS;
 use serde_json::{json, Value};
 
 async fn confirm_token(app: &axum::Router, cookie: &str) -> String {
@@ -306,4 +307,68 @@ async fn history_endpoint_filters_by_sysid() {
     assert_eq!(one["data"][0]["name"], "B");
     let (status, _, _) = call(&app, req(Method::GET, "/api/history/params", None, None)).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn arming_midway_aborts_the_remaining_changes() {
+    let (app, state, rx) = spawn_app_with_link().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    let sets = Arc::new(AtomicUsize::new(0));
+    let _fake = fake_vehicle_params_counting(
+        rx,
+        state.params.clone(),
+        1,
+        FakeParamMode::SilentSet,
+        Arc::new(AtomicUsize::new(0)),
+        sets.clone(),
+    );
+    let token = confirm_token(&app, &cookie).await;
+    let arm = {
+        let state = state.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            seed_vehicle(&state, 1, true, false).await;
+        })
+    };
+    let body = json!({"changes": [{"name": "WPNAV_SPEED", "value": 800.0}, {"name": "FENCE_ALT_MAX", "value": 150.0}], "confirm_token": token});
+    let (status, reply, _) = call(
+        &app,
+        req(Method::PUT, "/api/vehicles/1/params", Some(&cookie), Some(body)),
+    )
+    .await;
+    arm.await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{reply}");
+    assert_eq!(reply["data"][0]["verified"], false);
+    assert_eq!(reply["data"][0]["reason"], "no_echo");
+    assert_eq!(reply["data"][1]["verified"], false);
+    assert_eq!(reply["data"][1]["reason"], "vehicle_armed");
+    assert_eq!(
+        sets.load(Ordering::Relaxed),
+        SET_ATTEMPTS as usize,
+        "only the first change reached the link"
+    );
+    let (_, hist, _) = call(
+        &app,
+        req(Method::GET, "/api/history/params?sysid=1", Some(&cookie), None),
+    )
+    .await;
+    assert_eq!(
+        hist["data"].as_array().unwrap().len(),
+        1,
+        "the aborted change is not a history row"
+    );
+    let (_, audit, _) = call(
+        &app,
+        req(Method::GET, "/api/history/audit?limit=5", Some(&cookie), None),
+    )
+    .await;
+    assert!(
+        audit["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["command"] == "param_write" && r["reason"] == "vehicle_armed"),
+        "{audit}"
+    );
 }
