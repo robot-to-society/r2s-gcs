@@ -325,6 +325,9 @@ pub enum FakeParamMode {
     Gaps(Vec<u16>),
     /// PARAM_SET is swallowed: no echo.
     SilentSet,
+    /// A PARAM_SET is first answered with the OLD value (as a list stream would), the real echo
+    /// follows 200 ms later.
+    StaleThenEcho,
 }
 
 pub const FAKE_PARAM_COUNT: u16 = 1200;
@@ -409,6 +412,17 @@ pub fn fake_vehicle_params_counting(
                         .find(|e| e.name == name)
                         .map(|e| e.index)
                         .unwrap_or(0);
+                    if mode == FakeParamMode::StaleThenEcho {
+                        let old = values.get(&index).map(|e| e.value).unwrap_or(0.0);
+                        let stale = ParamEntry {
+                            name: name.clone(),
+                            value: old,
+                            index: u16::MAX,
+                            ptype: 9,
+                        };
+                        cache.on_value(sysid, stale, FAKE_PARAM_COUNT);
+                        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                    }
                     let e = ParamEntry {
                         name,
                         value: d.param_value,
@@ -416,7 +430,8 @@ pub fn fake_vehicle_params_counting(
                         ptype: 9,
                     };
                     values.insert(index, e.clone());
-                    cache.on_value(sysid, e, FAKE_PARAM_COUNT);
+                    // ArduPilot's PARAM_SET echo carries param_index = -1 (65535).
+                    cache.on_value(sysid, ParamEntry { index: u16::MAX, ..e }, FAKE_PARAM_COUNT);
                 }
                 _ => {}
             }

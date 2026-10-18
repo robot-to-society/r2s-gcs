@@ -40,6 +40,9 @@ describe('change set', () => {
     expect(formatValue(150, meta.FENCE_ALT_MAX)).toBe('150')
     expect(formatValue(0.1 + 0.2, undefined)).toBe('0.3')
     expect(formatValue(1234.5678, undefined)).toBe('1234.568')
+    expect(formatValue(0.0004, undefined)).toBe('0.0004')
+    expect(formatValue(-0.00123456, undefined)).toBe('-0.00123456')
+    expect(formatValue(0.1, undefined)).toBe('0.1')
   })
 
   it('input_parsing_rejects_garbage_and_out_of_range', () => {

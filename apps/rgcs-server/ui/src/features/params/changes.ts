@@ -32,10 +32,10 @@ export function rebootNeeded(changes: Changes, meta: MetaMap): string[] {
   return [...changes.keys()].filter((name) => meta[name]?.reboot === true)
 }
 
-/** Shortest decimal that round-trips to ≤ 3 places, e.g. 0.30000000000000004 → "0.3". */
+/** Float32-sized decimal (7 significant digits): 0.30000000000000004 → "0.3", 0.0004 stays 0.0004. */
 export function formatNumber(value: number): string {
   if (Number.isInteger(value)) return String(value)
-  return String(Number(value.toFixed(3)))
+  return String(Number(value.toPrecision(7)))
 }
 
 /** "Enabled (1)" for enumerated values, otherwise the plain number. */

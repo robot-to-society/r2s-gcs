@@ -36,6 +36,7 @@ export function ParamsPane({ sysid, armed, progress, dict, hidden, onWritten }: 
         meta={model.meta}
         results={model.results}
         armed={armed}
+        downloading={model.progress?.downloading === true}
         busy={model.busy}
         error={model.error}
         dict={dict}

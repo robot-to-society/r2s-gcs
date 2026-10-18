@@ -372,3 +372,57 @@ async fn arming_midway_aborts_the_remaining_changes() {
         "{audit}"
     );
 }
+
+#[tokio::test]
+async fn stale_value_before_the_echo_does_not_fail_the_write() {
+    let (app, state, rx) = spawn_app_with_link().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    let _fake = fake_vehicle_params(
+        rx,
+        state.params.clone(),
+        1,
+        FakeParamMode::StaleThenEcho,
+        Arc::new(AtomicUsize::new(0)),
+    );
+    state.params.on_value(
+        1,
+        rgcs_core::ParamEntry {
+            name: "P0003".into(),
+            value: 3.0,
+            index: 3,
+            ptype: 9,
+        },
+        FAKE_PARAM_COUNT,
+    );
+    let token = confirm_token(&app, &cookie).await;
+    let body = json!({"changes": [{"name": "P0003", "value": 33.0}], "confirm_token": token});
+    let (status, reply, _) = call(
+        &app,
+        req(Method::PUT, "/api/vehicles/1/params", Some(&cookie), Some(body)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply}");
+    assert_eq!(reply["data"][0]["verified"], true, "{reply}");
+    assert_eq!(reply["data"][0]["actual"], 33.0);
+    // the echo (index -1) must not disturb the cached index
+    assert_eq!(state.params.entry(1, "P0003").unwrap().index, 3);
+}
+
+#[tokio::test]
+async fn writes_are_refused_while_a_download_runs() {
+    let (app, state, mut rx) = spawn_app_with_link().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    assert!(state.params.begin_download(1));
+    let token = confirm_token(&app, &cookie).await;
+    let body = json!({"changes": [{"name": "FENCE_ALT_MAX", "value": 150.0}], "confirm_token": token});
+    let (status, reply, _) = call(
+        &app,
+        req(Method::PUT, "/api/vehicles/1/params", Some(&cookie), Some(body)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{reply}");
+    assert_eq!(error_code(&reply), "download_in_progress");
+    assert!(rx.try_recv().is_err(), "nothing was sent to the link");
+}

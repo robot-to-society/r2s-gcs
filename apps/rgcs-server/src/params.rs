@@ -24,6 +24,8 @@ const MAX_IDLE_ROUNDS: u32 = 10;
 const TICK: Duration = Duration::from_millis(250);
 pub const ECHO_TIMEOUT: Duration = Duration::from_millis(1500);
 pub const SET_ATTEMPTS: u32 = 3;
+/// `PARAM_VALUE.param_index` of a value that is not part of the list stream (ArduPilot's -1).
+pub const NO_INDEX: u16 = u16::MAX;
 
 #[derive(Default)]
 struct VehicleParams {
@@ -105,14 +107,29 @@ impl ParamCache {
     }
 
     /// Records one PARAM_VALUE; broadcasts progress every 25 values and on completion.
+    /// ArduPilot answers PARAM_SET and by-name reads with `param_index = -1` (65535): those
+    /// carry a value but say nothing about the list, so they neither count toward progress
+    /// nor overwrite the index learned from the list stream.
     pub fn on_value(&self, sysid: SysId, entry: ParamEntry, count: u16) {
         let (progress, announce) = self.with(sysid, |v| {
             if count > 0 {
                 v.count = Some(count);
             }
-            v.received.insert(entry.index);
+            let indexed = entry.index != NO_INDEX && v.count.is_none_or(|n| entry.index < n);
+            let index = if indexed {
+                v.received.insert(entry.index);
+                entry.index
+            } else {
+                v.entries
+                    .get(&entry.name)
+                    .map(|(e, _)| e.index)
+                    .unwrap_or(NO_INDEX)
+            };
             v.last_rx = Some(Instant::now());
-            v.entries.insert(entry.name.clone(), (entry, Instant::now()));
+            v.entries.insert(
+                entry.name.clone(),
+                (ParamEntry { index, ..entry }, Instant::now()),
+            );
             let was_downloading = v.downloading;
             if v.progress().complete {
                 v.downloading = false;
@@ -261,6 +278,9 @@ pub fn matches(requested: f32, actual: f32) -> bool {
 }
 
 /// PARAM_SET + echo for one change; `actual` is the echoed value when one arrived.
+/// A value for the name that arrives after the SET but does not match (the list stream, a
+/// second GCS's echo) is not the verdict: polling continues until the attempt's deadline and
+/// the mismatch is reported only then, without resending.
 pub async fn write_one(
     cache: &ParamCache,
     sysid: SysId,
@@ -280,6 +300,7 @@ pub async fn write_one(
             break;
         }
         let deadline = sent_at + ECHO_TIMEOUT;
+        let mut seen: Option<f32> = None;
         while Instant::now() < deadline {
             tokio::time::sleep(Duration::from_millis(50)).await;
             if cache
@@ -287,15 +308,26 @@ pub async fn write_one(
                 .is_some_and(|t| t >= sent_at)
             {
                 let actual = cache.get(sysid, &change.name);
-                let verified = actual.is_some_and(|a| matches(change.value, a));
-                return ParamWriteResult {
-                    name: change.name.clone(),
-                    requested: change.value,
-                    actual,
-                    verified,
-                    reason: (!verified).then(|| "mismatch".to_string()),
-                };
+                if actual.is_some_and(|a| matches(change.value, a)) {
+                    return ParamWriteResult {
+                        name: change.name.clone(),
+                        requested: change.value,
+                        actual,
+                        verified: true,
+                        reason: None,
+                    };
+                }
+                seen = actual;
             }
+        }
+        if let Some(actual) = seen {
+            return ParamWriteResult {
+                name: change.name.clone(),
+                requested: change.value,
+                actual: Some(actual),
+                verified: false,
+                reason: Some("mismatch".to_string()),
+            };
         }
     }
     unverified(change, "no_echo")
@@ -372,6 +404,48 @@ mod tests {
         assert_eq!(p.missing_indexes(1, 20), vec![2]);
         p.end_download(1);
         assert!(!p.progress(1).downloading);
+    }
+
+    #[test]
+    fn echoes_without_index_do_not_count_toward_progress() {
+        let p = cache();
+        assert!(p.begin_download(1));
+        p.on_value(
+            1,
+            ParamEntry {
+                name: "A".into(),
+                value: 1.0,
+                index: 0,
+                ptype: 9,
+            },
+            2,
+        );
+        // a PARAM_SET echo / by-name read: ArduPilot sends param_index = -1
+        p.on_value(
+            1,
+            ParamEntry {
+                name: "A".into(),
+                value: 5.0,
+                index: u16::MAX,
+                ptype: 9,
+            },
+            2,
+        );
+        p.on_value(
+            1,
+            ParamEntry {
+                name: "FENCE_ENABLE".into(),
+                value: 1.0,
+                index: u16::MAX,
+                ptype: 2,
+            },
+            2,
+        );
+        let pr = p.progress(1);
+        assert_eq!((pr.received, pr.total, pr.complete), (1, Some(2), false));
+        assert_eq!(p.get(1, "A"), Some(5.0), "the value is still taken");
+        assert_eq!(p.entry(1, "A").unwrap().index, 0, "the known index is kept");
+        assert_eq!(p.missing_indexes(1, 20), vec![1]);
     }
 
     #[test]

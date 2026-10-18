@@ -11,6 +11,8 @@ interface Props {
   readonly meta: MetaMap
   readonly results: readonly ParamWriteResult[] | null
   readonly armed: boolean
+  /** A full download is running: the vehicle's list is in flux, writes are refused. */
+  readonly downloading: boolean
   readonly busy: boolean
   readonly error: string | null
   readonly dict: Dict
@@ -20,7 +22,7 @@ interface Props {
 }
 
 /** The pending edits, the write button with its confirm sheet, and the last write's results. */
-export function ChangeSet({ changes, entries, meta, results, armed, busy, error, dict, onClear, onClearAll, onWrite }: Props) {
+export function ChangeSet({ changes, entries, meta, results, armed, downloading, busy, error, dict, onClear, onClearAll, onWrite }: Props) {
   const [confirming, setConfirming] = useState(false)
   const reboot = rebootNeeded(changes, meta)
   const list = [...changes]
@@ -66,6 +68,7 @@ export function ChangeSet({ changes, entries, meta, results, armed, busy, error,
         )}
         {reboot.length > 0 && <div className="warnbox">{dict.paramRebootNote}</div>}
         {armed && list.length > 0 && <div className="warnbox">{dict.paramArmedNote}</div>}
+        {downloading && list.length > 0 && <div className="warnbox">{dict.paramDownloadingNote}</div>}
         {error && <div className="warnbox fatal">{error}</div>}
         {results !== null && (
           <div className="param-results" data-testid="param-results">
@@ -75,17 +78,18 @@ export function ChangeSet({ changes, entries, meta, results, armed, busy, error,
                 <li key={r.name} className={`row${r.verified ? '' : ' bad'}`}>
                   <span className="mono param-name">{r.name}</span>
                   <span className="num t2">{r.actual === null ? '–' : formatValue(r.actual, meta[r.name])}</span>
+                  {meta[r.name]?.reboot && <span className="badge reboot">{dict.paramReboot}</span>}
                   <span className="grow" />
                   <span className={r.verified ? 'ok' : 'warn'}>{resultText(r, dict)}</span>
                 </li>
               ))}
             </ul>
-            {results.some((r) => !r.verified && r.reason !== 'vehicle_armed' && meta[r.name]?.reboot) && <div className="t3">{dict.paramRebootHint}</div>}
+            {results.some((r) => r.reason !== 'vehicle_armed' && meta[r.name]?.reboot) && <div className="warnbox">{dict.paramRebootHint}</div>}
           </div>
         )}
       </div>
       <div className="param-changes-f">
-        <button type="button" className="btn btn-lg btn-primary" onClick={() => setConfirming(true)} disabled={busy || armed || list.length === 0}>
+        <button type="button" className="btn btn-lg btn-primary" onClick={() => setConfirming(true)} disabled={busy || armed || downloading || list.length === 0}>
           {dict.paramWrite}
         </button>
       </div>

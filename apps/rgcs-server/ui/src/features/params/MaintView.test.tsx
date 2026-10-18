@@ -31,7 +31,7 @@ function setup(opts: { progress?: typeof done; armed?: boolean } = {}) {
     if (url.endsWith('/params/refresh')) return ok(opts.progress ?? done, 202)
     if (url.endsWith('/params') && init?.method === 'PUT') {
       const body = JSON.parse(String(init.body)) as { changes: { name: string; value: number }[]; confirm_token: string }
-      return ok(body.changes.map((c) => ({ name: c.name, requested: c.value, actual: c.name === 'SERIAL1_BAUD' ? null : c.value, verified: c.name !== 'SERIAL1_BAUD' })))
+      return ok(body.changes.map((c) => ({ name: c.name, requested: c.value, actual: c.name === 'FENCE_ALT_MAX' ? null : c.value, verified: c.name !== 'FENCE_ALT_MAX', reason: c.name === 'FENCE_ALT_MAX' ? 'no_echo' : null })))
     }
     if (url.endsWith('/params')) return ok({ entries, progress: opts.progress ?? done })
     if (url.endsWith('/confirm')) return ok({ confirm_token: 'tok', expires_in: 30 })
@@ -80,8 +80,11 @@ describe('MaintView', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '実行' }))
     await waitFor(() => expect(screen.getByTestId('param-results')).toBeInTheDocument())
     const results = screen.getByTestId('param-results')
-    expect(within(results).getByText('FENCE_ALT_MAX').closest('li')!.textContent).toContain('✓')
-    expect(within(results).getByText('SERIAL1_BAUD').closest('li')!.textContent).toContain('未検証')
+    expect(within(results).getByText('FENCE_ALT_MAX').closest('li')!.textContent).toContain('未検証')
+    const baudRow = within(results).getByText('SERIAL1_BAUD').closest('li')!
+    expect(baudRow.textContent).toContain('✓')
+    expect(baudRow.textContent).toContain('再起動が必要')
+    expect(within(results).getByText('再起動が必要な項目は再起動後に反映されます')).toBeInTheDocument()
     const put = calls.find((c) => c.init?.method === 'PUT')!
     expect(JSON.parse(String(put.init!.body))).toEqual({ changes: [{ name: 'FENCE_ALT_MAX', value: 150 }, { name: 'SERIAL1_BAUD', value: 115 }], confirm_token: 'tok' })
     expect(calls.some((c) => c.url.endsWith('/api/vehicles/1/confirm') && JSON.parse(String(c.init?.body)).cmd === 'param_write')).toBe(true)
@@ -100,6 +103,12 @@ describe('MaintView', () => {
     await waitFor(() => expect(screen.getByText('300 / 1200')).toBeInTheDocument())
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25')
     expect(screen.getByRole('button', { name: '更新' })).toBeDisabled()
+    // writing is refused during a download: the button stays disabled even with a change
+    await waitFor(() => expect(screen.getByText('Fence Maximum Altitude')).toBeInTheDocument())
+    const input = within(screen.getByText('FENCE_ALT_MAX').closest('tr')!).getByRole('spinbutton')
+    fireEvent.change(input, { target: { value: '150' } })
+    fireEvent.blur(input)
+    expect(within(screen.getByTestId('param-changes')).getByRole('button', { name: '書き込む' })).toBeDisabled()
   })
 
   it('history_tab_lists_changes', async () => {

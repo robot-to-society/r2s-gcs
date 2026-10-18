@@ -139,6 +139,13 @@ pub async fn write(
         Ok(armed) => armed,
         Err(r) => return *r,
     };
+    if app.params.progress(sysid).downloading {
+        return err(
+            StatusCode::CONFLICT,
+            "download_in_progress",
+            "wait for the parameter download to finish",
+        );
+    }
     if armed {
         audit(
             &app,
