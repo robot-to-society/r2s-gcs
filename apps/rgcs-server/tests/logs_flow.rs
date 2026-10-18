@@ -271,3 +271,120 @@ async fn upload_streams_to_disk_and_attaches_to_a_flight() {
     let res = app.clone().oneshot(request).await.unwrap();
     assert_eq!(res.status(), StatusCode::BAD_REQUEST, "empty upload");
 }
+
+#[tokio::test]
+async fn upload_declared_over_the_cap_is_refused_and_oversize_bodies_are_cut() {
+    let (app, state, _rx) = spawn_app_with_link().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    let request = Request::builder()
+        .method(Method::POST)
+        .uri("/api/vehicles/1/logs/upload?filename=big.bin")
+        .header(CSRF.0, CSRF.1)
+        .header(header::COOKIE, &cookie)
+        .header(
+            header::CONTENT_LENGTH,
+            rgcs_server::logs_api::MAX_UPLOAD_BYTES + 1,
+        )
+        .body(Body::from(vec![0u8; 16]))
+        .unwrap();
+    let res = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(res.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    // A body that lies about its length is cut at the cap: nothing is stored.
+    let (_, body, _) = call(
+        &app,
+        req(Method::GET, "/api/vehicles/1/logs", Some(&cookie), None),
+    )
+    .await;
+    assert!(body["data"]["logs"].as_array().unwrap().is_empty());
+    let dir = state.data_dir.join("logs").join("1");
+    assert!(
+        !dir.exists() || std::fs::read_dir(&dir).unwrap().next().is_none(),
+        "no partial file left"
+    );
+}
+
+#[tokio::test]
+async fn attach_refuses_superseded_flights_and_is_audited() {
+    let (app, state, _rx) = spawn_app_with_link().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    let flight = json!({ "pilot": "a", "pilot_license": "", "takeoff_at": 1_796_050_800_000u64, "landed_at": 1_796_050_860_000u64,
+        "takeoff_place": "", "landing_place": "", "purposes": [], "specific_flight": [], "summary": "", "safety_notes": "" });
+    let (_, f, _) = call(
+        &app,
+        req(
+            Method::POST,
+            "/api/vehicles/1/flights",
+            Some(&cookie),
+            Some(flight),
+        ),
+    )
+    .await;
+    let old_id = f["data"]["id"].as_i64().unwrap();
+    call(
+        &app,
+        req(
+            Method::PATCH,
+            &format!("/api/vehicles/1/flights/{old_id}"),
+            Some(&cookie),
+            Some(json!({ "status": "confirmed" })),
+        ),
+    )
+    .await;
+    let (_, newer, _) = call(
+        &app,
+        req(
+            Method::PATCH,
+            &format!("/api/vehicles/1/flights/{old_id}"),
+            Some(&cookie),
+            Some(json!({ "summary": "v2" })),
+        ),
+    )
+    .await;
+    let new_id = newer["data"]["id"].as_i64().unwrap();
+    let log = state
+        .store
+        .add_log(1, None, None, "x.bin", 1, rgcs_core::LogSource::Upload, "admin")
+        .await
+        .unwrap();
+    let (status, body, _) = call(
+        &app,
+        req(
+            Method::PATCH,
+            &format!("/api/vehicles/1/logs/{}", log.id),
+            Some(&cookie),
+            Some(json!({ "flight_id": old_id })),
+        ),
+    )
+    .await;
+    assert_eq!(
+        (status, error_code(&body)),
+        (StatusCode::BAD_REQUEST, "validation"),
+        "superseded target"
+    );
+    let (status, body, _) = call(
+        &app,
+        req(
+            Method::PATCH,
+            &format!("/api/vehicles/1/logs/{}", log.id),
+            Some(&cookie),
+            Some(json!({ "flight_id": new_id })),
+        ),
+    )
+    .await;
+    assert_eq!(
+        (status, body["data"]["flight_id"].as_i64()),
+        (StatusCode::OK, Some(new_id))
+    );
+    let (_, audit, _) = call(
+        &app,
+        req(Method::GET, "/api/history/audit?limit=5", Some(&cookie), None),
+    )
+    .await;
+    assert!(audit["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["command"] == "log_attach"));
+}

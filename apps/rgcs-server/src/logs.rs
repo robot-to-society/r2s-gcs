@@ -11,6 +11,7 @@ use rgcs_core::{FcLogEntry, LogFetchProgress, ServerMessage, SysId};
 use rgcs_mavlink::{
     encode_log_request_data, encode_log_request_end, encode_log_request_list, LogFrame, Outgoing,
 };
+use tokio::io::AsyncWriteExt;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::{timeout, Instant};
 
@@ -21,6 +22,8 @@ pub const WINDOW_BYTES: u32 = 2_880;
 pub const DATA_IDLE: Duration = Duration::from_secs(1);
 pub const MAX_RETRIES: u32 = 10;
 pub const PROGRESS_EVERY_BYTES: u64 = 65_536;
+/// Largest DataFlash accepted from a LOG_ENTRY (1 GiB); anything bigger is refused up front.
+pub const MAX_LOG_BYTES: u32 = 1024 * 1024 * 1024;
 const FRAME_CAPACITY: usize = 512;
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -37,6 +40,8 @@ pub enum LogError {
     Io(String),
     #[error("log not found")]
     NotFound,
+    #[error("log is larger than the 1 GiB limit")]
+    TooLarge,
 }
 
 #[derive(Clone)]
@@ -166,6 +171,7 @@ impl LogHub {
     }
 
     /// Downloads log `fc_log_id` (`size` bytes, from `list`) into `path` and returns the byte count.
+    /// Frames are appended to `<path>.part` window by window, so memory stays bounded.
     pub async fn fetch(
         &self,
         sysid: SysId,
@@ -174,29 +180,25 @@ impl LogHub {
         path: &Path,
         outgoing: &mpsc::Sender<Outgoing>,
     ) -> Result<u64, LogError> {
-        let _guard = self.acquire(sysid)?;
-        let result = self.transfer(sysid, fc_log_id, size, outgoing).await;
-        let _ = send(outgoing, encode_log_request_end(sysid)).await;
-        let bytes = match result {
-            Ok(b) => b,
-            Err(e) => {
-                self.progress(sysid, fc_log_id, 0, u64::from(size), true, Some(e.to_string()));
-                return Err(e);
-            }
-        };
-        if let Err(e) = write_atomically(path, &bytes).await {
-            self.progress(
-                sysid,
-                fc_log_id,
-                bytes.len() as u64,
-                u64::from(size),
-                true,
-                Some(e.to_string()),
-            );
-            return Err(e);
+        if size > MAX_LOG_BYTES {
+            return Err(LogError::TooLarge);
         }
-        self.progress(sysid, fc_log_id, bytes.len() as u64, u64::from(size), true, None);
-        Ok(bytes.len() as u64)
+        let _guard = self.acquire(sysid)?;
+        let part = path.with_extension("part");
+        let result = self.transfer(sysid, fc_log_id, size, &part, outgoing).await;
+        let _ = send(outgoing, encode_log_request_end(sysid)).await;
+        let result = match result {
+            Ok(n) => rename(&part, path).await.map(|_| n),
+            Err(e) => Err(e),
+        };
+        match &result {
+            Ok(n) => self.progress(sysid, fc_log_id, *n, u64::from(size), true, None),
+            Err(e) => {
+                let _ = tokio::fs::remove_file(&part).await;
+                self.progress(sysid, fc_log_id, 0, u64::from(size), true, Some(e.to_string()));
+            }
+        }
+        result
     }
 
     async fn transfer(
@@ -204,53 +206,60 @@ impl LogHub {
         sysid: SysId,
         fc_log_id: u16,
         size: u32,
+        part: &Path,
         outgoing: &mpsc::Sender<Outgoing>,
-    ) -> Result<Vec<u8>, LogError> {
+    ) -> Result<u64, LogError> {
         let mut rx = self.frames.subscribe();
-        let mut buf: Vec<u8> = Vec::with_capacity(size as usize);
+        let mut file = open_part(part).await?;
+        let mut received: u32 = 0;
         let mut retries = 0u32;
         let mut last_progress = 0u64;
-        while (buf.len() as u32) < size {
-            let received = buf.len() as u32;
+        let mut window_buf: Vec<u8> = Vec::with_capacity(WINDOW_BYTES as usize);
+        while received < size {
             let window = WINDOW_BYTES.min(size - received);
             send(
                 outgoing,
                 encode_log_request_data(sysid, fc_log_id, received, window),
             )
             .await?;
-            let before = buf.len();
-            collect_window(&mut rx, sysid, fc_log_id, &mut buf, received + window).await?;
-            if buf.len() > before {
-                retries = 0;
-            } else {
+            window_buf.clear();
+            collect_window(&mut rx, sysid, fc_log_id, received, window, &mut window_buf).await?;
+            if window_buf.is_empty() {
                 retries += 1;
                 if retries > MAX_RETRIES {
                     return Err(LogError::Timeout);
                 }
+                continue;
             }
-            if buf.len() as u64 - last_progress >= PROGRESS_EVERY_BYTES {
-                last_progress = buf.len() as u64;
+            retries = 0;
+            file.write_all(&window_buf).await.map_err(io_err)?;
+            received += window_buf.len() as u32;
+            if u64::from(received) - last_progress >= PROGRESS_EVERY_BYTES {
+                last_progress = u64::from(received);
                 self.progress(sysid, fc_log_id, last_progress, u64::from(size), false, None);
             }
         }
-        buf.truncate(size as usize);
-        Ok(buf)
+        file.flush().await.map_err(io_err)?;
+        Ok(u64::from(received))
     }
 }
 
-/// Appends in-order LOG_DATA frames until `window_end` is reached or the link goes idle.
+/// Appends in-order LOG_DATA frames (starting at `from`, at most `window` bytes) to `buf`
+/// until the window is complete or the link goes idle.
 async fn collect_window(
     rx: &mut broadcast::Receiver<(SysId, LogFrame)>,
     sysid: SysId,
     fc_log_id: u16,
+    from: u32,
+    window: u32,
     buf: &mut Vec<u8>,
-    window_end: u32,
 ) -> Result<(), LogError> {
-    while (buf.len() as u32) < window_end {
+    while (buf.len() as u32) < window {
         match timeout(DATA_IDLE, rx.recv()).await {
             Ok(Ok((s, LogFrame::Data(d)))) if s == sysid && d.id == fc_log_id => {
-                if d.ofs == buf.len() as u32 {
-                    let n = usize::from(d.count).min(d.data.len());
+                if d.ofs == from + buf.len() as u32 {
+                    let room = (window - buf.len() as u32) as usize;
+                    let n = usize::from(d.count).min(d.data.len()).min(room);
                     buf.extend_from_slice(&d.data[..n]);
                     if n == 0 {
                         return Ok(());
@@ -267,6 +276,21 @@ async fn collect_window(
     Ok(())
 }
 
+fn io_err(e: std::io::Error) -> LogError {
+    LogError::Io(e.to_string())
+}
+
+async fn open_part(part: &Path) -> Result<tokio::fs::File, LogError> {
+    if let Some(dir) = part.parent() {
+        tokio::fs::create_dir_all(dir).await.map_err(io_err)?;
+    }
+    tokio::fs::File::create(part).await.map_err(io_err)
+}
+
+async fn rename(part: &Path, path: &Path) -> Result<(), LogError> {
+    tokio::fs::rename(part, path).await.map_err(io_err)
+}
+
 async fn send(
     outgoing: &mpsc::Sender<Outgoing>,
     message: mavlink::dialects::ardupilotmega::MavMessage,
@@ -277,12 +301,21 @@ async fn send(
         .map_err(|_| LogError::LinkClosed)
 }
 
-async fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), LogError> {
-    let io = |e: std::io::Error| LogError::Io(e.to_string());
-    if let Some(dir) = path.parent() {
-        tokio::fs::create_dir_all(dir).await.map_err(io)?;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn oversized_logs_are_refused_before_any_request() {
+        let (tx, _keep) = broadcast::channel(4);
+        let (out_tx, mut out_rx) = mpsc::channel(4);
+        let hub = LogHub::new(tx, true);
+        let dir = std::env::temp_dir().join("rgcs-logs-test");
+        let err = hub
+            .fetch(1, 7, MAX_LOG_BYTES + 1, &dir.join("x.bin"), &out_tx)
+            .await
+            .unwrap_err();
+        assert_eq!(err, LogError::TooLarge);
+        assert!(out_rx.try_recv().is_err(), "nothing was sent to the vehicle");
     }
-    let part = path.with_extension("part");
-    tokio::fs::write(&part, bytes).await.map_err(io)?;
-    tokio::fs::rename(&part, path).await.map_err(io)
 }

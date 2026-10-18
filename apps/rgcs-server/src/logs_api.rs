@@ -85,6 +85,7 @@ fn log_error(e: LogError) -> Response {
         LogError::LinkClosed => err(StatusCode::SERVICE_UNAVAILABLE, "link_lost", e.to_string()),
         LogError::NotFound => err(StatusCode::NOT_FOUND, "not_found", e.to_string()),
         LogError::Io(m) => err(StatusCode::INTERNAL_SERVER_ERROR, "io", m),
+        LogError::TooLarge => err(StatusCode::PAYLOAD_TOO_LARGE, "too_large", e.to_string()),
     }
 }
 
@@ -104,12 +105,19 @@ async fn link_ok(app: &AppState, sysid: SysId) -> Result<(), Box<Response>> {
     }
 }
 
-/// `flight_id` must be a flight of this vehicle (when given).
+/// `flight_id` must be a live (not superseded) flight of this vehicle (when given).
 async fn check_flight(app: &AppState, sysid: SysId, flight_id: Option<i64>) -> Result<(), Box<Response>> {
     let Some(id) = flight_id else { return Ok(()) };
     match app.store.flight(id).await {
-        Ok(Some(f)) if f.sysid == sysid => Ok(()),
-        Ok(_) => Err(Box::new(validation("flight_id is not a flight of this vehicle"))),
+        Ok(Some(f)) if f.sysid == sysid => {}
+        Ok(_) => return Err(Box::new(validation("flight_id is not a flight of this vehicle"))),
+        Err(e) => return Err(Box::new(internal(e))),
+    }
+    match app.store.flight_superseded_by(id).await {
+        Ok(None) => Ok(()),
+        Ok(Some(newer)) => Err(Box::new(validation(format!(
+            "flight {id} was corrected by flight {newer}; attach to that one"
+        )))),
         Err(e) => Err(Box::new(internal(e))),
     }
 }
@@ -301,6 +309,13 @@ pub async fn upload(
     if declared == 0 {
         return validation("the request body is empty");
     }
+    if declared > MAX_UPLOAD_BYTES as u64 {
+        return err(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "too_large",
+            "uploads are limited to 1 GiB",
+        );
+    }
     if let Err(r) = check_flight(&app, sysid, q.flight_id).await {
         return *r;
     }
@@ -312,13 +327,24 @@ pub async fn upload(
     let dir = logs_dir(&app.data_dir, sysid);
     let path = dir.join(&name);
     let written = match stream_to_file(&dir, &path, body).await {
-        Ok(n) => n,
-        Err(e) => return err(StatusCode::INTERNAL_SERVER_ERROR, "io", e),
+        Ok(n) if n > 0 => n,
+        Ok(_) => {
+            let _ = tokio::fs::remove_file(&path).await;
+            return validation("the request body is empty");
+        }
+        Err(UploadError::TooLarge) => {
+            let _ = tokio::fs::remove_file(&path).await;
+            return err(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "too_large",
+                "uploads are limited to 1 GiB",
+            );
+        }
+        Err(UploadError::Io(e)) => {
+            let _ = tokio::fs::remove_file(&path).await;
+            return err(StatusCode::INTERNAL_SERVER_ERROR, "io", e);
+        }
     };
-    if written == 0 {
-        let _ = tokio::fs::remove_file(&path).await;
-        return validation("the request body is empty");
-    }
     match app
         .store
         .add_log(
@@ -349,36 +375,55 @@ pub async fn upload(
     }
 }
 
-async fn stream_to_file(dir: &Path, path: &Path, body: Body) -> Result<u64, String> {
-    tokio::fs::create_dir_all(dir).await.map_err(|e| e.to_string())?;
-    let mut file = tokio::fs::File::create(path).await.map_err(|e| e.to_string())?;
-    let mut stream = body.into_data_stream();
+enum UploadError {
+    TooLarge,
+    Io(String),
+}
+
+/// Streams the body to `path`, cutting it at `MAX_UPLOAD_BYTES` whatever the headers claim.
+async fn stream_to_file(dir: &Path, path: &Path, body: Body) -> Result<u64, UploadError> {
+    let io = |e: std::io::Error| UploadError::Io(e.to_string());
+    tokio::fs::create_dir_all(dir).await.map_err(io)?;
+    let mut file = tokio::fs::File::create(path).await.map_err(io)?;
+    let mut stream = Body::new(http_body_util::Limited::new(body, MAX_UPLOAD_BYTES)).into_data_stream();
     let mut written = 0u64;
     while let Some(chunk) = stream.next().await {
-        let chunk: Bytes = chunk.map_err(|e| e.to_string())?;
-        file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+        let chunk: Bytes = chunk.map_err(|e| {
+            let inner = e.into_inner();
+            if inner.downcast_ref::<http_body_util::LengthLimitError>().is_some() {
+                UploadError::TooLarge
+            } else {
+                UploadError::Io(inner.to_string())
+            }
+        })?;
+        file.write_all(&chunk).await.map_err(io)?;
         written += chunk.len() as u64;
     }
-    file.flush().await.map_err(|e| e.to_string())?;
+    file.flush().await.map_err(io)?;
     Ok(written)
 }
 
 /// `PATCH /api/vehicles/{sysid}/logs/{id}` — (re)attach to a flight or detach with `null`.
 pub async fn attach(
     State(app): State<AppState>,
-    AuthUser(_op): AuthUser,
+    AuthUser(op): AuthUser,
     UrlPath((sysid, id)): UrlPath<(SysId, i64)>,
     Json(body): Json<AttachBody>,
 ) -> Response {
-    if let Err(r) = own_log(&app, sysid, id).await {
-        return *r;
-    }
+    let before = match own_log(&app, sysid, id).await {
+        Ok(l) => l,
+        Err(r) => return *r,
+    };
     if let Err(r) = check_flight(&app, sysid, body.flight_id).await {
         return *r;
     }
     match app.store.attach_log(id, body.flight_id).await {
         Ok(true) => match app.store.log(id).await {
-            Ok(Some(l)) => ok(l),
+            Ok(Some(l)) => {
+                let args = json!({ "id": id, "from": before.flight_id, "to": body.flight_id });
+                audit(&app, &op.username, sysid, "log_attach", args, "ok", None).await;
+                ok(l)
+            }
             Ok(None) => err(StatusCode::NOT_FOUND, "not_found", "log vanished"),
             Err(e) => internal(e),
         },
