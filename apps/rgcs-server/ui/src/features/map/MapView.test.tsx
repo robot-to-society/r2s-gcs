@@ -201,7 +201,7 @@ describe('MapView', () => {
   })
   it('stacks the mission path below the tracks below the guided line once loaded', () => {
     render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
-    expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line', 'course-nav', 'course-vector', 'course-target', 'gimbal-footprint', 'gimbal-footprint-line'])
+    expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line', 'course-nav', 'course-vector-casing', 'course-vector', 'course-target', 'gimbal-footprint', 'gimbal-footprint-line'])
   })
 
   it('places vehicle markers like the prototype and a home tile per known home', () => {

@@ -8,6 +8,10 @@ import { hasPosition } from './markers'
 /** The vector shows where the vehicle will be in this many seconds at its current speed. */
 export const VECTOR_SECONDS = 10
 const MIN_VECTOR_M = 15
+/** The vector is at least this long on screen, so it clears the 34 px marker disc. */
+const MIN_VECTOR_PX = 70
+/** A reported target is used only when it agrees with NAV_CONTROLLER_OUTPUT (ArduCopter can report the EKF origin). */
+const TARGET_AGREE_M = 25
 const MIN_SPEED_MS = 0.5
 /** Modes in which NAV_CONTROLLER_OUTPUT describes a real destination. */
 const NAVIGATING = new Set(['AUTO', 'GUIDED', 'RTL', 'SMART_RTL', 'LAND', 'BRAKE'])
@@ -25,16 +29,18 @@ export function destination(lat: number, lon: number, bearingDeg: number, distM:
 
 const lineFeature = (coords: LngLat[], properties: Record<string, unknown>): Feature => ({ type: 'Feature', properties, geometry: { type: 'LineString', coordinates: coords } })
 
-function vector(v: VehicleState, sel: number): Feature[] {
-  if (v.cog === undefined || v.ground_speed < MIN_SPEED_MS) return []
-  const len = Math.max(MIN_VECTOR_M, v.ground_speed * VECTOR_SECONDS)
+function vector(v: VehicleState, sel: number, mPerPx: number): Feature[] {
+  if (v.cog === undefined || v.cog === null || v.ground_speed < MIN_SPEED_MS) return []
+  const len = Math.max(MIN_VECTOR_M, MIN_VECTOR_PX * mPerPx, v.ground_speed * VECTOR_SECONDS)
   return [lineFeature([[v.lon, v.lat], destination(v.lat, v.lon, v.cog, len)], { kind: 'vector', sysid: v.sysid, sel })]
 }
 
 function navTarget(v: VehicleState): LngLat | null {
   if (!v.armed || !v.nav || v.nav.wp_dist <= 0 || !NAVIGATING.has(v.mode)) return null
-  if (v.mode === 'GUIDED' && v.target) return [v.target.lon, v.target.lat]
-  return destination(v.lat, v.lon, v.nav.target_bearing, v.nav.wp_dist)
+  const [lon, lat] = destination(v.lat, v.lon, v.nav.target_bearing, v.nav.wp_dist)
+  const t = v.target
+  const agrees = t && Math.hypot((t.lat - lat) * M_PER_DEG, (t.lon - lon) * M_PER_DEG * Math.cos(lat * RAD)) <= TARGET_AGREE_M
+  return agrees ? [t.lon, t.lat] : [lon, lat]
 }
 
 function nav(v: VehicleState, sel: number): Feature[] {
@@ -46,10 +52,16 @@ function nav(v: VehicleState, sel: number): Feature[] {
   ]
 }
 
-export function courseGeoJson(vehicles: ReadonlyMap<SysId, VehicleState>, selected: SysId | null): FeatureCollection {
+/** `mPerPx`: metres per screen pixel at the current zoom (0 = no screen minimum). */
+export function courseGeoJson(vehicles: ReadonlyMap<SysId, VehicleState>, selected: SysId | null, mPerPx = 0): FeatureCollection {
   const features = [...vehicles.values()].filter(hasPosition).flatMap((v) => {
     const sel = v.sysid === selected ? 1 : 0
-    return [...nav(v, sel), ...vector(v, sel)]
+    return [...nav(v, sel), ...vector(v, sel, mPerPx)]
   })
   return { type: 'FeatureCollection', features }
+}
+
+/** Web Mercator metres per CSS pixel (512 px tiles) at `zoom` and `lat`. */
+export function metresPerPixel(zoom: number, lat: number): number {
+  return (40_075_016.686 * Math.cos(lat * RAD)) / (512 * 2 ** zoom)
 }

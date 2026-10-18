@@ -65,7 +65,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
         {vehicle && <span className="badge t2">{vehicle.mode}</span>}
         {vehicle && <span className={`t3 num maint-arm${vehicle.armed ? ' armed' : ''}`}>{vehicle.armed ? 'ARMED' : 'DISARMED'}</span>}
       </div>
-      <div className="seg n6 lg g-ctl maint-tabs">
+      <div className={`seg n${MAINT_TABS.length} lg g-ctl maint-tabs`}>
         <span className="lens" style={{ transform: `translateX(${tabIndex * 100}%)` }} />
         {MAINT_TABS.map((tb) => {
           const enabled = ENABLED_TABS.has(tb)

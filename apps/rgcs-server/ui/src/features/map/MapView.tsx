@@ -1,11 +1,11 @@
 import maplibregl, { type ExpressionSpecification, type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FeatureCollection } from 'geojson'
 import type { Basemap, CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
 import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
 import { followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
-import { courseGeoJson } from './course'
+import { courseGeoJson, metresPerPixel } from './course'
 import { footprintsGeoJson, projectedIds } from './footprints'
 import { orderLayers } from './layers'
 import { gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
@@ -105,7 +105,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       })
       m.addSource(COURSE, { type: 'geojson', data: EMPTY })
       m.addLayer({ id: 'course-nav', type: 'line', source: COURSE, filter: ['==', ['get', 'kind'], 'nav'], paint: { 'line-color': ['case', SEL, '#f2b544', '#9cc9ff'], 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.9 } })
-      m.addLayer({ id: 'course-vector', type: 'line', source: COURSE, filter: ['==', ['get', 'kind'], 'vector'], layout: { 'line-cap': 'round' }, paint: { 'line-color': ['case', SEL, '#f2b544', '#9cc9ff'], 'line-width': 3, 'line-opacity': 0.95 } })
+      m.addLayer({ id: 'course-vector-casing', type: 'line', source: COURSE, filter: ['==', ['get', 'kind'], 'vector'], layout: { 'line-cap': 'round' }, paint: { 'line-color': '#0f1824', 'line-width': 6, 'line-opacity': 0.6 } })
+      m.addLayer({ id: 'course-vector', type: 'line', source: COURSE, filter: ['==', ['get', 'kind'], 'vector'], layout: { 'line-cap': 'round' }, paint: { 'line-color': ['case', SEL, '#ffffff', '#9cc9ff'], 'line-width': 3, 'line-opacity': 0.95 } })
       m.addLayer({ id: 'course-target', type: 'circle', source: COURSE, filter: ['==', ['get', 'kind'], 'target'], paint: { 'circle-radius': 5, 'circle-color': ['case', SEL, '#f2b544', '#9cc9ff'], 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } })
       m.addSource(FOOTPRINT, { type: 'geojson', data: EMPTY })
       m.addLayer({ id: 'gimbal-footprint', type: 'fill', source: FOOTPRINT, paint: { 'fill-color': '#5fd39b', 'fill-opacity': ['case', ['==', ['get', 'sel'], 1], 0.26, 0.14] } })
@@ -119,6 +120,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       }
     })
     m.on('dragstart', () => dragRef.current())
+    m.on('zoomend', () => setZoom(m.getZoom()))
     m.on('click', (e) => clickRef.current({ lat: e.lngLat.lat, lon: e.lngLat.lng }))
     map.current = m
     return () => {
@@ -184,6 +186,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   }, [top, right, bottom, left])
 
   useBasemapSwap(map, loaded, basemap)
+  const [zoom, setZoom] = useState(14)
   const followed = useRef<number | null>(null)
   useEffect(() => {
     const m = map.current
@@ -201,8 +204,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   useEffect(() => {
     if (!loaded.current) return
     const src = map.current?.getSource(COURSE) as { setData: (d: unknown) => void } | undefined
-    src?.setData(courseGeoJson(vehicles, selected))
-  }, [vehicles, selected])
+    src?.setData(courseGeoJson(vehicles, selected, metresPerPixel(zoom, map.current?.getCenter().lat ?? 36)))
+  }, [vehicles, selected, zoom])
 
   useEffect(() => {
     if (!loaded.current) return

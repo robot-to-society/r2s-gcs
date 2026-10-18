@@ -41,6 +41,8 @@
 .vrow .batt-text { font-size: 13px; min-width: 34px; text-align: right; flex: none; }
 /* long ArduPilot mode names (STABILIZE) shrink with an ellipsis instead of pushing the battery out */
 .vrow > .row { min-width: 0; }
+/* 6 px (prototype 8) in the name line: GUIDED / LOITER fit beside "100%" at the 296 px list width */
+.vrow > .row:not(.stat) { gap: 6px; }
 .vrow .badge { display: block; line-height: 18px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vrow .batt { flex: none; }
 .vrow .follow-mark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--caution-tint); color: var(--caution); flex: none; }
@@ -160,3 +162,6 @@
 .basemap-menu button { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border: none; border-radius: 9px; background: transparent; color: var(--text-2); font-size: 13px; text-align: left; }
 .basemap-menu button:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
 .basemap-menu button.on { color: var(--text); font-weight: 500; }
+
+/* maintenance has seven tabs since the MAVLink inspector (the prototype defines n3–n6) */
+.seg.n7 .lens { width: calc((100% - 6px) / 7); }

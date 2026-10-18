@@ -23,14 +23,25 @@ describe('courseGeoJson', () => {
     expect(fc.features[0]!.properties).toMatchObject({ sel: 1 })
   })
 
+  it('vector_has_a_visible_minimum_length_on_screen', () => {
+    // 10 m/px (zoomed out): a 2 m/s vehicle still gets a 70 px vector
+    const fc = courseGeoJson(new Map([[1, v({ cog: 0, ground_speed: 2 })]]), null, 10)
+    const [, b] = line(fc, 'vector')
+    expect((b![1] - 36) * M_PER_DEG).toBeCloseTo(700, -1)
+  })
+
   it('no_vector_when_slow_or_no_cog', () => {
     expect(kinds(courseGeoJson(new Map([[1, v({ cog: 90, ground_speed: 0.3 })]]), null))).not.toContain('vector')
     expect(kinds(courseGeoJson(new Map([[1, v({ ground_speed: 5 })]]), null))).not.toContain('vector')
   })
 
-  it('nav_line_uses_guided_target_then_bearing_and_distance', () => {
-    const guided = courseGeoJson(new Map([[1, v({ mode: 'GUIDED', nav: { target_bearing: 0, wp_dist: 80 }, target: { lat: 36.001, lon: 139.001, alt: 50 } })]]), null)
-    expect(line(guided, 'nav')[1]).toEqual([139.001, 36.001])
+  it('nav_line_uses_bearing_and_distance_and_a_target_only_when_it_agrees', () => {
+    // 80 m north ≈ 36.000719; a target 5 m away from that point is used, one near home is not
+    const near = { lat: 36.00076, lon: 139.00001, alt: 50 }
+    const guided = courseGeoJson(new Map([[1, v({ mode: 'GUIDED', nav: { target_bearing: 0, wp_dist: 80 }, target: near })]]), null)
+    expect(line(guided, 'nav')[1]).toEqual([near.lon, near.lat])
+    const off = courseGeoJson(new Map([[1, v({ mode: 'GUIDED', nav: { target_bearing: 0, wp_dist: 80 }, target: { lat: 35.999, lon: 139, alt: 50 } })]]), null)
+    expect((line(off, 'nav')[1]![1] - 36) * M_PER_DEG).toBeCloseTo(80, 0)
     expect(guided.features.find((f) => (f.properties as { kind: string }).kind === 'target')).toBeDefined()
     const auto = courseGeoJson(new Map([[1, v({ mode: 'AUTO', nav: { target_bearing: 0, wp_dist: 100 } })]]), null)
     const end = line(auto, 'nav')[1]!
