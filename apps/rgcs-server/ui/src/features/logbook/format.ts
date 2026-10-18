@@ -1,5 +1,5 @@
 // Display helpers for the logbook (JST dates and times, places, periods).
-import type { InspectionRun, MaintenanceInput } from '../../shared/api/types'
+import type { Flight, InspectionRun, MaintenanceInput } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 
 const JST = 'Asia/Tokyo'
@@ -65,4 +65,10 @@ export function fromLocalInput(v: string): number | null {
 export function maintenanceDraftFor(run: InspectionRun): MaintenanceInput {
   const ng = run.results.filter((r) => r.result === 'ng').map((r) => r.label)
   return { performed_on: run.performed_on, detail: `日常点検で異常: ${ng.join('、')}`, reason: '日常点検', place: run.place, engineer: run.inspector, notes: '', supersedes: null }
+}
+
+/** Replaces the edited flight (or the row it corrected) in place. */
+export function replaceFlight(rows: readonly Flight[], saved: Flight): readonly Flight[] {
+  const target = rows.findIndex((r) => r.id === saved.id || (saved.supersedes !== null && r.id === saved.supersedes))
+  return target === -1 ? [...rows, saved] : rows.map((r, i) => (i === target ? saved : r))
 }

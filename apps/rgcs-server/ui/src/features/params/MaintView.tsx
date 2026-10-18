@@ -3,6 +3,7 @@ import type { Flight, LogFetchProgress, MaintenanceInput, Operator, ParamProgres
 import type { Dict } from '../../shared/i18n'
 import { IconCopter, IconRover } from '../../shared/ui/icons'
 import { DailyTab } from '../logbook/DailyTab'
+import { LogbookTab } from '../logbook/LogbookTab'
 import { HistoryTab } from './HistoryTab'
 import { ParamsPane } from './ParamsPane'
 import { ENABLED_TABS, MAINT_TABS, TAB_LABEL, type MaintTab } from './tabs'
@@ -41,10 +42,8 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
     setMaintDraft(draft)
     setTab('logbook')
   }, [setTab])
+  const onMaintDraftConsumed = useCallback(() => setMaintDraft(null), [])
   void onOpenPresent
-  void flightDrafts
-  void logFetch
-  void maintDraft
   const tabIndex = MAINT_TABS.indexOf(tab)
   return (
     <section className="float map-l top1 maint" data-testid="maint-view">
@@ -94,6 +93,19 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
         onWritten={onWritten}
       />
       {tab === 'daily' && sysid !== null && <DailyTab key={sysid} sysid={sysid} vehicle={vehicle} me={me} dict={dict} onMaintenanceDraft={onMaintenanceDraft} />}
+      {tab === 'logbook' && sysid !== null && (
+        <LogbookTab
+          key={sysid}
+          sysid={sysid}
+          vehicles={vehicles}
+          me={me}
+          dict={dict}
+          draft={flightDrafts?.get(sysid)}
+          logFetch={logFetch?.get(sysid)}
+          maintDraft={maintDraft}
+          onMaintDraftConsumed={onMaintDraftConsumed}
+        />
+      )}
       {tab === 'history' && (
         <div className="maint-body">
           <HistoryTab sysid={sysid} vehicles={vehicles} dict={dict} version={writes} />
