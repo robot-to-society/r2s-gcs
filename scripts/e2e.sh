@@ -45,7 +45,8 @@ fi
 CONFIG="$DEV_DIR/e2e-config.toml"
 {
   echo "listen = \"127.0.0.1:$PORT\""
-  echo "mavlink_url = \"tcp:127.0.0.1:5760\""
+  # Without --with-sitl the server must not find a vehicle, even if a SITL happens to be running.
+  if [ "$WITH_SITL" = 1 ]; then echo "mavlink_url = \"tcp:127.0.0.1:5760\""; else echo "mavlink_url = \"tcp:127.0.0.1:5799\""; fi
   echo "data_dir = \"$DEV_DIR/e2e-data\""
   echo "ui_dir = \"$UI_DIR/dist\""
   if [ "$WITH_VIDEO" = 1 ]; then echo "whep_upstream = \"http://127.0.0.1:8889/video1/whep\""; fi
