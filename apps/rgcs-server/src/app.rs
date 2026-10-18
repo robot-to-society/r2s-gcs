@@ -46,6 +46,8 @@ pub struct AppState {
     pub video: VideoHub,
     pub whep: WhepRelay,
     pub missions: crate::missions::MissionHub,
+    /// The RGCS MAVLink SYSID (app setting `mavlink.gcs_sysid`, default 255), shared with the link.
+    pub gcs: rgcs_core::GcsId,
     /// ARM → DISARM flight drafts (addendum §5.6).
     pub flights: crate::flights::FlightTracker,
     /// DataFlash retrieval over LOG_REQUEST_* (addendum §9).
@@ -86,7 +88,8 @@ impl AppState {
         let (outgoing, _) = mpsc::channel(1);
         let cameras = CameraManager::new(store.clone(), tx.clone(), CameraFactory::Real);
         let video = VideoHub::new(store.clone(), tx.clone(), Timings::default());
-        let missions = crate::missions::MissionHub::new(tx.clone());
+        let gcs = rgcs_core::GcsId::default();
+        let missions = crate::missions::MissionHub::new(tx.clone(), gcs.clone());
         let params = ParamCache::new(tx.clone());
         let flights = crate::flights::FlightTracker::new(store.clone(), tx.clone());
         let logs = crate::logs::LogHub::new(tx.clone(), true);
@@ -107,6 +110,7 @@ impl AppState {
             flights,
             logs,
             messages,
+            gcs,
             data_dir: crate::config::Config::default().data_dir,
             hostname,
             secure_cookies: false,

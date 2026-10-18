@@ -153,3 +153,105 @@ async fn app_settings_list_default_basemaps() {
     assert_eq!(ids, vec!["map", "satellite", "gsi_std", "gsi_photo"]);
     assert_eq!(body["data"]["basemaps"][2]["attribution"], "地理院タイル");
 }
+
+#[tokio::test]
+async fn gcs_sysid_put_validates_range_and_vehicle_clash() {
+    let (app, state) = spawn_app().await;
+    let admin = login(&app).await;
+    let (_, body, _) = call(&app, req(Method::GET, "/api/settings/app", Some(&admin), None)).await;
+    assert_eq!(body["data"]["mavlink"]["gcs_sysid"], 255, "default");
+
+    let put = |v: serde_json::Value| serde_json::json!({ "mavlink": { "gcs_sysid": v } });
+    for bad in [serde_json::json!(0), serde_json::json!(256)] {
+        let (status, body, _) = call(
+            &app,
+            req(Method::PUT, "/api/settings/app", Some(&admin), Some(put(bad))),
+        )
+        .await;
+        assert_eq!(
+            (status, error_code(&body)),
+            (StatusCode::BAD_REQUEST, "validation")
+        );
+    }
+    seed_vehicle(&state, 7, false, false).await;
+    let (status, body, _) = call(
+        &app,
+        req(
+            Method::PUT,
+            "/api/settings/app",
+            Some(&admin),
+            Some(put(serde_json::json!(7))),
+        ),
+    )
+    .await;
+    assert_eq!(
+        (status, error_code(&body)),
+        (StatusCode::BAD_REQUEST, "sysid_in_use")
+    );
+
+    let (status, body, _) = call(
+        &app,
+        req(
+            Method::PUT,
+            "/api/settings/app",
+            Some(&admin),
+            Some(put(serde_json::json!(250))),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["mavlink"]["gcs_sysid"], 250);
+    assert_eq!(state.gcs.get(), 250, "the link uses it from the next frame");
+
+    state
+        .store
+        .create_user("op", "operator-pw", rgcs_core::operator::Role::Operator)
+        .await
+        .unwrap();
+    let op = login_as(&app, "op", "operator-pw").await;
+    let (status, _, _) = call(
+        &app,
+        req(
+            Method::PUT,
+            "/api/settings/app",
+            Some(&op),
+            Some(put(serde_json::json!(240))),
+        ),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "operators may change the map switch, not the SYSID"
+    );
+    let (status, _, _) = call(
+        &app,
+        req(
+            Method::PUT,
+            "/api/settings/app",
+            Some(&op),
+            Some(serde_json::json!({ "map": { "gimbal_ground_projection": true } })),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn gcs_sysid_persists() {
+    let store = rgcs_store::Store::open_memory().await.unwrap();
+    store
+        .put_app_setting(rgcs_store::app_settings::GCS_SYSID, "201")
+        .await
+        .unwrap();
+    assert_eq!(rgcs_server::settings::load_gcs_sysid(&store).await, 201);
+    store
+        .put_app_setting(rgcs_store::app_settings::GCS_SYSID, "nonsense")
+        .await
+        .unwrap();
+    assert_eq!(
+        rgcs_server::settings::load_gcs_sysid(&store).await,
+        255,
+        "invalid stored values fall back to 255"
+    );
+}

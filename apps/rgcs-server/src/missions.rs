@@ -39,6 +39,8 @@ pub struct MissionHub {
     progress: Arc<StdMutex<HashMap<SysId, MissionProgress>>>,
     known: Arc<StdMutex<HashMap<SysId, Mission>>>,
     tx: broadcast::Sender<ServerMessage>,
+    /// The RGCS SYSID transfers answer to (read when a transfer starts).
+    gcs: rgcs_core::GcsId,
 }
 
 /// Releases the per-vehicle transaction slot however the transaction ends.
@@ -79,7 +81,7 @@ pub fn mismatches(sent: &Mission, got: &Mission) -> Vec<u16> {
 }
 
 impl MissionHub {
-    pub fn new(tx: broadcast::Sender<ServerMessage>) -> Self {
+    pub fn new(tx: broadcast::Sender<ServerMessage>, gcs: rgcs_core::GcsId) -> Self {
         let (frames, _) = broadcast::channel(FRAME_CAPACITY);
         Self {
             frames,
@@ -87,6 +89,7 @@ impl MissionHub {
             progress: Arc::default(),
             known: Arc::default(),
             tx,
+            gcs,
         }
     }
 
@@ -165,11 +168,13 @@ impl MissionHub {
         let _guard = self.acquire(sysid)?;
         let mut rx = self.frames.subscribe();
         let started = Instant::now();
+        let gcs = self.gcs.get();
         let (up, out) = Upload::start(sysid, component, mission, 0)
             .map_err(|e: ProtocolError| MissionError::Invalid(e.to_string()))?;
+        let up = up.for_gcs(gcs);
         send_all(outgoing, out).await?;
         run_upload(up, &mut rx, sysid, outgoing, started).await?;
-        let got = run_download(sysid, component, &mut rx, outgoing, started).await?;
+        let got = run_download(sysid, component, gcs, &mut rx, outgoing, started).await?;
         let mismatched = mismatches(mission, &got);
         let verified = mismatched.is_empty();
         if verified {
@@ -192,7 +197,15 @@ impl MissionHub {
     ) -> Result<Mission, MissionError> {
         let _guard = self.acquire(sysid)?;
         let mut rx = self.frames.subscribe();
-        let got = run_download(sysid, component, &mut rx, outgoing, Instant::now()).await?;
+        let got = run_download(
+            sysid,
+            component,
+            self.gcs.get(),
+            &mut rx,
+            outgoing,
+            Instant::now(),
+        )
+        .await?;
         self.remember(sysid, &got);
         Ok(Mission {
             sysid: Some(sysid),
@@ -264,11 +277,13 @@ async fn run_upload(
 async fn run_download(
     sysid: SysId,
     component: u8,
+    gcs: u8,
     rx: &mut broadcast::Receiver<(SysId, MissionFrame)>,
     outgoing: &mpsc::Sender<Outgoing>,
     started: Instant,
 ) -> Result<Mission, MissionError> {
-    let (mut dl, out) = Download::start(sysid, component, started.elapsed().as_millis() as u64);
+    let (dl, out) = Download::start(sysid, component, started.elapsed().as_millis() as u64);
+    let mut dl = dl.for_gcs(gcs);
     send_all(outgoing, out).await?;
     let mut tick = tokio::time::interval(TICK);
     loop {

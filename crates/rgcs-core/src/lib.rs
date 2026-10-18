@@ -5,6 +5,7 @@
 
 pub mod camera;
 pub mod command;
+pub mod gcs;
 pub mod jst;
 pub mod log;
 pub mod logbook;
@@ -21,6 +22,7 @@ pub use camera::{
     VideoSourceStatus, ZoomCaps,
 };
 pub use command::{CommandResult, VehicleCommand};
+pub use gcs::GcsId;
 pub use log::{ackable, severity_of_statustext, LogEntry, MessageSource, Severity};
 pub use logbook::{
     FcLogEntry, Flight, FlightInput, FlightLog, FlightPatch, FlightSquawk, FlightSquawkInput, FlightStatus,

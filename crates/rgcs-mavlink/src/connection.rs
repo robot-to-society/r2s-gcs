@@ -20,7 +20,6 @@ use crate::link::LinkUrl;
 use crate::queue::{Ack, Outgoing};
 use crate::router::{Clock, Router, RouterEvent};
 
-pub const GCS_SYSTEM_ID: u8 = 255;
 pub const GCS_COMPONENT_ID: u8 = 190;
 const RECONNECT_WAIT: Duration = Duration::from_secs(2);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -36,6 +35,8 @@ pub struct LinkChannels {
     pub outgoing: mpsc::Receiver<Outgoing>,
     /// Every COMMAND_ACK received, for the command queue.
     pub acks: broadcast::Sender<Ack>,
+    /// The GCS SYSID put in every header (configurable, default 255).
+    pub gcs: rgcs_core::GcsId,
 }
 
 /// Wall + monotonic clock for the router, anchored at task start.
@@ -60,6 +61,7 @@ impl TaskClock {
 struct LinkState {
     requesters: HashMap<SysId, IntervalRequester>,
     sequence: u8,
+    gcs: rgcs_core::GcsId,
 }
 
 /// Runs until the `events` receiver is dropped. Reconnects after any link error.
@@ -68,7 +70,10 @@ pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, mut ch: LinkChan
     let clock = TaskClock {
         started: Instant::now(),
     };
-    let mut link = LinkState::default();
+    let mut link = LinkState {
+        gcs: ch.gcs.clone(),
+        ..LinkState::default()
+    };
     loop {
         match tokio::time::timeout(CONNECT_TIMEOUT, mavlink::connect_async::<MavMessage>(&address)).await {
             Ok(Ok(conn)) => {
@@ -221,7 +226,7 @@ fn next_header(link: &mut LinkState) -> MavHeader {
     let sequence = link.sequence;
     link.sequence = link.sequence.wrapping_add(1);
     MavHeader {
-        system_id: GCS_SYSTEM_ID,
+        system_id: link.gcs.get(),
         component_id: GCS_COMPONENT_ID,
         sequence,
     }
@@ -240,7 +245,23 @@ mod tests {
         assert_eq!(next_header(&mut link).sequence, 254);
         assert_eq!(next_header(&mut link).sequence, 255);
         assert_eq!(next_header(&mut link).sequence, 0);
-        assert_eq!(next_header(&mut link).system_id, GCS_SYSTEM_ID);
+        assert_eq!(
+            next_header(&mut link).system_id,
+            rgcs_core::gcs::DEFAULT_GCS_SYSID
+        );
+    }
+
+    #[test]
+    fn next_header_uses_the_current_gcs_sysid() {
+        let gcs = rgcs_core::GcsId::default();
+        let mut link = LinkState {
+            gcs: gcs.clone(),
+            ..LinkState::default()
+        };
+        assert_eq!(next_header(&mut link).system_id, 255);
+        gcs.set(42);
+        assert_eq!(next_header(&mut link).system_id, 42);
+        assert_eq!(next_header(&mut link).component_id, GCS_COMPONENT_ID);
     }
 
     #[tokio::test]
