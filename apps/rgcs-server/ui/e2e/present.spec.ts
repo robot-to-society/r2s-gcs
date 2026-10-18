@@ -31,7 +31,7 @@ test('the audience video keeps playing through an operator sweep', async ({ brow
   await operator.getByRole('button', { name: DEV_USER.username }).click()
   await operator.getByRole('button', { name: '観客用画面' }).click()
   await expect(operator.getByRole('dialog')).toBeVisible()
-  await operator.getByRole('button', { name: '閉じる' }).click()
+  await operator.getByRole('dialog').getByRole('button', { name: '閉じる' }).click()
   if (process.env.RGCS_E2E_SITL && process.env.RGCS_E2E_SIM) {
     await expect(operator.locator('.rg-mk')).toHaveCount(1, { timeout: 20_000 })
     await operator.getByRole('option').first().click()
@@ -39,7 +39,7 @@ test('the audience video keeps playing through an operator sweep', async ({ brow
     await operator.getByRole('button', { name: 'IR' }).click()
     await operator.getByRole('button', { name: 'RGB' }).click()
     await operator.getByRole('button', { name: '全コマンド' }).click()
-    await operator.getByRole('button', { name: '閉じる' }).click()
+    await operator.locator('aside.sheet').getByRole('button', { name: '閉じる' }).click()
   }
   await operator.getByRole('button', { name: DEV_USER.username }).click()
   await operator.getByRole('button', { name: 'ログアウト' }).click()

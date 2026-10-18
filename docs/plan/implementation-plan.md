@@ -23,7 +23,7 @@ MT11 を載せた ArduCopter を操作者一人で運用する。前日に RGCS 
 | ジョイスティックはブラウザ側 | Gamepad API → WS 20 Hz、デッドマン必須 | 変更なし |
 | 映像は MediaMTX パススルー | Pi で再エンコードしない | 変更なし。観客用の安定性にも直結 |
 | フロントは React + TS(Vite) | 機能単位ストア + WS 差分 | 変更なし |
-| **SITL はローカルバイナリ** | `scripts/dev.sh` で SITL + server + Vite を起動。docker-compose は作らない | Mac 上で即起動できる |
+| **SITL はローカルバイナリ** | `scripts/dev.sh` で SITL + server + Vite を起動。開発用の docker-compose は作らない。配備の事前検証だけ Docker の Pi 相当環境(`deploy/docker/`、`scripts/pi-sim.sh`)を使う(2026-10-18 改訂) | Mac 上で即起動できる。配備は実機の前に systemd 込みで確かめたい(本人) |
 | 地図タイル | `config.toml` の `map_tile_url`(既定 OSM ラスタ)。衛星画像は現場の契約に合わせて差し替え | 期限内に権利関係を抱えない |
 
 ## 3. ロードマップ(10 週: 2026-10-20 → 12-26)
@@ -35,7 +35,7 @@ MT11 を載せた ArduCopter を操作者一人で運用する。前日に RGCS 
 | **P3 ミッション**(実装済 2026-10-18、`docs/superpowers/plans/2026-10-17-p3-mission.md`) | 11/27–12/10(2 週) | `rgcs-mission`(Mission Protocol 状態機械、`.waypoints` 読み書き、検証)、`missions` テーブル、UI: 2D 作成(一覧 / 地図編集 / パラメータ / サマリー / Undo・Redo)、書込・読込・開始、運用マップの経路 + 現在 WP | SITL に 20 WP 往復一致、`.waypoints` を Mission Planner が読む、AUTO で動く |
 | **P4 パラメータ**(実装済 2026-10-18、`docs/superpowers/plans/2026-10-18-p4-params.md`) | 12/11–12/12(0.5 週)※P3 と並行可 | PARAM 全件取得 + キャッシュ + 進捗(欠番は index 読みで補完)、メタデータ同梱(`apm.pdef.json` → `public/params/arducopter.json`)、UI: 全件テーブル + 検索 + 変更セット + 確認 + 書戻し検証 + 履歴 | 1,000 件超を検索 → 変更 → `param_history`(`tests/sitl/accept-params.sh`) |
 | **P5 点検・飛行日誌**(実装済 2026-10-18、`docs/superpowers/plans/2026-10-18-p5-logbook.md`) | 12/01–12/19(並行ストリーム、2.5 週) | 台帳列(機体 / 操縦者)、点検テンプレート + 実施、飛行検出(ARM → DISARM)+ 飛行記録下書き、不具合記事、点検整備記録、ログ取り出し(LOG_REQUEST_*)、PDF(Noto Sans JP 同梱)/ CSV、UI: 日常点検 / 飛行日誌タブ、アプリ設定(台帳・テンプレート) | 様式 1 / 2 / 3 の PDF と CSV。SITL 飛行で下書き自動生成 |
-| **P6 配備・リハーサル** | 12/08–12/12 リハ 1、12/22–12/26 リハ 2 + 修正 | `cross` aarch64(CI 済)、`include_dir` で UI 埋め込み、`deploy/install.sh`、実 Pi + 実 FC + MT11、LTE 越し、修正週 | リハ 1: 飛行 + 映像 + 観客用。リハ 2: 全シナリオ(追補 §4) |
+| **P6 配備・リハーサル**(配備一式を実装・Docker の Pi 相当環境で検証済 2026-10-18、`docs/superpowers/plans/2026-10-18-p6-deploy.md`。実機リハーサルは未) | 12/08–12/12 リハ 1、12/22–12/26 リハ 2 + 修正 | `cross` aarch64(CI 済)、`include_dir` で UI 埋め込み、`deploy/install.sh`、実 Pi + 実 FC + MT11、LTE 越し、修正週 | リハ 1: 飛行 + 映像 + 観客用。リハ 2: 全シナリオ(追補 §4) |
 
 **並行の前提**: P5 は P3 / P4 と触る層が重ならない(store + UI + 独立したログ取り出し)ので、`superpowers:subagent-driven-development` で別ワークツリーのストリームとして走らせる。単線で進める場合は P5 が 12/26 を超えるため、その時は PDF 出力を CSV のみに縮退し PDF をデモ後に送る(本人判断)。
 

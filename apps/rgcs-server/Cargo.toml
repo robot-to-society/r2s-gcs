@@ -14,6 +14,8 @@ name = "rgcs-server"
 path = "src/main.rs"
 
 [dependencies]
+include_dir = "0.7"
+mime_guess = "2"
 http-body-util = { workspace = true }
 rgcs-core = { workspace = true }
 rgcs-mavlink = { workspace = true }
@@ -43,6 +45,8 @@ csv = { workspace = true }
 time = { workspace = true }
 
 [features]
+# Compile apps/rgcs-server/ui/dist into the binary (run `npm run build` first).
+embed-ui = []
 # Test builds get the MT11 simulator through the self dev-dependency below.
 sim = ["rgcs-camera/sim"]
 

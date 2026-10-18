@@ -44,6 +44,8 @@ pub struct Health {
     pub status: &'static str,
     pub hostname: String,
     pub version: &'static str,
+    /// Build id (`<git sha>[-dirty]` from `scripts/build-pi.sh`, `dev` otherwise).
+    pub build: &'static str,
     /// True while the seeded admin/admin account works; the login screen shows a badge.
     pub dev_mode: bool,
 }
@@ -53,6 +55,7 @@ pub async fn health(State(app): State<AppState>) -> Response {
         status: "ok",
         hostname: app.hostname.clone(),
         version: env!("CARGO_PKG_VERSION"),
+        build: crate::BUILD,
         dev_mode: app.dev_mode(),
     })
 }

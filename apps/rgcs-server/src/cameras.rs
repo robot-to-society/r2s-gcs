@@ -2,7 +2,9 @@
 //! as `camera_state` (on change and at least every second).
 
 use std::collections::HashMap;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::Ipv4Addr;
+#[cfg(any(test, feature = "sim"))]
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 

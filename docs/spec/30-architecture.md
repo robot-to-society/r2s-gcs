@@ -102,12 +102,37 @@ r2s-gcs/
 - `--role hub`: N edge を sysid 空間で束ね、同じ UI を多機体で配信。アカウント管理・監査・録画保存を持つ。
 - edge / hub 間の契約は 50 §5 の WS メッセージと同一形式。
 
-## 8. ビルド・配布
+## 8. ビルド・配布(P6 実装、2026-10-18)
 
-- Rust stable、`cross` で `aarch64-unknown-linux-gnu`。`sqlx` はオフラインモード(`.sqlx/`)。
-- UI は `pnpm build` の成果物を `rgcs-server` に `include_dir` で埋め込む。
-- 配布物: `rgcs-server` バイナリ、`rgcs-server.service`、`config.toml` 雛形、`mediamtx.yml`(既存 Python 版 `deploy/` から継承)。
-- Pi セットアップ手順(移行): Python 版サービス停止 → バイナリ配置 → `config.toml` に MAVLink URL とカメラ IP → `systemctl enable --now rgcs-server` → ブラウザで `http://<pi>:8000` → admin/admin。
+- ビルド: `scripts/build-pi.sh` が UI(`npm run build`)を作り、linux/arm64 の `rust:bookworm` コンテナ内で `cargo build --release -p rgcs-server --features embed-ui` を実行する(Apple Silicon ではエミュレーションなし、glibc は bookworm の 2.36 以下)。成果物は `dist/pi/` の `rgcs-server`(UI 埋め込み済みの単一バイナリ、約 19 MB)、`siyi_sim`(検証用)、`rgcs-pi-<version>.tar.gz`(バイナリ + `install.sh` + `rgcs-server.service` + `config.toml.example`)。CI は従来通り `cross` で aarch64 をビルドする。
+- UI 埋め込み: `embed-ui` 機能で `ui/dist` を `include_dir` で取り込む。`config.toml` の `ui_dir` があればそちらが優先。ハッシュ付き `assets/` は 1 年キャッシュ、それ以外は `index.html`(no-cache)を返す SPA 配信。
+- 配置: バイナリ `/opt/rgcs/bin/rgcs-server`(前版は `rgcs-server.prev`)、設定 `/etc/rgcs/config.toml`、データ `/var/lib/rgcs`(DB・ロゴ・取り出したログ)、ユニット `/etc/systemd/system/rgcs-server.service`、サービスユーザー `rgcs`(`dialout` 所属)。
+- Pi セットアップ(初回・更新とも同じ手順):
+
+  ```sh
+  scp dist/pi/rgcs-pi-<version>.tar.gz pi@<pi>:
+  ssh pi@<pi> 'tar xzf rgcs-pi-<version>.tar.gz && cd rgcs-pi-<version> && sudo ./install.sh'
+  # 初回のみ: /etc/rgcs/config.toml の mavlink_url / whep_upstream を機体に合わせて編集し
+  sudo systemctl restart rgcs-server
+  # ブラウザで http://<pi>:8000 → admin / admin
+  ```
+
+- `install.sh` の動作: バイナリ検査(`--version`)→ ユーザー・ディレクトリ作成 → バイナリ差し替え(名前の付け替えで原子的に。中身が違うときだけ前版を `.prev` に保持)→ 設定は無いときだけ雛形から作成(既存は上書きしない)→ `mt11-camera-ui.service`(Python 版)を停止・無効化 → ユニット登録・有効化・再起動 → `/api/health` を待つ。時間内(既定 30 s、1 回の問い合わせは 2 s で打ち切り)に応答しなければ前版に戻して `ROLLED BACK` を表示し終了コード 1。初回導入で失敗した場合は rgcs-server を止めて無効化し、Python 版を元に戻す(`RESTORED`)。手動で戻すときは `sudo ./install.sh --rollback`。何度実行しても同じ結果になる。
+- ユニット: `Conflicts=mt11-camera-ui.service`(Python 版を手で起動すると rgcs-server は止まる。MT11 の TCP は 1 本、:8000 も競合するため)、`Restart=always`、`ProtectSystem=strict` + `ReadWritePaths=/var/lib/rgcs`、`NoNewPrivileges`。
+- MediaMTX・Rpanion-server は Pi に既存のものを使う(この配布物には含めない)。
+- **注意**: アカウント管理(M5)までは開発用ログイン admin/admin が有効で、ログインできれば ARM も可能。`install.sh` は導入後に警告を表示する。:8000 は機体側 LAN / VPN からのみ到達できるようにし、インターネットへ直接公開しない。
+- 版の確認: `rgcs-server --version` と `/api/health` の `build` に `<git sha>[-dirty]` が入る(`scripts/build-pi.sh` が埋め込む)。
+
+### 8.1 Docker の Pi 相当環境(配備の事前検証)
+
+実機リハーサルの前に、配備一式を Docker 上で検証する(`deploy/docker/`、開発は従来通りローカル SITL)。
+
+- 構成: `pi`(Debian bookworm arm64 + systemd を PID 1、ユーザー `pi`、Python 版の代役 `mt11-camera-ui.service`、MT11 シミュレーター `127.0.0.1:37260`、FC リンク代役)と、`pi` のネットワーク名前空間を共有する `mediamtx`・`video`(ffmpeg のテストパターンを `rtsp://127.0.0.1:8554/video1` に配信)。実機と同じく全て `127.0.0.1` で繋がる。公開ポートは `18000`(UI/API)と `8189`(WebRTC)。
+- FC リンク代役: ホストの ArduCopter SITL(`tcp:5760`)を socat で `udp 127.0.0.1:15555`(Rpanion 相当)または pty `/dev/ttyFC`(シリアル相当、`dialout` 0660)に中継する。
+- 操作: `scripts/pi-sim.sh up | down | install | shell | logs | link udp|serial | lte on|off | bench`。ホストの SITL は 1 接続のみなので `scripts/dev.sh` を止めてから使う。
+- 受け入れ: `tests/pi/check-build.sh`(aarch64・glibc・`--version`・配布物)、`tests/pi/check-env.sh`(環境)、`tests/pi/accept-deploy.sh`(新規導入と Python 版の置き換え、UDP リンクでの既存 SITL 受け入れ 3 本、更新で設定・データ保持、アーム中の再起動で飛行が 1 件のまま閉じる、シリアル 57600 / 921600 とログ取り出しの有効・無効、壊れた版の自動ロールバック、再起動後の自動起動)、`tests/pi/accept-stack.sh`(観客用映像・カメラ・詳細・飛行日誌の E2E を通常回線と LTE 相当 `netem 80 ms ± 20 ms, 1 % loss` で 2 回)。2026-10-18 時点で全て OK。
+- 目安(`pi-sim.sh bench 60`、SITL テレメトリ 10 Hz、WebSocket クライアントなし、Mac の 1 コアまたは 0.25 コアに制限): CPU 0.3 %、メモリ 113 MB(cgroup の MemoryCurrent、ページキャッシュ込み)。UI 接続時の負荷と Pi 4 の正式判定は実機で行う。
+- Docker では確かめられないもの(実機リハーサルで確認): 実 UART の速度と 921600 bps でのログ取り出し時間、Pi の CPU・熱・SD カード I/O、実 FC ファームウェア、MT11 本体の制御と RTSP 実映像、実際の LTE / VPN 回線、Rpanion-server 本体との連携。
 
 ## 9. 性能目標
 

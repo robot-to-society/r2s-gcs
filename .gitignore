@@ -7,3 +7,6 @@ dist/
 .superpowers/
 test-results/
 playwright-report/
+
+# Pi build artifacts (scripts/build-pi.sh)
+/dist/
