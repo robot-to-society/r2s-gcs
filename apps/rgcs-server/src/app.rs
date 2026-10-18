@@ -242,7 +242,29 @@ pub fn unix_ms() -> u64 {
         .unwrap_or(0)
 }
 
+/// Where the browser UI comes from.
+pub enum UiSource {
+    /// `config.toml` `ui_dir` (a built `ui/dist` on disk).
+    Dir(PathBuf),
+    /// Compiled into the binary (`embed-ui` feature, or a test fixture).
+    Embedded(&'static include_dir::Dir<'static>),
+    /// No UI: a placeholder page.
+    None,
+}
+
+/// `ui_dir` wins; otherwise the embedded UI when the binary carries one; otherwise a placeholder.
 pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
+    let ui = match ui_dir {
+        Some(dir) => UiSource::Dir(dir),
+        #[cfg(feature = "embed-ui")]
+        None => UiSource::Embedded(&crate::ui_embed::UI_DIST),
+        #[cfg(not(feature = "embed-ui"))]
+        None => UiSource::None,
+    };
+    build_with_ui(state, ui)
+}
+
+pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
     let api = AxumRouter::new()
         .route("/health", get(api::health))
         .route("/auth/login", post(auth::login))
@@ -393,11 +415,14 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
         .nest("/api", api)
         .nest("/present", present)
         .route("/ws", get(ws::handler));
-    let app = match ui_dir {
-        Some(dir) => {
+    let app = match ui {
+        UiSource::Dir(dir) => {
             app.fallback_service(ServeDir::new(&dir).fallback(ServeFile::new(dir.join("index.html"))))
         }
-        None => app.fallback(placeholder),
+        UiSource::Embedded(dir) => {
+            app.fallback(move |req: axum::extract::Request| async move { crate::ui_embed::serve(dir, &req) })
+        }
+        UiSource::None => app.fallback(placeholder),
     };
     app.layer(TraceLayer::new_for_http()).with_state(state)
 }

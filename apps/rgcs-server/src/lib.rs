@@ -29,6 +29,7 @@ pub mod pdf;
 pub mod present_api;
 pub mod settings;
 pub mod telemetry;
+pub mod ui_embed;
 pub mod video;
 pub mod video_api;
 pub mod ws;
