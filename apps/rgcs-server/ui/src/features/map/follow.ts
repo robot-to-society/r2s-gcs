@@ -27,3 +27,16 @@ export function followTarget(vehicles: ReadonlyMap<number, VehicleState>, follow
   const v = vehicles.get(follow)
   return v && hasPosition(v) ? [v.lon, v.lat] : null
 }
+
+/** Follow re-centres only beyond this distance: a hovering vehicle's GPS noise would otherwise
+ * shake the whole map (waypoints, home) by a pixel or two at every telemetry frame. */
+export const FOLLOW_DEADBAND_PX = 4
+
+export interface ScreenPoint {
+  readonly x: number
+  readonly y: number
+}
+
+export function needsRecenter(center: ScreenPoint, vehicle: ScreenPoint, minPx = FOLLOW_DEADBAND_PX): boolean {
+  return Math.hypot(vehicle.x - center.x, vehicle.y - center.y) > minPx
+}

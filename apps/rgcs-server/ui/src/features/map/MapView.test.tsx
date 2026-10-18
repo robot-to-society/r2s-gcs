@@ -58,11 +58,23 @@ class FakeMap {
   getSource(id: string) {
     return this.sources.get(id)
   }
+  paddingCalls = 0
   setPadding(p: unknown) {
     this.padding = p
+    this.paddingCalls += 1
   }
-  easeTo(o: unknown) {
+  center: [number, number] = [139.372, 36.162]
+  easeTo(o: { center: [number, number] }) {
     this.eased.push(o)
+    this.center = o.center
+  }
+  getCenter() {
+    return { lng: this.center[0], lat: this.center[1] }
+  }
+  /** 1 px per 1e-6 degree: enough to test the follow dead band. */
+  project(ll: { lng: number; lat: number } | [number, number]) {
+    const [lng, lat] = Array.isArray(ll) ? ll : [ll.lng, ll.lat]
+    return { x: lng * 1e6, y: -lat * 1e6 }
   }
   remove() {}
 }
@@ -207,5 +219,27 @@ describe('MapView', () => {
     rerender(<MapView {...props} groundProjection />)
     expect(fan().style.display).toBe('none')
     expect(foot.setData.mock.calls.at(-1)?.[0].features).toHaveLength(1)
+  })
+  it('re-renders with an equal padding do not call setPadding (it cancels a drag in progress)', () => {
+    const props = { vehicles: new Map(), tracks: new Map(), follow: null, selected: null, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} padding={{ ...pad }} />)
+    const m = created.maps.at(-1)!
+    const calls = m.paddingCalls
+    rerender(<MapView {...props} padding={{ ...pad }} />)
+    rerender(<MapView {...props} padding={{ ...pad }} />)
+    expect(m.paddingCalls).toBe(calls)
+    rerender(<MapView {...props} padding={{ ...pad, right: 400 }} />)
+    expect(m.paddingCalls).toBe(calls + 1)
+  })
+  it('following ignores a hovering vehicle\'s GPS jitter so the map (and its waypoints) stay still', () => {
+    const at = (lon: number, lat: number) => new Map([[1, v(1, 3, lon, lat)]])
+    const props = { tracks: new Map(), follow: 1, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} vehicles={at(139.37, 36.16)} />)
+    const map = created.maps.at(-1)!
+    const eased = map.eased.length
+    rerender(<MapView {...props} vehicles={at(139.370001, 36.160002)} />) // ~2 px
+    expect(map.eased.length).toBe(eased)
+    rerender(<MapView {...props} vehicles={at(139.37003, 36.16)} />) // 30 px
+    expect(map.eased.length).toBe(eased + 1)
   })
 })

@@ -126,3 +126,5 @@
 /* ---- presentation settings ---- */
 .present-settings { width: 520px; }
 .present-link-box { display: flex; align-items: center; gap: 8px; word-break: break-all; }
+/* the vehicle marker stays above waypoint badges and the home tile it hovers over */
+.maplibregl-marker:has(.rg-mk) { z-index: 3; }

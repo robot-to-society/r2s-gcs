@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import type { FeatureCollection } from 'geojson'
 import type { CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
 import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
-import { followTarget, type Padding } from './follow'
+import { followTarget, needsRecenter, type Padding } from './follow'
 import { footprintsGeoJson, projectedIds } from './footprints'
 import { orderLayers } from './layers'
 import { gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
@@ -166,13 +166,25 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     homeMarkers.current = [...homes.values()].map((h) => new maplibregl.Marker({ element: homeEl() }).setLngLat([h.lon, h.lat]).addTo(m))
   }, [homes])
 
+  // Compare by value: the Shell builds a new padding object on every render (10 Hz telemetry,
+  // the clock), and setPadding stops a drag or zoom gesture in progress.
+  const { top, right, bottom, left } = padding
   useEffect(() => {
-    map.current?.setPadding(padding)
-  }, [padding])
+    map.current?.setPadding({ top, right, bottom, left })
+  }, [top, right, bottom, left])
 
+  const followed = useRef<number | null>(null)
   useEffect(() => {
+    const m = map.current
     const center = followTarget(vehicles, follow)
-    if (center) map.current?.easeTo({ center, duration: 200 })
+    if (!m || !center) {
+      followed.current = null
+      return
+    }
+    // A new follow always centres; after that, sub-pixel GPS noise is ignored (dead band).
+    const fresh = followed.current !== follow
+    followed.current = follow
+    if (fresh || needsRecenter(m.project(m.getCenter()), m.project(center))) m.easeTo({ center, duration: 200 })
   }, [vehicles, follow])
 
   useEffect(() => {

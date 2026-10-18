@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
-import { followTarget, padding } from './follow'
+import { FOLLOW_DEADBAND_PX, followTarget, needsRecenter, padding } from './follow'
 
 describe('map padding (spec 20 §4)', () => {
   it('matches the panel widths', () => {
@@ -25,3 +25,12 @@ describe('followTarget', () => {
     expect(followTarget(vehicles, null)).toBeNull()
   })
 })
+
+describe('needsRecenter', () => {
+  it('ignores GPS jitter of a hovering vehicle (a few pixels) and follows real movement', () => {
+    expect(needsRecenter({ x: 500, y: 400 }, { x: 501, y: 401 })).toBe(false)
+    expect(needsRecenter({ x: 500, y: 400 }, { x: 500 + FOLLOW_DEADBAND_PX + 1, y: 400 })).toBe(true)
+    expect(needsRecenter({ x: 500, y: 400 }, { x: 500, y: 380 })).toBe(true)
+  })
+})
+
