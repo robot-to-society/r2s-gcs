@@ -36,7 +36,7 @@ dashmap = "6"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
 argon2 = { version = "0.6", default-features = false, features = ["alloc", "password-hash"] }
 uuid = { version = "1", features = ["v4"] }
-time = { version = "0.3", features = ["formatting", "parsing"] }
+time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
 axum-extra = { version = "0.12", features = ["cookie"] }
 tower = "0.5"
 http-body-util = "0.1"

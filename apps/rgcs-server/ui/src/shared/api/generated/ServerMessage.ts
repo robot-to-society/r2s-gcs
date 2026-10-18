@@ -4,6 +4,8 @@ import type { CameraSnapshot } from "./CameraSnapshot";
 import type { CameraState } from "./CameraState";
 import type { CommandResult } from "./CommandResult";
 import type { Deadman } from "./Deadman";
+import type { Flight } from "./Flight";
+import type { LogFetchProgress } from "./LogFetchProgress";
 import type { MissionProgress } from "./MissionProgress";
 import type { ParamProgress } from "./ParamProgress";
 import type { VehicleMessage } from "./VehicleMessage";
@@ -12,4 +14,4 @@ import type { VehicleStateDiff } from "./VehicleStateDiff";
 import type { VideoSourceEntry } from "./VideoSourceEntry";
 import type { VideoSourceStatus } from "./VideoSourceStatus";
 
-export type ServerMessage = { "t": "snapshot", vehicles: Array<VehicleState>, cameras: Array<CameraSnapshot>, video_sources: Array<VideoSourceEntry>, } | { "t": "camera_state", sysid: number, caps: CameraCaps, state: CameraState, } | { "t": "video_source", sysid: number, status: VideoSourceStatus, } | { "t": "input_state", deadman: Deadman, } | { "t": "mission_progress", sysid: number, progress: MissionProgress, } | { "t": "param_progress", sysid: number, progress: ParamProgress, } | { "t": "telemetry", sysid: number, diff: VehicleStateDiff, } | { "t": "vehicle_message" } & VehicleMessage | { "t": "command_result" } & CommandResult | { "t": "vehicle_discovered", sysid: number, } | { "t": "vehicle_lost", sysid: number, } | { "t": "error", code: string, message: string, };
+export type ServerMessage = { "t": "snapshot", vehicles: Array<VehicleState>, cameras: Array<CameraSnapshot>, video_sources: Array<VideoSourceEntry>, } | { "t": "camera_state", sysid: number, caps: CameraCaps, state: CameraState, } | { "t": "video_source", sysid: number, status: VideoSourceStatus, } | { "t": "input_state", deadman: Deadman, } | { "t": "mission_progress", sysid: number, progress: MissionProgress, } | { "t": "param_progress", sysid: number, progress: ParamProgress, } | { "t": "flight_draft_created", sysid: number, flight: Flight, } | { "t": "log_fetch_progress", sysid: number, progress: LogFetchProgress, } | { "t": "telemetry", sysid: number, diff: VehicleStateDiff, } | { "t": "vehicle_message" } & VehicleMessage | { "t": "command_result" } & CommandResult | { "t": "vehicle_discovered", sysid: number, } | { "t": "vehicle_lost", sysid: number, } | { "t": "error", code: string, message: string, };

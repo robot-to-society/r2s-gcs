@@ -9,6 +9,7 @@ pub mod missions;
 pub mod param_history;
 pub mod password;
 pub mod presentation;
+pub mod registry;
 pub mod sessions;
 pub mod users;
 

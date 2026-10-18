@@ -5,6 +5,8 @@
 
 pub mod camera;
 pub mod command;
+pub mod jst;
+pub mod logbook;
 pub mod mission;
 pub mod operator;
 pub mod params;
@@ -18,6 +20,12 @@ pub use camera::{
     VideoSourceStatus, ZoomCaps,
 };
 pub use command::{CommandResult, VehicleCommand};
+pub use logbook::{
+    FcLogEntry, Flight, FlightInput, FlightLog, FlightPatch, FlightSquawk, FlightSquawkInput, FlightStatus,
+    InspectionItem, InspectionResult, InspectionResultInput, InspectionResultRow, InspectionRun,
+    InspectionRunInput, InspectionTemplate, InspectionTemplateInput, LogFetchProgress, LogSource,
+    MaintenanceInput, MaintenanceRecord, PilotInfo, PilotInput, VehicleRegistry, VehicleRegistryInput,
+};
 pub use mission::{
     demo20, haversine_m, FenceInfo, Finding, FindingLevel, Home, Mission, MissionFrame, MissionItem,
     MissionProgress, MissionStats, MissionSummaryRow, UploadReport, MAV_CMD_DO_JUMP, MAV_CMD_NAV_LAND,

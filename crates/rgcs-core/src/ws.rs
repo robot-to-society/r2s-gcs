@@ -5,6 +5,7 @@ use ts_rs::TS;
 
 use crate::camera::{CameraCaps, CameraSnapshot, CameraState, Deadman, VideoSourceStatus};
 use crate::command::CommandResult;
+use crate::logbook::{Flight, LogFetchProgress};
 use crate::mission::MissionProgress;
 use crate::params::ParamProgress;
 use crate::vehicle::{SysId, VehicleState, VehicleStateDiff};
@@ -63,6 +64,16 @@ pub enum ServerMessage {
     ParamProgress {
         sysid: SysId,
         progress: ParamProgress,
+    },
+    /// A flight draft was created or its landing time moved (every DISARM, addendum §5.6).
+    FlightDraftCreated {
+        sysid: SysId,
+        flight: Flight,
+    },
+    /// DataFlash fetch progress (every 64 KB and at the end).
+    LogFetchProgress {
+        sysid: SysId,
+        progress: LogFetchProgress,
     },
     Telemetry {
         sysid: SysId,
