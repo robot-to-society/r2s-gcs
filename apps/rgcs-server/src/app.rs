@@ -247,6 +247,7 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
             "/vehicles/{sysid}/mission/progress",
             get(mission_api::get_progress),
         )
+        .route("/vehicles/{sysid}/mission/known", get(mission_api::get_known))
         .route(
             "/missions",
             get(mission_api::list_missions).post(mission_api::create_mission),

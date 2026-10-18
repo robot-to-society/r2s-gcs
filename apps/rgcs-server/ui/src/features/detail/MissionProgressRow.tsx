@@ -15,7 +15,7 @@ const km = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.r
 
 /** Addendum §5.7: current WP / remaining distance plus the 書込 / 開始 shortcuts. */
 export function MissionProgressRow({ progress, mission, vehicle, dict, onWrite, onStart }: Props) {
-  const total = mission?.items.length ?? null
+  const total = mission?.items.length ?? progress?.total ?? null
   const remaining = mission && progress ? remainingDistanceM(mission.items, progress.seq, vehicle.lat === 0 && vehicle.lon === 0 ? null : vehicle) : null
   return (
     <div className="mission-progress" data-testid="mission-progress">

@@ -47,7 +47,8 @@
 | PUT | `/api/vehicles/{sysid}/mission` | `Mission` → `UploadReport{items, verified, mismatched[], findings[]}`。書込 → 読込 → 一致検証。`409 vehicle_armed` / `409 mission_busy` / `409 mission_invalid`(`data.findings` に致命) / `409 mission_rejected`(MISSION_ACK) / `503 link_lost` / `504 mission_timeout`(1.5 s × 3 回)。監査 target `mission` |
 | POST | `/api/vehicles/{sysid}/mission/upload` | `{mission_id}` → 保存済みミッションを同じ手順で書込 |
 | GET | `/api/vehicles/{sysid}/mission` | 機体から読込 → `Mission`(`sysid` 入り) |
-| GET | `/api/vehicles/{sysid}/mission/progress` | → `MissionProgress{seq, total}` または `null` |
+| GET | `/api/vehicles/{sysid}/mission/progress` | → `MissionProgress{seq, total}` または `null`(`total` = 項目数) |
+| GET | `/api/vehicles/{sysid}/mission/known` | サーバーが最後に書込 / 読込した機体のミッション → `Mission` または `null`(再読込した画面の経路 / 進捗表示に使う) |
 | GET / POST | `/api/missions` | 一覧 `[MissionSummaryRow]` / `Mission` → `201 Mission`(id 付き)。`name` 1〜64 文字、`items` ≤ 700(`400 validation`) |
 | GET / PUT / DELETE | `/api/missions/{id}` | `Mission` / `Mission` → `Mission` / `204` |
 | GET | `/api/missions/{id}/export?format=waypoints` | `text/plain`、`Content-Disposition: attachment; filename="<name>.waypoints"`(QGC WPL 110、行 0 = home) |
@@ -112,7 +113,7 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | `vehicle_message` | `{sysid, id, severity, text, ts}`。機体の STATUSTEXT は原文(50 バイトのチャンクはサーバーで結合)。サーバー生成の `text` は固定コード `comms_delay` / `link_lost` / `link_restored`(UI が翻訳) | 発生時 |
 | `command_result` | `{id, sysid, cmd, ok, reason?, ts}` | 完了時 |
 | `vehicle_discovered` / `vehicle_lost` | `{sysid}` | 発生時 |
-| `mission_progress` | `{sysid, progress: {seq, total}}` | `MISSION_CURRENT` の変化時 + 1 Hz(サーバーが再送)。`total` はサーバーが書込 / 読込したミッションの項目数 + 1(home) |
+| `mission_progress` | `{sysid, progress: {seq, total}}` | `MISSION_CURRENT` の変化時 + 1 Hz(サーバーが再送)。`total` はサーバーが書込 / 読込したミッションの項目数(未知なら機体の `MISSION_CURRENT.total`) |
 | `input_state` | `{deadman: ok\|lost}` | 変化時(`input_hb` 1.5 s 途絶で `lost`、サーバーは速度 0 を 1 回送る) |
 | `error` | `{code, message}` | 入力拒否時 |
 

@@ -2,7 +2,7 @@ import { act, render } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type Handler = (e?: unknown) => void
-const created = { maps: [] as FakeMap[], markers: [] as FakeMarker[] }
+const created = { maps: [] as FakeMap[], markers: [] as FakeMarker[], deferLoad: false }
 
 class FakeMarker {
   el: HTMLElement
@@ -48,7 +48,7 @@ class FakeMap {
   }
   on(ev: string, cb: Handler) {
     this.handlers.set(ev, [...(this.handlers.get(ev) ?? []), cb])
-    if (ev === 'load') cb()
+    if (ev === 'load' && !created.deferLoad) cb()
   }
   fire(ev: string, e?: unknown) {
     this.handlers.get(ev)?.forEach((cb) => cb(e))
@@ -108,6 +108,18 @@ describe('MissionMap', () => {
   beforeEach(() => {
     created.maps = []
     created.markers = []
+    created.deferLoad = false
+  })
+
+  it('path_is_set_when_the_style_loads_after_mount_with_an_existing_draft', () => {
+    created.deferLoad = true
+    renderMap()
+    const map = created.maps[0]!
+    expect(map.sources.size).toBe(0)
+    act(() => map.fire('load'))
+    const path = map.sources.get('mission-path')!
+    const last = path.setData.mock.calls.at(-1)![0] as { features: unknown[] }
+    expect(last.features).toHaveLength(2)
   })
 
   it('renders_one_badge_per_item_and_a_handle_per_leg', () => {

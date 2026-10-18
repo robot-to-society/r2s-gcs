@@ -46,13 +46,19 @@ echo "[5] export == fixture"
 api "$URL/api/missions/$id/export?format=waypoints" > "$OUT"
 cmp -s "$OUT" "$FIXTURE" || { diff "$FIXTURE" "$OUT" | head -5; fail "export differs from the fixture"; }
 
-send_confirmed() {
-  local cmd="$1" tok
+send_confirmed() {  # $1 = cmd, $2 = optional JSON args
+  local cmd="$1" args="${2:-}" tok body
   tok=$(api -H 'content-type: application/json' -d "{\"cmd\":\"$cmd\"}" "$URL/api/vehicles/$SYSID/confirm" | json 'd["data"]["confirm_token"]')
-  api -H 'content-type: application/json' -d "{\"cmd\":\"$cmd\",\"confirm_token\":\"$tok\"}" "$URL/api/vehicles/$SYSID/command" >/dev/null
+  body="{\"cmd\":\"$cmd\",\"confirm_token\":\"$tok\"${args:+,\"args\":$args}}"
+  api -H 'content-type: application/json' -d "$body" "$URL/api/vehicles/$SYSID/command" >/dev/null
 }
 
-echo "[6] ARM + mission_start"
+echo "[6] STABILIZE → ARM → mission_start"
+mode=$(api "$URL/api/vehicles/$SYSID" | json 'd["data"]["mode"]')
+if [ "$mode" != "STABILIZE" ]; then
+  send_confirmed set_mode '{"mode":"STABILIZE"}'   # ArduCopter refuses to arm in AUTO / RTL / LAND
+  for _ in $(seq 1 20); do [ "$(api "$URL/api/vehicles/$SYSID" | json 'd["data"]["mode"]')" = STABILIZE ] && break; sleep 0.5; done
+fi
 send_confirmed arm
 for _ in $(seq 1 40); do [ "$(api "$URL/api/vehicles/$SYSID" | json 'd["data"]["armed"]')" = True ] && break; sleep 0.5; done
 [ "$(api "$URL/api/vehicles/$SYSID" | json 'd["data"]["armed"]')" = True ] || fail "vehicle did not arm (PreArm?)"

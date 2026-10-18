@@ -100,6 +100,12 @@ fn parse_line(text: &str, line: usize) -> Result<(u16, MissionItem), WplError> {
     }
     let seq: u16 = parse_num(&cols, 0, line, "seq")?;
     let frame_id: u8 = parse_num(&cols, 2, line, "frame")?;
+    // MAV_FRAME_MISSION (2): QGC's frame for DO_ / CONDITION rows, which carry no altitude.
+    let frame_id = if frame_id == 2 {
+        MissionFrame::Rel.mav()
+    } else {
+        frame_id
+    };
     let frame = MissionFrame::from_mav(frame_id).ok_or_else(|| WplError::Line {
         line,
         reason: format!("unsupported frame {frame_id}"),

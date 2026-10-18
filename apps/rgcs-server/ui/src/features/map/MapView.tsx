@@ -41,6 +41,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   const markers = useRef(new Map<number, { marker: Marker; el: HTMLDivElement }>())
   const targetMarker = useRef<Marker | null>(null)
   const missionBadges = useRef<Marker[]>([])
+  const missionRef = useRef(mission)
+  missionRef.current = mission
   const dragRef = useRef(onDragStart)
   const clickRef = useRef(onClick)
   dragRef.current = onDragStart
@@ -84,6 +86,11 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         paint: { 'line-color': '#9cc9ff', 'line-width': 2, 'line-dasharray': [1, 2] },
       })
       loaded.current = true
+      const current = missionRef.current
+      if (current) {
+        const src = m.getSource(MISSION) as { setData: (d: unknown) => void } | undefined
+        src?.setData(pathGeoJson(current.items, current.home))
+      }
     })
     m.on('dragstart', () => dragRef.current())
     m.on('click', (e) => clickRef.current({ lat: e.lngLat.lat, lon: e.lngLat.lng }))

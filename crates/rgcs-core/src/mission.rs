@@ -256,7 +256,7 @@ impl Mission {
 
     fn alt_findings(&self, max: f32) -> Vec<Finding> {
         let mut out = Vec::new();
-        for (i, it) in self.items.iter().enumerate().filter(|(_, it)| it.is_positional()) {
+        for (i, it) in self.items.iter().enumerate().filter(|(_, it)| it.has_position()) {
             let seq = Some((i + 1) as u16);
             match it.frame {
                 MissionFrame::Rel if it.alt > max => out.push(Finding::fatal(
@@ -318,7 +318,7 @@ impl Mission {
                     ));
                 }
             }
-            if it.is_positional() {
+            if it.has_position() {
                 if !frames.contains(&it.frame) {
                     frames.push(it.frame);
                 }
@@ -329,12 +329,10 @@ impl Mission {
                         "terrain altitude needs terrain data on the vehicle",
                     ));
                 }
-                if it.lat == 0.0
-                    && it.lon == 0.0
-                    && !matches!(it.command, MAV_CMD_NAV_RETURN_TO_LAUNCH | MAV_CMD_NAV_LAND)
-                {
-                    out.push(Finding::warn("zero_position", seq, "item has no position"));
-                }
+            } else if it.is_positional()
+                && !matches!(it.command, MAV_CMD_NAV_RETURN_TO_LAUNCH | MAV_CMD_NAV_LAND)
+            {
+                out.push(Finding::warn("zero_position", seq, "item has no position"));
             }
         }
         if frames.len() > 1 {
@@ -547,6 +545,20 @@ mod tests {
         assert!((990.0..1010.0).contains(&s.distance_m), "{}", s.distance_m);
         assert!((123.0..137.0).contains(&s.duration_s), "{}", s.duration_s);
         assert_eq!(s.max_alt, 80.0);
+    }
+
+    #[test]
+    fn read_back_shaped_mission_has_no_frame_warnings() {
+        // ArduPilot returns RTL (no position) in MAV_FRAME_GLOBAL: not a mixed-frame mission.
+        let mut m = demo20();
+        m.items[19].frame = MissionFrame::Abs;
+        let f = m.validate(&FenceInfo {
+            enabled: Some(true),
+            alt_max: Some(120.0),
+            radius: None,
+        });
+        assert!(!codes(&f).contains(&"mixed_frames"), "{f:?}");
+        assert!(!codes(&f).contains(&"fence_frame_unchecked"), "{f:?}");
     }
 
     #[test]

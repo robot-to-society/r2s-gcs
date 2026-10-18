@@ -7,7 +7,7 @@ import { PresentSettings } from '../features/present-settings'
 import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../features/detail'
 import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
-import { MissionPicker, MissionView, getMission, uploadSavedMission } from '../features/mission'
+import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
@@ -113,6 +113,19 @@ export function Shell({ me, lang }: Props) {
     const cmd = buttonCommand(fn, cameras.get(current)?.state ?? null)
     if (cmd) cameraCommand(current, cmd)
   })
+
+  // A reloaded page (or a second laptop) learns the vehicle's mission from the server.
+  const knownMissing = current !== null && !vehicleMissions.has(current)
+  useEffect(() => {
+    if (current === null || !knownMissing) return
+    let alive = true
+    getKnownMission(current)
+      .then((m) => alive && m && vehicleStore.setVehicleMission(current, m))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [current, knownMissing])
 
   const writeSavedMission = async (sysid: number, id: number) => {
     setModal(NO_MODAL)

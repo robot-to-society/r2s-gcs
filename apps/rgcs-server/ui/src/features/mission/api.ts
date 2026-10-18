@@ -13,6 +13,8 @@ export const uploadMission = (sysid: number, m: Mission): Promise<UploadReport> 
 export const uploadSavedMission = (sysid: number, id: number): Promise<UploadReport> =>
   apiFetch(`/api/vehicles/${sysid}/mission/upload`, { method: 'POST', body: { mission_id: id } })
 export const downloadMission = (sysid: number): Promise<Mission> => apiFetch(`/api/vehicles/${sysid}/mission`)
+/** The mission the server last wrote to / read from the vehicle (null when none). */
+export const getKnownMission = (sysid: number): Promise<Mission | null> => apiFetch(`/api/vehicles/${sysid}/mission/known`)
 
 export function validateMission(m: Mission, sysid: number | null): Promise<{ findings: Finding[]; stats: MissionStats }> {
   const q = sysid === null ? '' : `?sysid=${sysid}`

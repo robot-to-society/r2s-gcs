@@ -91,3 +91,12 @@ fn export_without_home_uses_first_positional_item() {
     let back = from_wpl(&text).unwrap();
     assert_eq!(back.home.unwrap().alt, 0.0);
 }
+
+#[test]
+fn frame_mission_rows_import_as_rel() {
+    // QGC writes MAV_FRAME_MISSION (2) for DO_ / CONDITION rows.
+    let text = "QGC WPL 110\n0\t1\t0\t16\t0\t0\t0\t0\t36.0\t139.0\t0\t1\n1\t0\t3\t22\t0\t0\t0\t0\t36.0\t139.0\t30\t1\n2\t0\t2\t178\t1\t8\t-1\t0\t0\t0\t0\t1\n";
+    let m = from_wpl(text).expect("frame 2 accepted on a non-positional row");
+    assert_eq!(m.items[1].command, 178);
+    assert_eq!(m.items[1].frame, MissionFrame::Rel);
+}

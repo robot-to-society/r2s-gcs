@@ -53,6 +53,8 @@ export function MissionMap(props: Props) {
   toolRef.current = tool
   const selectedRef = useRef(selected)
   selectedRef.current = selected
+  const draftRef = useRef(draft)
+  draftRef.current = draft
 
   useEffect(() => {
     if (!container.current) return
@@ -64,6 +66,9 @@ export function MissionMap(props: Props) {
       m.addLayer({ id: 'mission-path-casing', type: 'line', source: PATH, paint: { 'line-color': '#0b1b2e', 'line-width': 6, 'line-opacity': 0.6 } })
       m.addLayer({ id: 'mission-path-line', type: 'line', source: PATH, paint: { 'line-color': ALT_COLOR, 'line-width': 3 } })
       loaded.current = true
+      // The draft may already exist (store is global): draw it as soon as the style is ready.
+      const src = m.getSource(PATH) as { setData: (d: unknown) => void } | undefined
+      src?.setData(pathGeoJson(draftRef.current.items, draftRef.current.mission.home))
     })
     m.on('click', (e) => {
       if (toolRef.current === 'add') cb.current.onAdd(e.lngLat.lat, e.lngLat.lng)

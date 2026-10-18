@@ -15,7 +15,11 @@ use crate::app::{unix_ms, AppState};
 use crate::auth::AuthUser;
 use crate::missions::MissionError;
 
-const FENCE_PARAMS: [&str; 3] = ["FENCE_ENABLE", "FENCE_ALT_MAX", "FENCE_RADIUS"];
+use crate::telemetry::FENCE_PARAMS;
+
+/// How long an upload waits for fence parameters that were requested but not answered yet.
+const FENCE_WAIT: std::time::Duration = std::time::Duration::from_millis(200);
+const FENCE_WAIT_ROUNDS: u32 = 5;
 
 #[derive(Debug, Deserialize)]
 pub struct UploadSavedBody {
@@ -55,6 +59,34 @@ pub fn request_missing_fence_params(app: &AppState, sysid: SysId, info: &FenceIn
             message: encode_param_request_read(sysid, name),
         });
     }
+}
+
+/// Asks for the fence parameters once and gives the vehicle up to ~1 s to answer (they are
+/// normally cached since discovery; this covers an upload right after the link came up).
+pub async fn await_fence(app: &AppState, sysid: SysId) -> FenceInfo {
+    let known = |f: &FenceInfo| f.enabled.is_some() && f.alt_max.is_some() && f.radius.is_some();
+    let mut fence = fence_from_cache(app, sysid);
+    if known(&fence) {
+        return fence;
+    }
+    request_missing_fence_params(app, sysid, &fence);
+    for _ in 0..FENCE_WAIT_ROUNDS {
+        tokio::time::sleep(FENCE_WAIT).await;
+        fence = fence_from_cache(app, sysid);
+        if known(&fence) {
+            break;
+        }
+    }
+    fence
+}
+
+/// `GET /api/vehicles/{sysid}/mission/known` — the mission the server last wrote to / read from the vehicle.
+pub async fn get_known(
+    State(app): State<AppState>,
+    AuthUser(_op): AuthUser,
+    Path(sysid): Path<SysId>,
+) -> Response {
+    ok(app.missions.known(sysid))
 }
 
 async fn vehicle_for_write(app: &AppState, sysid: SysId) -> Result<VehicleState, Box<Response>> {
@@ -111,7 +143,23 @@ async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) ->
             "disarm before writing a mission",
         );
     }
-    let fence = fence_from_cache(app, sysid);
+    // Structural problems are refused before anything goes to the link (Review Focus 4); the
+    // fence check then waits briefly for parameters that may still be in flight.
+    let pre = mission.validate(&fence_from_cache(app, sysid));
+    if Mission::has_fatal(&pre) {
+        audit(
+            app,
+            op,
+            sysid,
+            "upload",
+            mission,
+            "rejected",
+            Some("mission_invalid"),
+        )
+        .await;
+        return invalid_response(&pre);
+    }
+    let fence = await_fence(app, sysid).await;
     let findings = mission.validate(&fence);
     if Mission::has_fatal(&findings) {
         audit(

@@ -2,7 +2,7 @@ import { act, render } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
 
-const created = { maps: [] as FakeMap[], markers: [] as FakeMarker[] }
+const created = { maps: [] as FakeMap[], markers: [] as FakeMarker[], deferLoad: false }
 
 class FakeMarker {
   el: HTMLElement
@@ -34,7 +34,7 @@ class FakeMap {
   }
   on(ev: string, cb: () => void) {
     this.handlers.set(ev, [...(this.handlers.get(ev) ?? []), cb])
-    if (ev === 'load') cb()
+    if (ev === 'load' && !created.deferLoad) cb()
   }
   fire(ev: string) {
     this.handlers.get(ev)?.forEach((cb) => cb())
@@ -76,6 +76,20 @@ describe('MapView', () => {
   beforeEach(() => {
     created.maps = []
     created.markers = []
+    created.deferLoad = false
+  })
+
+  it('mission_path_is_set_when_the_style_loads_late', () => {
+    created.deferLoad = true
+    const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
+    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, items: [item(22, 36.162, 139.372, 30), item(16, 36.163, 139.373, 60)] }
+    render(
+      <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={mission} missionCurrent={null} />,
+    )
+    const map = created.maps[0]!
+    act(() => map.fire('load'))
+    const last = map.sources.get('mission-path')!.setData.mock.calls.at(-1)![0] as { features: unknown[] }
+    expect(last.features).toHaveLength(1)
   })
 
   it('creates markers only for positioned vehicles and removes them when they vanish', () => {

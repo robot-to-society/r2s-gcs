@@ -15,7 +15,8 @@ const FRAME_CAPACITY: usize = 256;
 const TICK: Duration = Duration::from_millis(250);
 const RESEND_EVERY: Duration = Duration::from_secs(1);
 const LAT_LON_EPS: f64 = 1e-7;
-const ALT_EPS: f32 = 1e-3;
+/// ArduPilot stores altitudes in centimetres.
+const ALT_EPS: f32 = 0.011;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MissionError {
@@ -102,7 +103,7 @@ impl MissionHub {
             .known
             .lock()
             .ok()
-            .and_then(|k| k.get(&sysid).map(|m| m.items.len() as u16 + 1));
+            .and_then(|k| k.get(&sysid).map(|m| m.items.len() as u16));
         let total = known_total.or((wire_total > 0).then_some(wire_total));
         let next = MissionProgress { seq, total };
         let changed = match self.progress.lock() {
@@ -302,7 +303,22 @@ mod tests {
         b.items[19].frame = rgcs_core::MissionFrame::Abs;
         assert!(mismatches(&a, &b).is_empty(), "{:?}", mismatches(&a, &b));
         b.items[1].frame = rgcs_core::MissionFrame::Abs;
-        assert_eq!(mismatches(&a, &b), vec![2], "positional items still compare the frame");
+        assert_eq!(
+            mismatches(&a, &b),
+            vec![2],
+            "positional items still compare the frame"
+        );
+    }
+
+    #[test]
+    fn centimetre_altitude_rounding_is_not_a_mismatch() {
+        let mut a = demo20();
+        a.items[2].alt = 30.123;
+        let mut b = a.clone();
+        b.items[2].alt = 30.12;
+        assert!(mismatches(&a, &b).is_empty());
+        b.items[2].alt = 30.2;
+        assert_eq!(mismatches(&a, &b), vec![3]);
     }
 
     #[test]

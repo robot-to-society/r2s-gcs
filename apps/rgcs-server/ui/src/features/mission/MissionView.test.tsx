@@ -109,4 +109,31 @@ describe('MissionView', () => {
     const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`)
     expect(calls).toEqual(['POST /api/missions/validate?sysid=1'])
   })
+
+  it('export_saves_a_dirty_mission_first', async () => {
+    const { fetchMock } = setup((url, init) => {
+      if (url === '/api/missions' && init?.method === 'POST') return envelope({ ...JSON.parse(String(init.body)), id: 5 })
+      if (url === '/api/missions/5' && init?.method === 'PUT') return envelope({ ...JSON.parse(String(init.body)), id: 5 })
+      if (url.startsWith('/api/missions/5/export')) return new Response('QGC WPL 110\n', { status: 200, headers: { 'content-type': 'text/plain' } })
+      return envelope([])
+    })
+    vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:x', revokeObjectURL: () => {} })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    addPoints(2)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByText('map-add'))
+    })
+    expect(screen.getByText('未保存')).toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '.waypoints 保存' }))
+    })
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`)
+    expect(calls).toEqual(['POST /api/missions', 'PUT /api/missions/5', 'GET /api/missions/5/export?format=waypoints'])
+    expect(screen.queryByText('未保存')).not.toBeInTheDocument()
+    expect(click).toHaveBeenCalledTimes(1)
+    click.mockRestore()
+  })
 })

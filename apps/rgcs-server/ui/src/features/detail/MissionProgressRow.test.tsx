@@ -35,4 +35,9 @@ describe('MissionProgressRow', () => {
     expect(onStart).toHaveBeenCalledTimes(1)
     expect(screen.getByTestId('mission-progress')).toHaveTextContent('4 項目')
   })
+
+  it('falls_back_to_the_wire_total_when_the_mission_is_unknown', () => {
+    render(<MissionProgressRow progress={{ seq: 3, total: 20 }} mission={null} vehicle={v(true)} dict={t('ja')} onWrite={() => {}} onStart={() => {}} />)
+    expect(screen.getByTestId('mission-progress')).toHaveTextContent('WP 3 / 20')
+  })
 })

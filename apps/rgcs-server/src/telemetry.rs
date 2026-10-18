@@ -67,16 +67,28 @@ pub fn event_frame(ev: RouterEvent, now_ms: u64) -> Option<ServerMessage> {
 }
 
 /// Forwards discovery / message / link events straight to the clients; caches PARAM_VALUEs.
+/// Parameters the mission validation needs; asked for as soon as a vehicle appears.
+pub const FENCE_PARAMS: [&str; 3] = ["FENCE_ENABLE", "FENCE_ALT_MAX", "FENCE_RADIUS"];
+
 pub async fn pump_events(
     mut events: mpsc::Receiver<RouterEvent>,
     tx: broadcast::Sender<ServerMessage>,
     params: crate::params::ParamStore,
     missions: crate::missions::MissionHub,
+    outgoing: mpsc::Sender<rgcs_mavlink::Outgoing>,
 ) {
     while let Some(ev) = events.recv().await {
         params.apply(&ev);
-        if let RouterEvent::Mission { sysid, frame } = &ev {
-            missions.on_frame(*sysid, frame.clone());
+        match &ev {
+            RouterEvent::Mission { sysid, frame } => missions.on_frame(*sysid, frame.clone()),
+            RouterEvent::Discovered(sysid) => {
+                for name in FENCE_PARAMS {
+                    let _ = outgoing.try_send(rgcs_mavlink::Outgoing {
+                        message: rgcs_mavlink::encode_param_request_read(*sysid, name),
+                    });
+                }
+            }
+            _ => {}
         }
         if let Some(f) = event_frame(ev, crate::app::unix_ms()) {
             let _ = tx.send(f);
@@ -105,6 +117,39 @@ pub async fn diff_loop(router: Arc<Mutex<Router>>, tx: broadcast::Sender<ServerM
 mod tests {
     use super::*;
     use rgcs_core::LinkStatus;
+
+    #[tokio::test]
+    async fn discovery_requests_the_fence_params() {
+        use mavlink::dialects::ardupilotmega::MavMessage;
+        let (events_tx, events_rx) = mpsc::channel(8);
+        let (tx, _keep) = broadcast::channel(8);
+        let (out_tx, mut out_rx) = mpsc::channel(8);
+        let hub = crate::missions::MissionHub::new(tx.clone());
+        tokio::spawn(pump_events(
+            events_rx,
+            tx,
+            crate::params::ParamStore::default(),
+            hub,
+            out_tx,
+        ));
+        events_tx.send(RouterEvent::Discovered(1)).await.unwrap();
+        let mut names = Vec::new();
+        for _ in 0..3 {
+            let o = tokio::time::timeout(Duration::from_secs(1), out_rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            if let MavMessage::PARAM_REQUEST_READ(p) = o.message {
+                names.push(
+                    String::from_utf8_lossy(&*p.param_id)
+                        .trim_end_matches('\0')
+                        .to_string(),
+                );
+            }
+        }
+        names.sort();
+        assert_eq!(names, vec!["FENCE_ALT_MAX", "FENCE_ENABLE", "FENCE_RADIUS"]);
+    }
 
     #[test]
     fn link_changes_become_vehicle_messages_with_stable_codes() {

@@ -81,7 +81,8 @@ export function useMissionIo(store: MissionStore, sysid: number | null, dict: Di
   }
 
   const saveWaypointsFile = async () => {
-    const id = store.getState().savedId ?? (await save())
+    const ui = store.getState()
+    const id = ui.dirty || ui.savedId === null ? await save() : ui.savedId
     if (id === null) return
     try {
       const text = await exportWaypoints(id)

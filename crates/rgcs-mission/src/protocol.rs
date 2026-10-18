@@ -40,6 +40,31 @@ fn for_us(target_system: u8, mission_type: MavMissionType) -> bool {
     (target_system == GCS_SYSTEM_ID || target_system == 0) && mission_type == MISSION
 }
 
+/// Commands whose x/y carry a location (ArduPilot `stored_in_location`): only these are scaled by 1e7
+/// in `MISSION_ITEM_INT`; every other command's x/y are raw parameter values.
+pub fn cmd_has_location(command: u16) -> bool {
+    matches!(
+        command,
+        16..=22 | 30 | 31 | 82 | 84 | 85 | 92 | 94 | 179 | 189 | 191 | 195 | 201 | 210 | 211
+    )
+}
+
+fn to_wire_xy(command: u16, v: f64) -> i32 {
+    if cmd_has_location(command) {
+        (v * 1e7).round() as i32
+    } else {
+        v.round() as i32
+    }
+}
+
+fn from_wire_xy(command: u16, v: i32) -> f64 {
+    if cmd_has_location(command) {
+        v as f64 / 1e7
+    } else {
+        v as f64
+    }
+}
+
 pub fn item_to_int(
     seq: u16,
     sysid: SysId,
@@ -52,8 +77,8 @@ pub fn item_to_int(
         param2: item.params[1],
         param3: item.params[2],
         param4: item.params[3],
-        x: (item.lat * 1e7).round() as i32,
-        y: (item.lon * 1e7).round() as i32,
+        x: to_wire_xy(item.command, item.lat),
+        y: to_wire_xy(item.command, item.lon),
         z: item.alt,
         seq,
         command: MavCmd::from_u16(item.command)?,
@@ -68,12 +93,13 @@ pub fn item_to_int(
 
 /// `None` for a frame we do not model (the item is dropped from a download with a warning upstream).
 pub fn int_to_item(d: &MISSION_ITEM_INT_DATA) -> Option<MissionItem> {
+    let command = d.command.to_u16()?;
     Some(MissionItem {
-        command: d.command.to_u16()?,
+        command,
         frame: MissionFrame::from_mav(d.frame.to_u8()?)?,
         params: [d.param1, d.param2, d.param3, d.param4],
-        lat: d.x as f64 / 1e7,
-        lon: d.y as f64 / 1e7,
+        lat: from_wire_xy(command, d.x),
+        lon: from_wire_xy(command, d.y),
         alt: d.z,
         autocontinue: d.autocontinue != 0,
     })
@@ -602,6 +628,29 @@ mod tests {
         assert_eq!(back.command, it.command);
         assert_eq!(back.frame, it.frame);
         assert_eq!(back.alt, it.alt);
+    }
+
+    #[test]
+    fn non_location_commands_keep_raw_x_y() {
+        // DO_DIGICAM_CONTROL: p5 (shoot) travels in x unscaled; ArduPilot reads packet.x raw.
+        let it = MissionItem {
+            command: 203,
+            frame: MissionFrame::Rel,
+            params: [0.0, 0.0, 0.0, 0.0],
+            lat: 1.0,
+            lon: 0.0,
+            alt: 0.0,
+            autocontinue: true,
+        };
+        let d = item_to_int(3, SYS, COMP, &it, false).unwrap();
+        assert_eq!(d.x, 1);
+        let back = int_to_item(&d).unwrap();
+        assert_eq!(back.lat, 1.0);
+        let wp = demo20().items[1].clone();
+        assert_eq!(
+            item_to_int(2, SYS, COMP, &wp, false).unwrap().x,
+            (wp.lat * 1e7).round() as i32
+        );
     }
 
     #[test]

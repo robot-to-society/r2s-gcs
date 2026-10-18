@@ -199,7 +199,11 @@ async fn mission_current_becomes_progress_frames() {
     .await
     .expect("progress frame");
     assert_eq!(frame.0, 1);
-    assert_eq!((frame.1.seq, frame.1.total), (3, Some(21)));
+    assert_eq!(
+        (frame.1.seq, frame.1.total),
+        (3, Some(20)),
+        "total = item count, what the UI prints"
+    );
     let (status, body, _) = call(
         &app,
         req(
@@ -224,4 +228,37 @@ async fn mission_current_becomes_progress_frames() {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert!(body["data"].is_null(), "{body}");
+}
+
+#[tokio::test]
+async fn known_mission_endpoint_returns_what_the_server_wrote() {
+    let (app, state, rx) = spawn_app_with_link().await;
+    seed_vehicle(&state, 1, false, false).await;
+    seed_vehicle(&state, 2, false, false).await;
+    let cookie = login(&app).await;
+    let (status, body, _) = call(
+        &app,
+        req(Method::GET, "/api/vehicles/1/mission/known", Some(&cookie), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body["data"].is_null());
+    let _fake = fake_vehicle_mission(rx, state.missions.clone(), 1, stored(), FakeMode::Normal);
+    let (status, _) = put_mission(&app, &cookie, &demo20()).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body, _) = call(
+        &app,
+        req(Method::GET, "/api/vehicles/1/mission/known", Some(&cookie), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["data"]["items"].as_array().unwrap().len(), 20);
+    assert_eq!(body["data"]["sysid"], 1);
+    let (status, body, _) = call(
+        &app,
+        req(Method::GET, "/api/vehicles/2/mission/known", Some(&cookie), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["data"].is_null());
 }

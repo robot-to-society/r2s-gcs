@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Mission } from '../../shared/api/types'
-import { createMission, downloadMission, exportWaypoints, importWaypoints, listMissions, updateMission, uploadMission, uploadSavedMission, validateMission } from './api'
+import { createMission, downloadMission, exportWaypoints, getKnownMission, importWaypoints, listMissions, updateMission, uploadMission, uploadSavedMission, validateMission } from './api'
 
 const mission: Mission = { id: null, name: 'm', sysid: null, default_alt: 50, default_frame: 'rel', speed: 8, home: null, items: [] }
 
@@ -24,6 +24,7 @@ describe('mission api', () => {
     await downloadMission(2)
     await validateMission(mission, 1)
     await validateMission(mission, null)
+    await getKnownMission(4)
     const calls = f.mock.calls.map(([url, init]) => [String(url), init?.method ?? 'GET', typeof init?.body === 'string' ? JSON.parse(init.body) : undefined])
     expect(calls).toEqual([
       ['/api/missions', 'GET', undefined],
@@ -34,6 +35,7 @@ describe('mission api', () => {
       ['/api/vehicles/2/mission', 'GET', undefined],
       ['/api/missions/validate?sysid=1', 'POST', mission],
       ['/api/missions/validate', 'POST', mission],
+      ['/api/vehicles/4/mission/known', 'GET', undefined],
     ])
   })
 
