@@ -6,6 +6,7 @@ use ts_rs::TS;
 use crate::camera::{CameraCaps, CameraSnapshot, CameraState, Deadman, VideoSourceStatus};
 use crate::command::CommandResult;
 use crate::mission::MissionProgress;
+use crate::params::ParamProgress;
 use crate::vehicle::{SysId, VehicleState, VehicleStateDiff};
 
 /// A STATUSTEXT or a link event shown in the vehicle's message list.
@@ -57,6 +58,11 @@ pub enum ServerMessage {
     MissionProgress {
         sysid: SysId,
         progress: MissionProgress,
+    },
+    /// Full parameter download progress (every 25 values, on completion, on refresh).
+    ParamProgress {
+        sysid: SysId,
+        progress: ParamProgress,
     },
     Telemetry {
         sysid: SysId,
@@ -139,6 +145,22 @@ mod tests {
         let json = serde_json::to_value(&snap).unwrap();
         assert_eq!(json["video_sources"][0]["sysid"], 1);
         assert_eq!(json["video_sources"][0]["status"]["source"], "none");
+    }
+
+    #[test]
+    fn param_progress_frame_shape() {
+        let f = ServerMessage::ParamProgress {
+            sysid: 1,
+            progress: crate::ParamProgress {
+                received: 25,
+                total: Some(1200),
+                complete: false,
+                downloading: true,
+            },
+        };
+        let json = serde_json::to_value(&f).unwrap();
+        assert_eq!(json["t"], "param_progress");
+        assert_eq!(json["progress"]["received"], 25);
     }
 
     #[test]

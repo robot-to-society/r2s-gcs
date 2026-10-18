@@ -7,6 +7,7 @@ pub mod camera;
 pub mod command;
 pub mod mission;
 pub mod operator;
+pub mod params;
 pub mod vehicle;
 pub mod ws;
 
@@ -23,6 +24,7 @@ pub use mission::{
     MAV_CMD_NAV_RETURN_TO_LAUNCH, MAV_CMD_NAV_TAKEOFF, MAV_CMD_NAV_WAYPOINT,
 };
 pub use operator::Operator;
+pub use params::{ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult};
 pub use vehicle::{
     diff, Battery, Gps, LinkStatus, SysId, VehicleKind, VehicleState, VehicleStateDiff, VehicleSummary,
 };

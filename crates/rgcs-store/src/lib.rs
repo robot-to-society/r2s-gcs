@@ -6,6 +6,7 @@ pub mod camera_profiles;
 pub mod input_profile;
 pub mod lockout;
 pub mod missions;
+pub mod param_history;
 pub mod password;
 pub mod presentation;
 pub mod sessions;
