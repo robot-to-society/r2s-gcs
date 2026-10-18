@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# P6 Task 2: the Pi binary is an aarch64 ELF, runs on plain Debian bookworm (glibc <= 2.36)
+# and answers --version without a config file. Prints "CHECK build: OK" or FAIL.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+BIN="$ROOT/dist/pi/rgcs-server"
+fail() { echo "FAIL: $*"; exit 1; }
+
+[ -x "$BIN" ] || fail "missing $BIN (run scripts/build-pi.sh)"
+file "$BIN" | grep -q 'ARM aarch64' || fail "not an aarch64 ELF: $(file "$BIN")"
+[ -x "$ROOT/dist/pi/siyi_sim" ] || fail "missing dist/pi/siyi_sim"
+out=$(docker run --rm --platform linux/arm64 -v "$ROOT/dist/pi:/d:ro" debian:bookworm-slim /d/rgcs-server --version)
+echo "    $out"
+echo "$out" | grep -Eq '^rgcs-server [0-9]+\.[0-9]+\.[0-9]+' || fail "--version printed: $out"
+max=$(docker run --rm --platform linux/arm64 -v "$ROOT/dist/pi:/d:ro" rgcs-build-arm64 \
+  sh -c "objdump -T /d/rgcs-server | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1")
+echo "    highest glibc symbol: $max"
+[ "$(printf '%s\nGLIBC_2.36\n' "$max" | sort -V | tail -1)" = "GLIBC_2.36" ] || fail "needs $max (> bookworm's 2.36)"
+size=$(wc -c <"$BIN" | tr -d ' ')
+echo "    size: $((size / 1024 / 1024)) MB"
+echo "CHECK build: OK"
