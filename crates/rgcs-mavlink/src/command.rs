@@ -1,8 +1,8 @@
 //! [`VehicleCommand`] → MAVLink messages for ArduPilot, plus the ACK each one expects.
 
 use mavlink::dialects::ardupilotmega::{
-    MavCmd, MavFrame, MavMessage, PositionTargetTypemask, COMMAND_LONG_DATA, PARAM_REQUEST_READ_DATA,
-    SET_POSITION_TARGET_GLOBAL_INT_DATA,
+    MavCmd, MavFrame, MavMessage, MavParamType, PositionTargetTypemask, COMMAND_LONG_DATA,
+    PARAM_REQUEST_LIST_DATA, PARAM_REQUEST_READ_DATA, PARAM_SET_DATA, SET_POSITION_TARGET_GLOBAL_INT_DATA,
 };
 use rgcs_core::{VehicleCommand, VehicleKind};
 
@@ -134,6 +134,37 @@ pub fn encode_param_request_read(target: u8, name: &str) -> MavMessage {
         target_system: target,
         target_component: 1,
         param_id: name.into(),
+    })
+}
+
+/// Ask for every parameter (answers stream in as PARAM_VALUE with index / count).
+pub fn encode_param_request_list(target: u8) -> MavMessage {
+    MavMessage::PARAM_REQUEST_LIST(PARAM_REQUEST_LIST_DATA {
+        target_system: target,
+        target_component: 1,
+    })
+}
+
+/// Ask for one parameter by its index in the full list (to fill gaps after a list request).
+pub fn encode_param_request_index(target: u8, index: u16) -> MavMessage {
+    MavMessage::PARAM_REQUEST_READ(PARAM_REQUEST_READ_DATA {
+        param_index: index as i16,
+        target_system: target,
+        target_component: 1,
+        param_id: "".into(),
+    })
+}
+
+/// Write one parameter; `ptype` is the MAV_PARAM_TYPE number seen in PARAM_VALUE (0 → REAL32).
+pub fn encode_param_set(target: u8, name: &str, value: f32, ptype: u8) -> MavMessage {
+    let param_type = <MavParamType as num_traits::FromPrimitive>::from_u8(ptype)
+        .unwrap_or(MavParamType::MAV_PARAM_TYPE_REAL32);
+    MavMessage::PARAM_SET(PARAM_SET_DATA {
+        param_value: value,
+        target_system: target,
+        target_component: 1,
+        param_id: name.into(),
+        param_type,
     })
 }
 

@@ -63,6 +63,7 @@ mod tests {
             value: 1.0,
             index: 0,
             count: 1,
+            ptype: 0,
         });
         assert_eq!(p.get(1, "FENCE_ENABLE"), Some(1.0));
     }

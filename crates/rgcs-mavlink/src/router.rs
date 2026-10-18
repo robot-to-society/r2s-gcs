@@ -40,6 +40,8 @@ pub enum RouterEvent {
         value: f32,
         index: u16,
         count: u16,
+        /// `MAV_PARAM_TYPE` as a number (1 u8 … 9 real32, 0 = unknown); echoed back in PARAM_SET.
+        ptype: u8,
     },
     /// A Mission Protocol frame from the flight controller (upload / download / MISSION_CURRENT).
     Mission {
@@ -119,6 +121,7 @@ impl Router {
                 value: pv.param_value,
                 index: pv.param_index,
                 count: pv.param_count,
+                ptype: num_traits::ToPrimitive::to_u8(&pv.param_type).unwrap_or(0),
             }),
             _ => {}
         }
@@ -285,6 +288,25 @@ mod tests {
     }
 
     #[test]
+    fn param_value_event_carries_the_type() {
+        use mavlink::dialects::ardupilotmega::{MavParamType, PARAM_VALUE_DATA};
+        let mut r = Router::default();
+        r.on_message(&header(1), &fc_heartbeat(), clock(0));
+        let pv = MavMessage::PARAM_VALUE(PARAM_VALUE_DATA {
+            param_value: 1.0,
+            param_count: 1200,
+            param_index: 7,
+            param_id: "FENCE_ENABLE".into(),
+            param_type: MavParamType::MAV_PARAM_TYPE_INT8,
+        });
+        let ev = r.on_message(&header(1), &pv, clock(10));
+        assert!(
+            matches!(&ev[0], RouterEvent::ParamValue { name, index: 7, count: 1200, ptype: 2, .. } if name == "FENCE_ENABLE"),
+            "{ev:?}"
+        );
+    }
+
+    #[test]
     fn mission_frames_become_mission_events() {
         use mavlink::dialects::ardupilotmega::{
             MavMissionResult, MavMissionType, MISSION_ACK_DATA, MISSION_CURRENT_DATA,
@@ -428,7 +450,8 @@ mod tests {
             name: "FENCE_ALT_MAX".into(),
             value: 120.0,
             index: 7,
-            count: 900
+            count: 900,
+            ptype: 9
         }));
     }
 
