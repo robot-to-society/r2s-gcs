@@ -88,7 +88,7 @@ impl AppState {
         let params = ParamCache::new(tx.clone());
         let flights = crate::flights::FlightTracker::new(store.clone(), tx.clone());
         let logs = crate::logs::LogHub::new(tx.clone(), true);
-        let messages = crate::message_log::MessageLog::new(store.clone(), tx.clone());
+        let messages = crate::message_log::MessageLog::spawn(store.clone(), tx.clone());
         let whep = WhepRelay::new(&crate::config::Config::default().whep_upstream)
             .expect("default whep upstream parses");
         Self {

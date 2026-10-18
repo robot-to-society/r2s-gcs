@@ -12,6 +12,8 @@ export interface LogState {
   readonly unreadAlerts: number
   readonly open: boolean
   readonly filter: LogFilter
+  /** Local entries (negative ids) → the newest server id when they arrived: their place in the order. */
+  readonly anchors: ReadonlyMap<number, number>
 }
 
 export type LogEvent =
@@ -32,6 +34,7 @@ export const EMPTY_LOG: LogState = {
   unreadAlerts: 0,
   open: false,
   filter: 'all',
+  anchors: new Map(),
 }
 
 export const isAlert = (e: LogEntry): boolean => e.severity === 'warn' || e.severity === 'error'
@@ -50,24 +53,32 @@ export function toLogEntry(m: VehicleMessage): LogEntry {
   }
 }
 
-/** Newest first by id; local entries (negative ids) sort by time among them. */
-function merge(current: readonly LogEntry[], incoming: readonly LogEntry[]): readonly LogEntry[] {
+/** Server rows by id (AUTOINCREMENT, so arrival order on the Pi); local entries right above the
+ * server row that was newest when they happened. Wall clocks are not compared: the Pi and the
+ * browser may disagree by hours. */
+function orderKey(e: LogEntry, anchors: ReadonlyMap<number, number>): number {
+  return e.id >= 0 ? e.id : (anchors.get(e.id) ?? 0) + 0.5
+}
+
+/** Newest first, unique by id, at most `LOG_MAX`; a server row carrying an acknowledgement replaces a stale copy. */
+function merge(current: readonly LogEntry[], incoming: readonly LogEntry[], anchors: ReadonlyMap<number, number>): readonly LogEntry[] {
   const byId = new Map(current.map((x) => [x.id, x]))
   incoming.forEach((x) => {
-    if (!byId.has(x.id)) byId.set(x.id, x)
+    const had = byId.get(x.id)
+    if (!had || (had.acked_by === null && x.acked_by !== null)) byId.set(x.id, x)
   })
-  return [...byId.values()].sort((a, b) => b.ts - a.ts || b.id - a.id).slice(0, LOG_MAX)
+  // among local entries a later one has a more negative id (−Date.now())
+  return [...byId.values()].sort((a, b) => orderKey(b, anchors) - orderKey(a, anchors) || a.id - b.id).slice(0, LOG_MAX)
 }
+
+const newestServerId = (entries: readonly LogEntry[]): number => entries.reduce((m, x) => Math.max(m, x.id), 0)
 
 function addEntry(state: LogState, entry: LogEntry): LogState {
   if (state.entries.some((x) => x.id === entry.id)) return state
-  const entries = merge(state.entries, [entry])
+  const anchors = entry.id < 0 ? new Map([...state.anchors, [entry.id, newestServerId(state.entries)]]) : state.anchors
+  const entries = merge(state.entries, [entry], anchors)
   const counted = !state.open && isAlert(entry) ? state.unreadAlerts + 1 : state.unreadAlerts
-  return {
-    ...state,
-    entries,
-    unreadAlerts: Math.min(counted, entries.filter(isAlert).length),
-  }
+  return { ...state, entries, anchors, unreadAlerts: Math.min(counted, entries.filter(isAlert).length) }
 }
 
 function ack(state: LogState, id: number, by: string, ts: number): LogState {
@@ -82,7 +93,7 @@ function ack(state: LogState, id: number, by: string, ts: number): LogState {
 export function logReduce(state: LogState, ev: LogEvent): LogState {
   switch (ev.k) {
     case 'loaded':
-      return { ...state, entries: merge(state.entries, ev.entries) }
+      return { ...state, entries: merge(state.entries, ev.entries, state.anchors) }
     case 'entry':
       return addEntry(state, ev.entry)
     case 'ack':

@@ -82,4 +82,21 @@ describe('logReduce', () => {
       acked_at: null,
     })
   })
+  it('a_reload_brings_in_acknowledgements_made_while_offline', () => {
+    let s = logReduce(EMPTY_LOG, { k: 'entry', entry: e(5, 'error') })
+    s = logReduce(s, { k: 'loaded', entries: [{ ...e(5, 'error'), acked_by: 'other', acked_at: 9 }] })
+    expect([s.entries[0]!.acked_by, s.entries[0]!.acked_at]).toEqual(['other', 9])
+  })
+
+  it('order_follows_server_ids_and_arrival_not_wall_clocks', () => {
+    // the Pi's clock runs hours behind the browser: server rows carry small ts, a local failure a big one
+    const server = (id: number) => ({ ...e(id, 'warn'), ts: id })
+    const local = { ...e(-1_000_000, 'error'), sysid: 1, source: 'command' as const, ts: 9_999_999_999 }
+    let s = logReduce(EMPTY_LOG, { k: 'entry', entry: server(1) })
+    s = logReduce(s, { k: 'entry', entry: local })
+    s = logReduce(s, { k: 'entry', entry: server(2) })
+    expect(s.entries.map((x) => x.id)).toEqual([2, -1_000_000, 1])
+    s = logReduce(s, { k: 'loaded', entries: [server(3), server(2), server(1)] })
+    expect(s.entries.map((x) => x.id)).toEqual([3, 2, -1_000_000, 1])
+  })
 })

@@ -52,6 +52,11 @@ pub struct Store {
 }
 
 impl Store {
+    /// Closes the pool (shutdown; tests use it to make every write fail).
+    pub async fn close(&self) {
+        self.pool.close().await;
+    }
+
     /// Opens (creating if needed) the database file, runs migrations and seeds the dev account.
     pub async fn open(path: &Path) -> Result<Self> {
         if let Some(dir) = path.parent() {

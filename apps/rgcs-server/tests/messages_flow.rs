@@ -264,3 +264,88 @@ async fn command_results_are_logged_and_broadcast_as_log_entries() {
         (Severity::Ok, "mission_upload verified")
     );
 }
+
+fn statustext(router_id: u64, text: &str) -> VehicleMessage {
+    VehicleMessage::new(1, router_id, 4, text.into(), 5_000, MessageSource::Vehicle)
+}
+
+#[tokio::test]
+async fn queued_messages_get_their_row_ids_in_order() {
+    let store = rgcs_store::Store::open_memory().await.unwrap();
+    let (tx, mut rx) = tokio::sync::broadcast::channel(256);
+    let log = rgcs_server::message_log::MessageLog::spawn(store.clone(), tx.clone());
+    for i in 0..50 {
+        log.submit(statustext(i, &format!("m{i}"))); // not async: the MAVLink pump never waits on SQLite
+    }
+    let mut ids = Vec::new();
+    while ids.len() < 50 {
+        if let ServerMessage::VehicleMessage(m) =
+            next_frame(&mut rx, |m| matches!(m, ServerMessage::VehicleMessage(_))).await
+        {
+            ids.push(m.id as i64);
+        }
+    }
+    let rows = store
+        .messages(None, None, rgcs_store::messages::SeverityFilter::All, 100)
+        .await
+        .unwrap();
+    let mut row_ids: Vec<i64> = rows.iter().map(|e| e.id).collect();
+    row_ids.reverse();
+    assert_eq!(ids, row_ids, "frames carry the row ids, in arrival order");
+}
+
+#[tokio::test]
+async fn an_unstored_message_gets_a_non_colliding_unackable_id() {
+    let store = rgcs_store::Store::open_memory().await.unwrap();
+    store
+        .record_message(&new(Some(1), MessageSource::Vehicle, Severity::Warn, "stored"))
+        .await
+        .unwrap();
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let log = rgcs_server::message_log::MessageLog::spawn(store.clone(), tx.clone());
+    store.close().await; // e.g. the SD card is full: every insert fails
+    log.submit(statustext(1, "PreArm: GPS"));
+    let ServerMessage::VehicleMessage(m) =
+        next_frame(&mut rx, |m| matches!(m, ServerMessage::VehicleMessage(_))).await
+    else {
+        unreachable!()
+    };
+    assert!(
+        m.id >= rgcs_server::message_log::UNSTORED_ID_BASE,
+        "id {} could collide with a row id",
+        m.id
+    );
+    assert!(!m.ackable, "the server cannot acknowledge a row it never stored");
+    assert_eq!(m.text, "PreArm: GPS");
+}
+
+#[tokio::test]
+async fn startup_prunes_to_the_cap() {
+    let store = rgcs_store::Store::open_memory().await.unwrap();
+    for i in 0..30 {
+        store
+            .record_message(&new(
+                Some(1),
+                MessageSource::Vehicle,
+                Severity::Info,
+                &format!("m{i}"),
+            ))
+            .await
+            .unwrap();
+    }
+    let (tx, _rx) = tokio::sync::broadcast::channel(16);
+    let _log = rgcs_server::message_log::MessageLog::spawn_with(store.clone(), tx, 10);
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while store
+            .messages(None, None, rgcs_store::messages::SeverityFilter::All, 100)
+            .await
+            .unwrap()
+            .len()
+            > 10
+        {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("pruned to 10 rows at startup, before 1,000 inserts");
+}

@@ -103,9 +103,8 @@ pub async fn pump_events(
         }
         match event_frame(ev, crate::app::unix_ms()) {
             // Persist first so the frame carries the message-log row id (acknowledgements use it).
-            Some(ServerMessage::VehicleMessage(m)) => {
-                let _ = tx.send(ServerMessage::VehicleMessage(messages.record_vehicle(m).await));
-            }
+            // Stored and broadcast with its row id by the recorder task; the pump never waits on SQLite.
+            Some(ServerMessage::VehicleMessage(m)) => messages.submit(m),
             Some(f) => {
                 let _ = tx.send(f);
             }
@@ -146,7 +145,7 @@ mod tests {
         let params = crate::params::ParamCache::new(tx.clone());
         let logs = crate::logs::LogHub::new(tx.clone(), true);
         let store = rgcs_store::Store::open_memory().await.unwrap();
-        let messages = crate::message_log::MessageLog::new(store, tx.clone());
+        let messages = crate::message_log::MessageLog::spawn(store, tx.clone());
         tokio::spawn(pump_events(events_rx, tx, params, hub, logs, messages, out_tx));
         events_tx.send(RouterEvent::Discovered(1)).await.unwrap();
         let mut names = Vec::new();
