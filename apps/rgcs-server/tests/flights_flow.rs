@@ -66,3 +66,26 @@ async fn sitl_like_arm_disarm_creates_a_draft_with_times_and_positions() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
     assert_eq!(body["data"][0]["id"].as_i64(), Some(flight.id));
 }
+
+#[tokio::test]
+async fn restart_adopts_the_open_draft() {
+    let (_app, state) = spawn_app().await;
+    let id = state
+        .store
+        .open_flight(1, "admin", "", 5_000, None, None, "system")
+        .await
+        .unwrap();
+    // A fresh tracker (as after a server restart) adopts the row before its first tick.
+    state.flights.adopt_open_flights(9_000).await;
+    seed_copter(&state, 1, COPTER_STABILIZE, true, false).await;
+    state.flights.poll(&state.router, 10_000).await;
+    assert_eq!(
+        state.store.list_flights(1, None, None).await.unwrap().len(),
+        1,
+        "no second flight"
+    );
+    seed_copter(&state, 1, COPTER_STABILIZE, false, false).await;
+    state.flights.poll(&state.router, 70_000).await;
+    let f = state.store.flight(id).await.unwrap().unwrap();
+    assert_eq!((f.landed_at, f.flight_minutes), (Some(70_000), 2));
+}

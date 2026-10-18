@@ -36,6 +36,22 @@ function fresh(template: InspectionTemplate, me: Operator): Draft {
   }
 }
 
+/** The form prefilled from a saved run (訂正); item results carry over when the item count matches. */
+function fromRun(template: InspectionTemplate, me: Operator, run: InspectionRun): Draft {
+  const base = fresh(template, me)
+  const sameItems = run.results.length === template.items.length
+  return {
+    ...base,
+    items: sameItems ? run.results.map((r) => ({ result: r.result, remark: r.remark })) : base.items,
+    place: run.place,
+    lat: run.lat,
+    lon: run.lon,
+    performed_on: run.performed_on,
+    inspector: run.inspector,
+    notes: run.notes,
+  }
+}
+
 function resultLabel(r: InspectionResult, dict: Dict): string {
   return r === 'ok' ? dict.lbResultOk : r === 'ng' ? dict.lbResultNg : dict.lbResultSkipped
 }
@@ -79,10 +95,13 @@ interface Props {
   readonly dict: Dict
   readonly onSaved: (run: InspectionRun) => void
   readonly onMaintenanceDraft: (draft: MaintenanceInput) => void
+  /** A saved run being corrected: the new run supersedes it (addendum §5.5). */
+  readonly correcting?: InspectionRun | null
+  readonly onCancelCorrection?: () => void
 }
 
-export function InspectionForm({ template, sysid, vehicle, me, dict, onSaved, onMaintenanceDraft }: Props) {
-  const [draft, setDraft] = useState<Draft>(() => fresh(template, me))
+export function InspectionForm({ template, sysid, vehicle, me, dict, onSaved, onMaintenanceDraft, correcting = null, onCancelCorrection }: Props) {
+  const [draft, setDraft] = useState<Draft>(() => (correcting ? fromRun(template, me, correcting) : fresh(template, me)))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<InspectionRun | null>(null)
@@ -99,7 +118,7 @@ export function InspectionForm({ template, sysid, vehicle, me, dict, onSaved, on
       inspector: draft.inspector,
       notes: draft.notes,
       results: draft.items.map((it, i) => ({ position: i + 1, result: it.result, remark: it.remark })),
-      supersedes: null,
+      supersedes: correcting?.id ?? null,
     }
     const issue = firstIssue(inspectionRunSchemaFor(template.items.length).safeParse(input))
     if (issue) return setError(`${issue.path}: ${issue.message}`)
@@ -122,6 +141,14 @@ export function InspectionForm({ template, sysid, vehicle, me, dict, onSaved, on
       <div className="row hair lb-head">
         <span className="h2">{template.name}</span>
         <span className="lb-muted">v{template.version}</span>
+        {correcting && (
+          <>
+            <span className="badge draft">{dict.lbCorrectingOf.replace('{date}', correcting.performed_on)}</span>
+            <button type="button" className="btn btn-ghost sm" onClick={onCancelCorrection}>
+              {dict.cancel}
+            </button>
+          </>
+        )}
       </div>
       <div className="lb-body">
         <table className="tbl">

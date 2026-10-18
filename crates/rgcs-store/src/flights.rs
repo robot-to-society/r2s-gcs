@@ -157,37 +157,44 @@ fn squawk_of(r: &sqlx::sqlite::SqliteRow) -> FlightSquawk {
 
 impl Store {
     async fn insert_cols(&self, c: &Cols) -> Result<i64> {
-        let now = unix_ms() as i64;
-        let res = sqlx::query(
-            "INSERT INTO flights (sysid, status, pilot, pilot_license, takeoff_at, landed_at, takeoff_lat, takeoff_lon, \
-             landing_lat, landing_lon, takeoff_place, landing_place, purposes, specific_flight, summary, safety_notes, \
-             supersedes, created_by, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?19)",
-        )
-        .bind(i64::from(c.sysid))
-        .bind(c.status.as_str())
-        .bind(&c.pilot)
-        .bind(&c.pilot_license)
-        .bind(c.takeoff_at as i64)
-        .bind(c.landed_at.map(|v| v as i64))
-        .bind(c.takeoff_lat)
-        .bind(c.takeoff_lon)
-        .bind(c.landing_lat)
-        .bind(c.landing_lon)
-        .bind(&c.takeoff_place)
-        .bind(&c.landing_place)
-        .bind(to_json(&c.purposes))
-        .bind(to_json(&c.specific_flight))
-        .bind(&c.summary)
-        .bind(&c.safety_notes)
-        .bind(c.supersedes)
-        .bind(&c.created_by)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(res.last_insert_rowid())
+        let mut conn = self.pool.acquire().await?;
+        insert_row(&mut conn, c).await
     }
+}
 
+async fn insert_row(conn: &mut sqlx::SqliteConnection, c: &Cols) -> Result<i64> {
+    let now = unix_ms() as i64;
+    let res = sqlx::query(
+        "INSERT INTO flights (sysid, status, pilot, pilot_license, takeoff_at, landed_at, takeoff_lat, takeoff_lon, \
+         landing_lat, landing_lon, takeoff_place, landing_place, purposes, specific_flight, summary, safety_notes, \
+         supersedes, created_by, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?19)",
+    )
+    .bind(i64::from(c.sysid))
+    .bind(c.status.as_str())
+    .bind(&c.pilot)
+    .bind(&c.pilot_license)
+    .bind(c.takeoff_at as i64)
+    .bind(c.landed_at.map(|v| v as i64))
+    .bind(c.takeoff_lat)
+    .bind(c.takeoff_lon)
+    .bind(c.landing_lat)
+    .bind(c.landing_lon)
+    .bind(&c.takeoff_place)
+    .bind(&c.landing_place)
+    .bind(to_json(&c.purposes))
+    .bind(to_json(&c.specific_flight))
+    .bind(&c.summary)
+    .bind(&c.safety_notes)
+    .bind(c.supersedes)
+    .bind(&c.created_by)
+    .bind(now)
+    .execute(&mut *conn)
+    .await?;
+    Ok(res.last_insert_rowid())
+}
+
+impl Store {
     async fn update_cols(&self, id: i64, c: &Cols) -> Result<()> {
         sqlx::query(
             "UPDATE flights SET status = ?2, pilot = ?3, pilot_license = ?4, takeoff_at = ?5, landed_at = ?6, \
@@ -436,14 +443,17 @@ impl Store {
             self.update_cols(id, &next).await?;
             id
         } else {
-            let new_id = self
-                .insert_cols(&Cols {
+            let mut tx = self.pool.begin().await?;
+            let new_id = insert_row(
+                &mut tx,
+                &Cols {
                     status: FlightStatus::Confirmed,
                     supersedes: Some(id),
                     created_by: by.into(),
                     ..next
-                })
-                .await?;
+                },
+            )
+            .await?;
             // The confirmed row keeps its own squawks; the correction gets copies.
             sqlx::query(
                 "INSERT INTO flight_squawks (flight_id, occurred_on, description, action_on, action, confirmer, created_by, created_at) \
@@ -452,24 +462,47 @@ impl Store {
             )
             .bind(id)
             .bind(new_id)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
+            tx.commit().await?;
             new_id
         };
         self.flight(target).await
     }
 
-    /// False unless the flight exists and is a draft.
+    /// Drafts still in the air (`landed_at IS NULL`), per vehicle — adopted by the tracker at startup.
+    pub async fn open_drafts(&self) -> Result<Vec<(SysId, i64)>> {
+        let rows = sqlx::query(
+            "SELECT sysid, id FROM flights WHERE landed_at IS NULL AND status = 'draft' ORDER BY sysid, id",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .iter()
+            .map(|r| (r.get::<i64, _>("sysid") as SysId, r.get::<i64, _>("id")))
+            .collect())
+    }
+
+    /// False unless the flight exists and is a draft. Attached logs stay, detached.
     pub async fn delete_draft(&self, id: i64) -> Result<bool> {
-        sqlx::query("DELETE FROM flight_squawks WHERE flight_id = ?1 AND (SELECT status FROM flights WHERE id = ?1) = 'draft'")
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
-        let res = sqlx::query("DELETE FROM flights WHERE id = ?1 AND status = 'draft'")
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
-        Ok(res.rows_affected() == 1)
+        let mut tx = self.pool.begin().await?;
+        let draft: Option<i64> =
+            sqlx::query_scalar("SELECT id FROM flights WHERE id = ?1 AND status = 'draft'")
+                .bind(id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        if draft.is_none() {
+            return Ok(false);
+        }
+        for sql in [
+            "UPDATE flight_logs SET flight_id = NULL WHERE flight_id = ?1",
+            "DELETE FROM flight_squawks WHERE flight_id = ?1",
+            "DELETE FROM flights WHERE id = ?1",
+        ] {
+            sqlx::query(sql).bind(id).execute(&mut *tx).await?;
+        }
+        tx.commit().await?;
+        Ok(true)
     }
 
     /// `None` when the flight does not exist.
@@ -521,291 +554,5 @@ impl Store {
 }
 
 #[cfg(test)]
-mod tests {
-    use rgcs_core::{FlightInput, FlightPatch, FlightSquawkInput, FlightStatus, VehicleRegistryInput};
-
-    use crate::audit::AuditInput;
-    use crate::Store;
-
-    /// 2026-12-01 23:30 JST.
-    const T0: u64 = 1_796_050_800_000 + 23 * 3_600_000 + 30 * 60_000;
-
-    fn registry(initial: u32) -> VehicleRegistryInput {
-        VehicleRegistryInput {
-            name: "UAV-01".into(),
-            registration: "".into(),
-            uas_type: "".into(),
-            model: "".into(),
-            type_cert_no: "".into(),
-            airworthiness_class: "".into(),
-            airworthiness_no: "".into(),
-            manufacturer: "".into(),
-            serial_no: "".into(),
-            initial_flight_minutes: initial,
-            inspection_template_id: None,
-        }
-    }
-
-    fn manual(takeoff: u64, landed: u64) -> FlightInput {
-        FlightInput {
-            pilot: "admin".into(),
-            pilot_license: "".into(),
-            takeoff_at: takeoff,
-            landed_at: landed,
-            takeoff_place: "".into(),
-            landing_place: "".into(),
-            purposes: vec!["空撮".into()],
-            specific_flight: vec![],
-            summary: "".into(),
-            safety_notes: "".into(),
-        }
-    }
-
-    #[tokio::test]
-    async fn open_land_and_totals() {
-        let s = Store::open_memory().await.unwrap();
-        s.put_registry(1, &registry(100), "copter").await.unwrap();
-        let id = s
-            .open_flight(1, "admin", "", T0, Some(36.1), Some(139.3), "system")
-            .await
-            .unwrap();
-        assert_eq!(s.open_flight_of(1).await.unwrap().unwrap().id, id);
-        s.land_flight(id, T0 + 61_000, Some(36.2), Some(139.4))
-            .await
-            .unwrap();
-        assert!(s.open_flight_of(1).await.unwrap().is_none());
-        let f = s.flight(id).await.unwrap().unwrap();
-        assert_eq!(
-            (f.flight_minutes, f.total_minutes, f.status),
-            (2, 102, FlightStatus::Draft)
-        );
-        assert_eq!(f.landing_lat, Some(36.2));
-        let id2 = s
-            .open_flight(1, "admin", "", T0 + 3_600_000, None, None, "system")
-            .await
-            .unwrap();
-        s.land_flight(id2, T0 + 3_600_000 + 30_000, None, None)
-            .await
-            .unwrap();
-        let list = s.list_flights(1, None, None).await.unwrap();
-        assert_eq!(
-            list.iter()
-                .map(|f| (f.flight_minutes, f.total_minutes))
-                .collect::<Vec<_>>(),
-            vec![(2, 102), (1, 103)]
-        );
-        assert_eq!(s.total_flight_minutes(1).await.unwrap(), 103);
-        assert_eq!(s.registry(1, "x").await.unwrap().total_flight_minutes, 103);
-    }
-
-    #[tokio::test]
-    async fn reopen_clears_the_landing() {
-        let s = Store::open_memory().await.unwrap();
-        let id = s
-            .open_flight(1, "admin", "", T0, None, None, "system")
-            .await
-            .unwrap();
-        s.land_flight(id, T0 + 10_000, Some(1.0), Some(2.0))
-            .await
-            .unwrap();
-        assert!(s.reopen_flight(id).await.unwrap());
-        let f = s.open_flight_of(1).await.unwrap().unwrap();
-        assert_eq!((f.id, f.landed_at, f.landing_lat), (id, None, None));
-    }
-
-    #[tokio::test]
-    async fn patch_on_a_confirmed_flight_supersedes_it() {
-        let s = Store::open_memory().await.unwrap();
-        let f = s
-            .create_flight(1, &manual(T0, T0 + 120_000), "admin")
-            .await
-            .unwrap();
-        let p = FlightPatch {
-            takeoff_place: Some("A".into()),
-            ..FlightPatch::default()
-        };
-        let same = s.patch_flight(f.id, &p, "admin").await.unwrap().unwrap();
-        assert_eq!((same.id, same.takeoff_place.as_str()), (f.id, "A"));
-        let confirmed = s
-            .patch_flight(
-                f.id,
-                &FlightPatch {
-                    status: Some(FlightStatus::Confirmed),
-                    ..FlightPatch::default()
-                },
-                "admin",
-            )
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!((confirmed.id, confirmed.status), (f.id, FlightStatus::Confirmed));
-        let newer = s
-            .patch_flight(
-                f.id,
-                &FlightPatch {
-                    summary: Some("fixed".into()),
-                    ..FlightPatch::default()
-                },
-                "admin",
-            )
-            .await
-            .unwrap()
-            .unwrap();
-        assert_ne!(newer.id, f.id);
-        assert_eq!(
-            (newer.supersedes, newer.status, newer.takeoff_place.as_str()),
-            (Some(f.id), FlightStatus::Confirmed, "A")
-        );
-        let list = s.list_flights(1, None, None).await.unwrap();
-        assert_eq!(list.len(), 1);
-        assert_eq!((list[0].id, list[0].summary.as_str()), (newer.id, "fixed"));
-        assert!(s.patch_flight(999, &p, "admin").await.unwrap().is_none());
-        assert!(s.create_flight(1, &manual(T0, T0 - 1), "admin").await.is_err());
-    }
-
-    #[tokio::test]
-    async fn delete_only_drafts() {
-        let s = Store::open_memory().await.unwrap();
-        let f = s.create_flight(1, &manual(T0, T0 + 1), "admin").await.unwrap();
-        s.patch_flight(
-            f.id,
-            &FlightPatch {
-                status: Some(FlightStatus::Confirmed),
-                ..FlightPatch::default()
-            },
-            "admin",
-        )
-        .await
-        .unwrap();
-        assert!(!s.delete_draft(f.id).await.unwrap());
-        let d = s.create_flight(1, &manual(T0, T0 + 1), "admin").await.unwrap();
-        assert!(s.delete_draft(d.id).await.unwrap());
-        assert!(s.flight(d.id).await.unwrap().is_none());
-    }
-
-    #[tokio::test]
-    async fn squawks_ride_with_the_flight() {
-        let s = Store::open_memory().await.unwrap();
-        let f = s.create_flight(1, &manual(T0, T0 + 1), "admin").await.unwrap();
-        let input = FlightSquawkInput {
-            occurred_on: "2026-12-05".into(),
-            description: "振動".into(),
-            action_on: "".into(),
-            action: "".into(),
-            confirmer: "".into(),
-        };
-        assert!(s.add_squawk(f.id, &input, "admin").await.unwrap().is_some());
-        assert!(s.add_squawk(999, &input, "admin").await.unwrap().is_none());
-        let got = s.flight(f.id).await.unwrap().unwrap();
-        assert_eq!(got.squawks.len(), 1);
-        assert_eq!(got.squawks[0].description, "振動");
-    }
-
-    #[tokio::test]
-    async fn range_filter_uses_jst_days() {
-        let s = Store::open_memory().await.unwrap();
-        s.create_flight(1, &manual(T0, T0 + 1), "admin").await.unwrap();
-        assert_eq!(
-            s.list_flights(1, Some("2026-12-01"), Some("2026-12-01"))
-                .await
-                .unwrap()
-                .len(),
-            1
-        );
-        assert!(s
-            .list_flights(1, Some("2026-12-02"), Some("2026-12-02"))
-            .await
-            .unwrap()
-            .is_empty());
-        assert!(s.list_flights(2, None, None).await.unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn last_operator_comes_from_the_audit_log() {
-        let s = Store::open_memory().await.unwrap();
-        s.record_audit(AuditInput {
-            operator: "admin",
-            sysid: Some(1),
-            target: "vehicle",
-            command: "arm",
-            args: None,
-            result: "ok",
-            reason: None,
-        })
-        .await
-        .unwrap();
-        assert_eq!(s.last_operator(1).await.unwrap().as_deref(), Some("admin"));
-        assert_eq!(s.last_operator(2).await.unwrap(), None);
-    }
-
-    #[tokio::test]
-    async fn reopen_only_drafts_and_open_flights_cannot_be_confirmed() {
-        let s = Store::open_memory().await.unwrap();
-        let id = s
-            .open_flight(1, "admin", "", T0, None, None, "system")
-            .await
-            .unwrap();
-        let confirm = FlightPatch {
-            status: Some(FlightStatus::Confirmed),
-            ..FlightPatch::default()
-        };
-        assert!(
-            s.patch_flight(id, &confirm, "admin").await.is_err(),
-            "still in the air"
-        );
-        s.land_flight(id, T0 + 10_000, None, None).await.unwrap();
-        assert!(s.reopen_flight(id).await.unwrap());
-        s.land_flight(id, T0 + 20_000, None, None).await.unwrap();
-        s.patch_flight(id, &confirm, "admin").await.unwrap().unwrap();
-        assert!(
-            !s.reopen_flight(id).await.unwrap(),
-            "confirmed records are immutable"
-        );
-        assert!(s.open_flight_of(1).await.unwrap().is_none());
-    }
-
-    #[tokio::test]
-    async fn supersede_copies_squawks_and_marks_the_old_row() {
-        let s = Store::open_memory().await.unwrap();
-        let f = s.create_flight(1, &manual(T0, T0 + 1), "admin").await.unwrap();
-        let sq = FlightSquawkInput {
-            occurred_on: "2026-12-05".into(),
-            description: "振動".into(),
-            action_on: "".into(),
-            action: "".into(),
-            confirmer: "".into(),
-        };
-        s.add_squawk(f.id, &sq, "admin").await.unwrap();
-        s.patch_flight(
-            f.id,
-            &FlightPatch {
-                status: Some(FlightStatus::Confirmed),
-                ..FlightPatch::default()
-            },
-            "admin",
-        )
-        .await
-        .unwrap();
-        assert_eq!(s.flight_superseded_by(f.id).await.unwrap(), None);
-        let newer = s
-            .patch_flight(
-                f.id,
-                &FlightPatch {
-                    summary: Some("x".into()),
-                    ..FlightPatch::default()
-                },
-                "admin",
-            )
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(newer.squawks.len(), 1);
-        assert_eq!(
-            s.flight(f.id).await.unwrap().unwrap().squawks.len(),
-            1,
-            "the confirmed row is untouched"
-        );
-        assert_eq!(s.flight_superseded_by(f.id).await.unwrap(), Some(newer.id));
-        assert_eq!(s.flight_superseded_by(newer.id).await.unwrap(), None);
-    }
-}
+#[path = "flights_tests.rs"]
+mod tests;

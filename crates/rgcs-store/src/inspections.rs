@@ -80,10 +80,10 @@ impl Store {
         }
     }
 
-    async fn write_items(&self, id: i64, items: &[InspectionItem]) -> Result<()> {
+    async fn write_items(conn: &mut sqlx::SqliteConnection, id: i64, items: &[InspectionItem]) -> Result<()> {
         sqlx::query("DELETE FROM inspection_template_items WHERE template_id = ?1")
             .bind(id)
-            .execute(&self.pool)
+            .execute(&mut *conn)
             .await?;
         for (i, item) in items.iter().enumerate() {
             sqlx::query("INSERT INTO inspection_template_items (template_id, position, label, detail) VALUES (?1, ?2, ?3, ?4)")
@@ -91,7 +91,7 @@ impl Store {
                 .bind(i as i64 + 1)
                 .bind(&item.label)
                 .bind(&item.detail)
-                .execute(&self.pool)
+                .execute(&mut *conn)
                 .await?;
         }
         Ok(())
@@ -103,16 +103,18 @@ impl Store {
         by: &str,
     ) -> Result<InspectionTemplate> {
         let now = unix_ms() as i64;
+        let mut tx = self.pool.begin().await?;
         let res = sqlx::query(
             "INSERT INTO inspection_templates (name, version, created_by, created_at, updated_at) VALUES (?1, 1, ?2, ?3, ?3)",
         )
         .bind(&input.name)
         .bind(by)
         .bind(now)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
         let id = res.last_insert_rowid();
-        self.write_items(id, &input.items).await?;
+        Self::write_items(&mut tx, id, &input.items).await?;
+        tx.commit().await?;
         self.template(id)
             .await?
             .ok_or_else(|| StoreError::Invalid("template vanished".into()))
@@ -124,18 +126,20 @@ impl Store {
         id: i64,
         input: &InspectionTemplateInput,
     ) -> Result<Option<InspectionTemplate>> {
+        let mut tx = self.pool.begin().await?;
         let res = sqlx::query(
             "UPDATE inspection_templates SET name = ?2, version = version + 1, updated_at = ?3 WHERE id = ?1",
         )
         .bind(id)
         .bind(&input.name)
         .bind(unix_ms() as i64)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
         if res.rows_affected() == 0 {
             return Ok(None);
         }
-        self.write_items(id, &input.items).await?;
+        Self::write_items(&mut tx, id, &input.items).await?;
+        tx.commit().await?;
         self.template(id).await
     }
 
@@ -154,18 +158,20 @@ impl Store {
         if count <= 1 {
             return Err(StoreError::Invalid("last template".into()));
         }
+        let mut tx = self.pool.begin().await?;
         sqlx::query("UPDATE vehicles SET inspection_template_id = NULL WHERE inspection_template_id = ?1")
             .bind(id)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
         sqlx::query("DELETE FROM inspection_template_items WHERE template_id = ?1")
             .bind(id)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
         sqlx::query("DELETE FROM inspection_templates WHERE id = ?1")
             .bind(id)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
+        tx.commit().await?;
         Ok(true)
     }
 
@@ -215,6 +221,7 @@ impl Store {
             }
             seen[idx - 1] = true;
         }
+        let mut tx = self.pool.begin().await?;
         let res = sqlx::query(
             "INSERT INTO inspection_runs (sysid, template_id, template_name, template_version, place, lat, lon, \
              performed_on, inspector, notes, supersedes, created_by, created_at) \
@@ -233,7 +240,7 @@ impl Store {
         .bind(input.supersedes)
         .bind(by)
         .bind(unix_ms() as i64)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
         let id = res.last_insert_rowid();
         for r in &input.results {
@@ -247,9 +254,10 @@ impl Store {
             .bind(&item.detail)
             .bind(r.result.as_str())
             .bind(&r.remark)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
         }
+        tx.commit().await?;
         self.inspection(id)
             .await?
             .ok_or_else(|| StoreError::Invalid("run vanished".into()))
@@ -488,5 +496,45 @@ mod tests {
                 .await,
             Err(StoreError::Invalid(_))
         ));
+    }
+
+    async fn fail_on(s: &Store, table: &str, op: &str) {
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "CREATE TRIGGER fail_{table}_{op} BEFORE {op} ON {table} BEGIN SELECT RAISE(ABORT, 'injected'); END"
+        )))
+        .execute(s.pool())
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn failed_run_insert_leaves_no_header_row() {
+        let s = Store::open_memory().await.unwrap();
+        let t = s.template(1).await.unwrap().unwrap();
+        fail_on(&s, "inspection_results", "INSERT").await;
+        assert!(s
+            .create_inspection(3, &run_input(1, 9, None, None), &t, "admin")
+            .await
+            .is_err());
+        let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM inspection_runs")
+            .fetch_one(s.pool())
+            .await
+            .unwrap();
+        assert_eq!(n, 0, "no run without its results");
+    }
+
+    #[tokio::test]
+    async fn failed_template_update_keeps_the_old_items_and_version() {
+        let s = Store::open_memory().await.unwrap();
+        fail_on(&s, "inspection_template_items", "INSERT").await;
+        assert!(s.update_template(1, &template_input(2)).await.is_err());
+        let t = s.template(1).await.unwrap().unwrap();
+        assert_eq!((t.version, t.items.len(), t.name.as_str()), (1, 9, "様式2 標準"));
+        assert!(s.create_template(&template_input(2), "admin").await.is_err());
+        assert_eq!(
+            s.list_templates().await.unwrap().len(),
+            1,
+            "no item-less template left behind"
+        );
     }
 }

@@ -534,3 +534,40 @@ async fn maintenance_supersedes_must_be_an_own_live_record() {
         "already superseded"
     );
 }
+
+#[tokio::test]
+async fn deleting_a_draft_with_an_attached_log_detaches_it() {
+    let (app, state) = spawn_app().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let admin = login(&app).await;
+    let id = create(&app, &admin, 1).await["id"].as_i64().unwrap();
+    let log = state
+        .store
+        .add_log(
+            1,
+            Some(id),
+            None,
+            "x.bin",
+            1,
+            rgcs_core::LogSource::Upload,
+            "admin",
+        )
+        .await
+        .unwrap();
+    let (status, body, _) = call(
+        &app,
+        req(
+            Method::DELETE,
+            &format!("/api/vehicles/1/flights/{id}"),
+            Some(&admin),
+            None,
+        ),
+    )
+    .await;
+    assert_eq!(
+        (status, body["data"]["deleted"].as_bool()),
+        (StatusCode::OK, Some(true)),
+        "{body}"
+    );
+    assert_eq!(state.store.log(log.id).await.unwrap().unwrap().flight_id, None);
+}

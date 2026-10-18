@@ -22,6 +22,8 @@ pub struct Track {
     /// The flight row still eligible for a re-ARM (open, or landed inside the window).
     pub open: Option<i64>,
     pub last_disarm_ms: Option<u64>,
+    /// Set when an open draft was adopted at startup and its vehicle has not been seen yet.
+    pub adopted_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,8 +60,49 @@ fn position(s: &VehicleState) -> (Option<f64>, Option<f64>) {
     }
 }
 
+/// Seeds tracks from drafts still open in the store (server restart while armed): the
+/// first state seen continues, lands or loses the flight by the normal rules.
+pub fn adopt(tracks: &mut HashMap<SysId, Track>, open: &[(SysId, i64)], now_ms: u64) {
+    for &(sysid, id) in open {
+        tracks.insert(
+            sysid,
+            Track {
+                armed: true,
+                open: Some(id),
+                last_disarm_ms: None,
+                adopted_at: Some(now_ms),
+            },
+        );
+    }
+}
+
+/// An adopted flight whose vehicle never reappears lands at startup time after the window.
+fn land_vanished(tracks: &mut HashMap<SysId, Track>, now_ms: u64, seen: &[SysId]) -> Vec<Transition> {
+    let mut out = Vec::new();
+    for (sysid, track) in tracks.iter_mut() {
+        let Some(since) = track.adopted_at else { continue };
+        if seen.contains(sysid) || now_ms.saturating_sub(since) < LOST_LANDING_MS {
+            continue;
+        }
+        track.adopted_at = None;
+        track.armed = false;
+        track.last_disarm_ms = Some(since);
+        if let Some(id) = track.open {
+            out.push(Transition::Landing {
+                sysid: *sysid,
+                id,
+                at: since,
+                lat: None,
+                lon: None,
+            });
+        }
+    }
+    out
+}
+
 fn step_one(track: &mut Track, now_ms: u64, s: &VehicleState) -> Option<Transition> {
     let sysid = s.sysid;
+    track.adopted_at = None;
     if track.open.is_some()
         && !track.armed
         && track
@@ -129,10 +172,13 @@ fn step_one(track: &mut Track, now_ms: u64, s: &VehicleState) -> Option<Transiti
 /// Pure detector step: compares every vehicle with its track and returns what changed.
 /// After a `Takeoff` the track's `open` stays `None` until `apply` stores the new row.
 pub fn step(tracks: &mut HashMap<SysId, Track>, now_ms: u64, states: &[VehicleState]) -> Vec<Transition> {
-    states
+    let mut out: Vec<Transition> = states
         .iter()
         .filter_map(|s| step_one(tracks.entry(s.sysid).or_default(), now_ms, s))
-        .collect()
+        .collect();
+    let seen: Vec<SysId> = states.iter().map(|s| s.sysid).collect();
+    out.extend(land_vanished(tracks, now_ms, &seen));
+    out
 }
 
 #[derive(Clone)]
@@ -148,6 +194,17 @@ impl FlightTracker {
             store,
             tx,
             tracks: Arc::new(StdMutex::new(HashMap::new())),
+        }
+    }
+
+    /// Adopts drafts left open by a previous process (call once before the first tick).
+    pub async fn adopt_open_flights(&self, now_ms: u64) {
+        match self.store.open_drafts().await {
+            Ok(open) => {
+                let mut tracks = self.tracks.lock().unwrap_or_else(|e| e.into_inner());
+                adopt(&mut tracks, &open, now_ms);
+            }
+            Err(e) => tracing::warn!(error = %e, "could not read open flight drafts"),
         }
     }
 
@@ -247,6 +304,7 @@ impl FlightTracker {
 
     /// 1 Hz loop for the lifetime of the server.
     pub async fn run(self, router: Arc<Mutex<Router>>) {
+        self.adopt_open_flights(crate::app::unix_ms()).await;
         let mut ticker = tokio::time::interval(TICK);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
@@ -282,6 +340,7 @@ mod tests {
                 armed: false,
                 open: Some(id),
                 last_disarm_ms: Some(last_disarm_ms),
+                adopted_at: None,
             },
         );
         t
@@ -350,6 +409,7 @@ mod tests {
                 armed: true,
                 open: Some(9),
                 last_disarm_ms: None,
+                adopted_at: None,
             },
         );
         let mut lost = state(true);
@@ -405,5 +465,65 @@ mod tests {
                 ..
             }]
         ));
+    }
+
+    #[test]
+    fn adopted_flight_continues_while_armed_and_lands_on_disarm() {
+        let mut tracks = HashMap::new();
+        adopt(&mut tracks, &[(1, 42)], 1_000);
+        assert!(
+            step(&mut tracks, 2_000, &[state(true)]).is_empty(),
+            "no second takeoff after a restart"
+        );
+        let t = step(&mut tracks, 60_000, &[state(false)]);
+        assert!(matches!(
+            t.as_slice(),
+            [Transition::Landing {
+                sysid: 1,
+                id: 42,
+                at: 60_000,
+                ..
+            }]
+        ));
+    }
+
+    #[test]
+    fn adopted_flight_of_a_disarmed_vehicle_lands_at_once() {
+        let mut tracks = HashMap::new();
+        adopt(&mut tracks, &[(1, 42)], 1_000);
+        let t = step(&mut tracks, 2_000, &[state(false)]);
+        assert!(matches!(
+            t.as_slice(),
+            [Transition::Landing {
+                sysid: 1,
+                id: 42,
+                at: 2_000,
+                ..
+            }]
+        ));
+    }
+
+    #[test]
+    fn adopted_flight_of_a_vanished_vehicle_lands_at_startup_after_the_window() {
+        let mut tracks = HashMap::new();
+        adopt(&mut tracks, &[(7, 42)], 1_000);
+        assert!(step(&mut tracks, 1_000 + LOST_LANDING_MS - 1, &[state(false)])
+            .iter()
+            .all(|t| !matches!(t, Transition::Landing { id: 42, .. })));
+        let t = step(&mut tracks, 1_000 + LOST_LANDING_MS, &[]);
+        assert!(matches!(
+            t.as_slice(),
+            [Transition::Landing {
+                sysid: 7,
+                id: 42,
+                at: 1_000,
+                lat: None,
+                lon: None
+            }]
+        ));
+        assert!(
+            step(&mut tracks, 1_000 + LOST_LANDING_MS + 1, &[]).is_empty(),
+            "landed once"
+        );
     }
 }

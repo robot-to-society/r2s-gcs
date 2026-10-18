@@ -24,6 +24,7 @@ export function DailyTab({ sysid, vehicle, me, dict, onMaintenanceDraft }: Props
   const [runs, setRuns] = useState<readonly InspectionRun[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
+  const [correcting, setCorrecting] = useState<InspectionRun | null>(null)
 
   useEffect(() => {
     let live = true
@@ -48,11 +49,25 @@ export function DailyTab({ sysid, vehicle, me, dict, onMaintenanceDraft }: Props
   return (
     <div className="maint-body lb-grid">
       {template ? (
-        <InspectionForm template={template} sysid={sysid} vehicle={vehicle} me={me} dict={dict} onSaved={() => setVersion((n) => n + 1)} onMaintenanceDraft={onMaintenanceDraft} />
+        <InspectionForm
+          key={correcting?.id ?? 'new'}
+          template={template}
+          sysid={sysid}
+          vehicle={vehicle}
+          me={me}
+          dict={dict}
+          correcting={correcting}
+          onCancelCorrection={() => setCorrecting(null)}
+          onSaved={() => {
+            setCorrecting(null)
+            setVersion((n) => n + 1)
+          }}
+          onMaintenanceDraft={onMaintenanceDraft}
+        />
       ) : (
         <div className="surface">{error && <div className="warnbox fatal">{error}</div>}</div>
       )}
-      <InspectionsPane runs={runs} error={template ? error : null} dict={dict} />
+      <InspectionsPane runs={runs} error={template ? error : null} dict={dict} onCorrect={setCorrecting} />
     </div>
   )
 }

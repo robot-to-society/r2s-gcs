@@ -8,6 +8,8 @@ interface Props {
   readonly runs: readonly InspectionRun[] | null
   readonly error: string | null
   readonly dict: Dict
+  /** Offered on an expanded run when set (日常点検 tab only). */
+  readonly onCorrect?: (run: InspectionRun) => void
 }
 
 function resultText(r: InspectionRun['results'][number]['result'], dict: Dict): string {
@@ -19,7 +21,7 @@ function summary(run: InspectionRun, dict: Dict): string {
   return `${ok}/${run.results.length} ${dict.lbResultOk}`
 }
 
-export function InspectionsPane({ runs, error, dict }: Props) {
+export function InspectionsPane({ runs, error, dict, onCorrect }: Props) {
   const [open, setOpen] = useState<number | null>(null)
   return (
     <div className="surface">
@@ -56,7 +58,15 @@ export function InspectionsPane({ runs, error, dict }: Props) {
                   expanded && (
                     <tr key={`${run.id}-items`} className="expanded">
                       <td colSpan={4}>
-                        <div className="lb-muted">{`${dict.lbPlace}: ${placeText(run.place, run.lat, run.lon)}`}</div>
+                        <div className="row" style={{ gap: 10 }}>
+                          <span className="lb-muted">{`${dict.lbPlace}: ${placeText(run.place, run.lat, run.lon)}`}</span>
+                          <span className="grow" />
+                          {onCorrect && (
+                            <button type="button" className="btn sm" onClick={() => onCorrect(run)}>
+                              {dict.lbCorrect}
+                            </button>
+                          )}
+                        </div>
                         <table className="tbl">
                           <tbody>
                             {run.results.map((r) => (
