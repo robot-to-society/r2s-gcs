@@ -34,9 +34,22 @@ send_confirmed() {
 [ -x "$ROOT/dist/pi/rgcs-server" ] || fail "run scripts/build-pi.sh first"
 good=$(pi /mnt/dist/rgcs-server --version)
 
-echo "[1] fresh install takes over from the Python service"
+install_with() {  # $1 = binary inside the Pi; bounded so a hanging health check fails the test
+  timeout 180 "${DC[@]}" exec -T pi /mnt/deploy/deploy/install.sh --binary "$1" --health-timeout 10 2>&1
+}
+
+echo "[0] a failed first install restores the Python service"
 [ "$(pi systemctl is-active mt11-camera-ui || true)" = active ] || fail "start from a fresh pi-sim (stand-in not active)"
-sim install | tail -3
+out=$(install_with /mnt/dist/hang-server) && fail "installer accepted a hanging first release"
+echo "$out" | grep -q 'RESTORED mt11-camera-ui' || { echo "$out" | tail -8; fail "Python service not restored"; }
+[ "$(pi systemctl is-active mt11-camera-ui)" = active ] || fail "Python stand-in not running again"
+[ "$(pi systemctl is-enabled mt11-camera-ui)" = enabled ] || fail "Python stand-in not enabled again"
+[ "$(pi systemctl is-enabled rgcs-server 2>/dev/null || true)" != enabled ] || fail "rgcs-server left enabled"
+[ "$(pi systemctl is-active rgcs-server 2>/dev/null || true)" != active ] || fail "rgcs-server left running"
+
+echo "[1] fresh install takes over from the Python service"
+out=$(sim install 2>&1); echo "$out" | tail -4
+echo "$out" | grep -q 'WARNING.*admin/admin' || fail "no warning about the development login"
 [ "$(pi systemctl is-active rgcs-server)" = active ] || fail "rgcs-server not active"
 [ "$(pi systemctl is-enabled rgcs-server)" = enabled ] || fail "rgcs-server not enabled"
 [ "$(pi systemctl is-active mt11-camera-ui || true)" = inactive ] || fail "Python stand-in still running"
@@ -81,8 +94,8 @@ grep -q 'keep-me' <(pi cat /etc/rgcs/config.toml) || fail "config overwritten"
 login
 after=$(api "$URL/api/vehicles/1/flights" | json 'len(d["data"])')
 [ "$before" = "$after" ] || fail "flights $before -> $after after upgrade"
-pi test -x /opt/rgcs/bin/rgcs-server.prev || fail "no .prev kept"
-echo "    flights kept: $after"
+pi test ! -e /opt/rgcs/bin/rgcs-server.prev || fail ".prev rotated although the binary is identical"
+echo "    flights kept: $after; identical binary did not rotate .prev"
 
 echo "[5] restart while armed"
 wait_link || fail "no link before arming"
@@ -102,10 +115,10 @@ if wait_armed True; then
   open=$(echo "$flights" | json 'sum(1 for f in d["data"] if f["landed_at"] is None)')
   [ "$open" = 0 ] || fail "$open flight(s) left open after the restart"
   [ "$last_landed" = True ] || fail "last flight not landed"
-  [ $((n1 - n0)) -le 1 ] || fail "restart created a second flight ($n0 -> $n1)"
+  [ $((n1 - n0)) -eq 1 ] || fail "expected exactly one new flight across the restart ($n0 -> $n1)"
   echo "    flights $n0 -> $n1, none open"
 else
-  warn "SITL refused to arm (PreArm); restart-while-armed not exercised"
+  fail "SITL refused to arm (PreArm): restart-while-armed not exercised; restart SITL and rerun"
 fi
 
 echo "[6] serial link"
@@ -125,6 +138,16 @@ out=$("${DC[@]}" exec -T pi /mnt/deploy/deploy/install.sh --binary /mnt/deploy/t
 echo "$out" | grep -q 'ROLLED BACK' || { echo "$out" | tail -5; fail "no ROLLED BACK message"; }
 wait_healthy || fail "not healthy after rollback"
 [ "$(pi /opt/rgcs/bin/rgcs-server --version)" = "$good" ] || fail "wrong version after rollback"
+echo "[7b] a release that hangs (accepts TCP, never answers) rolls back"
+out=$(install_with /mnt/dist/hang-server) && fail "installer accepted a hanging release"
+echo "$out" | grep -q 'ROLLED BACK' || { echo "$out" | tail -8; fail "hanging release not rolled back"; }
+wait_healthy || fail "not healthy after rolling back the hanging release"
+[ "$(pi /opt/rgcs/bin/rgcs-server --version)" = "$good" ] || fail "wrong version after the hang rollback"
+echo "[7c] manual --rollback against the live service"
+pi test -e /opt/rgcs/bin/rgcs-server.prev || fail "no .prev to roll back to"
+out=$(timeout 120 "${DC[@]}" exec -T pi /mnt/deploy/deploy/install.sh --rollback 2>&1) || { echo "$out" | tail -6; fail "--rollback failed"; }
+echo "$out" | grep -q 'ROLLED BACK' || fail "--rollback printed no ROLLED BACK"
+wait_healthy || fail "not healthy after --rollback"
 
 echo "[8] reboot"
 # mediamtx / video share the Pi's network namespace: restart the Pi first, then rejoin them.

@@ -18,7 +18,11 @@ use rgcs_server::telemetry;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     if matches!(std::env::args().nth(1).as_deref(), Some("--version" | "-V")) {
-        println!("rgcs-server {}", env!("CARGO_PKG_VERSION"));
+        println!(
+            "rgcs-server {} ({})",
+            env!("CARGO_PKG_VERSION"),
+            rgcs_server::BUILD
+        );
         return Ok(());
     }
     tracing_subscriber::fmt()

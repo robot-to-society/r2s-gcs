@@ -117,9 +117,11 @@ r2s-gcs/
   # ブラウザで http://<pi>:8000 → admin / admin
   ```
 
-- `install.sh` の動作: バイナリ検査(`--version`)→ ユーザー・ディレクトリ作成 → バイナリ差し替え(前版を保持)→ 設定は無いときだけ雛形から作成(既存は上書きしない)→ `mt11-camera-ui.service`(Python 版)を停止・無効化 → ユニット登録・有効化・再起動 → `/api/health` を待つ。時間内(既定 30 s)に応答しなければ前版に戻して `ROLLED BACK` を表示し終了コード 1。手動で戻すときは `sudo ./install.sh --rollback`。何度実行しても同じ結果になる。
+- `install.sh` の動作: バイナリ検査(`--version`)→ ユーザー・ディレクトリ作成 → バイナリ差し替え(名前の付け替えで原子的に。中身が違うときだけ前版を `.prev` に保持)→ 設定は無いときだけ雛形から作成(既存は上書きしない)→ `mt11-camera-ui.service`(Python 版)を停止・無効化 → ユニット登録・有効化・再起動 → `/api/health` を待つ。時間内(既定 30 s、1 回の問い合わせは 2 s で打ち切り)に応答しなければ前版に戻して `ROLLED BACK` を表示し終了コード 1。初回導入で失敗した場合は rgcs-server を止めて無効化し、Python 版を元に戻す(`RESTORED`)。手動で戻すときは `sudo ./install.sh --rollback`。何度実行しても同じ結果になる。
 - ユニット: `Conflicts=mt11-camera-ui.service`(Python 版を手で起動すると rgcs-server は止まる。MT11 の TCP は 1 本、:8000 も競合するため)、`Restart=always`、`ProtectSystem=strict` + `ReadWritePaths=/var/lib/rgcs`、`NoNewPrivileges`。
 - MediaMTX・Rpanion-server は Pi に既存のものを使う(この配布物には含めない)。
+- **注意**: アカウント管理(M5)までは開発用ログイン admin/admin が有効で、ログインできれば ARM も可能。`install.sh` は導入後に警告を表示する。:8000 は機体側 LAN / VPN からのみ到達できるようにし、インターネットへ直接公開しない。
+- 版の確認: `rgcs-server --version` と `/api/health` の `build` に `<git sha>[-dirty]` が入る(`scripts/build-pi.sh` が埋め込む)。
 
 ### 8.1 Docker の Pi 相当環境(配備の事前検証)
 
@@ -129,7 +131,7 @@ r2s-gcs/
 - FC リンク代役: ホストの ArduCopter SITL(`tcp:5760`)を socat で `udp 127.0.0.1:15555`(Rpanion 相当)または pty `/dev/ttyFC`(シリアル相当、`dialout` 0660)に中継する。
 - 操作: `scripts/pi-sim.sh up | down | install | shell | logs | link udp|serial | lte on|off | bench`。ホストの SITL は 1 接続のみなので `scripts/dev.sh` を止めてから使う。
 - 受け入れ: `tests/pi/check-build.sh`(aarch64・glibc・`--version`・配布物)、`tests/pi/check-env.sh`(環境)、`tests/pi/accept-deploy.sh`(新規導入と Python 版の置き換え、UDP リンクでの既存 SITL 受け入れ 3 本、更新で設定・データ保持、アーム中の再起動で飛行が 1 件のまま閉じる、シリアル 57600 / 921600 とログ取り出しの有効・無効、壊れた版の自動ロールバック、再起動後の自動起動)、`tests/pi/accept-stack.sh`(観客用映像・カメラ・詳細・飛行日誌の E2E を通常回線と LTE 相当 `netem 80 ms ± 20 ms, 1 % loss` で 2 回)。2026-10-18 時点で全て OK。
-- 目安(`pi-sim.sh bench 60`、SITL テレメトリ 10 Hz、Mac の 1 コアまたは 0.25 コアに制限): CPU 0.3 %、メモリ 113 MB(cgroup の MemoryCurrent、ページキャッシュ込み)。Pi 4 の正式判定は実機で行う。
+- 目安(`pi-sim.sh bench 60`、SITL テレメトリ 10 Hz、WebSocket クライアントなし、Mac の 1 コアまたは 0.25 コアに制限): CPU 0.3 %、メモリ 113 MB(cgroup の MemoryCurrent、ページキャッシュ込み)。UI 接続時の負荷と Pi 4 の正式判定は実機で行う。
 - Docker では確かめられないもの(実機リハーサルで確認): 実 UART の速度と 921600 bps でのログ取り出し時間、Pi の CPU・熱・SD カード I/O、実 FC ファームウェア、MT11 本体の制御と RTSP 実映像、実際の LTE / VPN 回線、Rpanion-server 本体との連携。
 
 ## 9. 性能目標

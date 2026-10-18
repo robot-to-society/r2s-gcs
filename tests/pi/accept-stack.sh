@@ -38,9 +38,14 @@ run_e2e() {  # $1 = label
   pi systemctl restart mt11-sim
   for _ in $(seq 1 30); do camera_connected && break; sleep 1; done
   camera_connected || fail "camera not connected to the MT11 simulator"
+  local log="${TMPDIR:-/tmp}/rgcs-accept-stack-$1.log"
   (cd "$ROOT/apps/rgcs-server/ui" && E2E_BASE_URL="$URL" RGCS_E2E_SIM_PORT=37260 RGCS_E2E_SITL=1 RGCS_E2E_SIM=1 RGCS_E2E_VIDEO=1 \
-    npx playwright test e2e/present.spec.ts e2e/camera.spec.ts e2e/detail.spec.ts e2e/logbook.spec.ts 2>&1 | tail -12) \
-    | tee /dev/stderr | grep -Eq '^\s+[0-9]+ passed' || fail "E2E ($1)"
+    npx playwright test e2e/present.spec.ts e2e/camera.spec.ts e2e/detail.spec.ts e2e/logbook.spec.ts) >"$log" 2>&1 || true
+  grep -E '^\s+[0-9]+ (passed|failed|flaky)' "$log" || true
+  if grep -Eq '^\s+[0-9]+ failed' "$log"; then
+    grep -E '✘|Error:|Expected|Received|^\s+> ' "$log" | head -20
+    fail "E2E ($1); full output: $log (traces under apps/rgcs-server/ui/test-results)"
+  fi
 }
 
 echo "[2] browser journeys"

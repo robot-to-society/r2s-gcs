@@ -5,7 +5,7 @@
 #   shell | logs           shell in the Pi / last 200 journal lines of rgcs-server
 #   link udp|serial        FC link stand-in: Rpanion UDP 15555, or pty /dev/ttyFC
 #   lte on|off             netem 80 ms ± 20 ms, 1 % loss on the Pi's interface
-#   bench [SECS] [CPUS]    rgcs-server CPU / RSS over a window with the CPU limited
+#   bench [SECS] [CPUS]    rgcs-server CPU / memory over a window with the CPU limited (no UI client)
 # The host SITL (tcp:5760) accepts ONE client: stop scripts/dev.sh first.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -45,7 +45,6 @@ bench() {
   local secs="${1:-60}" cpus="${2:-1}" a b mem
   docker update --cpus "$cpus" rgcs-pi-pi-1 >/dev/null
   a=$(pi systemctl show rgcs-server -p CPUUsageNSec --value)
-  node -e "const ws=new WebSocket('ws://127.0.0.1:18000/ws');setTimeout(()=>process.exit(0),${secs}*1000)" 2>/dev/null &
   sleep "$secs"
   b=$(pi systemctl show rgcs-server -p CPUUsageNSec --value)
   mem=$(pi systemctl show rgcs-server -p MemoryCurrent --value)

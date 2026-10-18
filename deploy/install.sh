@@ -17,6 +17,7 @@ PYTHON_UNIT=mt11-camera-ui.service
 NEW_BIN=""
 HEALTH_TIMEOUT=30
 ROLLBACK=0
+TOOK_OVER_PYTHON=0
 
 log() { echo "[install] $*"; }
 die() { echo "[install] ERROR: $*" >&2; exit 1; }
@@ -51,10 +52,16 @@ ensure_user_and_dirs() {
   install -d -m 0750 -o rgcs -g rgcs "$DATA"
 }
 
-install_binary() {
-  install -m 0755 "$NEW_BIN" "$BIN.new"
-  if [ -f "$BIN" ]; then cp -p "$BIN" "$BIN.prev"; fi
+# Replace $BIN atomically from $1 (rename: never writes into a running, text-busy executable).
+put_binary() {
+  install -m 0755 "$1" "$BIN.new"
   mv -f "$BIN.new" "$BIN"
+}
+
+install_binary() {
+  # Rotate .prev only for a different binary: re-running the same release keeps the real rollback target.
+  if [ -f "$BIN" ] && ! cmp -s "$NEW_BIN" "$BIN"; then cp -p "$BIN" "$BIN.prev"; fi
+  put_binary "$NEW_BIN"
 }
 
 ensure_config() {
@@ -71,6 +78,7 @@ take_over_python() {
   if systemctl is-active --quiet "$PYTHON_UNIT" || systemctl is-enabled --quiet "$PYTHON_UNIT"; then
     systemctl stop "$PYTHON_UNIT" || true
     systemctl disable "$PYTHON_UNIT" >/dev/null 2>&1 || true
+    TOOK_OVER_PYTHON=1
     log "stopped and disabled $PYTHON_UNIT (rgcs-server replaces it)"
   fi
 }
@@ -92,7 +100,7 @@ restart_and_wait() {
   local url i
   url=$(health_url)
   for i in $(seq 1 "$HEALTH_TIMEOUT"); do
-    if [ "$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)" = 200 ]; then return 0; fi
+    if [ "$(curl -s --connect-timeout 1 --max-time 2 -o /dev/null -w '%{http_code}' "$url" || true)" = 200 ]; then return 0; fi
     sleep 1
   done
   return 1
@@ -100,8 +108,28 @@ restart_and_wait() {
 
 restore_previous() {
   [ -f "$BIN.prev" ] || die "no previous binary to restore"
-  cp -p "$BIN.prev" "$BIN"
+  put_binary "$BIN.prev"
   restart_and_wait || die "the previous binary is not healthy either; see journalctl -u rgcs-server"
+}
+
+# A failed first install: nothing to roll back to, so put the Pi back as it was.
+undo_first_install() {
+  systemctl disable --now rgcs-server >/dev/null 2>&1 || true
+  rm -f "$BIN"
+  log "rgcs-server stopped and disabled; the failed release was removed"
+  if [ "$TOOK_OVER_PYTHON" = 1 ]; then
+    systemctl enable --now "$PYTHON_UNIT" >/dev/null 2>&1 || true
+    log "RESTORED $PYTHON_UNIT"
+  fi
+}
+
+warn_dev_login() {
+  local url
+  url=$(health_url)
+  if curl -s --max-time 2 "$url" | grep -q '"dev_mode":true'; then
+    log "WARNING: the development login admin/admin is active. Anyone who reaches this port can"
+    log "WARNING: ARM the vehicle: expose :$(echo "$url" | sed 's|.*:\([0-9]*\)/.*|\1|') only on the vehicle LAN / VPN, never the open internet."
+  fi
 }
 
 main() {
@@ -120,10 +148,16 @@ main() {
   install_unit
   if restart_and_wait; then
     log "INSTALLED $("$BIN" --version) ($(health_url))"
+    warn_dev_login
     return 0
   fi
-  log "not healthy within ${HEALTH_TIMEOUT}s; restoring the previous binary"
+  log "not healthy within ${HEALTH_TIMEOUT}s"
   journalctl -u rgcs-server -n 20 --no-pager 2>/dev/null | sed 's/^/[install]   /' || true
+  if [ ! -f "$BIN.prev" ]; then
+    undo_first_install
+    exit 1
+  fi
+  log "restoring the previous binary"
   restore_previous
   log "ROLLED BACK to $("$BIN" --version)"
   exit 1

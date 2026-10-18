@@ -1,7 +1,16 @@
 # Deploying rgcs-server on the companion Pi
 
-1. `config.toml` → `/etc/rgcs/config.toml` (see `config.toml.example`). `data_dir` holds the SQLite
-   database, the audience logo (`branding/`) and later the logs.
+1. Build on the Mac: `scripts/build-pi.sh` → `dist/pi/rgcs-pi-<version>.tar.gz` (aarch64 binary with
+   the UI embedded, `install.sh`, `rgcs-server.service`, `config.toml.example`). Copy it to the Pi and
+   run `tar xzf rgcs-pi-<version>.tar.gz && cd rgcs-pi-<version> && sudo ./install.sh`. The same
+   command upgrades; `sudo ./install.sh --rollback` restores the previous release. Details, file
+   locations and what the installer does: `docs/spec/30-architecture.md` §8.
+   First install only: edit `/etc/rgcs/config.toml` (`mavlink_url`, `whep_upstream`) and
+   `sudo systemctl restart rgcs-server`. `data_dir` (`/var/lib/rgcs`) holds the SQLite database, the
+   audience logo and the fetched logs. The development login admin/admin is active until accounts
+   arrive (M5): reach port 8000 only over the vehicle LAN / VPN.
+   Try the whole deployment first on the Docker Pi equivalent: `scripts/pi-sim.sh up` then
+   `tests/pi/accept-deploy.sh` (§8.1).
 2. MediaMTX: copy `mediamtx.yml` to `/usr/local/etc/mediamtx.yml` and enable `mediamtx.service`.
    It relays the MT11 RTSP stream (`rtsp://192.168.144.25:8554/video1`) as WebRTC; signalling
    stays on `127.0.0.1:8889` because `rgcs-server` relays WHEP offers (`whep_upstream`), media goes

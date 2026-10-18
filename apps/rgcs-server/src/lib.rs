@@ -33,3 +33,9 @@ pub mod ui_embed;
 pub mod video;
 pub mod video_api;
 pub mod ws;
+
+/// Build id baked in by `scripts/build-pi.sh` (`RGCS_BUILD=<git sha>[-dirty]`); `dev` otherwise.
+pub const BUILD: &str = match option_env!("RGCS_BUILD") {
+    Some(b) => b,
+    None => "dev",
+};
