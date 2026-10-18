@@ -9,7 +9,7 @@ import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } 
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { MaintView } from '../features/params'
-import { FollowChip, MapView, cancelPick, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
+import { BasemapPicker, FollowChip, MapView, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
@@ -62,6 +62,8 @@ export function Shell({ me, lang }: Props) {
   const tracks = useTracks()
   const mapUi = useMapUi()
   const settings = useAppSettings()
+  const basemapId = useBasemapChoice()
+  const basemap = settings && settings.basemaps.length > 0 ? chooseBasemap(settings.basemaps, basemapId) : null
   const clock = useClock(lang)
   useEffect(() => vehicleStore.subscribe(() => tracksStore.ingest(vehicleStore.getState().vehicles)), [])
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
@@ -182,7 +184,14 @@ export function Shell({ me, lang }: Props) {
         />
         {view === 'mission' && settings && (
           <main className="stage mission" style={{ position: 'absolute', inset: 0 }}>
-            <MissionView vehicles={vehicles} dict={dict} style={rasterStyle(settings.map_tile_url, settings.map_attribution)} />
+            <MissionView
+              vehicles={vehicles}
+              dict={dict}
+              style={basemap ? basemapStyle(basemap) : rasterStyle(settings.map_tile_url, settings.map_attribution)}
+              basemap={basemap ?? undefined}
+              basemaps={settings.basemaps}
+              onPickBasemap={saveBasemapChoice}
+            />
             {logDock}
           </main>
         )}
@@ -194,7 +203,8 @@ export function Shell({ me, lang }: Props) {
               follow={mapUi.follow}
               selected={current}
               padding={padding(mapUi.aside, detail !== undefined)}
-              style={rasterStyle(settings.map_tile_url, settings.map_attribution)}
+              style={basemap ? basemapStyle(basemap) : rasterStyle(settings.map_tile_url, settings.map_attribution)}
+              basemap={basemap ?? undefined}
               target={mapUi.target}
               mission={current === null ? null : (vehicleMissions.get(current) ?? null)}
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}
@@ -205,6 +215,7 @@ export function Shell({ me, lang }: Props) {
               onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
             />
           )}
+          {view === 'ops' && settings && basemap && settings.basemaps.length > 1 && <BasemapPicker basemaps={settings.basemaps} current={basemap.id} dict={dict} onPick={saveBasemapChoice} />}
           {view === 'maint' && (
             <>
               <div className="maint-backdrop" />

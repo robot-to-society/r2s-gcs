@@ -46,8 +46,22 @@ class FakeMap {
     this.sources.set(id, { setData: vi.fn() })
   }
   layers: string[] = []
-  addLayer(l: { id: string }) {
-    this.layers.push(l.id)
+  addLayer(l: { id: string }, before?: string) {
+    if (before && this.layers.includes(before)) this.layers.splice(this.layers.indexOf(before), 0, l.id)
+    else this.layers.push(l.id)
+  }
+  removeLayer(id: string) {
+    this.layers = this.layers.filter((x) => x !== id)
+  }
+  removeSource(id: string) {
+    this.sources.delete(id)
+  }
+  getStyle() {
+    return { layers: this.layers.map((id) => ({ id })) }
+  }
+  /** MapLibre reports false while tiles are loading, even after 'load'. */
+  isStyleLoaded() {
+    return false
   }
   getLayer(id: string) {
     return this.layers.includes(id) ? { id } : undefined
@@ -247,5 +261,15 @@ describe('MapView', () => {
     render(<MapView vehicles={moving} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
     const data = created.maps.at(-1)!.sources.get('course')!.setData.mock.calls.at(-1)?.[0]
     expect(data.features.map((f: { properties: { kind: string } }) => f.properties.kind)).toEqual(['nav', 'target', 'vector'])
+  })
+  it('switching the base map swaps the base tiles even while tiles are loading', () => {
+    const osm = { id: 'map', label: '地図', tiles: ['https://osm/{z}/{x}/{y}.png'], attribution: '', max_zoom: 19, overlay: null }
+    const sat = { id: 'satellite', label: '衛星写真', tiles: ['https://esri/{z}/{y}/{x}'], attribution: '', max_zoom: 19, overlay: ['https://lbl/{z}/{x}/{y}.png'] }
+    const props = { vehicles: new Map(), tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} basemap={osm} />)
+    const m = created.maps.at(-1)!
+    rerender(<MapView {...props} basemap={sat} />)
+    expect(m.layers.slice(0, 2)).toEqual(['base', 'labels'])
+    expect(m.sources.has('labels')).toBe(true)
   })
 })

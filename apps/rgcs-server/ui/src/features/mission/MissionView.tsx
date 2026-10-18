@@ -17,11 +17,16 @@ import { useMissionIo } from './useMissionIo'
 import { appendWaypoint, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, removeItems, reorder, reverseItems, setAltBulk, setCommand, setMeta, updateItem, type Draft } from './model'
 import { MissionStore, clearSelection, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
 import { localWarnings, stats } from './summary'
+import { BasemapPicker } from '../map/BasemapPicker'
+import type { Basemap } from '../../shared/api/types'
 
 interface Props {
   readonly vehicles: ReadonlyMap<number, VehicleState>
   readonly dict: Dict
   readonly style: StyleSpecification
+  readonly basemap?: Basemap
+  readonly basemaps?: readonly Basemap[]
+  readonly onPickBasemap?: (id: string) => void
   readonly store?: MissionStore
 }
 
@@ -29,7 +34,7 @@ const isEditable = (t: EventTarget | null): boolean => t instanceof HTMLElement 
 const NUDGE = 0.0001
 
 /** The mission planning screen (spec 10 §6, 2D subset) built on the Glass prototype's layout. */
-export function MissionView({ vehicles, dict, style, store = missionStore }: Props) {
+export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onPickBasemap, store = missionStore }: Props) {
   const ui = useMissionUi(store)
   const draft = ui.history.present
   const [menu, setMenu] = useState<Menu | null>(null)
@@ -79,6 +84,7 @@ export function MissionView({ vehicles, dict, style, store = missionStore }: Pro
         selected={ui.selected}
         tool={ui.tool}
         style={style}
+        basemap={basemap}
         vehicle={vehicle}
         fitRequest={io.fitRequest}
         onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon))}
@@ -95,6 +101,7 @@ export function MissionView({ vehicles, dict, style, store = missionStore }: Pro
           <path d="M12 3l6 16-6-4-6 4z" />
         </svg>
       </div>
+      {basemap && onPickBasemap && basemaps.length > 1 && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" />}
       <div className="seg onmap float map-r top1" style={{ width: 148, height: 40 }} role="group" aria-label="2D / 3D">
         <span className="lens" />
         <button type="button" className="on" style={{ fontSize: 14 }}>

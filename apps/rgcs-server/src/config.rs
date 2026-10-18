@@ -3,7 +3,7 @@
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_PATH: &str = "/etc/rgcs/config.toml";
 
@@ -27,6 +27,50 @@ pub enum LogFetch {
 
 pub const LOG_FETCH_MIN_BAUD: u32 = 921_600;
 
+/// A base map the operator can pick (`[[basemaps]]` in config.toml; spec 10 §3.1).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ts_rs::TS)]
+#[serde(deny_unknown_fields)]
+#[ts(export)]
+pub struct Basemap {
+    pub id: String,
+    pub label: String,
+    /// Raster tile templates (`{z}/{x}/{y}`); several for subdomains.
+    pub tiles: Vec<String>,
+    pub attribution: String,
+    #[serde(default = "default_max_zoom")]
+    pub max_zoom: u8,
+    /// A transparent label layer drawn over imagery.
+    #[serde(default)]
+    pub overlay: Option<Vec<String>>,
+}
+
+fn default_max_zoom() -> u8 {
+    19
+}
+
+fn basemap(
+    id: &str,
+    label: &str,
+    tiles: &[&str],
+    attribution: &str,
+    max_zoom: u8,
+    overlay: Option<&[&str]>,
+) -> Basemap {
+    Basemap {
+        id: id.into(),
+        label: label.into(),
+        tiles: tiles.iter().map(|t| t.to_string()).collect(),
+        attribution: attribution.into(),
+        max_zoom,
+        overlay: overlay.map(|o| o.iter().map(|t| t.to_string()).collect()),
+    }
+}
+
+const CARTO_LABELS: &[&str] = &[
+    "https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
+    "https://b.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
+];
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -46,6 +90,8 @@ pub struct Config {
     /// RTSP DESCRIBE probe timeout for the video source monitor.
     pub video_probe_timeout_ms: u64,
     pub log_fetch: LogFetch,
+    /// Base maps offered in the map picker; empty → the defaults of [`Config::basemaps`].
+    pub basemaps: Vec<Basemap>,
 }
 
 impl Default for Config {
@@ -62,6 +108,7 @@ impl Default for Config {
             whep_upstream: "http://127.0.0.1:8889/mt11/whep".into(),
             video_probe_timeout_ms: 2000,
             log_fetch: LogFetch::Auto,
+            basemaps: Vec::new(),
         }
     }
 }
@@ -81,6 +128,27 @@ impl Config {
                 Ok(rgcs_mavlink::LinkUrl::Serial { baud, .. }) if baud < LOG_FETCH_MIN_BAUD
             ),
         }
+    }
+
+    /// The configured base maps, or: the `map_tile_url` map, Esri imagery with labels (the
+    /// prototype's sources), and the GSI standard / photo tiles.
+    pub fn basemaps(&self) -> Vec<Basemap> {
+        if !self.basemaps.is_empty() {
+            return self.basemaps.clone();
+        }
+        vec![
+            basemap("map", "地図", &[self.map_tile_url.as_str()], &self.map_attribution, 19, None),
+            basemap(
+                "satellite",
+                "衛星写真",
+                &["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+                "Esri, Maxar, Earthstar Geographics | © CARTO © OpenStreetMap contributors",
+                19,
+                Some(CARTO_LABELS),
+            ),
+            basemap("gsi_std", "地理院 標準", &["https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png"], "地理院タイル", 18, None),
+            basemap("gsi_photo", "地理院 写真", &["https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"], "地理院タイル", 18, None),
+        ]
     }
 
     /// Missing file → defaults; unreadable or invalid file → error.
@@ -175,6 +243,42 @@ mod tests {
             Config::parse("mavlink_url = '/dev/ttyAMA0,57600'\nlog_fetch = 'on'")
                 .unwrap()
                 .log_fetch_enabled()
+        );
+    }
+
+    #[test]
+    fn default_basemaps_start_with_the_configured_map() {
+        let c = Config::parse(r#"map_tile_url = "https://tiles.local/{z}/{x}/{y}.png""#).unwrap();
+        let ids: Vec<_> = c.basemaps().iter().map(|b| b.id.clone()).collect();
+        assert_eq!(ids, vec!["map", "satellite", "gsi_std", "gsi_photo"]);
+        assert_eq!(
+            c.basemaps()[0].tiles,
+            vec!["https://tiles.local/{z}/{x}/{y}.png".to_string()]
+        );
+        assert!(
+            c.basemaps()[1].overlay.is_some(),
+            "satellite carries a label overlay"
+        );
+    }
+
+    #[test]
+    fn config_basemaps_replace_the_defaults() {
+        let c = Config::parse(
+            r#"
+            [[basemaps]]
+            id = "local"
+            label = "現場オルソ"
+            tiles = ["http://127.0.0.1:8080/ortho/{z}/{x}/{y}.jpg"]
+            attribution = "site survey"
+            max_zoom = 21
+            "#,
+        )
+        .unwrap();
+        let b = c.basemaps();
+        assert_eq!(b.len(), 1);
+        assert_eq!(
+            (b[0].id.as_str(), b[0].max_zoom, b[0].overlay.is_none()),
+            ("local", 21, true)
         );
     }
 }

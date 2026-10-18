@@ -1,9 +1,10 @@
 import maplibregl, { type ExpressionSpecification, type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
 import { useEffect, useRef } from 'react'
 import type { FeatureCollection } from 'geojson'
-import type { CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
+import type { Basemap, CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
 import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
 import { followTarget, needsRecenter, type Padding } from './follow'
+import { useBasemapSwap } from './basemaps'
 import { courseGeoJson } from './course'
 import { footprintsGeoJson, projectedIds } from './footprints'
 import { orderLayers } from './layers'
@@ -32,6 +33,8 @@ interface Props {
   readonly cameras?: ReadonlyMap<number, CameraSnapshot>
   /** App setting 地上への投影: draw the image footprint instead of the fan where it hits the ground. */
   readonly groundProjection?: boolean
+  /** The picked base map; a change swaps the base tiles in place. */
+  readonly basemap?: Basemap
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -48,7 +51,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -180,6 +183,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     map.current?.setPadding({ top, right, bottom, left })
   }, [top, right, bottom, left])
 
+  useBasemapSwap(map, loaded, basemap)
   const followed = useRef<number | null>(null)
   useEffect(() => {
     const m = map.current

@@ -58,6 +58,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState::new(router.clone(), tx.clone(), store, queue_tx, dev_mode)
         .with_outgoing(outgoing_tx)
         .with_map(config.map_tile_url.clone(), config.map_attribution.clone())
+        .with_basemaps(config.basemaps())
         .with_whep_upstream(&config.whep_upstream)
         .with_data_dir(config.data_dir.clone())
         .with_log_fetch(config.log_fetch_enabled())

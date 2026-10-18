@@ -28,6 +28,7 @@ pub struct AppSettings {
     pub map_tile_url: String,
     pub map_attribution: String,
     pub map: MapSettings,
+    pub basemaps: Vec<crate::config::Basemap>,
 }
 
 /// `PUT /api/settings/app` body: only the persisted settings, each optional.
@@ -52,6 +53,7 @@ async fn current(app: &AppState) -> rgcs_store::Result<AppSettings> {
         map: MapSettings {
             gimbal_ground_projection: projection.as_deref() == Some("true"),
         },
+        basemaps: app.basemaps.clone(),
     })
 }
 

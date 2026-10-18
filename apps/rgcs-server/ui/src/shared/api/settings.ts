@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   map_tile_url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   map_attribution: '© OpenStreetMap contributors',
   map: { gimbal_ground_projection: false },
+  basemaps: [{ id: 'map', label: '地図', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], attribution: '© OpenStreetMap contributors', max_zoom: 19, overlay: null }],
 }
 
 let cached: Promise<AppSettings> | null = null

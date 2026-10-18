@@ -152,3 +152,11 @@
   .rg-mk.sel .vmk .beacon { animation: none; transform: scale(1.6); opacity: 0.45; }
   .rg-mk.sel .vmk .lock { animation: none; }
 }
+
+/* ---- base map picker (user request 2026-10-19) ---- */
+.basemap-picker { z-index: 3; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.basemap-picker > .btn-icon { width: 40px; height: 40px; border-radius: var(--r-ctl); color: var(--text); }
+.basemap-menu { min-width: 180px; padding: 6px; border-radius: 14px; display: flex; flex-direction: column; }
+.basemap-menu button { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border: none; border-radius: 9px; background: transparent; color: var(--text-2); font-size: 13px; text-align: left; }
+.basemap-menu button:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+.basemap-menu button.on { color: var(--text); font-weight: 500; }

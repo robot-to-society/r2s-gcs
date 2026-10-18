@@ -138,3 +138,18 @@ async fn app_settings_map_flag_round_trips() {
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
+
+#[tokio::test]
+async fn app_settings_list_default_basemaps() {
+    let (app, _) = spawn_app().await;
+    let cookie = login(&app).await;
+    let (_, body, _) = call(&app, req(Method::GET, "/api/settings/app", Some(&cookie), None)).await;
+    let ids: Vec<&str> = body["data"]["basemaps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, vec!["map", "satellite", "gsi_std", "gsi_photo"]);
+    assert_eq!(body["data"]["basemaps"][2]["attribution"], "地理院タイル");
+}

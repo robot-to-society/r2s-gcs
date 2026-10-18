@@ -59,6 +59,8 @@ pub struct AppState {
     /// Map tile source handed to the UI by `GET /api/settings/app`.
     pub map_tile_url: String,
     pub map_attribution: String,
+    /// Base maps for the picker (config `[[basemaps]]` or the defaults).
+    pub basemaps: Vec<crate::config::Basemap>,
     started: Instant,
     lockout: Arc<StdMutex<Lockout>>,
     /// One async mutex per username so check-lockout → verify → record is serialized
@@ -110,6 +112,7 @@ impl AppState {
             secure_cookies: false,
             map_tile_url: crate::config::Config::default().map_tile_url,
             map_attribution: crate::config::Config::default().map_attribution,
+            basemaps: crate::config::Config::default().basemaps(),
             started: Instant::now(),
             lockout: Arc::new(StdMutex::new(Lockout::default())),
             login_guards: Arc::new(StdMutex::new(HashMap::new())),
@@ -173,6 +176,10 @@ impl AppState {
 
     pub fn mark_guided_confirmed(&self, sysid: SysId) {
         self.guided_confirmed.lock().expect("guided mutex").insert(sysid);
+    }
+
+    pub fn with_basemaps(self, basemaps: Vec<crate::config::Basemap>) -> Self {
+        Self { basemaps, ..self }
     }
 
     pub fn with_map(self, tile_url: String, attribution: String) -> Self {
