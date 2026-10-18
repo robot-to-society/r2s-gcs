@@ -1,6 +1,8 @@
 /* Maintenance view (spec 10 §7): app-only additions over the prototype's .surface / .tbl /
  * .seg.lg / .in.lg / .badge classes. */
-.maint { right: 12px; bottom: 64px; display: flex; flex-direction: column; gap: 12px; min-width: 0; z-index: 1; }
+.stage.maint-on .maplibregl-control-container { display: none; }
+.maint-backdrop { position: absolute; inset: 0; z-index: 1; background: var(--base); }
+.maint { right: 12px; bottom: 64px; display: flex; flex-direction: column; gap: 12px; min-width: 0; z-index: 2; }
 .maint-head { gap: 14px; flex-wrap: wrap; padding: 0 4px; position: relative; z-index: 1; }
 .maint-head label { font-size: 14px; }
 .maint-head select { min-width: 150px; font-size: 15px; font-weight: 500; }
@@ -12,6 +14,8 @@
 .maint-tabs button { font-size: 14px; }
 .maint-tabs button[aria-disabled='true'] { opacity: 0.45; cursor: default; }
 .maint-body { position: relative; z-index: 1; flex: 1; min-height: 0; display: flex; }
+.maint-body[hidden] { display: none; }
+.params-table th { white-space: nowrap; }
 .params-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 0.45fr); gap: 12px; }
 .params-tab { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .params-toolbar { gap: 12px; padding: 12px 16px; }

@@ -68,6 +68,8 @@ export function Shell({ me, lang }: Props) {
   const current = selected ?? list[0]?.sysid ?? null
   const currentVehicle = current === null ? undefined : vehicles.get(current)
   const detail = selected === null ? undefined : vehicles.get(selected)
+  // The maintenance view takes the map's place; the right panel belongs to the operations map.
+  const showDetail = detail !== undefined && view !== 'maint'
   const cameraCommand = (sysid: number, cmd: CameraCommand) => {
     setPending((p) => markPending(p, sysid, cmd.cmd, Date.now()))
     sendCameraCommand(sysid, cmd).catch((e: unknown) => {
@@ -172,12 +174,7 @@ export function Shell({ me, lang }: Props) {
             <MissionView vehicles={vehicles} dict={dict} style={rasterStyle(settings.map_tile_url, settings.map_attribution)} />
           </main>
         )}
-        {view === 'maint' && (
-          <main className="stage maint-stage" style={{ position: 'absolute', inset: 0 }}>
-            <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} initialSysid={current} />
-          </main>
-        )}
-        <main className={`stage${detail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' || view === 'maint' ? 'none' : undefined }}>
+        <main className={`stage${showDetail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}${view === 'maint' ? ' maint-on' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' ? 'none' : undefined }}>
           {settings && (
             <MapView
               vehicles={vehicles}
@@ -193,6 +190,12 @@ export function Shell({ me, lang }: Props) {
               onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
             />
           )}
+          {view === 'maint' && (
+            <>
+              <div className="maint-backdrop" />
+              <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} selected={current} onSelect={setSelected} />
+            </>
+          )}
           <VehicleList
             vehicles={list}
             selected={current}
@@ -203,10 +206,10 @@ export function Shell({ me, lang }: Props) {
             onFollow={(sysid) => mapUiStore.update((s) => (s.follow === sysid ? clearFollow(s) : setFollow(s, sysid)))}
             following={mapUi.follow}
           />
-          {mapUi.follow !== null && (
+          {mapUi.follow !== null && view !== 'maint' && (
             <FollowChip name={vehicles.get(mapUi.follow)?.name ?? `#${mapUi.follow}`} dict={dict} onClear={() => mapUiStore.update(clearFollow)} />
           )}
-          {detail && (
+          {detail && showDetail && (
             <DetailPanel
               vehicle={detail}
               messages={messages}

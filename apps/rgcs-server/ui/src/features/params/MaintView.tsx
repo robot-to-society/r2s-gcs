@@ -10,14 +10,21 @@ interface Props {
   readonly vehicles: ReadonlyMap<SysId, VehicleState>
   readonly paramProgress: ReadonlyMap<SysId, ParamProgress>
   readonly dict: Dict
-  readonly initialSysid?: SysId | null
+  /** Controlled selection (the shell shares it with the vehicle list); uncontrolled when omitted. */
+  readonly selected?: SysId | null
+  readonly onSelect?: (sysid: SysId) => void
 }
 
 /** メンテナンス・設定 (spec 10 §7) after the prototype's maint screen: header row, tab strip, body. */
-export function MaintView({ vehicles, paramProgress, dict, initialSysid = null }: Props) {
+export function MaintView({ vehicles, paramProgress, dict, selected, onSelect }: Props) {
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
-  const [picked, setPicked] = useState<SysId | null>(initialSysid)
-  const sysid = picked !== null && vehicles.has(picked) ? picked : (list[0]?.sysid ?? null)
+  const [picked, setPicked] = useState<SysId | null>(null)
+  const wanted = selected === undefined ? picked : selected
+  const sysid = wanted !== null && vehicles.has(wanted) ? wanted : (list[0]?.sysid ?? null)
+  const pick = (id: SysId) => {
+    setPicked(id)
+    onSelect?.(id)
+  }
   const vehicle = sysid === null ? undefined : vehicles.get(sysid)
   const [tab, setTab] = useState<MaintTab>('params')
   const [writes, setWrites] = useState(0)
@@ -30,7 +37,7 @@ export function MaintView({ vehicles, paramProgress, dict, initialSysid = null }
         <label className="t2" htmlFor="maint-vehicle">
           {dict.maintConnected}
         </label>
-        <select id="maint-vehicle" className="in lg" value={sysid ?? ''} onChange={(e) => setPicked(Number(e.target.value))} disabled={list.length === 0}>
+        <select id="maint-vehicle" className="in lg" value={sysid ?? ''} onChange={(e) => pick(Number(e.target.value))} disabled={list.length === 0}>
           {list.length === 0 && <option value="">{dict.noVehicles}</option>}
           {list.map((v) => (
             <option key={v.sysid} value={v.sysid}>
