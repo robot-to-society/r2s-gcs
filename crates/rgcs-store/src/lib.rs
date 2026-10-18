@@ -4,6 +4,7 @@
 pub mod audit;
 pub mod camera_profiles;
 pub mod input_profile;
+pub mod inspections;
 pub mod lockout;
 pub mod missions;
 pub mod param_history;
