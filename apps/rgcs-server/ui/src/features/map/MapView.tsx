@@ -58,7 +58,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   const markers = useRef(new Map<number, { marker: Marker; el: HTMLDivElement }>())
   const targetMarker = useRef<Marker | null>(null)
   const missionBadges = useRef<Marker[]>([])
-  const homeMarkers = useRef<Marker[]>([])
+  const homeMarkers = useRef(new Map<number, Marker>())
   const missionRef = useRef(mission)
   missionRef.current = mission
   const dragRef = useRef(onDragStart)
@@ -170,12 +170,23 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicles, selected, cameras, groundProjection])
 
-  // Home is its own marker (prototype), never a replacement for the vehicle glyph.
+  // Home is its own marker (prototype), never a replacement for the vehicle glyph. Keyed by vehicle
+  // and moved in place: `homes` is a new Map on every telemetry frame.
   useEffect(() => {
     const m = map.current
     if (!m) return
-    homeMarkers.current.forEach((h) => h.remove())
-    homeMarkers.current = [...homes.values()].map((h) => new maplibregl.Marker({ element: homeEl() }).setLngLat([h.lon, h.lat]).addTo(m))
+    const markers = homeMarkers.current
+    homes.forEach((h, sysid) => {
+      const existing = markers.get(sysid)
+      if (existing) existing.setLngLat([h.lon, h.lat])
+      else markers.set(sysid, new maplibregl.Marker({ element: homeEl() }).setLngLat([h.lon, h.lat]).addTo(m))
+    })
+    markers.forEach((marker, sysid) => {
+      if (!homes.has(sysid)) {
+        marker.remove()
+        markers.delete(sysid)
+      }
+    })
   }, [homes])
 
   // Compare by value: the Shell builds a new padding object on every render (10 Hz telemetry,

@@ -54,7 +54,8 @@ function nav(v: VehicleState, sel: number): Feature[] {
 
 /** `mPerPx`: metres per screen pixel at the current zoom (0 = no screen minimum). */
 export function courseGeoJson(vehicles: ReadonlyMap<SysId, VehicleState>, selected: SysId | null, mPerPx = 0): FeatureCollection {
-  const features = [...vehicles.values()].filter(hasPosition).flatMap((v) => {
+  // A lost link leaves the last course frozen: drawing it would show motion that is not known.
+  const features = [...vehicles.values()].filter((v) => hasPosition(v) && v.link !== 'lost').flatMap((v) => {
     const sel = v.sysid === selected ? 1 : 0
     return [...nav(v, sel), ...vector(v, sel, mPerPx)]
   })

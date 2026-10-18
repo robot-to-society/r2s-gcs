@@ -81,6 +81,11 @@ pub fn mismatches(sent: &Mission, got: &Mission) -> Vec<u16> {
 }
 
 impl MissionHub {
+    /// A mission transfer is in progress for some vehicle (the GCS SYSID must not change then).
+    pub fn any_busy(&self) -> bool {
+        !self.busy.lock().expect("busy mutex").is_empty()
+    }
+
     pub fn new(tx: broadcast::Sender<ServerMessage>, gcs: rgcs_core::GcsId) -> Self {
         let (frames, _) = broadcast::channel(FRAME_CAPACITY);
         Self {

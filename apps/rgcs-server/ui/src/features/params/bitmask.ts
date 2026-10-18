@@ -9,12 +9,12 @@ export function bitsOf(value: number): number[] {
   return Array.from({ length: BITS }, (_, b) => b).filter((b) => (u >>> b) & 1)
 }
 
-/** `value` with one bit set or cleared; a negative input stays signed (int32), others unsigned. */
+/** `value` with one bit set or cleared, as a signed int32 (ArduPilot bitmask parameters are INT32:
+ * bit 31 must travel as −2³¹, since an unsigned 2³¹ saturates on the flight controller). */
 export function withBit(value: number, bit: number, on: boolean): number {
   const mask = (1 << bit) >>> 0
   const u = Math.trunc(value) >>> 0
-  const next = (on ? u | mask : u & ~mask) >>> 0
-  return value < 0 ? next | 0 : next
+  return (on ? u | mask : u & ~mask) | 0
 }
 
 /** Set bits that the metadata does not name (kept as they are). */

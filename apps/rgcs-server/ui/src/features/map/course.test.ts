@@ -57,4 +57,8 @@ describe('courseGeoJson', () => {
     expect(kinds(courseGeoJson(new Map([[1, v({ mode: 'AUTO', nav, armed: false })]]), null))).not.toContain('nav')
     expect(kinds(courseGeoJson(new Map([[1, v({ mode: 'AUTO', nav, gps: { fix: 1, sats: 0, hdop: null } })]]), null))).toEqual([])
   })
+  it('no_course_for_a_vehicle_whose_link_is_lost (its last course is stale)', () => {
+    const lost = v({ link: 'lost', cog: 90, ground_speed: 8, mode: 'AUTO', nav: { target_bearing: 90, wp_dist: 100 } })
+    expect(courseGeoJson(new Map([[1, lost]]), null).features).toEqual([])
+  })
 })

@@ -146,6 +146,13 @@ async fn put_gcs_sysid(
             "gcs_sysid must be 1–255",
         )));
     };
+    if app.missions.any_busy() {
+        return Err(Box::new(err(
+            StatusCode::CONFLICT,
+            "busy",
+            "a mission transfer is running; change the SYSID after it ends",
+        )));
+    }
     if app.router.lock().await.states().iter().any(|v| v.sysid == sysid) {
         return Err(Box::new(err(
             StatusCode::BAD_REQUEST,

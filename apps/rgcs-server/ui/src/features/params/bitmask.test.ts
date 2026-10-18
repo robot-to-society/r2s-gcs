@@ -15,8 +15,12 @@ describe('bitmask', () => {
     expect(withBit(5, 1, true)).toBe(7)
     expect(withBit(7, 0, false)).toBe(6)
     expect(withBit(6, 1, true)).toBe(6)
-    expect(withBit(0, 31, true)).toBe(2 ** 31)
-    expect(withBit(2 ** 31 + 1, 0, false)).toBe(2 ** 31)
+  })
+
+  it('bit_31_is_sent_as_an_int32 (ArduPilot bitmasks are INT32; 2^31 as a float would not survive)', () => {
+    expect(withBit(0, 31, true)).toBe(-(2 ** 31))
+    expect(withBit(2 ** 31 + 1, 0, false)).toBe(-(2 ** 31))
+    expect(bitsOf(withBit(0, 31, true))).toEqual([31])
   })
 
   it('negative values stay signed (ArduPilot uses -1 for all)', () => {

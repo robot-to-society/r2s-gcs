@@ -272,4 +272,14 @@ describe('MapView', () => {
     expect(m.layers.slice(0, 2)).toEqual(['base', 'labels'])
     expect(m.sources.has('labels')).toBe(true)
   })
+  it('home markers survive re-renders with equal homes (telemetry rebuilds the map every frame)', () => {
+    const props = { vehicles: new Map(), tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} homes={new Map([[1, { lat: 36.1, lon: 139.3 }]])} />)
+    const home = created.markers.find((m) => m.el.className === 'rg-home')!
+    rerender(<MapView {...props} homes={new Map([[1, { lat: 36.1, lon: 139.3 }]])} />)
+    expect(home.removed).toBe(false)
+    expect(created.markers.filter((m) => m.el.className === 'rg-home')).toHaveLength(1)
+    rerender(<MapView {...props} homes={new Map([[1, { lat: 36.2, lon: 139.3 }]])} />)
+    expect(home.lngLat).toEqual([139.3, 36.2])
+  })
 })
