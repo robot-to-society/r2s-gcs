@@ -295,16 +295,28 @@ impl Store {
         .await
     }
 
-    /// A re-ARM inside the window continues the flight: the landing is cleared.
-    pub async fn reopen_flight(&self, id: i64) -> Result<()> {
-        sqlx::query(
-            "UPDATE flights SET landed_at = NULL, landing_lat = NULL, landing_lon = NULL, updated_at = ?2 WHERE id = ?1",
+    /// A re-ARM inside the window continues the flight: the landing is cleared. False when the
+    /// row is no longer a draft (confirmed records are immutable) or does not exist.
+    pub async fn reopen_flight(&self, id: i64) -> Result<bool> {
+        let res = sqlx::query(
+            "UPDATE flights SET landed_at = NULL, landing_lat = NULL, landing_lon = NULL, updated_at = ?2 \
+             WHERE id = ?1 AND status = 'draft'",
         )
         .bind(id)
         .bind(unix_ms() as i64)
         .execute(&self.pool)
         .await?;
-        Ok(())
+        Ok(res.rows_affected() == 1)
+    }
+
+    /// The id of the row that corrected `id`, if any.
+    pub async fn flight_superseded_by(&self, id: i64) -> Result<Option<i64>> {
+        let v: Option<i64> =
+            sqlx::query_scalar("SELECT id FROM flights WHERE supersedes = ?1 ORDER BY id DESC LIMIT 1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(v)
     }
 
     pub async fn land_flight(
@@ -417,17 +429,27 @@ impl Store {
         };
         let next = apply_patch(&current, patch);
         check_times(next.takeoff_at, next.landed_at)?;
+        if next.status == FlightStatus::Confirmed && next.landed_at.is_none() {
+            return Err(StoreError::Invalid("an open flight cannot be confirmed".into()));
+        }
         let target = if current.status == FlightStatus::Draft {
             self.update_cols(id, &next).await?;
             id
         } else {
-            self.insert_cols(&Cols {
-                status: FlightStatus::Confirmed,
-                supersedes: Some(id),
-                created_by: by.into(),
-                ..next
-            })
-            .await?
+            let new_id = self
+                .insert_cols(&Cols {
+                    status: FlightStatus::Confirmed,
+                    supersedes: Some(id),
+                    created_by: by.into(),
+                    ..next
+                })
+                .await?;
+            sqlx::query("UPDATE flight_squawks SET flight_id = ?2 WHERE flight_id = ?1")
+                .bind(id)
+                .bind(new_id)
+                .execute(&self.pool)
+                .await?;
+            new_id
         };
         self.flight(target).await
     }
@@ -581,7 +603,7 @@ mod tests {
         s.land_flight(id, T0 + 10_000, Some(1.0), Some(2.0))
             .await
             .unwrap();
-        s.reopen_flight(id).await.unwrap();
+        assert!(s.reopen_flight(id).await.unwrap());
         let f = s.open_flight_of(1).await.unwrap().unwrap();
         assert_eq!((f.id, f.landed_at, f.landing_lat), (id, None, None));
     }
@@ -709,5 +731,71 @@ mod tests {
         .unwrap();
         assert_eq!(s.last_operator(1).await.unwrap().as_deref(), Some("admin"));
         assert_eq!(s.last_operator(2).await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn reopen_only_drafts_and_open_flights_cannot_be_confirmed() {
+        let s = Store::open_memory().await.unwrap();
+        let id = s
+            .open_flight(1, "admin", "", T0, None, None, "system")
+            .await
+            .unwrap();
+        let confirm = FlightPatch {
+            status: Some(FlightStatus::Confirmed),
+            ..FlightPatch::default()
+        };
+        assert!(
+            s.patch_flight(id, &confirm, "admin").await.is_err(),
+            "still in the air"
+        );
+        s.land_flight(id, T0 + 10_000, None, None).await.unwrap();
+        assert!(s.reopen_flight(id).await.unwrap());
+        s.land_flight(id, T0 + 20_000, None, None).await.unwrap();
+        s.patch_flight(id, &confirm, "admin").await.unwrap().unwrap();
+        assert!(
+            !s.reopen_flight(id).await.unwrap(),
+            "confirmed records are immutable"
+        );
+        assert!(s.open_flight_of(1).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn supersede_relinks_squawks_and_marks_the_old_row() {
+        let s = Store::open_memory().await.unwrap();
+        let f = s.create_flight(1, &manual(T0, T0 + 1), "admin").await.unwrap();
+        let sq = FlightSquawkInput {
+            occurred_on: "2026-12-05".into(),
+            description: "振動".into(),
+            action_on: "".into(),
+            action: "".into(),
+            confirmer: "".into(),
+        };
+        s.add_squawk(f.id, &sq, "admin").await.unwrap();
+        s.patch_flight(
+            f.id,
+            &FlightPatch {
+                status: Some(FlightStatus::Confirmed),
+                ..FlightPatch::default()
+            },
+            "admin",
+        )
+        .await
+        .unwrap();
+        assert_eq!(s.flight_superseded_by(f.id).await.unwrap(), None);
+        let newer = s
+            .patch_flight(
+                f.id,
+                &FlightPatch {
+                    summary: Some("x".into()),
+                    ..FlightPatch::default()
+                },
+                "admin",
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(newer.squawks.len(), 1);
+        assert_eq!(s.flight_superseded_by(f.id).await.unwrap(), Some(newer.id));
+        assert_eq!(s.flight_superseded_by(newer.id).await.unwrap(), None);
     }
 }

@@ -32,9 +32,13 @@ pub enum Transition {
         lat: Option<f64>,
         lon: Option<f64>,
     },
+    /// Re-ARM inside the window; carries the takeoff data in case the row can no longer be reopened.
     Reopen {
         sysid: SysId,
         id: i64,
+        at: u64,
+        lat: Option<f64>,
+        lon: Option<f64>,
     },
     Landing {
         sysid: SysId,
@@ -87,7 +91,13 @@ fn step_one(track: &mut Track, now_ms: u64, s: &VehicleState) -> Option<Transiti
             let (lat, lon) = position(s);
             match (track.open, track.last_disarm_ms) {
                 (Some(id), Some(d)) if now_ms.saturating_sub(d) < REARM_WINDOW_MS => {
-                    Some(Transition::Reopen { sysid, id })
+                    Some(Transition::Reopen {
+                        sysid,
+                        id,
+                        at: now_ms,
+                        lat,
+                        lon,
+                    })
                 }
                 _ => {
                     track.open = None;
@@ -173,40 +183,61 @@ impl FlightTracker {
         tracks.entry(sysid).or_default().open = id;
     }
 
+    async fn takeoff(
+        &self,
+        sysid: SysId,
+        at: u64,
+        lat: Option<f64>,
+        lon: Option<f64>,
+    ) -> rgcs_store::Result<()> {
+        let (pilot, license) = self.pilot_of(sysid).await;
+        let id = self
+            .store
+            .open_flight(sysid, &pilot, &license, at, lat, lon, "system")
+            .await?;
+        self.set_open(sysid, Some(id));
+        Ok(())
+    }
+
+    async fn landing(
+        &self,
+        sysid: SysId,
+        id: i64,
+        at: u64,
+        lat: Option<f64>,
+        lon: Option<f64>,
+    ) -> rgcs_store::Result<()> {
+        self.store.land_flight(id, at, lat, lon).await?;
+        if let Ok(Some(flight)) = self.store.flight(id).await {
+            let _ = self.tx.send(ServerMessage::FlightDraftCreated { sysid, flight });
+        }
+        Ok(())
+    }
+
     /// Writes the transitions to the store and broadcasts `flight_draft_created` on landings.
     pub async fn apply(&self, transitions: Vec<Transition>) {
         for t in transitions {
             let result = match t {
-                Transition::Takeoff { sysid, at, lat, lon } => {
-                    let (pilot, license) = self.pilot_of(sysid).await;
-                    match self
-                        .store
-                        .open_flight(sysid, &pilot, &license, at, lat, lon, "system")
-                        .await
-                    {
-                        Ok(id) => {
-                            self.set_open(sysid, Some(id));
-                            Ok(())
-                        }
-                        Err(e) => Err(e),
-                    }
-                }
-                Transition::Reopen { id, .. } => self.store.reopen_flight(id).await,
+                Transition::Takeoff { sysid, at, lat, lon } => self.takeoff(sysid, at, lat, lon).await,
+                Transition::Reopen {
+                    sysid,
+                    id,
+                    at,
+                    lat,
+                    lon,
+                } => match self.store.reopen_flight(id).await {
+                    // Confirmed in the meantime: the record is immutable, so this is a new flight.
+                    Ok(false) => self.takeoff(sysid, at, lat, lon).await,
+                    Ok(true) => Ok(()),
+                    Err(e) => Err(e),
+                },
                 Transition::Landing {
                     sysid,
                     id,
                     at,
                     lat,
                     lon,
-                } => match self.store.land_flight(id, at, lat, lon).await {
-                    Ok(()) => {
-                        if let Ok(Some(flight)) = self.store.flight(id).await {
-                            let _ = self.tx.send(ServerMessage::FlightDraftCreated { sysid, flight });
-                        }
-                        Ok(())
-                    }
-                    Err(e) => Err(e),
-                },
+                } => self.landing(sysid, id, at, lat, lon).await,
             };
             if let Err(e) = result {
                 tracing::warn!(error = %e, "flight tracker store write failed");
@@ -292,7 +323,15 @@ mod tests {
     fn rearm_within_window_extends_the_flight() {
         let mut tracks = tracks_with_open(5, 100_000);
         let t = step(&mut tracks, 400_000, &[state(true)]);
-        assert!(matches!(t.as_slice(), [Transition::Reopen { sysid: 1, id: 5 }]));
+        assert!(matches!(
+            t.as_slice(),
+            [Transition::Reopen {
+                sysid: 1,
+                id: 5,
+                at: 400_000,
+                ..
+            }]
+        ));
     }
 
     #[test]

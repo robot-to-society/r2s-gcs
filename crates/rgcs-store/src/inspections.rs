@@ -288,6 +288,15 @@ impl Store {
         }
     }
 
+    pub async fn inspection_is_superseded(&self, id: i64) -> Result<bool> {
+        let v: Option<i64> =
+            sqlx::query_scalar("SELECT id FROM inspection_runs WHERE supersedes = ?1 LIMIT 1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(v.is_some())
+    }
+
     /// Non-superseded runs of one vehicle, newest first, optionally within `performed_on` dates.
     pub async fn list_inspections(
         &self,
@@ -466,6 +475,8 @@ mod tests {
         );
         assert!(s.list_inspections(4, None, None, 10).await.unwrap().is_empty());
         assert_eq!(s.inspection(first.id).await.unwrap().unwrap().supersedes, None);
+        assert!(s.inspection_is_superseded(first.id).await.unwrap());
+        assert!(!s.inspection_is_superseded(second.id).await.unwrap());
     }
 
     #[tokio::test]

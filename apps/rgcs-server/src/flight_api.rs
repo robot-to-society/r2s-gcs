@@ -90,11 +90,39 @@ fn not_found(what: &str) -> Response {
     err(StatusCode::NOT_FOUND, "not_found", format!("{what} is unknown"))
 }
 
-/// The flight when it exists and belongs to `sysid`.
+/// The flight when it exists, belongs to `sysid` and has not been corrected by a newer row.
 async fn own_flight(app: &AppState, sysid: SysId, id: i64) -> Result<Flight, Box<Response>> {
-    match app.store.flight(id).await {
-        Ok(Some(f)) if f.sysid == sysid => Ok(f),
-        Ok(_) => Err(Box::new(not_found("flight"))),
+    let flight = match app.store.flight(id).await {
+        Ok(Some(f)) if f.sysid == sysid => f,
+        Ok(_) => return Err(Box::new(not_found("flight"))),
+        Err(e) => return Err(Box::new(internal(e))),
+    };
+    match app.store.flight_superseded_by(id).await {
+        Ok(None) => Ok(flight),
+        Ok(Some(newer)) => Err(Box::new(err(
+            StatusCode::CONFLICT,
+            "superseded",
+            format!("flight {id} was corrected by flight {newer}; edit that one"),
+        ))),
+        Err(e) => Err(Box::new(internal(e))),
+    }
+}
+
+/// `supersedes` must name a live maintenance record of this vehicle.
+async fn check_maintenance_supersedes(
+    app: &AppState,
+    sysid: SysId,
+    prev: Option<i64>,
+) -> Result<(), Box<Response>> {
+    let Some(prev) = prev else { return Ok(()) };
+    match app.store.maintenance(prev).await {
+        Ok(Some(r)) if r.sysid == sysid => {}
+        Ok(_) => return Err(invalid("supersedes is not a record of this vehicle")),
+        Err(e) => return Err(Box::new(internal(e))),
+    }
+    match app.store.maintenance_is_superseded(prev).await {
+        Ok(false) => Ok(()),
+        Ok(true) => Err(invalid("supersedes names a record that was already corrected")),
         Err(e) => Err(Box::new(internal(e))),
     }
 }
@@ -299,6 +327,9 @@ pub async fn create_maintenance(
     Json(input): Json<MaintenanceInput>,
 ) -> Response {
     if let Err(r) = validate_maintenance(&input) {
+        return *r;
+    }
+    if let Err(r) = check_maintenance_supersedes(&app, sysid, input.supersedes).await {
         return *r;
     }
     match app.store.create_maintenance(sysid, &input, &op.username).await {

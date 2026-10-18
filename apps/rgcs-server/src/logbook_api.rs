@@ -354,6 +354,11 @@ pub async fn create_inspection(
             Ok(_) => return validation("supersedes is not a run of this vehicle"),
             Err(e) => return internal(e),
         }
+        match app.store.inspection_is_superseded(prev).await {
+            Ok(false) => {}
+            Ok(true) => return validation("supersedes names a run that was already corrected"),
+            Err(e) => return internal(e),
+        }
     }
     match app
         .store

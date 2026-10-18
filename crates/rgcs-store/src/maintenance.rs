@@ -59,6 +59,23 @@ impl Store {
         Ok(record_of(&row))
     }
 
+    pub async fn maintenance(&self, id: i64) -> Result<Option<MaintenanceRecord>> {
+        let row = sqlx::query("SELECT * FROM maintenance_records WHERE id = ?1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(row.as_ref().map(record_of))
+    }
+
+    pub async fn maintenance_is_superseded(&self, id: i64) -> Result<bool> {
+        let v: Option<i64> =
+            sqlx::query_scalar("SELECT id FROM maintenance_records WHERE supersedes = ?1 LIMIT 1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(v.is_some())
+    }
+
     /// Non-superseded records of one vehicle, ascending `performed_on`, within the dates when given.
     pub async fn list_maintenance(
         &self,
@@ -132,6 +149,10 @@ mod tests {
             .unwrap();
         let list = s.list_maintenance(1, None, None).await.unwrap();
         assert_eq!(list.iter().map(|r| r.id).collect::<Vec<_>>(), vec![fixed.id]);
+        assert_eq!(s.maintenance(m.id).await.unwrap().unwrap().sysid, 1);
+        assert!(s.maintenance_is_superseded(m.id).await.unwrap());
+        assert!(!s.maintenance_is_superseded(fixed.id).await.unwrap());
+        assert!(s.maintenance(999).await.unwrap().is_none());
         assert!(s
             .list_maintenance(1, Some("2026-12-11"), None)
             .await

@@ -344,3 +344,193 @@ async fn other_vehicles_flight_is_404() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn superseded_flights_are_frozen() {
+    let (app, state) = spawn_app().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let admin = login(&app).await;
+    let id = create(&app, &admin, 1).await["id"].as_i64().unwrap();
+    let squawk = json!({ "occurred_on": "2026-12-05", "description": "x", "action_on": "", "action": "", "confirmer": "" });
+    call(
+        &app,
+        req(
+            Method::POST,
+            &format!("/api/vehicles/1/flights/{id}/squawks"),
+            Some(&admin),
+            Some(squawk.clone()),
+        ),
+    )
+    .await;
+    call(
+        &app,
+        req(
+            Method::PATCH,
+            &format!("/api/vehicles/1/flights/{id}"),
+            Some(&admin),
+            Some(json!({ "status": "confirmed" })),
+        ),
+    )
+    .await;
+    let (_, body, _) = call(
+        &app,
+        req(
+            Method::PATCH,
+            &format!("/api/vehicles/1/flights/{id}"),
+            Some(&admin),
+            Some(json!({ "summary": "v2" })),
+        ),
+    )
+    .await;
+    let new_id = body["data"]["id"].as_i64().unwrap();
+    assert_eq!(
+        body["data"]["squawks"].as_array().unwrap().len(),
+        1,
+        "squawks follow the correction"
+    );
+    for request in [
+        req(
+            Method::PATCH,
+            &format!("/api/vehicles/1/flights/{id}"),
+            Some(&admin),
+            Some(json!({ "summary": "v3" })),
+        ),
+        req(
+            Method::DELETE,
+            &format!("/api/vehicles/1/flights/{id}"),
+            Some(&admin),
+            None,
+        ),
+        req(
+            Method::POST,
+            &format!("/api/vehicles/1/flights/{id}/squawks"),
+            Some(&admin),
+            Some(squawk.clone()),
+        ),
+    ] {
+        let (status, body, _) = call(&app, request).await;
+        assert_eq!((status, error_code(&body)), (StatusCode::CONFLICT, "superseded"));
+    }
+    let (status, _, _) = call(
+        &app,
+        req(
+            Method::POST,
+            &format!("/api/vehicles/1/flights/{new_id}/squawks"),
+            Some(&admin),
+            Some(squawk),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+}
+
+#[tokio::test]
+async fn confirming_an_open_flight_is_refused() {
+    let (app, state) = spawn_app().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let admin = login(&app).await;
+    let id = state
+        .store
+        .open_flight(1, "admin", "", T0, None, None, "system")
+        .await
+        .unwrap();
+    let (status, body, _) = call(
+        &app,
+        req(
+            Method::PATCH,
+            &format!("/api/vehicles/1/flights/{id}"),
+            Some(&admin),
+            Some(json!({ "status": "confirmed" })),
+        ),
+    )
+    .await;
+    assert_eq!(
+        (status, error_code(&body)),
+        (StatusCode::BAD_REQUEST, "validation")
+    );
+}
+
+#[tokio::test]
+async fn maintenance_supersedes_must_be_an_own_live_record() {
+    let (app, state) = spawn_app().await;
+    seed_vehicle(&state, 1, false, false).await;
+    seed_vehicle(&state, 2, false, false).await;
+    let admin = login(&app).await;
+    let body = |supersedes: Value| json!({ "performed_on": "2026-12-10", "detail": "x", "reason": "", "place": "", "engineer": "", "notes": "", "supersedes": supersedes });
+    let (status, out, _) = call(
+        &app,
+        req(
+            Method::POST,
+            "/api/vehicles/1/maintenance",
+            Some(&admin),
+            Some(body(json!(999))),
+        ),
+    )
+    .await;
+    assert_eq!(
+        (status, error_code(&out)),
+        (StatusCode::BAD_REQUEST, "validation")
+    );
+    let (_, other, _) = call(
+        &app,
+        req(
+            Method::POST,
+            "/api/vehicles/2/maintenance",
+            Some(&admin),
+            Some(body(Value::Null)),
+        ),
+    )
+    .await;
+    let other_id = other["data"]["id"].as_i64().unwrap();
+    let (status, out, _) = call(
+        &app,
+        req(
+            Method::POST,
+            "/api/vehicles/1/maintenance",
+            Some(&admin),
+            Some(body(json!(other_id))),
+        ),
+    )
+    .await;
+    assert_eq!(
+        (status, error_code(&out)),
+        (StatusCode::BAD_REQUEST, "validation")
+    );
+    let (_, mine, _) = call(
+        &app,
+        req(
+            Method::POST,
+            "/api/vehicles/1/maintenance",
+            Some(&admin),
+            Some(body(Value::Null)),
+        ),
+    )
+    .await;
+    let mine_id = mine["data"]["id"].as_i64().unwrap();
+    let (status, _, _) = call(
+        &app,
+        req(
+            Method::POST,
+            "/api/vehicles/1/maintenance",
+            Some(&admin),
+            Some(body(json!(mine_id))),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, out, _) = call(
+        &app,
+        req(
+            Method::POST,
+            "/api/vehicles/1/maintenance",
+            Some(&admin),
+            Some(body(json!(mine_id))),
+        ),
+    )
+    .await;
+    assert_eq!(
+        (status, error_code(&out)),
+        (StatusCode::BAD_REQUEST, "validation"),
+        "already superseded"
+    );
+}
