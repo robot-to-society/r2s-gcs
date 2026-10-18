@@ -52,7 +52,15 @@ export function DetailPanel(p: Props) {
         </button>
       </div>
       <div className="detail-body">
-        <VideoThumb sysid={v.sysid} status={videoSource} recording={camState.recording} dict={dict} />
+        <VideoThumb
+          sysid={v.sysid}
+          status={videoSource}
+          recording={camState.recording}
+          dict={dict}
+          modes={caps.video_modes}
+          mode={camState.video_mode}
+          onMode={(mode) => onCameraCommand?.({ cmd: 'video_mode', args: { mode } })}
+        />
         <CameraStrip caps={caps} state={camState} pending={cameraPending} onCommand={(c) => onCameraCommand?.(c)} onSettings={() => onCameraSettings?.()} dict={dict} />
         <CameraStatusRow caps={caps} state={camState} onSetup={() => onCameraSettings?.()} dict={dict} />
         <div className="detail-telemetry num">

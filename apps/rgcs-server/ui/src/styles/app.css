@@ -93,12 +93,6 @@
 .detail-rec { position: absolute; left: 10px; top: 10px; height: 28px; }
 .detail-rec .rdot { width: 8px; height: 8px; background: #fff; animation: rgblink 1.2s infinite; }
 .detail-reconnect { position: absolute; right: 52px; top: 12px; }
-.cam-strip { gap: 6px; }
-.cam-strip .zoom { display: flex; align-items: center; gap: 0; }
-.cam-strip .zoom .val { min-width: 40px; text-align: center; font-size: 19px; }
-.cam-strip .seg { width: auto; flex: 1 1 110px; min-width: 0; max-width: 156px; }
-.cam-strip .seg button { padding: 0 4px; font-size: 11px; }
-.cam-strip > .btn-icon { width: 32px; }
 .cam-status .danger { color: var(--danger); }
 .detail-telemetry { display: grid; grid-template-columns: repeat(3, 1fr); padding: 14px 12px 12px; }
 .detail-telemetry .kv { display: flex; flex-direction: column; align-items: center; gap: 2px; border-right: 1px solid var(--line-soft); }
