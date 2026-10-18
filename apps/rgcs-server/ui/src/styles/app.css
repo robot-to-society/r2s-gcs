@@ -56,15 +56,9 @@
 .login-note { font-size: 11px; }
 .login-lang { width: 150px; }
 
-/* ---- footer log bar (prototype footer) ---- */
-.footer-log { position: absolute; left: calc(50% + (var(--aside-w) - var(--right-w)) / 2); transform: translateX(-50%); bottom: 12px; height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 16px; max-width: min(720px, calc(100% - var(--aside-w) - var(--right-w) - 72px)); z-index: 3; font-size: 12px; border-radius: 999px; white-space: nowrap; }
-.footer-log .lead { font-weight: 500; }
-.footer-log .entry { gap: 8px; padding-left: 12px; border-left: 1px solid var(--line-hi); }
-.footer-log .entry.danger { color: var(--danger); }
-.footer-log .glyph { width: 18px; height: 18px; border-radius: 50%; background: var(--accent-tint); color: var(--accent); display: grid; place-items: center; font-weight: 600; font-size: 11px; flex: none; }
-.footer-log .glyph::before { content: attr(data-glyph); }
-.footer-log .glyph.bad { background: var(--danger-tint); color: var(--danger); }
-.footer-clock { padding-left: 12px; border-left: 1px solid var(--line-hi); }
+/* ---- footer log pill (prototype footer, 2026-10-18) ---- */
+.footer-log { bottom: 12px; height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 16px; width: min(620px, calc(100% - var(--aside-w) - var(--right-w) - 72px)); z-index: 3; font-size: 12px; border-radius: 999px; white-space: nowrap; }
+.footer-clock { padding-left: 12px; border-left: 1px solid var(--line-hi); padding-right: 8px; }
 
 /* ---- sheets (commands / camera settings / present): prototype `float map-r top2` ---- */
 .sheet { position: absolute; right: var(--gap); top: calc(var(--top) + 54px); bottom: var(--gap); width: 380px; z-index: 6; display: flex; flex-direction: column; min-height: 0; }

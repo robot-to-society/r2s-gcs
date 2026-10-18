@@ -1,5 +1,6 @@
 import type { CameraSnapshot, CommandResult, Deadman, Flight, LogFetchProgress, Mission, MissionProgress, ParamProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { applyDiff } from '../../shared/ws/apply'
+import { EMPTY_LOG, logReduce, toLogEntry, type LogState } from '../log/store'
 
 export type LinkState = 'connecting' | 'open' | 'closed'
 
@@ -22,6 +23,8 @@ export interface VehiclesState {
   readonly logFetch: ReadonlyMap<SysId, LogFetchProgress>
   readonly deadman: Deadman
   readonly link: LinkState
+  /** The message log behind the footer pill and the history sheet. */
+  readonly log: LogState
 }
 
 export const initialState: VehiclesState = {
@@ -37,6 +40,7 @@ export const initialState: VehiclesState = {
   logFetch: new Map(),
   deadman: 'ok',
   link: 'connecting',
+  log: EMPTY_LOG,
 }
 
 
@@ -141,8 +145,16 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
     }
     case 'vehicle_message': {
       const { t: _t, ...m } = msg
-      return { ...state, messages: [m, ...state.messages].slice(0, MAX_MESSAGES) }
+      const log = logReduce(state.log, { k: 'entry', entry: toLogEntry(m) })
+      return { ...state, messages: [m, ...state.messages].slice(0, MAX_MESSAGES), log }
     }
+    case 'log_entry': {
+      const { t: _t, ...entry } = msg
+      const log = logReduce(state.log, { k: 'entry', entry })
+      return log === state.log ? state : { ...state, log }
+    }
+    case 'message_ack':
+      return withAck(state, msg.id, msg.by, msg.ts)
     case 'command_result': {
       const { t: _t, ...r } = msg
       const results = addResult(state.results, r)
@@ -162,4 +174,13 @@ export function withVehicleMission(state: VehiclesState, sysid: SysId, mission: 
   const vehicleMissions = new Map(state.vehicleMissions)
   vehicleMissions.set(sysid, mission)
   return { ...state, vehicleMissions }
+}
+
+/** A warning / error was acknowledged (by anyone): mark it in the log and the vehicle's list. */
+export function withAck(state: VehiclesState, id: number, by: string, ts: number): VehiclesState {
+  const log = logReduce(state.log, { k: 'ack', id, by, ts })
+  const hit = state.messages.some((m) => m.id === id && m.acked_by === null)
+  if (log === state.log && !hit) return state
+  const messages = hit ? state.messages.map((m) => (m.id === id ? { ...m, acked_by: by, acked_at: ts } : m)) : state.messages
+  return { ...state, log, messages }
 }

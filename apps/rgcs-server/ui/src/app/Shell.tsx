@@ -16,6 +16,8 @@ import { useAppSettings } from '../shared/api/settings'
 import type { CameraCommand, CameraProfile, GimbalInputProfile, Me, VehicleCommand } from '../shared/api/types'
 import { t, type Lang } from '../shared/i18n'
 import { Footer } from './Footer'
+import { LogSheet } from '../features/log/LogSheet'
+import { useLogHistory } from '../features/log/useLogHistory'
 import { Header } from './Header'
 import { NO_MODAL, type Modal } from './modal'
 import type { View } from './view'
@@ -43,7 +45,7 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, results, messages, cameras, videoSources, deadman, missionProgress, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
+  const { vehicles, link, log, messages, cameras, videoSources, deadman, missionProgress, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -65,6 +67,8 @@ export function Shell({ me, lang }: Props) {
   const clock = useClock(lang)
   useEffect(() => vehicleStore.subscribe(() => tracksStore.ingest(vehicleStore.getState().vehicles)), [])
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
+  const names = new Map(list.map((v) => [v.sysid, v.name]))
+  useLogHistory(link)
   const current = selected ?? list[0]?.sysid ?? null
   const currentVehicle = current === null ? undefined : vehicles.get(current)
   const detail = selected === null ? undefined : vehicles.get(selected)
@@ -289,8 +293,25 @@ export function Shell({ me, lang }: Props) {
               onDone={(r) => settle(modal.sysid, r, modal.command)}
             />
           )}
+          {log.open && (
+            <LogSheet
+              log={log}
+              names={names}
+              dict={dict}
+              onFilter={(filter) => vehicleStore.logAction({ k: 'filter', filter })}
+              onClose={() => vehicleStore.logAction({ k: 'close' })}
+            />
+          )}
         </main>
-        <Footer results={results} dict={dict} clock={clock.slice(-5)} deadmanLost={deadman === 'lost'} />
+        <Footer
+          log={log}
+          names={names}
+          dict={dict}
+          clock={clock.slice(-5)}
+          lead={view !== 'maint'}
+          onToggle={() => vehicleStore.logAction(log.open ? { k: 'close' } : { k: 'open' })}
+          deadmanLost={deadman === 'lost'}
+        />
       </div>
     </div>
   )
