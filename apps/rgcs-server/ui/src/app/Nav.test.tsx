@@ -4,10 +4,13 @@ import { t } from '../shared/i18n'
 import { Nav } from './Nav'
 
 describe('Nav', () => {
-  it('renders the five views in spec order with the lens on the current one', () => {
-    render(<Nav view="ops" onView={() => {}} dict={t('ja')} />)
+  it('renders_the_six_views_in_spec_order', () => {
+    const { container } = render(<Nav view="ops" onView={() => {}} dict={t('ja')} />)
+    expect(container.querySelector('nav.seg.n6')).not.toBeNull()
     const buttons = screen.getAllByRole('button')
-    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['運用マップ', '全機体映像', 'ミッション', 'AIチャット', 'メンテナンス・設定'])
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['運用マップ', '全機体映像', 'ミッション', 'ネットワーク', 'AIチャット', 'メンテナンス・設定'])
+    for (const name of ['全機体映像', 'ネットワーク', 'AIチャット']) expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true')
+    for (const b of buttons) expect(b.querySelector('svg.lucide, svg.ic')).not.toBeNull()
     expect(buttons[0]).toHaveAttribute('aria-current', 'page')
     expect(screen.getByTestId('lens')).toHaveStyle({ transform: 'translateX(0%)' })
   })
