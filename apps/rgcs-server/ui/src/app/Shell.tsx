@@ -7,6 +7,7 @@ import { PresentSettings } from '../features/present-settings'
 import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../features/detail'
 import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
+import { MissionView } from '../features/mission'
 import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
@@ -134,7 +135,12 @@ export function Shell({ me, lang }: Props) {
           onLogout={() => void authStore.logout()}
           onPresent={() => setModal({ kind: 'present-settings' })}
         />
-        <main className={`stage${detail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}`} style={{ position: 'absolute', inset: 0 }}>
+        {view === 'mission' && settings && (
+          <main className="stage mission" style={{ position: 'absolute', inset: 0 }}>
+            <MissionView vehicles={vehicles} dict={dict} style={rasterStyle(settings.map_tile_url, settings.map_attribution)} />
+          </main>
+        )}
+        <main className={`stage${detail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' ? 'none' : undefined }}>
           {settings && (
             <MapView
               vehicles={vehicles}

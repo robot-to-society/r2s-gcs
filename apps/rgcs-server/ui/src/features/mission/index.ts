@@ -1,9 +1,9 @@
-export { CMDS, FRAMES, PALETTE, cmdKeyOf, fieldsOf } from './cmds'
+export { CMDS, FRAMES, PALETTE, cmdKeyOf, fieldsOf, mavFontSize } from './cmds'
 export type { CmdSpec, FieldSpec, FieldType } from './cmds'
 export * from './model'
 export { HISTORY_DEPTH, canRedo, canUndo, initHistory, push, redo, undo } from './history'
 export type { History } from './history'
-export { localWarnings, stats } from './summary'
+export { findingText, localWarnings, stats } from './summary'
 export type { LocalWarning } from './summary'
 export { hasPosition, haversineM, isPositional, midpoint, pathGeoJson, positioned, remainingDistanceM } from './geo'
 export type { LatLon, PathProps } from './geo'
@@ -29,3 +29,6 @@ export {
   useMissionUi,
 } from './store'
 export type { Busy, MissionUi, Tool } from './store'
+export { MissionView } from './MissionView'
+export { MissionPicker } from './MissionPicker'
+export { parseRgcsMission, serializeRgcsMission } from './files'

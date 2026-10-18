@@ -162,3 +162,9 @@ export function fieldsOf(key: string, kind: VehicleKind | null): readonly (Field
   if (!spec) return []
   return spec.fields.map((f) => ({ ...f, unused: kind !== null && f.only !== undefined && !f.only.includes(kind) }))
 }
+
+/** Memory convention: the full MAV_CMD name shrinks with its length instead of wrapping. */
+export function mavFontSize(name: string): string {
+  const n = name.length
+  return n <= 16 ? '10px' : n <= 22 ? '9px' : n <= 28 ? '8px' : '7px'
+}

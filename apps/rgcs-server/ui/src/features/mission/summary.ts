@@ -1,6 +1,7 @@
 // Client-side mirror of rgcs-core's `Mission::stats` and the structural warnings (the fence
 // checks need the vehicle's parameters and stay on the server: `POST /api/missions/validate`).
 import type { Home, MissionItem, MissionStats } from '../../shared/api/types'
+import type { Dict } from '../../shared/i18n'
 import { hasPosition, haversineM, isPositional } from './geo'
 
 export const LONG_FLIGHT_S = 1200
@@ -42,4 +43,10 @@ export function localWarnings(items: readonly MissionItem[], speed: number): rea
   if (last && last.command !== 21 && last.command !== 20) out.push({ code: 'no_land_or_rtl', seq: items.length })
   if (stats(items, null, speed).duration_s > LONG_FLIGHT_S) out.push({ code: 'long_flight', seq: null })
   return out
+}
+
+/** The operator-facing text of a validation code (`f_<code>` in the dictionary). */
+export function findingText(code: string, dict: Dict): string {
+  const key = `f_${code}` as keyof Dict
+  return dict[key] ?? code
 }

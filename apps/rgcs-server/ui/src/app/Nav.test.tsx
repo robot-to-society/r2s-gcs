@@ -23,4 +23,13 @@ describe('Nav', () => {
     fireEvent.click(screen.getByRole('button', { name: '運用マップ' }))
     expect(onView).toHaveBeenCalledWith('ops')
   })
+
+  it('mission_tab_is_enabled', () => {
+    const onView = vi.fn()
+    render(<Nav view="ops" onView={onView} dict={t('ja')} />)
+    const mission = screen.getByRole('button', { name: 'ミッション' })
+    expect(mission).not.toHaveAttribute('aria-disabled')
+    fireEvent.click(mission)
+    expect(onView).toHaveBeenCalledWith('mission')
+  })
 })

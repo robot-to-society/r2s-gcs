@@ -1,0 +1,112 @@
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { VehicleState } from '../../shared/api/types'
+import { t } from '../../shared/i18n'
+
+let adds = 0
+vi.mock('./MissionMap', () => ({
+  MissionMap: (p: { onAdd: (lat: number, lon: number) => void }) => (
+    <div data-testid="mission-map">
+      <button type="button" onClick={() => p.onAdd(36.1 + 0.001 * adds++, 139.1)}>
+        map-add
+      </button>
+    </div>
+  ),
+}))
+
+const { MissionView } = await import('./MissionView')
+const { MissionStore } = await import('./store')
+const { rasterStyle } = await import('../map/style')
+
+const copter: VehicleState = {
+  sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'STABILIZE', armed: false, lat: 36.16, lon: 139.37, alt_rel: 0, alt_msl: 0, hdg: 0,
+  ground_speed: 0, climb: 0, battery: { pct: 90, volt: 24, current: null }, link: 'ok', last_rx_ms: 0, gps: { fix: 3, sats: 12, hdop: 1 }, warn: false, unread: 0,
+}
+const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
+const envelope = (data: unknown, status = 200) => new Response(JSON.stringify({ success: true, data }), { status, headers: { 'content-type': 'application/json' } })
+
+function setup(fetchImpl?: (url: string, init?: RequestInit) => Response) {
+  const fetchMock = vi.fn<typeof fetch>(async (input, init) => (fetchImpl ? fetchImpl(String(input), init) : envelope([])))
+  vi.stubGlobal('fetch', fetchMock)
+  const store = new MissionStore()
+  const utils = render(<MissionView vehicles={new Map([[1, copter]])} dict={t('ja')} style={style} store={store} />)
+  return { ...utils, fetchMock, store }
+}
+
+const addPoints = (n: number) => {
+  for (let i = 0; i < n; i++) fireEvent.click(screen.getByText('map-add'))
+}
+const wpRows = () => [...document.querySelectorAll<HTMLElement>('.wp-row')]
+const rows = () => wpRows().map((li) => li.querySelector('.key')?.textContent)
+
+describe('MissionView', () => {
+  beforeEach(() => {
+    adds = 0
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('adding_three_points_lists_takeoff_then_two_waypoints', () => {
+    setup()
+    addPoints(3)
+    expect(rows()).toEqual(['TAKEOFF', 'WAYPOINT', 'WAYPOINT'])
+    expect(screen.getByText('最大高度').nextSibling?.textContent).toContain('50')
+  })
+
+  it('delete_key_removes_the_selection_and_undo_brings_it_back', () => {
+    const { container } = setup()
+    addPoints(3)
+    fireEvent.click(wpRows()[1]!)
+    expect(wpRows()[1]!.className).toContain('sel')
+    fireEvent.keyDown(container.firstChild as Element, { key: 'Delete' })
+    expect(rows()).toEqual(['TAKEOFF', 'WAYPOINT'])
+    fireEvent.keyDown(container.firstChild as Element, { key: 'z', metaKey: true })
+    expect(rows()).toEqual(['TAKEOFF', 'WAYPOINT', 'WAYPOINT'])
+    fireEvent.keyDown(container.firstChild as Element, { key: 'z', metaKey: true, shiftKey: true })
+    expect(rows()).toEqual(['TAKEOFF', 'WAYPOINT'])
+  })
+
+  it('editor_shows_the_selected_item_and_bulk_note_for_many', () => {
+    setup()
+    addPoints(3)
+    expect(screen.getByText('項目を選択してください')).toBeInTheDocument()
+    fireEvent.click(wpRows()[1]!)
+    expect((screen.getByLabelText('コマンド') as HTMLSelectElement).value).toBe('WAYPOINT')
+    fireEvent.click(wpRows()[2]!, { shiftKey: true })
+    expect(screen.getByText('2 項目を選択中')).toBeInTheDocument()
+  })
+
+  it('save_calls_create_then_update', async () => {
+    const { fetchMock } = setup((url, init) => {
+      if (url === '/api/missions' && init?.method === 'POST') return envelope({ ...JSON.parse(String(init.body)), id: 5 })
+      if (url === '/api/missions/5' && init?.method === 'PUT') return envelope({ ...JSON.parse(String(init.body)), id: 5 })
+      return envelope([])
+    })
+    addPoints(2)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByText('map-add'))
+      fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    })
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`)
+    expect(calls).toEqual(['POST /api/missions', 'PUT /api/missions/5'])
+    expect(screen.queryByText('未保存')).not.toBeInTheDocument()
+  })
+
+  it('upload_with_fatal_findings_shows_them_and_does_not_upload', async () => {
+    const { fetchMock } = setup((url) => {
+      if (url.startsWith('/api/missions/validate')) {
+        return envelope({ findings: [{ level: 'fatal', code: 'first_not_takeoff', seq: 1, message: 'x' }], stats: { distance_m: 0, duration_s: 0, max_alt: 0 } })
+      }
+      return envelope([])
+    })
+    addPoints(2)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '機体へ書込' }))
+    })
+    expect(screen.getByText('先頭が TAKEOFF ではありません')).toBeInTheDocument()
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`)
+    expect(calls).toEqual(['POST /api/missions/validate?sysid=1'])
+  })
+})

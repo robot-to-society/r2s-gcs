@@ -4,4 +4,4 @@ export type View = 'ops' | 'video' | 'mission' | 'ai' | 'maint' | 'present'
 export const NAV_VIEWS: readonly View[] = ['ops', 'video', 'mission', 'ai', 'maint']
 
 /** Views that have an implementation; the rest render disabled (P2/P3 extend this). */
-export const ENABLED_VIEWS: ReadonlySet<View> = new Set<View>(['ops'])
+export const ENABLED_VIEWS: ReadonlySet<View> = new Set<View>(['ops', 'mission'])
