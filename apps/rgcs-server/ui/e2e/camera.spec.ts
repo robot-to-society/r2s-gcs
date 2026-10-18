@@ -40,7 +40,7 @@ test('camera strip appears, zoom changes, record toggles, settings save', async 
   await page.locator('[data-testid=cam-status]').getByRole('button').click()
   await page.getByRole('button', { name: '接続' }).click()
   await page.getByLabel('カメラ種別').selectOption('siyi_mt11')
-  await page.getByLabel('IP アドレス').fill('127.0.0.1')
+  await page.getByLabel('IP').fill('127.0.0.1')
   await page.getByLabel('制御ポート').fill(process.env.RGCS_E2E_SIM_PORT ?? '37261')
   await page.getByRole('button', { name: '保存' }).click()
   await expect(page.locator('.cam-strip')).toBeVisible({ timeout: 10_000 })

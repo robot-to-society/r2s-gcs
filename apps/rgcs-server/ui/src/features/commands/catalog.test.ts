@@ -16,7 +16,9 @@ describe('command catalog', () => {
   it('every item is a known VehicleCommand name or opens a modal', () => {
     const names = ['pause', 'resume', 'rtl', 'land', 'change_alt', 'change_speed', 'set_mode', 'mission_start', 'mission_resume', 'arm', 'disarm']
     for (const item of CATALOG) {
-      expect(names.includes(item.name) || item.opens !== undefined, item.name).toBe(true)
+      // `other` is the design's disabled placeholder for "その他の対応コマンド" (no command yet).
+      const placeholder = item.name === 'other' && item.build === undefined && !item.enabled(v(false))
+      expect(names.includes(item.name) || item.opens !== undefined || placeholder, item.name).toBe(true)
     }
     expect(catalogGroups().map((g) => g.group)).toEqual(['flight', 'move', 'mode', 'payload'])
   })

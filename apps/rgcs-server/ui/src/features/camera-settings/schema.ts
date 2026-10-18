@@ -7,6 +7,7 @@ export const cameraProfileSchema = z.object({
   kind: z.enum(['none', 'mavlink', 'siyi_mt11']),
   host: z.string().regex(IPV4, 'IPv4'),
   port: z.number().int().min(1).max(65535),
+  video_source_mode: z.enum(['auto', 'mt11']).default('auto'),
 })
 
 export type CameraProfileDraft = z.infer<typeof cameraProfileSchema>

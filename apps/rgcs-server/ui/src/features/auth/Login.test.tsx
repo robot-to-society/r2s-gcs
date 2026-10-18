@@ -74,7 +74,7 @@ describe('Login', () => {
   it('switches language with the segment and persists it', async () => {
     stubServer({ devMode: false, login: { status: 200, code: '' } })
     render(<Login store={new AuthStore()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'EN' }))
+    fireEvent.click(screen.getByRole('button', { name: 'English' }))
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
     expect(localStorage.getItem('rgcs.lang')).toBe('en')
   })

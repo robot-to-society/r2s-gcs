@@ -11,7 +11,7 @@ describe('ConfirmDialog', () => {
     render(
       <ConfirmDialog sysid={1} command={{ cmd: 'arm' }} vehicleName="UAV-01" onCancel={() => {}} onDone={onDone} dict={t('ja')} deps={{ confirm, send }} />,
     )
-    expect(screen.getByRole('dialog')).toHaveTextContent('ARM')
+    expect(screen.getByRole('dialog')).toHaveTextContent('アーム')
     expect(screen.getByRole('dialog')).toHaveTextContent('UAV-01')
     const run = screen.getByRole('button', { name: '実行' })
     expect(run).toHaveClass('btn-danger')

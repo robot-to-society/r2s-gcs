@@ -1,6 +1,7 @@
 import type { Dict } from '../../shared/i18n'
 import type { VehicleState } from '../../shared/api/types'
-import { altText, battLow, battText, battWidth, modeLabel, speedText } from './format'
+import { IconCopter, IconFollow, IconHeading, IconRover, IconSignal, IconSpeed } from '../../shared/ui/icons'
+import { altText, battLow, battText, battWidth, dotClass, modeLabel, speedText } from './format'
 
 interface Props {
   readonly vehicle: VehicleState
@@ -11,30 +12,13 @@ interface Props {
   readonly following?: boolean
 }
 
-function KindIcon({ kind }: { readonly kind: VehicleState['kind'] }) {
-  if (kind === 'rover') {
-    return (
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M3 13l2-5h14l2 5v5H3z" />
-        <circle cx="7" cy="17" r="1.5" />
-        <circle cx="17" cy="17" r="1.5" />
-      </svg>
-    )
-  }
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M5 5l4 4M19 5l-4 4M5 19l4-4M19 19l-4-4" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
+function signalTop(v: VehicleState): string {
+  if (v.link === 'lost') return 'var(--danger)'
+  if (v.link === 'delay') return 'var(--caution)'
+  return 'var(--text)'
 }
 
-function dotClass(v: VehicleState): string {
-  if (v.link === 'lost') return 'dot lost'
-  if (v.warn || v.link === 'delay') return 'dot warn'
-  return v.kind === 'copter' ? 'dot copter' : 'dot'
-}
-
+/** Prototype `.vrow`: icon column, name row (dot, name, mode, following, battery), stat row. Double-click follows (memory: ops map). */
 export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, following = false }: Props) {
   return (
     <div
@@ -42,42 +26,38 @@ export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, fol
       role="option"
       aria-selected={selected}
       tabIndex={0}
+      title={onFollow ? dict.followHint : undefined}
       onClick={() => onSelect(v.sysid)}
+      onDoubleClick={() => onFollow?.(v.sysid)}
       onKeyDown={(e) => e.key === 'Enter' && onSelect(v.sysid)}
     >
-      <span className="icon">
-        <KindIcon kind={v.kind} />
-      </span>
-      <div className="nm">
+      <div className="lead">
+        {v.kind === 'rover' ? <IconRover /> : <IconCopter />}
+        <IconHeading />
+      </div>
+      <div className="row">
         <span className={dotClass(v)} data-testid="dot" />
-        <span>{v.name}</span>
-        <span className="badge">{modeLabel(v, dict)}</span>
+        <span className="nm">{v.name}</span>
+        <span className="badge" style={{ color: v.armed ? 'var(--accent)' : 'var(--text-2)' }}>
+          {modeLabel(v, dict)}
+        </span>
+        {following && (
+          <span className="follow-mark" title={dict.following} aria-label={dict.following} role="img">
+            <IconFollow />
+          </span>
+        )}
         <div className="grow" />
         <span className={battLow(v) ? 'batt low' : 'batt'}>
           <span style={{ width: battWidth(v) }} />
         </span>
-        <span className="num">{battText(v)}</span>
-        {onFollow && (
-          <button
-            type="button"
-            className={following ? 'btn-icon sm on' : 'btn-icon sm'}
-            aria-label={dict.follow}
-            aria-pressed={following}
-            onClick={(e) => {
-              e.stopPropagation()
-              onFollow(v.sysid)
-            }}
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="7" />
-              <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-            </svg>
-          </button>
-        )}
+        <span className="num batt-text">{battText(v)}</span>
       </div>
-      <div className="stat num" style={{ gridColumn: 2 }}>
-        <span>▲ {altText(v)}</span>
-        <span>◔ {speedText(v)}</span>
+      <div className="row num stat">
+        <span className="alt">{altText(v)}</span>
+        <IconSpeed />
+        <span className="spd">{speedText(v)}</span>
+        <div className="grow" />
+        <IconSignal top={signalTop(v)} />
       </div>
     </div>
   )

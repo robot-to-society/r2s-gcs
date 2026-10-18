@@ -9,7 +9,7 @@ interface Props {
   readonly store?: AuthStore
 }
 
-/** Login screen (spec 10 §2): full-bleed base + aurora, one `.g-strong.login` card. */
+/** Login screen (spec 10 §2, prototype `.login .card`): aurora base, one glass card. */
 export function Login({ store = authStore }: Props) {
   const [lang, setLang] = useLang()
   const dict = t(lang)
@@ -46,47 +46,43 @@ export function Login({ store = authStore }: Props) {
   return (
     <div className="login-screen">
       <div className="aurora" />
-      <form className="g-strong login" aria-label={dict.login} onSubmit={onSubmit}>
-        <div className="row login-brand">
-          <span className="brand">RGCS</span>
-          {dev && <span className="badge dev">{dict.devBadge}</span>}
-        </div>
-        <div className="t3 login-host">
-          {dict.connectedTo}: {health?.hostname ?? '…'}
-        </div>
-        <label className="login-field">
-          <span>{dict.username}</span>
-          <input className="in lg" autoComplete="username" value={username} onChange={(e) => onChange(setUsername)(e.target.value)} />
-        </label>
-        <label className="login-field">
-          <span>{dict.password}</span>
-          <input
-            className="in lg"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => onChange(setPassword)(e.target.value)}
-          />
-        </label>
-        {errorText && (
-          <div className="login-error danger" role="alert">
+      <section className="login">
+        <form className="g-strong card" aria-label={dict.login} onSubmit={onSubmit}>
+          <div className="row login-brand">
+            <span className="brand">RGCS</span>
+            {dev && <span className="dev">{dict.devBadge}</span>}
+          </div>
+          <div className="t3 login-host">
+            {dict.connectedTo} <span className="mono">{health?.hostname ?? '…'}</span>
+          </div>
+          <label className="login-field">
+            {dict.username}
+            <input className="in lg" autoComplete="username" value={username} onChange={(e) => onChange(setUsername)(e.target.value)} />
+          </label>
+          <label>
+            {dict.password}
+            <input className="in lg" type="password" autoComplete="current-password" value={password} onChange={(e) => onChange(setPassword)(e.target.value)} />
+          </label>
+          <div className={`err${errorText ? ' danger' : ''}`} role={errorText ? 'alert' : undefined}>
             {errorText}
           </div>
-        )}
-        <button className="btn btn-primary btn-lg" type="submit" disabled={busy}>
-          {dict.login}
-        </button>
-        <div className="seg sm login-lang" role="group" aria-label="language">
-          <span className="lens" style={{ transform: `translateX(${lang === 'ja' ? 0 : 100}%)` }} />
-          <button type="button" className={lang === 'ja' ? 'on' : ''} onClick={() => setLang('ja')}>
-            日本語
+          <button className="btn btn-lg btn-primary" type="submit" disabled={busy}>
+            {dict.login}
           </button>
-          <button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>
-            EN
-          </button>
-        </div>
-        {dev && <div className="t3 login-note">{dict.devNote}</div>}
-      </form>
+          <div className="row login-foot">
+            <span className="t4 login-note">{dev ? dict.devNote : ''}</span>
+            <div className="seg sm login-lang" role="group" aria-label="language">
+              <span className="lens" style={{ transform: `translateX(${lang === 'ja' ? 0 : 100}%)` }} />
+              <button type="button" className={lang === 'ja' ? 'on' : ''} onClick={() => setLang('ja')}>
+                日本語
+              </button>
+              <button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>
+                English
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
     </div>
   )
 }

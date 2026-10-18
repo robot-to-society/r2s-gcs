@@ -6,6 +6,7 @@ import { WhepPlayer } from '../../shared/video/whep'
 import type { PlayerState } from '../../shared/video/state'
 import { recDuration } from './format'
 import { whepUrl } from './api'
+import { IconMaximize } from '../../shared/ui/icons'
 
 interface Props {
   readonly sysid: number
@@ -46,14 +47,17 @@ export function VideoThumb({ sysid, status, recording, dict }: Props) {
   }, [recording])
 
   return (
-    <div className="detail-video inset">
+    <div className="detail-video">
       {live ? <video ref={videoRef} className="feed" muted autoPlay playsInline /> : <span className="t3">{dict.videoNotConnected}</span>}
       {recording === 'recording' && (
         <span className="pill pill-rec detail-rec">
-          <span className="rdot" /> REC {recDuration(0, elapsedMs)}
+          <span className="rdot" /> AUTO REC <span className="num">{recDuration(0, elapsedMs)}</span>
         </span>
       )}
       {live && phase === 'reconnecting' && <span className="hint caution detail-reconnect">{dict.reconnecting}</span>}
+      <button type="button" className="g-ctl btn-icon maximize" aria-label={dict.maximize} title={dict.maximize} disabled>
+        <IconMaximize />
+      </button>
     </div>
   )
 }

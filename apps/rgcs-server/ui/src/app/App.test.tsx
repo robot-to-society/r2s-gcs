@@ -80,7 +80,7 @@ describe('App auth gate', () => {
       s.onopen?.()
       s.onmessage?.({ data: JSON.stringify({ t: 'snapshot', vehicles: [], cameras: [], video_sources: [] }) } as MessageEvent<string>)
     })
-    expect(screen.getByTestId('link')).toHaveTextContent('サーバー接続')
+    expect(screen.getByTestId('link')).toHaveAttribute('title', 'サーバー接続')
   })
 
   it('keeps the shell and reconnects when the socket drops but the server is merely unreachable', async () => {

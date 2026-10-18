@@ -14,7 +14,7 @@ describe('Footer', () => {
     ]
     render(<Footer results={results} dict={t('ja')} clock="14:08" />)
     const pills = screen.getAllByTestId('pill')
-    expect(pills.map((p) => p.textContent)).toEqual(['全体', '14:07 RTL 失敗', '14:05 ARM 成功'])
+    expect(pills.map((p) => p.textContent)).toEqual(['全体', '14:07 帰還 失敗', '14:05 アーム 成功'])
     expect(pills[1]).toHaveClass('danger')
     expect(pills[2]).not.toHaveClass('danger')
     expect(screen.getByText('14:08')).toBeInTheDocument()

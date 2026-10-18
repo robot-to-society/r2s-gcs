@@ -35,12 +35,11 @@ const always = () => true
 const simple = (cmd: 'pause' | 'resume' | 'rtl' | 'land' | 'mission_start' | 'mission_resume' | 'arm' | 'disarm') => (): VehicleCommand => ({ cmd })
 
 export const CATALOG: readonly CatalogItem[] = [
-  { name: 'arm', group: 'flight', enabled: (v) => !v.armed, build: simple('arm') },
-  { name: 'disarm', group: 'flight', enabled: (v) => v.armed, build: simple('disarm') },
   { name: 'pause', group: 'flight', enabled: always, build: simple('pause') },
   { name: 'resume', group: 'flight', enabled: always, build: simple('resume') },
   { name: 'rtl', group: 'flight', enabled: always, build: simple('rtl') },
   { name: 'land', group: 'flight', enabled: always, build: simple('land') },
+  { name: 'guided', group: 'move', enabled: always, opens: 'guided' },
   {
     name: 'change_alt',
     group: 'move',
@@ -55,12 +54,14 @@ export const CATALOG: readonly CatalogItem[] = [
     param: 'speed',
     build: ({ value }) => (value === undefined || Number.isNaN(value) ? null : { cmd: 'change_speed', args: { mps: value } }),
   },
-  { name: 'guided', group: 'move', enabled: always, opens: 'guided' },
   { name: 'set_mode', group: 'mode', enabled: always, param: 'mode', build: ({ mode }) => (mode ? { cmd: 'set_mode', args: { mode } } : null) },
   { name: 'mission_start', group: 'mode', enabled: always, build: simple('mission_start') },
   { name: 'mission_resume', group: 'mode', enabled: always, build: simple('mission_resume') },
-  // P2 wires this to the camera console; until then it is visible but disabled.
+  // Prototype order: arm / disarm / camera / other under 機体・ペイロード.
+  { name: 'arm', group: 'payload', enabled: (v) => !v.armed, build: simple('arm') },
+  { name: 'disarm', group: 'payload', enabled: (v) => v.armed, build: simple('disarm') },
   { name: 'camera', group: 'payload', enabled: () => false, opens: 'camera' },
+  { name: 'other', group: 'payload', enabled: () => false },
 ]
 
 const GROUP_ORDER: readonly CommandGroup[] = ['flight', 'move', 'mode', 'payload']

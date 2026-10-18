@@ -11,24 +11,30 @@ interface Props {
 
 const SHOWN = 2
 
-/** Bottom-centre log pills: "all", the two newest command results, the clock (spec 10 §1). */
+/** Bottom-centre log bar (spec 10 §1, prototype footer): "全体", the two newest results, the clock. */
 export function Footer({ results, dict, clock, deadmanLost = false }: Props) {
   return (
-    <footer className="footer-log">
-      <span className="g pill" data-testid="pill">
+    <footer className="g-ctl footer-log">
+      <span className="lead" data-testid="pill">
         {dict.all}
       </span>
       {results.slice(0, SHOWN).map((r) => (
-        <span key={r.id} className={`g pill${r.ok ? '' : ' danger'}`} data-testid="pill" title={r.reason ?? undefined}>
-          {hhmm(r.ts)} {cmdLabel(r.cmd, dict)} {r.ok ? dict.ok : dict.failed}
+        <span key={r.id} className={`row ell entry${r.ok ? '' : ' danger'}`} data-testid="pill" title={r.reason ?? undefined}>
+          <span className={`glyph${r.ok ? '' : ' bad'}`} data-glyph={r.ok ? 'i' : '!'} aria-hidden="true" />
+          <span className="num t2">{hhmm(r.ts)}</span>
+          <span className="ell">
+            {' '}
+            {cmdLabel(r.cmd, dict)} {r.ok ? dict.ok : dict.failed}
+          </span>
         </span>
       ))}
       {deadmanLost && (
-        <span className="g pill danger" data-testid="pill">
-          {dict.joystickLost}
+        <span className="row entry danger" data-testid="pill">
+          <span className="glyph bad" data-glyph="!" aria-hidden="true" />
+          <span className="ell">{dict.joystickLost}</span>
         </span>
       )}
-      {clock && <span className="num t2 footer-clock">{clock}</span>}
+      {clock && <span className="num t3 footer-clock">{clock}</span>}
     </footer>
   )
 }

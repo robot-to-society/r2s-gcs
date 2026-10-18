@@ -1,4 +1,5 @@
 import type { Dict } from '../shared/i18n'
+import { IconChat, IconGear, IconMap, IconMission, IconVideo } from '../shared/ui/icons'
 import { ENABLED_VIEWS, NAV_VIEWS, type View } from './view'
 
 interface Props {
@@ -16,7 +17,16 @@ const LABEL: Record<(typeof NAV_VIEWS)[number], keyof Dict> = {
   present: 'navMap',
 }
 
-/** Five-way segment with a sliding lens (`.seg.n5`, spec 20 §5). */
+const ICON: Record<(typeof NAV_VIEWS)[number], () => React.ReactElement> = {
+  ops: () => <IconMap />,
+  video: () => <IconVideo />,
+  mission: () => <IconMission />,
+  ai: () => <IconChat />,
+  maint: () => <IconGear />,
+  present: () => <IconMap />,
+}
+
+/** Five icon buttons with a sliding lens (`.seg.n5`, spec 20 §5); labels live in `title` / `aria-label`. */
 export function Nav({ view, onView, dict }: Props) {
   const index = Math.max(0, NAV_VIEWS.indexOf(view))
   return (
@@ -24,6 +34,7 @@ export function Nav({ view, onView, dict }: Props) {
       <span className="lens" data-testid="lens" style={{ transform: `translateX(${index * 100}%)` }} />
       {NAV_VIEWS.map((v) => {
         const enabled = ENABLED_VIEWS.has(v)
+        const label = dict[LABEL[v]]
         return (
           <button
             key={v}
@@ -31,10 +42,11 @@ export function Nav({ view, onView, dict }: Props) {
             className={v === view ? 'on' : ''}
             aria-current={v === view ? 'page' : undefined}
             aria-disabled={enabled ? undefined : 'true'}
-            title={enabled ? undefined : dict.comingSoon}
+            aria-label={label}
+            title={enabled ? label : `${label} (${dict.comingSoon})`}
             onClick={() => enabled && onView(v)}
           >
-            {dict[LABEL[v]]}
+            {ICON[v]()}
           </button>
         )
       })}

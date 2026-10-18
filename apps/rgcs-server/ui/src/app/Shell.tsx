@@ -8,7 +8,7 @@ import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../feature
 import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
-import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, tracksStore, useMapUi, useTracks } from '../features/map'
+import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
@@ -97,7 +97,7 @@ export function Shell({ me, lang }: Props) {
       alive = false
     }
   }, [modal])
-  const saveSettings = async (sysid: number, camera: { kind: CameraProfile['kind']; host: string; port: number }, input: GimbalInputProfile) => {
+  const saveSettings = async (sysid: number, camera: Partial<CameraProfile>, input: GimbalInputProfile) => {
     try {
       await putCameraProfile(sysid, camera)
       const saved = await putGimbalProfile(input)
@@ -191,6 +191,8 @@ export function Shell({ me, lang }: Props) {
             vehicles={list}
             selected={current}
             dict={dict}
+            aside={mapUi.aside}
+            onToggleAside={() => mapUiStore.update(toggleAside)}
             onSelect={setSelected}
             onFollow={(sysid) => mapUiStore.update((s) => (s.follow === sysid ? clearFollow(s) : setFollow(s, sysid)))}
             following={mapUi.follow}
@@ -198,7 +200,7 @@ export function Shell({ me, lang }: Props) {
           {mapUi.follow !== null && (
             <FollowChip name={vehicles.get(mapUi.follow)?.name ?? `#${mapUi.follow}`} dict={dict} onClear={() => mapUiStore.update(clearFollow)} />
           )}
-          {detail && modal.kind !== 'commands' && (
+          {detail && (
             <DetailPanel
               vehicle={detail}
               messages={messages}
@@ -216,12 +218,14 @@ export function Shell({ me, lang }: Props) {
               missionProgress={missionProgress.get(detail.sysid)}
               onWriteMission={() => setModal({ kind: 'mission-pick', sysid: detail.sysid })}
               onStartMission={() => setModal({ kind: 'confirm', sysid: detail.sysid, command: { cmd: 'mission_start' } })}
+              commandsOpen={modal.kind === 'commands'}
             />
           )}
           {modal.kind === 'commands' && currentVehicle && (
             <CommandsSheet
               vehicle={currentVehicle}
               dict={dict}
+              beside={detail !== undefined}
               onClose={() => setModal(NO_MODAL)}
               onOpen={(target) => target === 'guided' && setModal({ kind: 'guided', sysid: currentVehicle.sysid })}
               onPick={(command) => void runCommand(currentVehicle.sysid, command).then((r) => settle(currentVehicle.sysid, r, command))}

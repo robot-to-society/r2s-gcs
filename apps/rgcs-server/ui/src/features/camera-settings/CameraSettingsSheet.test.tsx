@@ -16,9 +16,9 @@ const base = { sysid: 1, inputProfile: DEFAULT_PROFILE, cameraState: camState, g
 describe('CameraSettingsSheet', () => {
   it('kind none hides host/port; choosing MT11 shows them with the rtsp preview', () => {
     render(<CameraSettingsSheet {...base} profile={profile()} onSave={() => {}} />)
-    expect(screen.queryByLabelText('IP アドレス')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('IP')).not.toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('カメラ種別'), { target: { value: 'siyi_mt11' } })
-    expect(screen.getByLabelText('IP アドレス')).toHaveValue('192.168.144.25')
+    expect(screen.getByLabelText('IP')).toHaveValue('192.168.144.25')
     expect(screen.getByLabelText('制御ポート')).toHaveValue(37260)
     expect(screen.getByText('rtsp://192.168.144.25:8554/video1')).toBeInTheDocument()
     expect(screen.getByText(/v1\.0\.1/)).toBeInTheDocument()
@@ -34,7 +34,7 @@ describe('CameraSettingsSheet', () => {
   it('save calls onSave with both profiles after edits on both tabs', async () => {
     const onSave = vi.fn()
     render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={onSave} />)
-    fireEvent.change(screen.getByLabelText('IP アドレス'), { target: { value: '10.0.0.5' } })
+    fireEvent.change(screen.getByLabelText('IP'), { target: { value: '10.0.0.5' } })
     fireEvent.click(screen.getByRole('button', { name: '操作' }))
     fireEvent.change(screen.getByLabelText('最大パン速度'), { target: { value: '45' } })
     fireEvent.change(screen.getByLabelText('軸 1 の機能'), { target: { value: 'none' } })

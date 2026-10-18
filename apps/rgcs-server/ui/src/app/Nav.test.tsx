@@ -7,7 +7,7 @@ describe('Nav', () => {
   it('renders the five views in spec order with the lens on the current one', () => {
     render(<Nav view="ops" onView={() => {}} dict={t('ja')} />)
     const buttons = screen.getAllByRole('button')
-    expect(buttons.map((b) => b.textContent)).toEqual(['運用マップ', '全機体映像', 'ミッション', 'AIチャット', 'メンテナンス・設定'])
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['運用マップ', '全機体映像', 'ミッション', 'AIチャット', 'メンテナンス・設定'])
     expect(buttons[0]).toHaveAttribute('aria-current', 'page')
     expect(screen.getByTestId('lens')).toHaveStyle({ transform: 'translateX(0%)' })
   })
@@ -17,7 +17,7 @@ describe('Nav', () => {
     render(<Nav view="ops" onView={onView} dict={t('ja')} />)
     const video = screen.getByRole('button', { name: '全機体映像' })
     expect(video).toHaveAttribute('aria-disabled', 'true')
-    expect(video).toHaveAttribute('title', '準備中')
+    expect(video).toHaveAttribute('title', '全機体映像 (準備中)')
     fireEvent.click(video)
     expect(onView).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '運用マップ' }))

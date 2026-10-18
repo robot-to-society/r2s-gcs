@@ -32,3 +32,10 @@ export function matches(v: VehicleState, query: string, dict: Dict): boolean {
   const q = query.trim().toLowerCase()
   return q === '' || v.name.toLowerCase().includes(q) || modeLabel(v, dict).toLowerCase().includes(q)
 }
+
+/** Status dot colour class (prototype: blue copter, amber warn / delay, red lost, green ground). */
+export function dotClass(v: VehicleState): string {
+  if (v.link === 'lost') return 'dot lost'
+  if (v.warn || v.link === 'delay') return 'dot warn'
+  return v.kind === 'copter' ? 'dot copter' : 'dot ok'
+}

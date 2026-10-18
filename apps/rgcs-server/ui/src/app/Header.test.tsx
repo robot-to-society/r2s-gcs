@@ -41,7 +41,7 @@ describe('Header', () => {
     )
     expect(screen.getByTitle('Copters')).toHaveTextContent('2')
     expect(screen.getByTitle('Rovers')).toHaveTextContent('1')
-    expect(screen.getByTestId('link')).toHaveTextContent('Server connected')
+    expect(screen.getByTestId('link')).toHaveAttribute('title', 'Server connected')
     expect(screen.getByText('2026/10/16 (Thu) 12:00')).toBeInTheDocument()
   })
 
@@ -58,7 +58,7 @@ describe('Header', () => {
         onLogout={() => {}}
       />,
     )
-    expect(screen.getByTestId('link')).toHaveTextContent('サーバー未接続')
+    expect(screen.getByTestId('link')).toHaveAttribute('title', 'サーバー未接続')
   })
 })
 
