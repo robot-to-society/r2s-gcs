@@ -1,9 +1,10 @@
 import { hhmm } from '../../shared/format/time'
-import type { CameraCommand, CameraSnapshot, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CameraCommand, CameraSnapshot, Mission, MissionProgress, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { CameraStatusRow, CameraStrip, VideoThumb } from '../camera'
 import type { Dict } from '../../shared/i18n'
 import { forVehicle, unread } from './messages'
 import { messageText, severityClass } from './format'
+import { MissionProgressRow } from './MissionProgressRow'
 
 interface Props {
   readonly vehicle: VehicleState
@@ -18,6 +19,10 @@ interface Props {
   readonly cameraPending?: boolean
   readonly onCameraCommand?: (cmd: CameraCommand) => void
   readonly onCameraSettings?: () => void
+  readonly vehicleMission?: Mission
+  readonly missionProgress?: MissionProgress
+  readonly onWriteMission?: () => void
+  readonly onStartMission?: () => void
 }
 
 const NONE_CAPS: CameraSnapshot['caps'] = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [] }
@@ -32,7 +37,7 @@ function dotClass(v: VehicleState): string {
 }
 
 /** Right panel, 372 px (spec 10 §3.3) without the camera strip (P2). */
-export function DetailPanel({ vehicle: v, messages, acked, onAck, onClose, onOpenCommands, dict, camera, videoSource, cameraPending = false, onCameraCommand, onCameraSettings }: Props) {
+export function DetailPanel({ vehicle: v, messages, acked, onAck, onClose, onOpenCommands, dict, camera, videoSource, cameraPending = false, onCameraCommand, onCameraSettings, vehicleMission, missionProgress, onWriteMission, onStartMission }: Props) {
   const caps = camera?.caps ?? NONE_CAPS
   const camState = camera?.state ?? OFFLINE
   const list = forVehicle(messages, v.sysid)
@@ -77,6 +82,9 @@ export function DetailPanel({ vehicle: v, messages, acked, onAck, onClose, onOpe
             </span>
           </div>
         </div>
+        {onWriteMission && (
+          <MissionProgressRow progress={missionProgress ?? null} mission={vehicleMission ?? null} vehicle={v} dict={dict} onWrite={onWriteMission} onStart={() => onStartMission?.()} />
+        )}
         <div className="detail-tiles">
           <button type="button" className="tile-btn" disabled title={dict.comingSoon}>
             {dict.maintenance}

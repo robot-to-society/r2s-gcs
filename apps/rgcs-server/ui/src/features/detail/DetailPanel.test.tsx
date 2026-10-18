@@ -41,4 +41,17 @@ describe('DetailPanel', () => {
     expect(screen.getByRole('button', { name: 'メンテナンス' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '履歴' })).toBeDisabled()
   })
+
+  it('detail_panel_renders_the_progress_row_when_a_mission_is_known', () => {
+    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, items: [] }
+    const onWriteMission = vi.fn()
+    const { rerender } = render(
+      <DetailPanel vehicle={v} messages={[]} acked={new Set()} onAck={() => {}} onClose={() => {}} onOpenCommands={() => {}} dict={t('ja')} onWriteMission={onWriteMission} onStartMission={() => {}} />,
+    )
+    expect(screen.getByTestId('mission-progress')).toHaveTextContent('—')
+    rerender(
+      <DetailPanel vehicle={v} messages={[]} acked={new Set()} onAck={() => {}} onClose={() => {}} onOpenCommands={() => {}} dict={t('ja')} vehicleMission={mission} missionProgress={{ seq: 1, total: 1 }} onWriteMission={onWriteMission} onStartMission={() => {}} />,
+    )
+    expect(screen.getByTestId('mission-progress')).toHaveTextContent('WP 1 / 0')
+  })
 })

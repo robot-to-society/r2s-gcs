@@ -7,7 +7,7 @@ import { PresentSettings } from '../features/present-settings'
 import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../features/detail'
 import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
-import { MissionView } from '../features/mission'
+import { MissionPicker, MissionView, getMission, uploadSavedMission } from '../features/mission'
 import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
@@ -42,7 +42,7 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, results, messages, cameras, videoSources, deadman } = useVehicles()
+  const { vehicles, link, results, messages, cameras, videoSources, deadman, missionProgress, vehicleMissions } = useVehicles()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -114,6 +114,24 @@ export function Shell({ me, lang }: Props) {
     if (cmd) cameraCommand(current, cmd)
   })
 
+  const writeSavedMission = async (sysid: number, id: number) => {
+    setModal(NO_MODAL)
+    try {
+      const report = await uploadSavedMission(sysid, id)
+      if (report.verified) vehicleStore.setVehicleMission(sysid, { ...(await getMission(id)), sysid })
+      vehicleStore.pushLocalResult({
+        id: -Date.now(),
+        sysid,
+        cmd: 'mission_upload',
+        ok: report.verified,
+        reason: report.verified ? `${report.items} ${dict.mItems}, ${dict.mVerified}` : `${dict.mMismatch}: ${report.mismatched.join(', ')}`,
+        ts: Date.now(),
+      })
+    } catch (e: unknown) {
+      vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'mission_upload', ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
+    }
+  }
+
   const settle = (sysid: number, result: RunResult, command: VehicleCommand) => {
     if (result.kind === 'needs_confirm') return setModal({ kind: 'confirm', sysid, command, message: result.message })
     if (result.kind === 'error') {
@@ -150,6 +168,8 @@ export function Shell({ me, lang }: Props) {
               padding={padding(mapUi.aside, detail !== undefined)}
               style={rasterStyle(settings.map_tile_url, settings.map_attribution)}
               target={mapUi.target}
+              mission={current === null ? null : (vehicleMissions.get(current) ?? null)}
+              missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}
               onDragStart={() => mapUiStore.update(clearFollow)}
               onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
             />
@@ -179,6 +199,10 @@ export function Shell({ me, lang }: Props) {
               cameraPending={pending.bySysid.has(detail.sysid)}
               onCameraCommand={(cmd) => cameraCommand(detail.sysid, cmd)}
               onCameraSettings={() => setModal({ kind: 'camera-settings', sysid: detail.sysid })}
+              vehicleMission={vehicleMissions.get(detail.sysid)}
+              missionProgress={missionProgress.get(detail.sysid)}
+              onWriteMission={() => setModal({ kind: 'mission-pick', sysid: detail.sysid })}
+              onStartMission={() => setModal({ kind: 'confirm', sysid: detail.sysid, command: { cmd: 'mission_start' } })}
             />
           )}
           {modal.kind === 'commands' && currentVehicle && (
@@ -221,6 +245,9 @@ export function Shell({ me, lang }: Props) {
               onCenter={() => cameraCommand(modal.sysid, { cmd: 'gimbal_center', args: { mode: 'one_key_reset' } })}
               onSave={(camera, input) => void saveSettings(modal.sysid, camera, input)}
             />
+          )}
+          {modal.kind === 'mission-pick' && (
+            <MissionPicker dict={dict} title={dict.mWriteMission} onClose={() => setModal(NO_MODAL)} onPick={(row) => void writeSavedMission(modal.sysid, row.id)} />
           )}
           {modal.kind === 'present-settings' && (
             <PresentSettings isAdmin={me.role === 'admin'} logo={false} dict={dict} onClose={() => setModal(NO_MODAL)} />

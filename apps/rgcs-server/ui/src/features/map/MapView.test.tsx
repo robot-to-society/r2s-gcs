@@ -130,4 +130,22 @@ describe('MapView', () => {
     act(() => created.maps[0]!.fire('dragstart'))
     expect(onDragStart).toHaveBeenCalledTimes(1)
   })
+
+  it('map_draws_the_mission_path_and_highlights_the_current_badge', () => {
+    const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
+    const mission = {
+      id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null,
+      items: [item(22, 36.162, 139.372, 30), item(16, 36.163, 139.373, 60), item(16, 36.164, 139.374, 60), item(20, 0, 0, 0)],
+    }
+    render(
+      <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={mission} missionCurrent={2} />,
+    )
+    const src = created.maps[0]!.sources.get('mission-path')!
+    const last = src.setData.mock.calls.at(-1)![0] as { features: unknown[] }
+    expect(last.features).toHaveLength(2)
+    const badges = created.markers.filter((m) => m.el.classList.contains('wp-mk'))
+    expect(badges).toHaveLength(3)
+    expect(badges.map((b) => b.el.className)).toEqual(['wp-mk small', 'wp-mk small current', 'wp-mk small'])
+    expect(badges[1]!.el.textContent).toBe('2')
+  })
 })

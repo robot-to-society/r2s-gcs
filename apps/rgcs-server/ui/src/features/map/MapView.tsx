@@ -1,7 +1,8 @@
 import maplibregl, { type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
 import { useEffect, useRef } from 'react'
 import type { FeatureCollection } from 'geojson'
-import type { VehicleState } from '../../shared/api/types'
+import type { Mission, VehicleState } from '../../shared/api/types'
+import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
 import { followTarget, type Padding } from './follow'
 import { hasPosition, markerEl, updateMarkerEl } from './markers'
 import type { LatLon } from './store'
@@ -19,22 +20,27 @@ interface Props {
   readonly onClick: (p: LatLon) => void
   /** False for the audience mini-map: no controls, no pan/zoom. */
   readonly interactive?: boolean
+  /** The selected vehicle's mission (route overlay) and its current item (1-based). */
+  readonly mission?: Mission | null
+  readonly missionCurrent?: number | null
 }
 
 const HOME: [number, number] = [139.372, 36.162]
 const TRACKS = 'tracks'
 const GUIDED = 'guided'
+const MISSION = 'mission-path'
 /** The arrow is 34 px wide at the element's left edge; pull it back so its centre sits on the position. */
 const ARROW_OFFSET: [number, number] = [-17, 0]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
   const markers = useRef(new Map<number, { marker: Marker; el: HTMLDivElement }>())
   const targetMarker = useRef<Marker | null>(null)
+  const missionBadges = useRef<Marker[]>([])
   const dragRef = useRef(onDragStart)
   const clickRef = useRef(onClick)
   dragRef.current = onDragStart
@@ -62,6 +68,13 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         source: TRACKS,
         filter: ['get', 'selected'],
         paint: { 'line-color': '#f2b544', 'line-width': 3 },
+      })
+      m.addSource(MISSION, { type: 'geojson', data: EMPTY })
+      m.addLayer({
+        id: 'mission-path-line',
+        type: 'line',
+        source: MISSION,
+        paint: { 'line-color': ['interpolate', ['linear'], ['get', 'alt_t'], 0, '#9cc9ff', 1, '#d8a8ff'], 'line-width': 2.5, 'line-opacity': 0.9 },
       })
       m.addSource(GUIDED, { type: 'geojson', data: EMPTY })
       m.addLayer({
@@ -156,6 +169,26 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       targetMarker.current.setLngLat([target.lon, target.lat])
     }
   }, [target])
+
+  // Mission overlay: route line + small numbered badges, the current one highlighted (addendum §5.2).
+  useEffect(() => {
+    const m = map.current
+    if (!m) return
+    if (loaded.current) {
+      const src = m.getSource(MISSION) as { setData: (d: unknown) => void } | undefined
+      src?.setData(mission ? pathGeoJson(mission.items, mission.home) : EMPTY)
+    }
+    missionBadges.current.forEach((b) => b.remove())
+    missionBadges.current = []
+    if (!mission) return
+    mission.items.forEach((it, i) => {
+      if (!itemHasPosition(it)) return
+      const el = document.createElement('div')
+      el.className = `wp-mk small${i + 1 === missionCurrent ? ' current' : ''}`
+      el.textContent = String(i + 1)
+      missionBadges.current.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m))
+    })
+  }, [mission, missionCurrent])
 
   return <div ref={container} className="map" data-testid="map" />
 }
