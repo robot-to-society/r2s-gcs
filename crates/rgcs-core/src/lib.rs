@@ -36,6 +36,7 @@ pub use mission::{
 pub use operator::Operator;
 pub use params::{ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult};
 pub use vehicle::{
-    diff, Battery, Gps, LinkStatus, SysId, VehicleKind, VehicleState, VehicleStateDiff, VehicleSummary,
+    diff, Battery, GeoPoint, Gps, LinkStatus, NavInfo, SysId, VehicleKind, VehicleState, VehicleStateDiff,
+    VehicleSummary,
 };
 pub use ws::{ClientMessage, ServerMessage, VehicleMessage, VideoSourceEntry};

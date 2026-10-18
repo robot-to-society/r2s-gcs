@@ -14,6 +14,9 @@ pub const MSG_ID_VFR_HUD: u32 = 74;
 pub const MSG_ID_SYS_STATUS: u32 = 1;
 pub const MSG_ID_GPS_RAW_INT: u32 = 24;
 pub const MSG_ID_MISSION_CURRENT: u32 = 42;
+pub const MSG_ID_NAV_CONTROLLER_OUTPUT: u32 = 62;
+pub const MSG_ID_POSITION_TARGET_GLOBAL_INT: u32 = 87;
+pub const MSG_ID_HOME_POSITION: u32 = 242;
 
 const GRACE_MS: u64 = 10_000;
 const RETRY_MS: u64 = 5_000;
@@ -28,6 +31,9 @@ pub const WANTED: &[(u32, u32)] = &[
     (MSG_ID_SYS_STATUS, 500_000),
     (MSG_ID_GPS_RAW_INT, 500_000),
     (MSG_ID_MISSION_CURRENT, 1_000_000),
+    (MSG_ID_NAV_CONTROLLER_OUTPUT, 500_000),
+    (MSG_ID_POSITION_TARGET_GLOBAL_INT, 1_000_000),
+    (MSG_ID_HOME_POSITION, 5_000_000),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
