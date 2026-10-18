@@ -88,6 +88,10 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | GET | `/api/history/params?sysid=&limit=` | `[{id, ts, operator, sysid, name, old_value, new_value, verified}]`(新しい順、limit 既定 100 / 上限 1000) |
 | GET | `/api/history/audit?limit=` | `[{ts, operator, sysid, command, result}]` |
 
+- (P8)`GET /api/settings/app` に `basemaps: [{id, label, tiles, attribution, max_zoom, overlay}]` と `mavlink: {gcs_sysid}` を追加。`PUT /api/settings/app {mavlink: {gcs_sysid}}` は管理者のみ(1–255、接続中の機体と同じ値は `400 sysid_in_use`)、監査 `settings/app_settings_put`。
+- (P8)`GET /api/mavlink/inspector` → `{rows: [{dir: rx|tx, sysid, compid, msg_id, name, count, rate_hz, age_ms}], gcs_sysid}`、`GET /api/mavlink/inspector/{dir}/{sysid}/{compid}/{msg_id}` → `{row, fields}`。行は最大 4,096(最も長く届いていない行から捨てる)。
+- (P8)`VehicleState` に `cog?`、`nav? {target_bearing, wp_dist}`、`target? {lat, lon, alt}`、`home? {lat, lon, alt}`(不明なら省く。差分では消えたとき `null`)。要求ストリームに NAV_CONTROLLER_OUTPUT 500 ms、POSITION_TARGET_GLOBAL_INT 1 s、HOME_POSITION 5 s を追加。
+
 ### 2.5 ログ・AI(M4 / M5)
 `POST /api/logs/open {path}`, `GET /api/logs/{id}/series?keys=`, `POST /api/logs/{id}/analyze`, `POST /api/ai/chat {sysid, message}`(ツールは状態取得 / メッセージ一覧 / ログ検索のみ)。
 
