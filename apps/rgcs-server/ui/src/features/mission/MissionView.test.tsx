@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
@@ -36,8 +36,8 @@ function setup(fetchImpl?: (url: string, init?: RequestInit) => Response) {
 const addPoints = (n: number) => {
   for (let i = 0; i < n; i++) fireEvent.click(screen.getByText('map-add'))
 }
-const wpRows = () => [...document.querySelectorAll<HTMLElement>('.wp-row')]
-const rows = () => wpRows().map((li) => li.querySelector('.key')?.textContent)
+const wpRows = () => [...document.querySelectorAll<HTMLElement>('.wrow')]
+const rows = () => wpRows().map((li) => li.querySelector('.cmd-label')?.textContent)
 
 describe('MissionView', () => {
   beforeEach(() => {
@@ -48,8 +48,8 @@ describe('MissionView', () => {
   it('adding_three_points_lists_takeoff_then_two_waypoints', () => {
     setup()
     addPoints(3)
-    expect(rows()).toEqual(['TAKEOFF', 'WAYPOINT', 'WAYPOINT'])
-    expect(screen.getByText('最大高度').nextSibling?.textContent).toContain('50')
+    expect(rows()).toEqual(['離陸', 'ウェイポイント', 'ウェイポイント'])
+    expect(within(screen.getByTestId('mission-summary')).getByText('最大高度').nextSibling?.textContent).toContain('50')
   })
 
   it('delete_key_removes_the_selection_and_undo_brings_it_back', () => {
@@ -58,21 +58,22 @@ describe('MissionView', () => {
     fireEvent.click(wpRows()[1]!)
     expect(wpRows()[1]!.className).toContain('sel')
     fireEvent.keyDown(container.firstChild as Element, { key: 'Delete' })
-    expect(rows()).toEqual(['TAKEOFF', 'WAYPOINT'])
+    expect(rows()).toEqual(['離陸', 'ウェイポイント'])
     fireEvent.keyDown(container.firstChild as Element, { key: 'z', metaKey: true })
-    expect(rows()).toEqual(['TAKEOFF', 'WAYPOINT', 'WAYPOINT'])
+    expect(rows()).toEqual(['離陸', 'ウェイポイント', 'ウェイポイント'])
     fireEvent.keyDown(container.firstChild as Element, { key: 'z', metaKey: true, shiftKey: true })
-    expect(rows()).toEqual(['TAKEOFF', 'WAYPOINT'])
+    expect(rows()).toEqual(['離陸', 'ウェイポイント'])
   })
 
   it('editor_shows_the_selected_item_and_bulk_note_for_many', () => {
     setup()
     addPoints(3)
-    expect(screen.getByText('項目を選択してください')).toBeInTheDocument()
+    expect(screen.queryByTestId('item-editor')).not.toBeInTheDocument()
     fireEvent.click(wpRows()[1]!)
     expect((screen.getByLabelText('コマンド') as HTMLSelectElement).value).toBe('WAYPOINT')
     fireEvent.click(wpRows()[2]!, { shiftKey: true })
-    expect(screen.getByText('2 項目を選択中')).toBeInTheDocument()
+    expect(screen.getByTestId('bulk-edit')).toHaveTextContent('2')
+    expect(screen.getByText('件を選択中')).toBeInTheDocument()
   })
 
   it('save_calls_create_then_update', async () => {
@@ -103,7 +104,7 @@ describe('MissionView', () => {
     })
     addPoints(2)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '機体へ書込' }))
+      fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
     })
     expect(screen.getByText('先頭が TAKEOFF ではありません')).toBeInTheDocument()
     const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`)
@@ -128,7 +129,7 @@ describe('MissionView', () => {
     })
     expect(screen.getByText('未保存')).toBeInTheDocument()
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '.waypoints 保存' }))
+      fireEvent.click(screen.getByRole('button', { name: 'ファイルに保存' }))
     })
     const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`)
     expect(calls).toEqual(['POST /api/missions', 'PUT /api/missions/5', 'GET /api/missions/5/export?format=waypoints'])

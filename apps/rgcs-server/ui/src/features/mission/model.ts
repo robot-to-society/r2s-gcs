@@ -139,3 +139,24 @@ export function setMeta(d: Draft, patch: Partial<Omit<Mission, 'items'>>): Draft
 export function cmdKey(it: MissionItem): string {
   return cmdKeyOf(it.command) ?? `CMD_${it.command}`
 }
+
+/** Inserts a command after `afterUid` (or at the end when null). Positional commands land next to the previous positioned item. */
+export function insertCommandAfter(d: Draft, afterUid: number | null, key: string): Draft {
+  const spec = CMDS[key]
+  if (!spec) return d
+  const idx = afterUid === null ? d.items.length - 1 : d.items.findIndex((it) => it.uid === afterUid)
+  const anchor = [...d.items.slice(0, idx + 1)].reverse().find((it) => CMDS[cmdKey(it)]?.pos && !(it.lat === 0 && it.lon === 0))
+  const lat = spec.pos && anchor ? anchor.lat + 0.0005 : spec.pos ? 36.162 : 0
+  const lon = spec.pos && anchor ? anchor.lon + 0.0005 : spec.pos ? 139.372 : 0
+  const base = newItem(d, key, lat, lon)
+  const item = spec.pos ? base : { ...base, lat: 0, lon: 0 }
+  return { ...d, items: [...d.items.slice(0, idx + 1), item, ...d.items.slice(idx + 1)], nextUid: d.nextUid + 1 }
+}
+
+export function reverseItems(d: Draft): Draft {
+  return d.items.length < 2 ? d : { ...d, items: [...d.items].reverse() }
+}
+
+export function clearItems(d: Draft): Draft {
+  return d.items.length === 0 ? d : { ...d, items: [] }
+}

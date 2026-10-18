@@ -5,14 +5,14 @@ import { appendWaypoint, emptyDraft, setCommand } from './model'
 describe('map editing helpers', () => {
   it('badge_element_shows_seq_and_selected_class', () => {
     const el = badgeEl(3, true, 'WAYPOINT')
-    expect(el.className).toBe('wp-mk sel')
+    expect(el.className).toBe('rg-wp sel')
     expect(el.textContent).toBe('3')
     expect(el.title).toBe('MAV_CMD_NAV_WAYPOINT')
     updateBadgeEl(el, 4, false, 'TAKEOFF')
-    expect(el.className).toBe('wp-mk')
-    expect(el.textContent).toBe('4')
+    expect(el.className).toBe('rg-wp')
+    expect(el.textContent).toBe('T')
     expect(el.title).toBe('MAV_CMD_NAV_TAKEOFF')
-    expect(handleEl().className).toBe('wp-mid')
+    expect(handleEl().className).toBe('rg-mid')
   })
 
   it('mid_handles_sit_between_consecutive_positioned_items', () => {

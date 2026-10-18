@@ -13,14 +13,14 @@ describe('ItemEditor', () => {
     const sel = screen.getByLabelText('コマンド') as HTMLSelectElement
     expect(sel.value).toBe('WAYPOINT')
     expect(screen.getByText('MAV_CMD_NAV_WAYPOINT')).toBeInTheDocument()
-    const accept = screen.getByLabelText(/acceptRadius/) as HTMLInputElement
+    const accept = screen.getByLabelText('到達半径') as HTMLInputElement
     expect(accept.disabled).toBe(true)
     expect(screen.getAllByText('未使用')).toHaveLength(2)
-    const delay = screen.getByLabelText(/^delay/) as HTMLInputElement
+    const delay = screen.getByLabelText('待機時間') as HTMLInputElement
     expect(delay.disabled).toBe(false)
     fireEvent.change(delay, { target: { value: '5' } })
     expect(onChange).toHaveBeenCalledWith(2, { params: [5, 0, 0, 0] })
-    fireEvent.change(screen.getByLabelText('高度'), { target: { value: '80' } })
+    fireEvent.change(screen.getByLabelText('高度', { exact: true }), { target: { value: '80' } })
     expect(onChange).toHaveBeenLastCalledWith(2, { alt: 80 })
     fireEvent.change(screen.getByLabelText('基準'), { target: { value: 'abs' } })
     expect(onChange).toHaveBeenLastCalledWith(2, { frame: 'abs' })
@@ -33,7 +33,7 @@ describe('ItemEditor', () => {
     const item = { ...d.items[0]!, command: 178, params: [1, 8, -1, 0] as [number, number, number, number], lat: 0, lon: 0, alt: 0 }
     render(<ItemEditor item={item} seq={1} kind="copter" dict={t('ja')} onChange={() => {}} onCommand={() => {}} />)
     expect(screen.queryByLabelText('緯度')).not.toBeInTheDocument()
-    const speedType = screen.getByLabelText(/speedType/) as HTMLSelectElement
+    const speedType = screen.getByLabelText('速度種別') as HTMLSelectElement
     expect(speedType.value).toBe('1')
   })
 })

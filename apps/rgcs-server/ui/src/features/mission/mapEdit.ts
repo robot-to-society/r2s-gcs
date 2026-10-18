@@ -18,24 +18,36 @@ export interface ContextMenu {
 
 const title = (cmdKey: string): string => CMDS[cmdKey]?.mav ?? cmdKey
 
-/** Numbered waypoint badge; MapLibre positions it, we only toggle `sel`. */
+/** Prototype badge letter: T takeoff, L land, R RTL, ◎ ROI, else the 1-based sequence. */
+export function badgeText(seq: number, cmdKey: string): string {
+  return cmdKey === 'TAKEOFF' ? 'T' : cmdKey === 'LAND' ? 'L' : cmdKey === 'RTL' ? 'R' : cmdKey === 'DO_SET_ROI' ? '◎' : String(seq)
+}
+
+/** Prototype `.rg-wp > .dot` marker; MapLibre positions it, we only toggle `sel`. */
 export function badgeEl(seq: number, selected: boolean, cmdKey: string): HTMLDivElement {
   const el = document.createElement('div')
+  const dot = document.createElement('span')
+  dot.className = 'dot'
+  el.append(dot)
   return updateBadgeEl(el, seq, selected, cmdKey)
 }
 
 export function updateBadgeEl(el: HTMLDivElement, seq: number, selected: boolean, cmdKey: string): HTMLDivElement {
-  el.classList.add('wp-mk')
+  el.classList.add('rg-wp')
   el.classList.toggle('sel', selected)
-  el.textContent = String(seq)
+  const dot = el.querySelector('.dot')
+  if (dot) {
+    dot.textContent = badgeText(seq, cmdKey)
+    dot.classList.toggle('roi', cmdKey === 'DO_SET_ROI')
+  }
   el.title = title(cmdKey)
   return el
 }
 
-/** The "+" between two waypoints that inserts a new one. */
+/** The "+" between two waypoints that inserts a new one (prototype `.rg-mid`). */
 export function handleEl(): HTMLDivElement {
   const el = document.createElement('div')
-  el.className = 'wp-mid'
+  el.className = 'rg-mid'
   el.textContent = '+'
   return el
 }

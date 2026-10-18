@@ -168,3 +168,12 @@ export function mavFontSize(name: string): string {
   const n = name.length
   return n <= 16 ? '10px' : n <= 22 ? '9px' : n <= 28 ? '8px' : '7px'
 }
+
+/** Unit per field key (language independent; labels come from the dictionary `fld_<key>`). */
+export const UNITS: Readonly<Record<string, string>> = {
+  alt: 'm', delay: 's', acceptRadius: 'm', passRadius: 'm', time: 's', radius: 'm', abortAlt: 'm', secs: 's', speed: 'm/s', throttle: '%',
+  dist: 'm', pwm: 'µs', cycleTime: 's', pitch: '°', roll: '°', yaw: '°', pitchRate: '°/s', yawRate: '°/s', angle: '°', rate: '°/s',
+}
+
+/** Nav commands that carry a position but are not "waypoints" in the summary count. */
+export const isPosKey = (key: string): boolean => CMDS[key]?.pos === true

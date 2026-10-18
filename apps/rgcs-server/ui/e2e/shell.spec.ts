@@ -4,7 +4,9 @@ import { login } from './helpers'
 test('five navigation views; operations map and mission enabled, the rest disabled', async ({ page }) => {
   await login(page)
   const nav = page.locator('nav.seg button')
-  await expect(nav).toHaveText(['運用マップ', '全機体映像', 'ミッション', 'AIチャット', 'メンテナンス・設定'])
+  await expect(nav).toHaveCount(5)
+  const labels = ['運用マップ', '全機体映像', 'ミッション', 'AIチャット', 'メンテナンス・設定']
+  for (const [i, label] of labels.entries()) await expect(nav.nth(i)).toHaveAttribute('aria-label', label)
   await expect(nav.nth(0)).toHaveAttribute('aria-current', 'page')
   for (const i of [1, 3, 4]) await expect(nav.nth(i)).toHaveAttribute('aria-disabled', 'true')
   await expect(nav.nth(2)).not.toHaveAttribute('aria-disabled')

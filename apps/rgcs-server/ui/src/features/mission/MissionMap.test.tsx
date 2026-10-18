@@ -80,8 +80,8 @@ const { rasterStyle } = await import('../map/style')
 
 const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
 const draft3 = () => appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
-const badges = () => created.markers.filter((m) => m.el.classList.contains('wp-mk') && !m.removed)
-const handles = () => created.markers.filter((m) => m.el.classList.contains('wp-mid') && !m.removed)
+const badges = () => created.markers.filter((m) => m.el.classList.contains('rg-wp') && !m.removed)
+const handles = () => created.markers.filter((m) => m.el.classList.contains('rg-mid') && !m.removed)
 
 function renderMap(over: Partial<React.ComponentProps<typeof MissionMap>> = {}) {
   const props = {
@@ -128,7 +128,7 @@ describe('MissionMap', () => {
     expect((created.maps[0]!.options as { boxZoom: boolean }).boxZoom).toBe(false)
     expect(badges()).toHaveLength(3)
     expect(handles()).toHaveLength(2)
-    expect(badges()[1]!.el.className).toBe('wp-mk sel')
+    expect(badges()[1]!.el.className).toBe('rg-wp sel')
     expect(badges()[0]!.lngLat).toEqual([139.1, 36.1])
     expect(badges().every((m) => m.draggable)).toBe(true)
     const path = created.maps[0]!.sources.get('mission-path')!
