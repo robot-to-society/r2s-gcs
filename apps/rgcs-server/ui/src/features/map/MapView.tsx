@@ -1,9 +1,10 @@
-import maplibregl, { type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
+import maplibregl, { type ExpressionSpecification, type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
 import { useEffect, useRef } from 'react'
 import type { FeatureCollection } from 'geojson'
 import type { CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
 import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
 import { followTarget, needsRecenter, type Padding } from './follow'
+import { courseGeoJson } from './course'
 import { footprintsGeoJson, projectedIds } from './footprints'
 import { orderLayers } from './layers'
 import { gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
@@ -42,6 +43,8 @@ const ARROW_OFFSET: [number, number] = [-17, 0]
 const NO_HOMES: ReadonlyMap<number, LatLon> = new Map()
 const NO_CAMERAS: ReadonlyMap<number, CameraSnapshot> = new Map()
 const FOOTPRINT = 'gimbal-footprint'
+const COURSE = 'course'
+const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
@@ -97,6 +100,10 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         source: GUIDED,
         paint: { 'line-color': '#9cc9ff', 'line-width': 2, 'line-dasharray': [1, 2] },
       })
+      m.addSource(COURSE, { type: 'geojson', data: EMPTY })
+      m.addLayer({ id: 'course-nav', type: 'line', source: COURSE, filter: ['==', ['get', 'kind'], 'nav'], paint: { 'line-color': ['case', SEL, '#f2b544', '#9cc9ff'], 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.9 } })
+      m.addLayer({ id: 'course-vector', type: 'line', source: COURSE, filter: ['==', ['get', 'kind'], 'vector'], layout: { 'line-cap': 'round' }, paint: { 'line-color': ['case', SEL, '#f2b544', '#9cc9ff'], 'line-width': 3, 'line-opacity': 0.95 } })
+      m.addLayer({ id: 'course-target', type: 'circle', source: COURSE, filter: ['==', ['get', 'kind'], 'target'], paint: { 'circle-radius': 5, 'circle-color': ['case', SEL, '#f2b544', '#9cc9ff'], 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } })
       m.addSource(FOOTPRINT, { type: 'geojson', data: EMPTY })
       m.addLayer({ id: 'gimbal-footprint', type: 'fill', source: FOOTPRINT, paint: { 'fill-color': '#5fd39b', 'fill-opacity': ['case', ['==', ['get', 'sel'], 1], 0.26, 0.14] } })
       m.addLayer({ id: 'gimbal-footprint-line', type: 'line', source: FOOTPRINT, paint: { 'line-color': '#5fd39b', 'line-width': 1.5 } })
@@ -186,6 +193,12 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     followed.current = follow
     if (fresh || needsRecenter(m.project(m.getCenter()), m.project(center))) m.easeTo({ center, duration: 200 })
   }, [vehicles, follow])
+
+  useEffect(() => {
+    if (!loaded.current) return
+    const src = map.current?.getSource(COURSE) as { setData: (d: unknown) => void } | undefined
+    src?.setData(courseGeoJson(vehicles, selected))
+  }, [vehicles, selected])
 
   useEffect(() => {
     if (!loaded.current) return

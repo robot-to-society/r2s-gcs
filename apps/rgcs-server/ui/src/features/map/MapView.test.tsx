@@ -187,7 +187,7 @@ describe('MapView', () => {
   })
   it('stacks the mission path below the tracks below the guided line once loaded', () => {
     render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
-    expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line', 'gimbal-footprint', 'gimbal-footprint-line'])
+    expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line', 'course-nav', 'course-vector', 'course-target', 'gimbal-footprint', 'gimbal-footprint-line'])
   })
 
   it('places vehicle markers like the prototype and a home tile per known home', () => {
@@ -241,5 +241,11 @@ describe('MapView', () => {
     expect(map.eased.length).toBe(eased)
     rerender(<MapView {...props} vehicles={at(139.37003, 36.16)} />) // 30 px
     expect(map.eased.length).toBe(eased + 1)
+  })
+  it('draws the course vector and navigation line of moving vehicles', () => {
+    const moving = new Map([[1, { ...v(1, 3), cog: 45, ground_speed: 6, mode: 'AUTO', nav: { target_bearing: 45, wp_dist: 200 } }]])
+    render(<MapView vehicles={moving} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
+    const data = created.maps.at(-1)!.sources.get('course')!.setData.mock.calls.at(-1)?.[0]
+    expect(data.features.map((f: { properties: { kind: string } }) => f.properties.kind)).toEqual(['nav', 'target', 'vector'])
   })
 })
