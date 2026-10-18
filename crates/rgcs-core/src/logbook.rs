@@ -286,9 +286,9 @@ pub struct FlightInput {
 pub struct FlightPatch {
     pub pilot: Option<String>,
     pub pilot_license: Option<String>,
-    #[ts(type = "number")]
+    #[ts(optional, type = "number")]
     pub takeoff_at: Option<u64>,
-    #[ts(type = "number")]
+    #[ts(optional, type = "number")]
     pub landed_at: Option<u64>,
     pub takeoff_place: Option<String>,
     pub landing_place: Option<String>,

@@ -7,11 +7,11 @@ async function openMaint(page: Page) {
   await expect(page.getByTestId('maint-view')).toBeVisible()
 }
 
-test('the maintenance view opens on the parameters tab with the other tabs disabled', async ({ page }) => {
+test('the maintenance view opens on the parameters tab; 点検・校正 stays disabled', async ({ page }) => {
   await openMaint(page)
   await expect(page.getByRole('button', { name: 'パラメータ' })).toHaveClass(/on/)
   await expect(page.getByRole('button', { name: '点検・校正' })).toHaveAttribute('aria-disabled', 'true')
-  await expect(page.getByRole('button', { name: 'アプリ設定' })).toHaveAttribute('aria-disabled', 'true')
+  await expect(page.getByRole('button', { name: 'アプリ設定' })).not.toHaveAttribute('aria-disabled')
   await page.getByRole('button', { name: '変更履歴' }).click()
   await expect(page.getByRole('button', { name: '変更履歴' })).toHaveClass(/on/)
 })

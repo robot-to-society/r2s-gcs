@@ -64,7 +64,7 @@ describe('LogsPane', () => {
     const rows = screen.getAllByTestId('fc-row')
     expect(rows[1]).toHaveTextContent('8')
     expect(rows[1]).toHaveTextContent('20 KB')
-    fireEvent.click(within(rows[1]).getByRole('button', { name: '機体から取り出す' }))
+    fireEvent.click(within(rows[1]).getByRole('button', { name: '取り出す' }))
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/logs/fetch'))).toBe(true))
     expect(JSON.parse(String(calls.find((c) => c.url.endsWith('/logs/fetch'))?.init?.body))).toMatchObject({ fc_log_id: 8 })
     rerender(<LogsPane sysid={1} from="2026-12-01" to="2026-12-31" dict={t('ja')} progress={{ fc_log_id: 8, received: 10_240, total: 20_480, done: false, error: null }} />)

@@ -132,6 +132,15 @@ CREATE TABLE param_history (
 - `gimbal_input_profile(id = 1, json, updated_at)`: `GimbalInputProfile` を JSON で 1 行。
 - `presentation_tokens(token PK, label, created_by, created_at, revoked_at)`: 32 桁 16 進。一覧は先頭 6 文字だけを返す。
 
+### 3.10 P5 で追加した表(2026-10-18、マイグレーション `0004_logbook.sql`、追補 §5.8)
+- `vehicles` に台帳列: `registration, uas_type, model, type_cert_no, airworthiness_class, airworthiness_no, manufacturer, serial_no TEXT DEFAULT ''`、`initial_flight_minutes INTEGER DEFAULT 0`、`inspection_template_id INTEGER NULL`。`users` に `full_name, license_no`。
+- `inspection_templates(id, name, version, created_by, created_at, updated_at)` + `inspection_template_items(template_id, position, label, detail)`。id 1 は様式 2 の 9 項目をシード。
+- `inspection_runs(id, sysid, template_id, template_name, template_version, place, lat, lon, performed_on, inspector, notes, supersedes, created_by, created_at)` + `inspection_results(run_id, position, label, detail, result ok|ng|skipped, remark)`(テンプレートの項目をコピー)。
+- `flights(id, sysid, status draft|confirmed, pilot, pilot_license, takeoff_at, landed_at NULL=飛行中, takeoff_lat/lon, landing_lat/lon, takeoff_place, landing_place, purposes JSON, specific_flight JSON, summary, safety_notes, supersedes, created_by, created_at, updated_at)`、`flight_squawks(id, flight_id, occurred_on, description, action_on, action, confirmer, …)`。訂正行には記事をコピー。
+- `maintenance_records(id, sysid, performed_on, total_minutes, detail, reason, place, engineer, notes, supersedes, …)`。
+- `flight_logs(id, sysid, flight_id NULL, fc_log_id NULL, filename, size, source mavlink|upload, fetched_at, created_by)`; 実体は `data_dir/logs/<sysid>/`。
+- 記録系は追記のみ。訂正 = `supersedes = 旧 id` の新規行、一覧は `id NOT IN (SELECT supersedes …)`。
+
 ## 4. 検証の二重化
 
 - サーバー: `impl TryFrom<CameraProfileInput> for CameraProfile` 等で範囲を検査し、違反は `422 validation` に `details: {field, reason}`。

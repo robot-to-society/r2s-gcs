@@ -44,13 +44,12 @@ function toggle(list: readonly string[], v: string): readonly string[] {
 function patchOf(d: Draft): FlightPatch | string {
   const takeoff_at = fromLocalInput(d.takeoff)
   if (takeoff_at === null) return 'takeoff_at'
-  const landed_at = d.landed === '' ? undefined : (fromLocalInput(d.landed) ?? undefined)
-  if (d.landed !== '' && landed_at === undefined) return 'landed_at'
-  const patch: FlightPatch = {
+  const landed_at = d.landed === '' ? null : fromLocalInput(d.landed)
+  if (d.landed !== '' && landed_at === null) return 'landed_at'
+  const base: FlightPatch = {
     pilot: d.pilot,
     pilot_license: d.pilot_license,
     takeoff_at,
-    landed_at,
     takeoff_place: d.takeoff_place,
     landing_place: d.landing_place,
     purposes: [...d.purposes],
@@ -58,6 +57,7 @@ function patchOf(d: Draft): FlightPatch | string {
     summary: d.summary,
     safety_notes: d.safety_notes,
   }
+  const patch: FlightPatch = landed_at === null ? base : { ...base, landed_at }
   const issue = firstIssue(flightPatchSchema.safeParse(patch))
   return issue ? `${issue.path}: ${issue.message}` : patch
 }

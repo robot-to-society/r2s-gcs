@@ -61,7 +61,7 @@ export function FlightsPane({ sysid, from, to, dict, draft }: Props) {
           <table className="tbl">
             <thead>
               <tr>
-                <th>{dict.lbDate}</th>
+                <th>{dict.lbFlightDate}</th>
                 <th>{dict.lbOffTime}</th>
                 <th>{dict.lbOnTime}</th>
                 <th>{dict.lbFlightTime}</th>

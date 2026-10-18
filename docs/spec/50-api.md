@@ -99,6 +99,30 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | GET | `/present/logo` | ロゴ画像(`Cache-Control: no-store`、`nosniff`、CSP sandbox) |
 | POST | `/present/whep` | 操作者用と同じ中継(観客ごとに別の上流セッション) |
 
+### 2.7 飛行日誌(P5、2026-10-17 追補 §5.5 / §5.6 / §5.9)
+記録系は追記のみ: 訂正は `supersedes` 付きの新規行で、一覧・出力は訂正済みの行を隠す。訂正済みの行への PATCH / DELETE / 記事追加は `409 superseded`。
+| メソッド | パス | 本文 / 応答 |
+|---|---|---|
+| GET / PUT | `/api/vehicles/{sysid}/registry` | `VehicleRegistry`(PUT は admin、`VehicleRegistryInput`。監査 `registry_put`) |
+| GET / PUT | `/api/users/me/pilot` | `PilotInfo` / `PilotInput`(氏名・技能証明書番号) |
+| GET / POST | `/api/inspection/templates` | `[InspectionTemplate]` / `InspectionTemplateInput` → 201(admin) |
+| PUT / DELETE | `/api/inspection/templates/{id}` | 置換(version + 1)/ 削除(admin。最後の 1 件は `409 last_template`) |
+| GET | `/api/vehicles/{sysid}/inspections/template` | 機体に割り当てた(なければ id 1 の)テンプレート |
+| GET / POST | `/api/vehicles/{sysid}/inspections?from=&to=&limit=` | `[InspectionRun]`(新しい順)/ `InspectionRunInput` → 201(結果数はテンプレート項目数と一致、監査 `inspection_save`) |
+| GET / POST | `/api/vehicles/{sysid}/flights?from=&to=` | `[Flight]`(離陸順、`flight_minutes` 切り上げ、`total_minutes` = 台帳初期値 + 着陸済み飛行の積算)/ 手入力 `FlightInput` → 201(下書き) |
+| PATCH / DELETE | `/api/vehicles/{sysid}/flights/{id}` | `FlightPatch`(下書きはその場で更新、`status: confirmed` で確定(飛行中は 400)。確定済みは訂正行を返す)/ 下書きのみ削除(`409 confirmed`) |
+| POST | `/api/vehicles/{sysid}/flights/{id}/squawks` | `FlightSquawkInput` → 201 `FlightSquawk` |
+| GET / POST | `/api/vehicles/{sysid}/maintenance?from=&to=` | `[MaintenanceRecord]` / `MaintenanceInput` → 201(`total_minutes` はその時点の積算) |
+| GET | `/api/vehicles/{sysid}/logs` | `{fetch_enabled, logs: [FlightLog]}` |
+| GET | `/api/vehicles/{sysid}/logs/fc` | 機体内の `[FcLogEntry]`(`503 log_fetch_disabled` / `409 busy` / `504 timeout`) |
+| POST | `/api/vehicles/{sysid}/logs/fetch` | `{fc_log_id, flight_id?}` → 202。`LOG_REQUEST_DATA` を 2,880 B ずつ、欠けは先頭から再要求、`data_dir/logs/<sysid>/` に保存、`log_fetch_progress`、監査 `log_fetch`。1 GiB 超は `413 too_large` |
+| GET | `/api/vehicles/{sysid}/logs/{id}/file` | `.bin` を添付でストリーム |
+| POST | `/api/vehicles/{sysid}/logs/upload?filename=&flight_id=` | 本文 = ファイルそのもの(≤ 1 GiB、超過は `413`)→ 201 `FlightLog` |
+| PATCH | `/api/vehicles/{sysid}/logs/{id}` | `{flight_id \| null}`(訂正済みの飛行には不可。監査 `log_attach`) |
+| GET | `/api/vehicles/{sysid}/logbook/export?form=1\|2\|3&from=&to=&format=pdf\|csv` | 様式 1 / 2 / 3 を `application/pdf`(Noto Sans JP 同梱、日英見出し、NR 連番)または `text/csv`(BOM + CRLF、日本語見出し)で添付 |
+
+`config.toml` `log_fetch = "auto" | "on" | "off"`(auto: tcp/udp と 921600 bps 以上のシリアルで有効)。
+
 ## 3. WebSocket `/ws`
 
 - 1 セッション 1 接続。サーバー → クライアントは JSON テキストフレーム `{ "t": "<type>", ... }`。クライアント → サーバーも同形式。
@@ -116,6 +140,8 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | `command_result` | `{id, sysid, cmd, ok, reason?, ts}` | 完了時 |
 | `vehicle_discovered` / `vehicle_lost` | `{sysid}` | 発生時 |
 | `mission_progress` | `{sysid, progress: {seq, total}}` | `MISSION_CURRENT` の変化時 + 1 Hz(サーバーが再送)。`total` はサーバーが書込 / 読込したミッションの項目数(未知なら機体の `MISSION_CURRENT.total`) |
+| `flight_draft_created` | `{sysid, flight: Flight}` | DISARM 時(初回 ARM から最後の DISARM までが 1 飛行。10 分以内の再 ARM は同じ飛行、リンク喪失 10 分で最終受信時刻に着陸扱い) |
+| `log_fetch_progress` | `{sysid, progress: {fc_log_id, received, total, done, error?}}` | 64 KB ごとと完了時 |
 | `input_state` | `{deadman: ok\|lost}` | 変化時(`input_hb` 1.5 s 途絶で `lost`、サーバーは速度 0 を 1 回送る) |
 | `error` | `{code, message}` | 入力拒否時 |
 

@@ -4,4 +4,4 @@ import type { FlightStatus } from "./FlightStatus";
 /**
  * Partial update of a flight; `status: confirmed` closes the draft.
  */
-export type FlightPatch = { pilot?: string, pilot_license?: string, takeoff_at: number, landed_at: number, takeoff_place?: string, landing_place?: string, purposes?: Array<string>, specific_flight?: Array<string>, summary?: string, safety_notes?: string, status?: FlightStatus, };
+export type FlightPatch = { pilot?: string, pilot_license?: string, takeoff_at?: number, landed_at?: number, takeoff_place?: string, landing_place?: string, purposes?: Array<string>, specific_flight?: Array<string>, summary?: string, safety_notes?: string, status?: FlightStatus, };
