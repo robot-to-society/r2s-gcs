@@ -40,7 +40,7 @@ function setup(opts: { progress?: typeof done; armed?: boolean } = {}) {
   })
   vi.stubGlobal('fetch', fetchMock)
   const vehicles = new Map([[1, { ...copter, armed: opts.armed ?? false }]])
-  const utils = render(<MaintView vehicles={vehicles} paramProgress={new Map()} dict={t('ja')} />)
+  const utils = render(<MaintView vehicles={vehicles} paramProgress={new Map()} dict={t('ja')} me={{ username: 'admin', role: 'admin', dev_mode: true }} />)
   return { ...utils, calls, fetchMock }
 }
 

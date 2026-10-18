@@ -1,4 +1,5 @@
 // Display helpers for the logbook (JST dates and times, places, periods).
+import type { InspectionRun, MaintenanceInput } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 
 const JST = 'Asia/Tokyo'
@@ -58,4 +59,10 @@ export function fromLocalInput(v: string): number | null {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return null
   const ms = Date.parse(`${v.slice(0, 16)}:00+09:00`)
   return Number.isNaN(ms) ? null : ms
+}
+
+/** The maintenance draft offered after a run with 異常 (addendum §5.5). */
+export function maintenanceDraftFor(run: InspectionRun): MaintenanceInput {
+  const ng = run.results.filter((r) => r.result === 'ng').map((r) => r.label)
+  return { performed_on: run.performed_on, detail: `日常点検で異常: ${ng.join('、')}`, reason: '日常点検', place: run.place, engineer: run.inspector, notes: '', supersedes: null }
 }

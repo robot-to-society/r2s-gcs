@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react'
-import type { ParamProgress, SysId, VehicleState } from '../../shared/api/types'
+import type { Flight, LogFetchProgress, MaintenanceInput, Operator, ParamProgress, SysId, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconCopter, IconRover } from '../../shared/ui/icons'
+import { DailyTab } from '../logbook/DailyTab'
 import { HistoryTab } from './HistoryTab'
 import { ParamsPane } from './ParamsPane'
 import { ENABLED_TABS, MAINT_TABS, TAB_LABEL, type MaintTab } from './tabs'
@@ -13,10 +14,15 @@ interface Props {
   /** Controlled selection (the shell shares it with the vehicle list); uncontrolled when omitted. */
   readonly selected?: SysId | null
   readonly onSelect?: (sysid: SysId) => void
+  readonly me: Operator
+  /** Opens the ロゴ・提示用トークン sheet (アプリ設定 tab). */
+  readonly onOpenPresent?: () => void
+  readonly flightDrafts?: ReadonlyMap<SysId, Flight>
+  readonly logFetch?: ReadonlyMap<SysId, LogFetchProgress>
 }
 
 /** メンテナンス・設定 (spec 10 §7) after the prototype's maint screen: header row, tab strip, body. */
-export function MaintView({ vehicles, paramProgress, dict, selected, onSelect }: Props) {
+export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, me, onOpenPresent, flightDrafts, logFetch }: Props) {
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const [picked, setPicked] = useState<SysId | null>(null)
   const wanted = selected === undefined ? picked : selected
@@ -29,6 +35,16 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect }:
   const [tab, setTab] = useState<MaintTab>('params')
   const [writes, setWrites] = useState(0)
   const onWritten = useCallback(() => setWrites((n) => n + 1), [])
+  /** A 様式 3 draft handed over from 日常点検 (異常 found); consumed by the 飛行日誌 tab. */
+  const [maintDraft, setMaintDraft] = useState<MaintenanceInput | null>(null)
+  const onMaintenanceDraft = useCallback((draft: MaintenanceInput) => {
+    setMaintDraft(draft)
+    setTab('logbook')
+  }, [setTab])
+  void onOpenPresent
+  void flightDrafts
+  void logFetch
+  void maintDraft
   const tabIndex = MAINT_TABS.indexOf(tab)
   return (
     <section className="float map-l top1 maint" data-testid="maint-view">
@@ -77,6 +93,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect }:
         hidden={tab !== 'params'}
         onWritten={onWritten}
       />
+      {tab === 'daily' && sysid !== null && <DailyTab key={sysid} sysid={sysid} vehicle={vehicle} me={me} dict={dict} onMaintenanceDraft={onMaintenanceDraft} />}
       {tab === 'history' && (
         <div className="maint-body">
           <HistoryTab sysid={sysid} vehicles={vehicles} dict={dict} version={writes} />

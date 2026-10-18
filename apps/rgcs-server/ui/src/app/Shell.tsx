@@ -193,7 +193,7 @@ export function Shell({ me, lang }: Props) {
           {view === 'maint' && (
             <>
               <div className="maint-backdrop" />
-              <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} selected={current} onSelect={setSelected} />
+              <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} selected={current} onSelect={setSelected} me={me} />
             </>
           )}
           <VehicleList
