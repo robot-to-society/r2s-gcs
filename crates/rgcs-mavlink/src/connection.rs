@@ -37,6 +37,8 @@ pub struct LinkChannels {
     pub acks: broadcast::Sender<Ack>,
     /// The GCS SYSID put in every header (configurable, default 255).
     pub gcs: rgcs_core::GcsId,
+    /// Records every frame received and sent (maintenance › MAVLink インスペクター).
+    pub inspector: crate::inspector::Inspector,
 }
 
 /// Wall + monotonic clock for the router, anchored at task start.
@@ -62,6 +64,7 @@ struct LinkState {
     requesters: HashMap<SysId, IntervalRequester>,
     sequence: u8,
     gcs: rgcs_core::GcsId,
+    inspector: crate::inspector::Inspector,
 }
 
 /// Runs until the `events` receiver is dropped. Reconnects after any link error.
@@ -72,6 +75,7 @@ pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, mut ch: LinkChan
     };
     let mut link = LinkState {
         gcs: ch.gcs.clone(),
+        inspector: ch.inspector.clone(),
         ..LinkState::default()
     };
     loop {
@@ -133,6 +137,7 @@ async fn receive_loop(
             frame = frames.recv() => match frame {
                 Some((header, msg)) => {
                     let now = clock.now();
+                    link.inspector.record(rgcs_core::InspectorDir::Rx, &header, &msg, link.inspector.now_ms());
                     let evs = router.lock().await.on_message(&header, &msg, now);
                     forward(&ch.events, evs).await?;
                     handle_special(&conn, router, ch, link, &header, &msg, now).await;
@@ -141,7 +146,7 @@ async fn receive_loop(
             },
             out = ch.outgoing.recv() => match out {
                 Some(o) => {
-                    let header = next_header(link);
+                    let header = tx_frame(link, &o.message);
                     if let Err(e) = conn.send(&header, &o.message).await {
                         warn!(error = %e, "mavlink send failed");
                     }
@@ -209,7 +214,7 @@ async fn request_streams(
             target_component: fc.component_id,
             ..COMMAND_LONG_DATA::DEFAULT
         });
-        let header = next_header(link);
+        let header = tx_frame(link, &cmd);
         match conn.send(&header, &cmd).await {
             Ok(_) => info!(
                 sysid = fc.system_id,
@@ -220,6 +225,15 @@ async fn request_streams(
             Err(e) => warn!(error = %e, msg_id = r.msg_id, "SET_MESSAGE_INTERVAL send failed"),
         }
     }
+}
+
+/// The header for one outgoing frame, recorded in the inspector as RGCS's own traffic.
+fn tx_frame(link: &mut LinkState, msg: &MavMessage) -> MavHeader {
+    let now_ms = link.inspector.now_ms();
+    let header = next_header(link);
+    link.inspector
+        .record(rgcs_core::InspectorDir::Tx, &header, msg, now_ms);
+    header
 }
 
 fn next_header(link: &mut LinkState) -> MavHeader {
@@ -248,6 +262,27 @@ mod tests {
         assert_eq!(
             next_header(&mut link).system_id,
             rgcs_core::gcs::DEFAULT_GCS_SYSID
+        );
+    }
+
+    #[test]
+    fn tx_frames_are_recorded_with_the_gcs_sysid() {
+        let gcs = rgcs_core::GcsId::default();
+        gcs.set(77);
+        let inspector = crate::inspector::Inspector::default();
+        let mut link = LinkState {
+            gcs,
+            inspector: inspector.clone(),
+            ..LinkState::default()
+        };
+        let msg = MavMessage::HEARTBEAT(mavlink::dialects::ardupilotmega::HEARTBEAT_DATA::DEFAULT);
+        let header = tx_frame(&mut link, &msg);
+        assert_eq!(header.system_id, 77);
+        let rows = inspector.rows(inspector.now_ms());
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            (rows[0].dir, rows[0].sysid, rows[0].compid),
+            (rgcs_core::InspectorDir::Tx, 77, GCS_COMPONENT_ID)
         );
     }
 

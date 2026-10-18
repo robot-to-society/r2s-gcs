@@ -6,6 +6,7 @@ pub mod command;
 pub mod connection;
 pub mod decode;
 pub mod heartbeat;
+pub mod inspector;
 pub mod interval;
 pub mod link;
 pub mod log_frame;
@@ -20,6 +21,7 @@ pub use command::{
     encode_param_request_index, encode_param_request_list, encode_param_request_read, encode_param_set,
 };
 pub use connection::{run_link, LinkChannels};
+pub use inspector::Inspector;
 pub use link::{LinkUrl, LinkUrlError};
 pub use log_frame::LogFrame;
 pub use mission_frame::MissionFrame;

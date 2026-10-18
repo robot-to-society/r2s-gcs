@@ -66,6 +66,7 @@ async fn main() -> anyhow::Result<()> {
         outgoing: outgoing_rx,
         acks: acks_tx.clone(),
         gcs: state.gcs.clone(),
+        inspector: state.inspector.clone(),
     };
     tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), channels));
     tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx, acks_tx));

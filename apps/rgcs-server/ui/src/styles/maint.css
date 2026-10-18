@@ -63,3 +63,19 @@
 .bits-unknown { padding: 6px 16px; font-size: 12px; }
 .bits-foot { gap: 10px; padding: 10px 12px 12px 16px; border-top: 1px solid var(--line-soft); }
 .bits-foot .big-ish { font-size: 18px; }
+
+/* MAVLink inspector (user request 2026-10-19): message tree left, last message fields right */
+.maint-body.insp { gap: 12px; padding: 0; }
+.insp-list { width: 420px; flex: none; display: flex; flex-direction: column; min-height: 0; padding: 12px 8px 8px 12px; }
+.insp-tools { gap: 8px; padding: 0 4px 10px 0; }
+.insp-scroll { overflow-y: auto; min-height: 0; flex: 1; padding-right: 4px; }
+.insp-dir + .insp-dir { margin-top: 14px; }
+.insp-dir-h { font-size: 13px; font-weight: 600; padding: 4px 6px; }
+.insp-comp-h { font-size: 11px; padding: 8px 6px 4px; }
+.insp-row { display: grid; grid-template-columns: 1fr 72px 56px; gap: 8px; align-items: center; width: 100%; height: 30px; padding: 0 8px; border: none; border-radius: 8px; background: transparent; color: var(--text); font-size: 12.5px; text-align: left; }
+.insp-row:hover { background: rgba(255, 255, 255, 0.05); }
+.insp-row.on { background: var(--accent-tint); color: var(--text); }
+.insp-row .num { text-align: right; }
+.insp-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 18px; overflow-y: auto; }
+.insp-kv { margin-top: 12px; }
+.insp-kv .contents-row { display: contents; }

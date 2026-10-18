@@ -6,6 +6,7 @@ import { AppTab } from '../app-settings'
 import { DailyTab } from '../logbook/DailyTab'
 import { LogbookTab } from '../logbook/LogbookTab'
 import { HistoryTab } from './HistoryTab'
+import { InspectorTab } from '../inspector/InspectorTab'
 import { ParamsPane } from './ParamsPane'
 import { ENABLED_TABS, MAINT_TABS, TAB_LABEL, type MaintTab } from './tabs'
 
@@ -106,6 +107,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
           onMaintDraftConsumed={onMaintDraftConsumed}
         />
       )}
+      {tab === 'inspector' && <InspectorTab dict={dict} />}
       {tab === 'app' && <AppTab sysid={sysid} vehicle={vehicle} me={me} dict={dict} onOpenPresent={onOpenPresent ?? (() => {})} />}
       {tab === 'history' && (
         <div className="maint-body">

@@ -22,8 +22,8 @@ use crate::params::ParamCache;
 use crate::settings;
 use crate::video::VideoHub;
 use crate::{
-    api, auth, branding, camera_api, commands, export_api, flight_api, guided, input_api, logbook_api,
-    logs_api, messages_api, mission_api, param_api, present_api, video_api, ws,
+    api, auth, branding, camera_api, commands, export_api, flight_api, guided, input_api, inspector_api,
+    logbook_api, logs_api, messages_api, mission_api, param_api, present_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -48,6 +48,8 @@ pub struct AppState {
     pub missions: crate::missions::MissionHub,
     /// The RGCS MAVLink SYSID (app setting `mavlink.gcs_sysid`, default 255), shared with the link.
     pub gcs: rgcs_core::GcsId,
+    /// Every MAVLink frame received and sent (maintenance › MAVLink インスペクター).
+    pub inspector: rgcs_mavlink::Inspector,
     /// ARM → DISARM flight drafts (addendum §5.6).
     pub flights: crate::flights::FlightTracker,
     /// DataFlash retrieval over LOG_REQUEST_* (addendum §9).
@@ -111,6 +113,7 @@ impl AppState {
             logs,
             messages,
             gcs,
+            inspector: rgcs_mavlink::Inspector::default(),
             data_dir: crate::config::Config::default().data_dir,
             hostname,
             secure_cookies: false,
@@ -363,6 +366,11 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         )
         .route("/vehicles/{sysid}/logs/{id}/file", get(logs_api::file))
         .route("/vehicles/{sysid}/logbook/export", get(export_api::export))
+        .route("/mavlink/inspector", get(inspector_api::list))
+        .route(
+            "/mavlink/inspector/{dir}/{sysid}/{compid}/{msg_id}",
+            get(inspector_api::detail),
+        )
         .route("/messages", get(messages_api::list_all))
         .route("/vehicles/{sysid}/messages", get(messages_api::list_vehicle))
         .route("/vehicles/{sysid}/messages/{id}/ack", post(messages_api::ack))
