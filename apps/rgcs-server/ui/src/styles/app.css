@@ -38,7 +38,11 @@
 .vrow .stat { gap: 8px; font-size: 13px; color: var(--text-2); }
 .vrow .stat .alt { min-width: 48px; }
 .vrow .stat .spd { min-width: 58px; }
-.vrow .batt-text { font-size: 13px; min-width: 34px; text-align: right; }
+.vrow .batt-text { font-size: 13px; min-width: 34px; text-align: right; flex: none; }
+/* long ArduPilot mode names (STABILIZE) shrink with an ellipsis instead of pushing the battery out */
+.vrow > .row { min-width: 0; }
+.vrow .badge { display: block; line-height: 18px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vrow .batt { flex: none; }
 .vrow .follow-mark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--caution-tint); color: var(--caution); flex: none; }
 .vrail { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; }
 .vrail .btn-icon { width: 44px; height: 44px; display: flex; flex-direction: column; gap: 3px; color: var(--text-2); }
@@ -56,15 +60,9 @@
 .login-note { font-size: 11px; }
 .login-lang { width: 150px; }
 
-/* ---- footer log bar (prototype footer) ---- */
-.footer-log { position: absolute; left: calc(50% + (var(--aside-w) - var(--right-w)) / 2); transform: translateX(-50%); bottom: 12px; height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 16px; max-width: min(720px, calc(100% - var(--aside-w) - var(--right-w) - 72px)); z-index: 3; font-size: 12px; border-radius: 999px; white-space: nowrap; }
-.footer-log .lead { font-weight: 500; }
-.footer-log .entry { gap: 8px; padding-left: 12px; border-left: 1px solid var(--line-hi); }
-.footer-log .entry.danger { color: var(--danger); }
-.footer-log .glyph { width: 18px; height: 18px; border-radius: 50%; background: var(--accent-tint); color: var(--accent); display: grid; place-items: center; font-weight: 600; font-size: 11px; flex: none; }
-.footer-log .glyph::before { content: attr(data-glyph); }
-.footer-log .glyph.bad { background: var(--danger-tint); color: var(--danger); }
-.footer-clock { padding-left: 12px; border-left: 1px solid var(--line-hi); }
+/* ---- footer log pill (prototype footer, 2026-10-18) ---- */
+.footer-log { bottom: 12px; height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 16px; width: min(620px, calc(100% - var(--aside-w) - var(--right-w) - 72px)); z-index: 3; font-size: 12px; border-radius: 999px; white-space: nowrap; }
+.footer-clock { padding-left: 12px; border-left: 1px solid var(--line-hi); padding-right: 8px; }
 
 /* ---- sheets (commands / camera settings / present): prototype `float map-r top2` ---- */
 .sheet { position: absolute; right: var(--gap); top: calc(var(--top) + 54px); bottom: var(--gap); width: 380px; z-index: 6; display: flex; flex-direction: column; min-height: 0; }
@@ -87,7 +85,6 @@
 .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ---- map overlays ---- */
-.rg-mk .col { display: flex; flex-direction: column; align-items: flex-start; }
 .rg-mk.warn .lbl { border-color: var(--caution-line); }
 .follow-chip { display: inline-flex; align-items: center; gap: 8px; pointer-events: auto; z-index: 3; }
 .chip-x { background: none; border: none; color: inherit; font-size: 12px; cursor: pointer; padding: 0 2px; }
@@ -100,12 +97,6 @@
 .detail-rec { position: absolute; left: 10px; top: 10px; height: 28px; }
 .detail-rec .rdot { width: 8px; height: 8px; background: #fff; animation: rgblink 1.2s infinite; }
 .detail-reconnect { position: absolute; right: 52px; top: 12px; }
-.cam-strip { gap: 6px; }
-.cam-strip .zoom { display: flex; align-items: center; gap: 0; }
-.cam-strip .zoom .val { min-width: 40px; text-align: center; font-size: 19px; }
-.cam-strip .seg { width: auto; flex: 1 1 110px; min-width: 0; max-width: 156px; }
-.cam-strip .seg button { padding: 0 4px; font-size: 11px; }
-.cam-strip > .btn-icon { width: 32px; }
 .cam-status .danger { color: var(--danger); }
 .detail-telemetry { display: grid; grid-template-columns: repeat(3, 1fr); padding: 14px 12px 12px; }
 .detail-telemetry .kv { display: flex; flex-direction: column; align-items: center; gap: 2px; border-right: 1px solid var(--line-soft); }
@@ -114,18 +105,6 @@
 .detail-telemetry .batt { margin-top: 4px; }
 .detail-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 12px 14px; }
 .detail-tiles .tile-btn:disabled { opacity: 0.45; }
-.detail-messages .head { gap: 10px; padding: 14px 16px 6px; }
-.msg-row { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: start; padding: 6px 16px 12px; }
-.msg-row .dot { margin-top: 5px; }
-.msg-row .ttl-row { gap: 10px; font-size: 14px; }
-.msg-row .body { font-size: 12px; margin-top: 2px; }
-.msg-row .acts { gap: 6px; }
-.msg-row .acts .btn-icon { border: 1px solid var(--line); }
-.msg-row .acts .btn-icon.ack { border-color: var(--ok); color: var(--ok); }
-.msg-row.acked .acts .btn-icon.ack { background: var(--ok); color: #0b1f14; }
-.msg-text.danger { color: var(--danger); }
-.msg-text.caution { color: var(--caution); }
-.msg-text.ok { color: var(--ok); }
 .detail-empty { padding: 0 16px 14px; }
 
 /* ---- guided modal ---- */

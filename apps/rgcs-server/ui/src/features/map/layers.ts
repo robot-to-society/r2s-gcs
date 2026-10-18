@@ -1,0 +1,14 @@
+/** Bottom → top above the base map (spec 20 §9, prototype orderLayers): mission path, tracks, guided line / sight, gimbal footprint. DOM markers sit above the canvas. */
+export const LAYER_ORDER = ['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line', 'gimbal-footprint', 'gimbal-footprint-line'] as const
+
+interface LayerStack {
+  getLayer(id: string): unknown
+  moveLayer(id: string): void
+}
+
+/** Re-stacks our layers in `LAYER_ORDER`; call after any layer is added. */
+export function orderLayers(map: LayerStack): void {
+  LAYER_ORDER.forEach((id) => {
+    if (map.getLayer(id)) map.moveLayer(id)
+  })
+}

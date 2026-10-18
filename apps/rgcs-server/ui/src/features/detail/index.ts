@@ -1,5 +1,5 @@
 export { DetailPanel } from './DetailPanel'
-export { EMPTY_MESSAGES, ack, forVehicle, unread } from './messages'
-export type { MessagesState } from './messages'
-export { messageText, severityClass } from './format'
+export { DETAIL_MESSAGES, lastForVehicle, pendingAlerts } from './messages'
+export { ackMessage } from './api'
+export { messageText } from './format'
 export { MissionProgressRow } from './MissionProgressRow'

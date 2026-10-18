@@ -6,6 +6,7 @@
 pub mod camera;
 pub mod command;
 pub mod jst;
+pub mod log;
 pub mod logbook;
 pub mod mission;
 pub mod operator;
@@ -20,6 +21,7 @@ pub use camera::{
     VideoSourceStatus, ZoomCaps,
 };
 pub use command::{CommandResult, VehicleCommand};
+pub use log::{ackable, severity_of_statustext, LogEntry, MessageSource, Severity};
 pub use logbook::{
     FcLogEntry, Flight, FlightInput, FlightLog, FlightPatch, FlightSquawk, FlightSquawkInput, FlightStatus,
     InspectionItem, InspectionResult, InspectionResultInput, InspectionResultRow, InspectionRun,

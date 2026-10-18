@@ -1,7 +1,23 @@
-import { useState } from 'react'
+import { useState, type ReactElement } from 'react'
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import { cmdLabel, type Dict } from '../../shared/i18n'
-import { IconClose, IconSearch } from '../../shared/ui/icons'
+import {
+  IconAltitude,
+  IconCamera,
+  IconClose,
+  IconCrosshair,
+  IconEllipsis,
+  IconHouse,
+  IconLand,
+  IconPause,
+  IconPlay,
+  IconPower,
+  IconPowerOff,
+  IconRepeat,
+  IconSearch,
+  IconSpeed,
+  IconStepForward,
+} from '../../shared/ui/icons'
 import { CATALOG, COPTER_MODES, catalogGroups, type CatalogItem, type CommandGroup, type ModalTarget } from './catalog'
 
 interface Props {
@@ -15,10 +31,22 @@ interface Props {
 }
 
 const GROUP_LABEL: Record<CommandGroup, keyof Dict> = { flight: 'groupFlight', move: 'groupMove', mode: 'groupMode', payload: 'groupPayload' }
-/** Prototype glyphs per command name. */
-const GLYPH: Record<string, string> = {
-  pause: '❚❚', resume: '▶', rtl: '⌂', land: '⤓', guided: '◎', change_alt: '⇅', change_speed: '◔', set_mode: '⇄',
-  mission_start: '▶', mission_resume: '▶', arm: '🔒', disarm: '🔓', camera: '▣', other: '•••',
+/** Lucide icon per command name (spec 20 §9). */
+const ICON: Record<string, () => ReactElement> = {
+  pause: () => <IconPause />,
+  resume: () => <IconPlay />,
+  rtl: () => <IconHouse size={18} />,
+  land: () => <IconLand />,
+  guided: () => <IconCrosshair />,
+  change_alt: () => <IconAltitude />,
+  change_speed: () => <IconSpeed size={18} />,
+  set_mode: () => <IconRepeat />,
+  mission_start: () => <IconPlay />,
+  mission_resume: () => <IconStepForward />,
+  arm: () => <IconPower />,
+  disarm: () => <IconPowerOff />,
+  camera: () => <IconCamera />,
+  other: () => <IconEllipsis />,
 }
 
 function label(item: CatalogItem, dict: Dict): string {
@@ -97,7 +125,7 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
                     onClick={() => pick(item)}
                   >
                     <span className="glyph" aria-hidden="true">
-                      {GLYPH[item.name] ?? '•'}
+                      {(ICON[item.name] ?? ICON.other)()}
                     </span>
                     <span className="ell">{label(item, dict)}</span>
                   </button>

@@ -1,6 +1,7 @@
 //! SQLite persistence (spec 60): users / sessions / audit log / settings. `Store` is cheap to
 //! clone (it wraps a connection pool) and every method takes `&self`.
 
+pub mod app_settings;
 pub mod audit;
 pub mod camera_profiles;
 pub mod flight_logs;
@@ -9,6 +10,7 @@ pub mod input_profile;
 pub mod inspections;
 pub mod lockout;
 pub mod maintenance;
+pub mod messages;
 pub mod missions;
 pub mod param_history;
 pub mod password;
@@ -50,6 +52,11 @@ pub struct Store {
 }
 
 impl Store {
+    /// Closes the pool (shutdown; tests use it to make every write fail).
+    pub async fn close(&self) {
+        self.pool.close().await;
+    }
+
     /// Opens (creating if needed) the database file, runs migrations and seeds the dev account.
     pub async fn open(path: &Path) -> Result<Self> {
         if let Some(dir) = path.parent() {

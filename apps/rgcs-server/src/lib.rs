@@ -21,6 +21,8 @@ pub mod input_api;
 pub mod logbook_api;
 pub mod logs;
 pub mod logs_api;
+pub mod message_log;
+pub mod messages_api;
 pub mod mission_api;
 pub mod missions;
 pub mod param_api;

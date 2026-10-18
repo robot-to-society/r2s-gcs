@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { MissionSummaryRow } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { listMissions } from './api'
+import { IconClose } from '../../shared/ui/icons'
 
 interface Props {
   readonly dict: Dict
@@ -30,7 +31,7 @@ export function MissionPicker({ dict, title, onPick, onClose, load = listMission
         <span className="h1">{title}</span>
         <span className="grow" />
         <button type="button" className="btn-icon" aria-label={dict.close} onClick={onClose}>
-          ×
+          <IconClose />
         </button>
       </div>
       {error && <div className="multi-note danger">{error}</div>}

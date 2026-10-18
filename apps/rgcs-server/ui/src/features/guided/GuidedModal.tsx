@@ -5,6 +5,7 @@ import { requestConfirm } from '../commands/api'
 import type { LatLon } from '../map/store'
 import { sendGuided, type AltMode } from './api'
 import { runGuided, type GuidedOutcome, type SendGuidedFn } from './run'
+import { IconClose } from '../../shared/ui/icons'
 
 interface Deps {
   readonly send: SendGuidedFn
@@ -71,7 +72,7 @@ export function GuidedModal({ vehicle, target, onPickTarget, onClose, onDone, on
         <span className="t2">{vehicle.name}</span>
         <span className="grow" />
         <button type="button" className="btn-icon" aria-label={dict.close} onClick={onClose}>
-          ×
+          <IconClose />
         </button>
       </div>
       <div className="sec">

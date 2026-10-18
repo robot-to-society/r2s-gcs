@@ -5,6 +5,7 @@ use ts_rs::TS;
 
 use crate::camera::{CameraCaps, CameraSnapshot, CameraState, Deadman, VideoSourceStatus};
 use crate::command::CommandResult;
+use crate::log::{ackable, severity_of_statustext, LogEntry, MessageSource, Severity};
 use crate::logbook::{Flight, LogFetchProgress};
 use crate::mission::MissionProgress;
 use crate::params::ParamProgress;
@@ -23,6 +24,52 @@ pub struct VehicleMessage {
     /// Unix time in milliseconds.
     #[ts(type = "number")]
     pub ts: u64,
+    /// 重要度 (spec 10 §1): from `severity` for STATUSTEXT, fixed per code for link events.
+    pub level: Severity,
+    pub source: MessageSource,
+    /// Warnings and errors from the vehicle need a 確認 (spec 10 §3.3).
+    pub ackable: bool,
+    pub acked_by: Option<String>,
+    #[ts(type = "number | null")]
+    pub acked_at: Option<u64>,
+}
+
+impl VehicleMessage {
+    /// A STATUSTEXT (level from the MAV_SEVERITY).
+    pub fn new(sysid: SysId, id: u64, severity: u8, text: String, ts: u64, source: MessageSource) -> Self {
+        Self::with_level(
+            sysid,
+            id,
+            severity,
+            text,
+            ts,
+            source,
+            severity_of_statustext(severity),
+        )
+    }
+
+    pub fn with_level(
+        sysid: SysId,
+        id: u64,
+        severity: u8,
+        text: String,
+        ts: u64,
+        source: MessageSource,
+        level: Severity,
+    ) -> Self {
+        Self {
+            sysid,
+            id,
+            severity,
+            text,
+            ts,
+            level,
+            source,
+            ackable: ackable(source, level),
+            acked_by: None,
+            acked_at: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -81,6 +128,17 @@ pub enum ServerMessage {
     },
     VehicleMessage(VehicleMessage),
     CommandResult(CommandResult),
+    /// A command result or system notice recorded in the message log (the footer's feed).
+    LogEntry(LogEntry),
+    /// A warning / error was acknowledged (spec 50 §3.1).
+    MessageAck {
+        sysid: SysId,
+        #[ts(type = "number")]
+        id: i64,
+        by: String,
+        #[ts(type = "number")]
+        ts: u64,
+    },
     VehicleDiscovered {
         sysid: SysId,
     },

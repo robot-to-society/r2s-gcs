@@ -1,6 +1,6 @@
 import { act, render } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { VehicleState } from '../../shared/api/types'
+import type { CameraSnapshot, VehicleState } from '../../shared/api/types'
 
 const created = { maps: [] as FakeMap[], markers: [] as FakeMarker[], deferLoad: false }
 
@@ -8,8 +8,10 @@ class FakeMarker {
   el: HTMLElement
   lngLat: [number, number] | null = null
   removed = false
+  opts: Record<string, unknown>
   constructor(opts: { element: HTMLElement }) {
     this.el = opts.element
+    this.opts = opts
     created.markers.push(this)
   }
   setLngLat(ll: [number, number]) {
@@ -43,7 +45,16 @@ class FakeMap {
   addSource(id: string) {
     this.sources.set(id, { setData: vi.fn() })
   }
-  addLayer() {}
+  layers: string[] = []
+  addLayer(l: { id: string }) {
+    this.layers.push(l.id)
+  }
+  getLayer(id: string) {
+    return this.layers.includes(id) ? { id } : undefined
+  }
+  moveLayer(id: string) {
+    this.layers = [...this.layers.filter((x) => x !== id), id]
+  }
   getSource(id: string) {
     return this.sources.get(id)
   }
@@ -161,5 +172,40 @@ describe('MapView', () => {
     expect(badges).toHaveLength(3)
     expect(badges.map((b) => b.el.className)).toEqual(['wp-mk small', 'wp-mk small current', 'wp-mk small'])
     expect(badges[1]!.el.textContent).toBe('2')
+  })
+  it('stacks the mission path below the tracks below the guided line once loaded', () => {
+    render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
+    expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line', 'gimbal-footprint', 'gimbal-footprint-line'])
+  })
+
+  it('places vehicle markers like the prototype and a home tile per known home', () => {
+    const homes = new Map([[1, { lat: 36.161, lon: 139.371 }]])
+    const { rerender } = render(
+      <MapView vehicles={new Map([[1, v(1, 3)]])} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} homes={homes} onDragStart={() => {}} onClick={() => {}} />,
+    )
+    const vehicle = created.markers.find((m) => m.el.classList.contains('rg-mk'))!
+    expect(vehicle.opts).toMatchObject({ anchor: 'left', offset: [-17, 0], rotationAlignment: 'map', opacityWhenCovered: '1' })
+    const home = created.markers.find((m) => m.el.className === 'rg-home')!
+    expect(home.lngLat).toEqual([139.371, 36.161])
+    rerender(<MapView vehicles={new Map([[1, v(1, 3)]])} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} homes={new Map()} onDragStart={() => {}} onClick={() => {}} />)
+    expect(home.removed).toBe(true)
+  })
+  it('draws the gimbal fan, or the ground footprint instead when projection is on', () => {
+    const cam = {
+      sysid: 1,
+      caps: { kind: 'siyi_mt11', gimbal: { rate: true, angle: true, center: true, modes: [], attitude: true, pitch_range: [-90, 30] }, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: 62 },
+      state: { connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 1, video_mode: null, gimbal: { yaw: 0, pitch: -45, roll: 0, age_ms: 0 }, gimbal_mode: null, stream: null },
+    } as unknown as CameraSnapshot
+    const vehicles = new Map([[1, { ...v(1, 3), alt_rel: 100 }]])
+    const cameras = new Map([[1, cam]])
+    const props = { vehicles, tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, cameras, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} />)
+    const fan = () => created.markers.find((m) => m.el.classList.contains('rg-mk'))!.el.querySelector('svg.fov') as SVGElement
+    const foot = created.maps.at(-1)!.sources.get('gimbal-footprint')!
+    expect(fan().style.display).toBe('')
+    expect(foot.setData.mock.calls.at(-1)?.[0].features).toHaveLength(0)
+    rerender(<MapView {...props} groundProjection />)
+    expect(fan().style.display).toBe('none')
+    expect(foot.setData.mock.calls.at(-1)?.[0].features).toHaveLength(1)
   })
 })

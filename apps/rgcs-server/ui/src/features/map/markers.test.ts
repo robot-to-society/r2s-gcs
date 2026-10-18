@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { VehicleState } from '../../shared/api/types'
-import { hasPosition, markerEl, updateMarkerEl } from './markers'
+import type { CameraSnapshot, VehicleState } from '../../shared/api/types'
+import { hfovAt } from './gimbal'
+import { gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
 
 const base: VehicleState = {
   sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'AUTO', armed: true, lat: 36.162, lon: 139.372, alt_rel: 80, alt_msl: 480,
@@ -15,30 +16,80 @@ describe('vehicle markers', () => {
     expect(hasPosition({ ...base, lat: 0, lon: 0 })).toBe(false)
   })
 
-  it('builds a .rg-mk element with heading rotation, name and altitude', () => {
+  it('copter_marker_has_disc_heading_caret_and_label', () => {
     const el = markerEl(base, false)
     expect([...el.classList]).toEqual(['rg-mk'])
-    expect(el.querySelector('.arrow')).toHaveStyle({ transform: 'rotate(90deg)' })
+    const vmk = el.querySelector('.vmk')!
+    expect([...vmk.classList]).toEqual(['vmk', 'copter'])
+    expect(vmk.querySelector('.arrow > i.hd')).not.toBeNull()
+    expect(vmk.querySelector('.disc > svg.ic')).not.toBeNull()
+    expect(vmk.querySelector('.disc circle')).not.toBeNull()
     expect(el.querySelector('.lbl')?.textContent).toBe('UAV-01')
     expect(el.querySelector('.alt')?.textContent).toBe('80 m')
     expect(el.title).toBe('UAV-01')
   })
 
-  it('reflects selection, warnings and unknown heading on update without replacing the element', () => {
+  it('rover_marker_uses_car_and_light_disc', () => {
+    const el = markerEl({ ...base, kind: 'rover' }, false)
+    expect([...el.querySelector('.vmk')!.classList]).toEqual(['vmk', 'rover'])
+    expect(el.querySelector('.arrow > .hd')).not.toBeNull()
+    expect([...el.querySelectorAll('.disc path')].map((p) => p.getAttribute('d'))).toContain('M9 17h6')
+  })
+
+  it('selected_marker_gets_sel and warnings mark the label, without replacing the element', () => {
     const el = markerEl(base, false)
     el.classList.add('maplibregl-marker') // MapLibre adds its positioning class after construction
-    const same = updateMarkerEl(el, { ...base, hdg: null, warn: true, alt_rel: 12.4 }, true)
+    const same = updateMarkerEl(el, { ...base, warn: true, alt_rel: 12.4 }, true)
     expect(same).toBe(el)
     expect([...el.classList].sort()).toEqual(['maplibregl-marker', 'rg-mk', 'sel', 'warn'])
-    expect(el.querySelector('.arrow')).toHaveStyle({ transform: 'rotate(0deg)' })
     expect(el.querySelector('.alt')?.textContent).toBe('12 m')
     updateMarkerEl(el, base, false)
     expect([...el.classList].sort()).toEqual(['maplibregl-marker', 'rg-mk'])
   })
 
-  it('draws rovers with the round .rov badge instead of an arrow', () => {
-    const el = markerEl({ ...base, kind: 'rover' }, false)
-    expect(el.querySelector('.rov')).not.toBeNull()
-    expect(el.querySelector('.arrow')).toBeNull()
+  it('heading_rotates_only_the_arrow', () => {
+    const el = markerEl(base, false)
+    const arrow = el.querySelector('.arrow') as HTMLElement
+    expect(arrow.style.transform).toBe('rotate(90deg)')
+    expect((el.querySelector('.disc') as HTMLElement).style.transform).toBe('')
+    expect((el.querySelector('.vmk') as HTMLElement).style.transform).toBe('')
+    updateMarkerEl(el, { ...base, hdg: null }, false)
+    // inline style: jsdom's computed style is cached on detached elements
+    expect(arrow.style.transform).toBe('rotate(0deg)')
+  })
+
+  it('home_marker_is_a_white_tile_with_a_house', () => {
+    const el = homeEl()
+    expect(el.className).toBe('rg-home')
+    expect(el.title).toBe('Home')
+    expect(el.querySelector('svg.ic path')).not.toBeNull()
+  })
+  it('no_fan_without_attitude', () => {
+    const el = markerEl(base, false, null)
+    expect((el.querySelector('.vmk > svg.fov') as SVGElement).style.display).toBe('none')
+  })
+
+  it('fan_points_along_the_camera_bearing_and_becomes_a_ring_at_nadir', () => {
+    const el = markerEl(base, false, { bearing: 60, hfov: 62, pitch: -20 })
+    const fov = el.querySelector('.vmk > svg.fov') as SVGElement
+    expect(fov.style.display).toBe('')
+    expect(fov.style.transform).toBe('rotate(60deg)')
+    expect(fov.querySelector('.cone')?.getAttribute('d')).toMatch(/^M120,120 L/)
+    expect((fov.querySelector('.nadir') as SVGElement).style.display).toBe('none')
+    updateMarkerEl(el, base, false, { bearing: 60, hfov: 62, pitch: -85 })
+    expect((fov.querySelector('.cone') as SVGElement).style.display).toBe('none')
+    expect((fov.querySelector('.nadir') as SVGElement).style.display).toBe('')
+    expect(fov.querySelector('radialGradient')?.id).toBe('fovg-1')
+  })
+
+  it('gimbal_pose_needs_attitude_caps_and_an_attitude', () => {
+    const caps = { kind: 'siyi_mt11', gimbal: { rate: true, angle: true, center: true, modes: [], attitude: true, pitch_range: [-90, 30] }, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: 62 } as const
+    const state = { connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 2, zoom_max: 165, video_mode: null, gimbal: { yaw: 30, pitch: -10, roll: 0, age_ms: 0 }, gimbal_mode: null, stream: null } as const
+    const cam = { sysid: 1, caps, state } as unknown as CameraSnapshot
+    expect(gimbalPose(base, cam)).toEqual({ bearing: 60, hfov: hfovAt(62, 2), pitch: -10 })
+    expect(gimbalPose(base, undefined)).toBeNull()
+    expect(gimbalPose(base, { ...cam, state: { ...cam.state, gimbal: null } })).toBeNull()
+    expect(gimbalPose(base, { ...cam, caps: { ...cam.caps, gimbal: { ...caps.gimbal, attitude: false } } } as unknown as CameraSnapshot)).toBeNull()
+    expect(gimbalPose({ ...base, hdg: null }, cam)).toBeNull()
   })
 })

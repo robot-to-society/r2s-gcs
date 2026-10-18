@@ -71,10 +71,15 @@ async fn main() -> anyhow::Result<()> {
         state.params.clone(),
         state.missions.clone(),
         state.logs.clone(),
+        state.messages.clone(),
         state.outgoing.clone(),
     ));
     tokio::spawn(state.missions.clone().resend_loop());
     tokio::spawn(state.flights.clone().run(router.clone()));
+    tokio::spawn(rgcs_server::message_log::run_recorder(
+        state.messages.clone(),
+        tx.subscribe(),
+    ));
     tokio::spawn(telemetry::diff_loop(
         router.clone(),
         tx.clone(),

@@ -13,6 +13,7 @@ const registry: VehicleRegistry = {
   initial_flight_minutes: 0, inspection_template_id: null, total_flight_minutes: 0,
 }
 const template: InspectionTemplate = { id: 1, name: '様式2 標準', version: 1, items: [{ label: '機体全般', detail: 'x' }], updated_at: 0 }
+const settings = { lang: 'ja', map_tile_url: 'x', map_attribution: 'y', map: { gimbal_ground_projection: false } }
 const ok = (data: unknown, status = 200) => new Response(JSON.stringify({ success: true, data }), { status, headers: { 'content-type': 'application/json' } })
 
 function setup(role: Operator['role'] = 'admin') {
@@ -27,6 +28,8 @@ function setup(role: Operator['role'] = 'admin') {
       if (url.endsWith('/users/me/pilot') && init?.method === 'PUT') return ok({ username: 'admin', ...(JSON.parse(String(init.body)) as object) })
       if (url.endsWith('/users/me/pilot')) return ok({ username: 'admin', full_name: '', license_no: '' })
       if (url.endsWith('/inspection/templates')) return ok([template])
+      if (url.endsWith('/settings/app') && init?.method === 'PUT') return ok({ ...settings, ...(JSON.parse(String(init.body)) as object) })
+      if (url.endsWith('/settings/app')) return ok(settings)
       return ok(null, 404)
     }),
   )
@@ -76,5 +79,16 @@ describe('AppTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ロゴ・提示用トークン' }))
     expect(onOpenPresent).toHaveBeenCalled()
     expect(screen.getByRole('button', { name: '日本語' }).className).toContain('on')
+  })
+  it('map_display_switch_toggles_and_saves', async () => {
+    const { calls } = setup()
+    const sw = await screen.findByRole('switch', { name: 'ジンバルを地面に投影' })
+    await waitFor(() => expect(sw).toHaveAttribute('aria-checked', 'false'))
+    expect(screen.getByText('地図表示')).toBeInTheDocument()
+    expect(screen.getByText(/オフの場合は撮影方向のみを表示します/)).toBeInTheDocument()
+    fireEvent.click(sw)
+    await waitFor(() => expect(sw).toHaveAttribute('aria-checked', 'true'))
+    const put = calls.find((c) => c.url.endsWith('/settings/app') && c.init?.method === 'PUT')
+    expect(JSON.parse(String(put?.init?.body))).toEqual({ map: { gimbal_ground_projection: true } })
   })
 })

@@ -6,7 +6,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use rgcs_core::{diff, LinkStatus, ServerMessage, SysId, VehicleMessage, VehicleState, VehicleStateDiff};
+use rgcs_core::{
+    diff, LinkStatus, MessageSource, ServerMessage, Severity, SysId, VehicleMessage, VehicleState,
+    VehicleStateDiff,
+};
 use rgcs_mavlink::{Router, RouterEvent};
 use tokio::sync::{broadcast, mpsc, Mutex};
 
@@ -39,11 +42,11 @@ pub const LINK_MESSAGE_ID_BASE: u64 = 1 << 40;
 static NEXT_LINK_MESSAGE_ID: AtomicU64 = AtomicU64::new(LINK_MESSAGE_ID_BASE);
 
 /// Text codes the UI translates (spec 50 §3.1 `vehicle_message`); vehicle text stays verbatim.
-fn link_code(to: LinkStatus) -> (&'static str, u8) {
+fn link_code(to: LinkStatus) -> (&'static str, u8, Severity) {
     match to {
-        LinkStatus::Delay => ("comms_delay", 4),
-        LinkStatus::Lost => ("link_lost", 4),
-        LinkStatus::Ok => ("link_restored", 6),
+        LinkStatus::Delay => ("comms_delay", 4, Severity::Warn),
+        LinkStatus::Lost => ("link_lost", 4, Severity::Error),
+        LinkStatus::Ok => ("link_restored", 6, Severity::Ok),
     }
 }
 
@@ -53,14 +56,16 @@ pub fn event_frame(ev: RouterEvent, now_ms: u64) -> Option<ServerMessage> {
         RouterEvent::Discovered(sysid) => Some(ServerMessage::VehicleDiscovered { sysid }),
         RouterEvent::Message(m) => Some(ServerMessage::VehicleMessage(m)),
         RouterEvent::LinkChanged { sysid, to, .. } => {
-            let (text, severity) = link_code(to);
-            Some(ServerMessage::VehicleMessage(VehicleMessage {
+            let (text, severity, level) = link_code(to);
+            Some(ServerMessage::VehicleMessage(VehicleMessage::with_level(
                 sysid,
-                id: NEXT_LINK_MESSAGE_ID.fetch_add(1, Ordering::Relaxed),
+                NEXT_LINK_MESSAGE_ID.fetch_add(1, Ordering::Relaxed),
                 severity,
-                text: text.into(),
-                ts: now_ms,
-            }))
+                text.into(),
+                now_ms,
+                MessageSource::Link,
+                level,
+            )))
         }
         RouterEvent::Updated(_)
         | RouterEvent::ParamValue { .. }
@@ -79,6 +84,7 @@ pub async fn pump_events(
     params: crate::params::ParamCache,
     missions: crate::missions::MissionHub,
     logs: crate::logs::LogHub,
+    messages: crate::message_log::MessageLog,
     outgoing: mpsc::Sender<rgcs_mavlink::Outgoing>,
 ) {
     while let Some(ev) = events.recv().await {
@@ -95,8 +101,14 @@ pub async fn pump_events(
             }
             _ => {}
         }
-        if let Some(f) = event_frame(ev, crate::app::unix_ms()) {
-            let _ = tx.send(f);
+        match event_frame(ev, crate::app::unix_ms()) {
+            // Persist first so the frame carries the message-log row id (acknowledgements use it).
+            // Stored and broadcast with its row id by the recorder task; the pump never waits on SQLite.
+            Some(ServerMessage::VehicleMessage(m)) => messages.submit(m),
+            Some(f) => {
+                let _ = tx.send(f);
+            }
+            None => {}
         }
     }
 }
@@ -132,7 +144,9 @@ mod tests {
         let hub = crate::missions::MissionHub::new(tx.clone());
         let params = crate::params::ParamCache::new(tx.clone());
         let logs = crate::logs::LogHub::new(tx.clone(), true);
-        tokio::spawn(pump_events(events_rx, tx, params, hub, logs, out_tx));
+        let store = rgcs_store::Store::open_memory().await.unwrap();
+        let messages = crate::message_log::MessageLog::spawn(store, tx.clone());
+        tokio::spawn(pump_events(events_rx, tx, params, hub, logs, messages, out_tx));
         events_tx.send(RouterEvent::Discovered(1)).await.unwrap();
         let mut names = Vec::new();
         for _ in 0..3 {

@@ -1,21 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
 import { CommandsSheet, ConfirmDialog, runCommand, type RunResult } from '../features/commands'
 import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
-import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../features/detail'
+import { DetailPanel, ackMessage } from '../features/detail'
 import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { MaintView } from '../features/params'
-import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
+import { FollowChip, MapView, cancelPick, missionHomes, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
 import type { CameraCommand, CameraProfile, GimbalInputProfile, Me, VehicleCommand } from '../shared/api/types'
 import { t, type Lang } from '../shared/i18n'
-import { Footer } from './Footer'
+import { LogDock } from './LogDock'
+import { useLogHistory } from '../features/log/useLogHistory'
 import { Header } from './Header'
 import { NO_MODAL, type Modal } from './modal'
 import type { View } from './view'
@@ -43,7 +44,7 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, results, messages, cameras, videoSources, deadman, missionProgress, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
+  const { vehicles, link, log, cameras, videoSources, deadman, missionProgress, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -56,7 +57,6 @@ export function Shell({ me, lang }: Props) {
     }
   }, [])
   const [selected, setSelected] = useState<number | null>(null)
-  const [acks, setAcks] = useState<MessagesState>(EMPTY_MESSAGES)
   const [view, setView] = useState<View>('ops')
   const [modal, setModal] = useState<Modal>(NO_MODAL)
   const tracks = useTracks()
@@ -65,6 +65,9 @@ export function Shell({ me, lang }: Props) {
   const clock = useClock(lang)
   useEffect(() => vehicleStore.subscribe(() => tracksStore.ingest(vehicleStore.getState().vehicles)), [])
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
+  const names = new Map(list.map((v) => [v.sysid, v.name]))
+  const homes = useMemo(() => missionHomes(vehicleMissions), [vehicleMissions])
+  useLogHistory(link)
   const current = selected ?? list[0]?.sysid ?? null
   const currentVehicle = current === null ? undefined : vehicles.get(current)
   const detail = selected === null ? undefined : vehicles.get(selected)
@@ -76,6 +79,14 @@ export function Shell({ me, lang }: Props) {
       setPending((p) => clearPending(p, sysid))
       vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: `camera:${cmd.cmd}`, ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
     })
+  }
+  const logDock = <LogDock log={log} names={names} dict={dict} clock={clock.slice(-5)} lead={view !== 'maint'} deadmanLost={deadman === 'lost'} />
+  const ackAlert = (sysid: number, id: number) => {
+    ackMessage(sysid, id)
+      .then((e) => vehicleStore.markAcked(e.id, e.acked_by ?? me.username, e.acked_at ?? Date.now()))
+      .catch((e: unknown) => {
+        vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'message_ack', ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
+      })
   }
   const lastCameras = useRef(cameras)
   useEffect(
@@ -172,6 +183,7 @@ export function Shell({ me, lang }: Props) {
         {view === 'mission' && settings && (
           <main className="stage mission" style={{ position: 'absolute', inset: 0 }}>
             <MissionView vehicles={vehicles} dict={dict} style={rasterStyle(settings.map_tile_url, settings.map_attribution)} />
+            {logDock}
           </main>
         )}
         <main className={`stage${showDetail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}${view === 'maint' ? ' maint-on' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' ? 'none' : undefined }}>
@@ -186,6 +198,9 @@ export function Shell({ me, lang }: Props) {
               target={mapUi.target}
               mission={current === null ? null : (vehicleMissions.get(current) ?? null)}
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}
+              homes={homes}
+              cameras={cameras}
+              groundProjection={settings.map.gimbal_ground_projection}
               onDragStart={() => mapUiStore.update(clearFollow)}
               onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
             />
@@ -212,10 +227,10 @@ export function Shell({ me, lang }: Props) {
           {detail && showDetail && (
             <DetailPanel
               vehicle={detail}
-              messages={messages}
-              acked={acks.acked}
+              entries={log.entries}
               dict={dict}
-              onAck={(id) => setAcks((s) => ack(s, id))}
+              onAck={ackAlert}
+              onOpenLog={(sysid) => vehicleStore.logAction({ k: 'open', filter: sysid })}
               onClose={() => setSelected(null)}
               onOpenCommands={() => setModal({ kind: 'commands', sysid: detail.sysid })}
               camera={cameras.get(detail.sysid)}
@@ -289,8 +304,8 @@ export function Shell({ me, lang }: Props) {
               onDone={(r) => settle(modal.sysid, r, modal.command)}
             />
           )}
+          {view !== 'mission' && logDock}
         </main>
-        <Footer results={results} dict={dict} clock={clock.slice(-5)} deadmanLost={deadman === 'lost'} />
       </div>
     </div>
   )

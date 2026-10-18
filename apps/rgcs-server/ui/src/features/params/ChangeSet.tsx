@@ -4,6 +4,7 @@ import type { Dict } from '../../shared/i18n'
 import { formatValue, rebootNeeded, type Changes } from './changes'
 import { resultText } from './format'
 import type { MetaMap } from './meta'
+import { IconClose } from '../../shared/ui/icons'
 
 interface Props {
   readonly changes: Changes
@@ -59,7 +60,7 @@ export function ChangeSet({ changes, entries, meta, results, armed, downloading,
                     {m?.reboot && <span className="badge reboot">{dict.paramReboot}</span>}
                   </div>
                   <button type="button" className="btn btn-ghost sm" aria-label={`${dict.paramRemove} ${name}`} onClick={() => onClear(name)} disabled={busy}>
-                    ×
+                    <IconClose size={14} />
                   </button>
                 </li>
               )

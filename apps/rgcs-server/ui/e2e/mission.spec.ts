@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
-import { login } from './helpers'
+import { countLogRows, login, waitForLogRow } from './helpers'
 
 const FIXTURE_PATH = fileURLToPath(new URL('../../../../crates/rgcs-mission/tests/fixtures/demo20.waypoints', import.meta.url))
 const FIXTURE = readFileSync(FIXTURE_PATH, 'utf8')
@@ -11,6 +11,8 @@ async function openMission(page: Page) {
   await page.getByRole('button', { name: 'ミッション' }).click()
   await expect(page.getByTestId('mission-view')).toBeVisible()
 }
+
+const WRITE_OK = /^ミッション書込 成功.*読込一致/
 
 test('a Mission Planner file imports with 20 rows and exports byte-identical', async ({ page }) => {
   await openMission(page)
@@ -43,10 +45,9 @@ test('plan three points, edit, undo, save, write to the vehicle and see the prog
   await page.getByLabel('ミッション名').fill('e2e')
   await page.getByRole('button', { name: '保存', exact: true }).click()
   await expect(page.locator('.mission-dirty')).toHaveCount(0, { timeout: 5_000 })
+  const writes = await countLogRows(page, WRITE_OK)
   await page.getByRole('button', { name: '機体に書き込む' }).click()
-  const pill = page.locator('[data-testid=pill]').nth(1)
-  await expect(pill).toContainText('ミッション書込 成功', { timeout: 20_000 })
-  await expect(pill).toHaveAttribute('title', /読込一致/)
+  await waitForLogRow(page, WRITE_OK, writes, 20_000)
   await page.getByRole('button', { name: '運用マップ' }).click()
   await expect(page.locator('.rg-mk')).toHaveCount(1, { timeout: 20_000 })
   await page.getByRole('option').first().click()

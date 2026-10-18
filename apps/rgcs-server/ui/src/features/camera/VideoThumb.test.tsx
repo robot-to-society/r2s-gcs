@@ -58,4 +58,17 @@ describe('VideoThumb', () => {
     act(() => players[0]!.opts.onState?.({ phase: 'reconnecting', attempt: 1, holdFrame: true, lastError: 'ice_failed' }))
     expect(screen.getByText('再接続中')).toBeInTheDocument()
   })
+  it('video_type_segment_sits_on_the_thumbnail', () => {
+    const onMode = vi.fn()
+    const { container, rerender } = render(<VideoThumb sysid={3} status={live} recording="idle" dict={t('ja')} modes={['rgb', 'thermal', 'side_by_side']} mode="rgb" onMode={onMode} />)
+    const seg = container.querySelector('.detail-video > .seg.n3.sm.onmap') as HTMLElement
+    expect(seg).not.toBeNull()
+    expect(seg.style).toMatchObject({ position: 'absolute', left: '10px', bottom: '10px', width: '168px' })
+    expect([...seg.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['RGB', 'IR', '2画面'])
+    expect(seg.querySelector('button.on')).toHaveTextContent('RGB')
+    screen.getByRole('button', { name: 'IR' }).click()
+    expect(onMode).toHaveBeenCalledWith('thermal')
+    rerender(<VideoThumb sysid={3} status={live} recording="idle" dict={t('ja')} modes={['rgb']} mode="rgb" onMode={onMode} />)
+    expect(container.querySelector('.seg')).toBeNull()
+  })
 })

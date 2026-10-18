@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
 import { initialState, reduce, setLink, withVehicleMission } from './reducer'
+import { vm } from '../../test/vm'
 
 const uav: VehicleState = {
   sysid: 1,
@@ -48,7 +49,7 @@ describe('vehicles reducer', () => {
   })
 
   it('messages are kept newest first', () => {
-    const m = { sysid: 1, id: 1, severity: 4, text: 'PreArm', ts: 1 }
+    const m = vm({ sysid: 1, id: 1, severity: 4, text: 'PreArm', ts: 1 })
     const s1 = reduce(initialState, { t: 'vehicle_message', ...m })
     const s2 = reduce(s1, { t: 'vehicle_message', ...m, id: 2, text: 'Armed' })
     expect(s2.messages.map((x) => x.id)).toEqual([2, 1])
@@ -84,7 +85,7 @@ describe('command results', () => {
 })
 
 describe('camera, video source and input frames', () => {
-  const caps = { kind: 'siyi_mt11' as const, gimbal: null, zoom: null, focus: false, photo: true, record: true, video_modes: ['rgb' as const] }
+  const caps = { kind: 'siyi_mt11' as const, gimbal: null, zoom: null, focus: false, photo: true, record: true, video_modes: ['rgb' as const], hfov_deg: null }
   const state = (zoom: number) => ({
     connected: true, last_error: null, firmware: null, recording: 'idle' as const, zoom, zoom_max: 165, video_mode: 'rgb' as const, gimbal: null, gimbal_mode: null, stream: null,
   })
@@ -154,5 +155,15 @@ describe('camera, video source and input frames', () => {
     const s2 = reduce(s1, { t: 'input_state', deadman: 'lost' })
     expect(s2.deadman).toBe('lost')
     expect(reduce(s2, { t: 'input_state', deadman: 'lost' })).toBe(s2)
+  })
+  it('routes vehicle messages, log entries and acknowledgements into the log', () => {
+    const m = vm({ sysid: 1, id: 10, severity: 4, text: 'PreArm', ts: 1 })
+    let s = reduce(initialState, { t: 'vehicle_message', ...m })
+    s = reduce(s, { t: 'log_entry', id: 11, ts: 2, sysid: 1, source: 'command', severity: 'ok', text: 'arm', ackable: false, acked_by: null, acked_at: null })
+    expect(s.log.entries.map((x) => x.id)).toEqual([11, 10])
+    expect(s.log.unreadAlerts).toBe(1)
+    s = reduce(s, { t: 'message_ack', sysid: 1, id: 10, by: 'admin', ts: 5 })
+    expect(s.log.entries[1].acked_by).toBe('admin')
+    expect(s.messages[0].acked_by).toBe('admin')
   })
 })

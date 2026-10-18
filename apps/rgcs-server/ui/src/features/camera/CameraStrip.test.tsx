@@ -12,11 +12,12 @@ const mt11: CameraCaps = {
   photo: true,
   record: true,
   video_modes: ['rgb', 'thermal', 'side_by_side'],
+  hfov_deg: 62,
 }
 const state = (over: Partial<CameraState> = {}): CameraState => ({
   connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 2.5, zoom_max: 165, video_mode: 'rgb', gimbal: null, gimbal_mode: 'follow', stream: null, ...over,
 })
-const none: CameraCaps = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [] }
+const none: CameraCaps = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: null }
 
 describe('CameraStrip', () => {
   it('renders nothing for kind none and hides the video type segment when only rgb', () => {
@@ -38,8 +39,23 @@ describe('CameraStrip', () => {
     expect(onCommand).toHaveBeenLastCalledWith({ cmd: 'photo' })
     fireEvent.click(screen.getByRole('button', { name: '録画' }))
     expect(onCommand).toHaveBeenLastCalledWith({ cmd: 'record_start' })
-    fireEvent.click(screen.getByRole('button', { name: 'IR' }))
-    expect(onCommand).toHaveBeenLastCalledWith({ cmd: 'video_mode', args: { mode: 'thermal' } })
+  })
+
+  it('zoom_is_a_stepper_with_icons', () => {
+    const { container } = render(<CameraStrip caps={mt11} state={state({ zoom: 165 })} pending={false} onCommand={() => {}} onSettings={() => {}} dict={t('ja')} />)
+    const step = container.querySelector('.cam-strip > .zstep')!
+    expect(step).not.toBeNull()
+    expect([...step.children].map((c) => c.tagName)).toEqual(['BUTTON', 'SPAN', 'BUTTON'])
+    expect(step.querySelector('span.big.num')).toHaveTextContent('165.0×')
+    step.querySelectorAll('button').forEach((b) => expect(b.querySelector('svg.ic')).not.toBeNull())
+    expect(step).not.toHaveTextContent(/[−+]/)
+    expect(container.querySelector('.cam-strip > .grow')).not.toBeNull()
+  })
+
+  it('no_video_type_segment_in_the_strip', () => {
+    render(<CameraStrip caps={mt11} state={state()} pending={false} onCommand={() => {}} onSettings={() => {}} dict={t('ja')} />)
+    expect(screen.queryByRole('group', { name: '映像タイプ' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'IR' })).toBeNull()
   })
 
   it('shows record on while recording, sends record_stop, and is disabled while pending', () => {
