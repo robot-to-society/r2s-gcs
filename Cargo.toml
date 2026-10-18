@@ -41,6 +41,8 @@ axum-extra = { version = "0.12", features = ["cookie"] }
 tower = "0.5"
 http-body-util = "0.1"
 tokio-util = { version = "0.7", features = ["io"] }
+printpdf = { version = "0.12", default-features = false }
+csv = "1.4"
 
 [profile.release]
 opt-level = 3

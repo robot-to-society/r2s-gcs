@@ -47,6 +47,7 @@ time = { workspace = true }
 sim = ["rgcs-camera/sim"]
 
 [dev-dependencies]
+regex = "1"
 uuid = { workspace = true }
 rgcs-server = { path = ".", features = ["sim"] }
 mavlink = { workspace = true }
