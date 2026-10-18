@@ -1,5 +1,5 @@
 import type { LogEntry, SysId } from '../../shared/api/types'
-import { hhmm } from '../../shared/format/time'
+import { hhmmss } from '../../shared/format/time'
 import type { Dict } from '../../shared/i18n'
 import { IconChevronDown, IconChevronUp, IconWarn } from '../../shared/ui/icons'
 import { entrySource, entryText } from './format'
@@ -21,7 +21,7 @@ function Latest({ entry, names, dict }: { readonly entry: LogEntry; readonly nam
     <>
       <SevIcon severity={entry.severity} size={16} />
       <span className="num t3" style={{ flex: 'none' }}>
-        {hhmm(entry.ts)}
+        {hhmmss(entry.ts)}
       </span>
       <span className="t2" style={{ flex: 'none', fontWeight: 500 }}>
         {entrySource(entry, names, dict)}

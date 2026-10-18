@@ -78,4 +78,15 @@ describe('Header user menu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'admin' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
+  it('maintenance_shows_its_label_and_a_close_button_back_to_the_map', () => {
+    const onView = vi.fn()
+    const me = { username: 'op', role: 'operator' as const, dev_mode: false, hostname: 'rgcs' }
+    const { rerender } = render(<Header vehicles={[]} link="open" dict={t('ja')} clock="" me={me} view="maint" onView={onView} onLogout={() => {}} />)
+    expect(screen.getByText('メンテナンス')).toHaveClass('t2')
+    fireEvent.click(screen.getByRole('button', { name: '閉じる' }))
+    expect(onView).toHaveBeenCalledWith('ops')
+    rerender(<Header vehicles={[]} link="open" dict={t('ja')} clock="" me={me} view="ops" onView={onView} onLogout={() => {}} />)
+    expect(screen.queryByText('メンテナンス')).toBeNull()
+    expect(screen.queryByRole('button', { name: '閉じる' })).toBeNull()
+  })
 })

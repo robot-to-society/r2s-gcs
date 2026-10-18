@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Dict } from '../shared/i18n'
 import type { Me, VehicleState } from '../shared/api/types'
 import type { LinkState } from '../features/vehicles/reducer'
-import { IconCopter, IconRover, IconUser, IconWarn } from '../shared/ui/icons'
+import { IconClose, IconCopter, IconRover, IconUser, IconWarn } from '../shared/ui/icons'
 import { Nav } from './Nav'
 import { UserPopover } from './UserPopover'
 import type { View } from './view'
@@ -31,6 +31,14 @@ export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout
     <header className="g header">
       <div className="row brand-row">
         <span className="brand">RGCS</span>
+        {view === 'maint' && (
+          <>
+            <span style={{ width: 1, height: 18, background: 'var(--line-hi)' }} />
+            <span className="t2" style={{ fontSize: 14 }}>
+              {dict.maintenance}
+            </span>
+          </>
+        )}
       </div>
       <div className="row num counts">
         <span className="row" title="Copters">
@@ -55,6 +63,11 @@ export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout
         {me.username}
       </button>
       <span className="num t2 header-clock">{clock}</span>
+      {view === 'maint' && (
+        <button type="button" className="btn-icon" title={dict.close} aria-label={dict.close} onClick={() => onView('ops')}>
+          <IconClose />
+        </button>
+      )}
       {menu && (
         <UserPopover
           me={me}

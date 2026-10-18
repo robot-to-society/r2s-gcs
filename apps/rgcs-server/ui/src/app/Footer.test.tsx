@@ -57,7 +57,7 @@ describe('Footer', () => {
     })
     const pill = screen.getByRole('button', { name: /メッセージ履歴/ })
     expect(pill).toHaveTextContent('システム')
-    expect(pill).toHaveTextContent('帰還 失敗 timeout')
+    expect(pill).toHaveTextContent('帰還 失敗 タイムアウト')
   })
 
   it('shows the unread badge only when there are unread alerts', () => {

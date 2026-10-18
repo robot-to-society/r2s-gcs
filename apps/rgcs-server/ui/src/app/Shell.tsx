@@ -15,8 +15,7 @@ import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
 import type { CameraCommand, CameraProfile, GimbalInputProfile, Me, VehicleCommand } from '../shared/api/types'
 import { t, type Lang } from '../shared/i18n'
-import { Footer } from './Footer'
-import { LogSheet } from '../features/log/LogSheet'
+import { LogDock } from './LogDock'
 import { useLogHistory } from '../features/log/useLogHistory'
 import { Header } from './Header'
 import { NO_MODAL, type Modal } from './modal'
@@ -81,6 +80,7 @@ export function Shell({ me, lang }: Props) {
       vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: `camera:${cmd.cmd}`, ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
     })
   }
+  const logDock = <LogDock log={log} names={names} dict={dict} clock={clock.slice(-5)} lead={view !== 'maint'} deadmanLost={deadman === 'lost'} />
   const ackAlert = (sysid: number, id: number) => {
     ackMessage(sysid, id)
       .then((e) => vehicleStore.markAcked(e.id, e.acked_by ?? me.username, e.acked_at ?? Date.now()))
@@ -183,6 +183,7 @@ export function Shell({ me, lang }: Props) {
         {view === 'mission' && settings && (
           <main className="stage mission" style={{ position: 'absolute', inset: 0 }}>
             <MissionView vehicles={vehicles} dict={dict} style={rasterStyle(settings.map_tile_url, settings.map_attribution)} />
+            {logDock}
           </main>
         )}
         <main className={`stage${showDetail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}${view === 'maint' ? ' maint-on' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' ? 'none' : undefined }}>
@@ -303,25 +304,8 @@ export function Shell({ me, lang }: Props) {
               onDone={(r) => settle(modal.sysid, r, modal.command)}
             />
           )}
-          {log.open && (
-            <LogSheet
-              log={log}
-              names={names}
-              dict={dict}
-              onFilter={(filter) => vehicleStore.logAction({ k: 'filter', filter })}
-              onClose={() => vehicleStore.logAction({ k: 'close' })}
-            />
-          )}
+          {view !== 'mission' && logDock}
         </main>
-        <Footer
-          log={log}
-          names={names}
-          dict={dict}
-          clock={clock.slice(-5)}
-          lead={view !== 'maint'}
-          onToggle={() => vehicleStore.logAction(log.open ? { k: 'close' } : { k: 'open' })}
-          deadmanLost={deadman === 'lost'}
-        />
       </div>
     </div>
   )

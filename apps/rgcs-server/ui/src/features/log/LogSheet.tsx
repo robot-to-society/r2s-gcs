@@ -1,5 +1,5 @@
 import type { SysId } from '../../shared/api/types'
-import { hhmm } from '../../shared/format/time'
+import { hhmmss } from '../../shared/format/time'
 import type { Dict } from '../../shared/i18n'
 import { IconClose } from '../../shared/ui/icons'
 import { entrySource, entryText } from './format'
@@ -53,7 +53,7 @@ export function LogSheet({ log, names, dict, onFilter, onClose }: Props) {
         {rows.map((e) => (
           <div key={e.id} className={`logrow ${e.severity}`} data-testid="logrow">
             <SevIcon severity={e.severity} size={15} />
-            <span className="num t3">{hhmm(e.ts)}</span>
+            <span className="num t3">{hhmmss(e.ts)}</span>
             <span className="src">{entrySource(e, names, dict)}</span>
             <span className="txt ell">{entryText(e, dict)}</span>
           </div>

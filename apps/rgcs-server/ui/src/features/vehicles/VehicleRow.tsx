@@ -38,7 +38,7 @@ export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, fol
       <div className="row">
         <span className={dotClass(v)} data-testid="dot" />
         <span className="nm">{v.name}</span>
-        <span className="badge" style={{ color: v.armed ? 'var(--accent)' : 'var(--text-2)' }}>
+        <span className="badge" title={modeLabel(v, dict)} style={{ color: v.armed ? 'var(--accent)' : 'var(--text-2)' }}>
           {modeLabel(v, dict)}
         </span>
         {following && (

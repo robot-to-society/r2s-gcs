@@ -38,7 +38,11 @@
 .vrow .stat { gap: 8px; font-size: 13px; color: var(--text-2); }
 .vrow .stat .alt { min-width: 48px; }
 .vrow .stat .spd { min-width: 58px; }
-.vrow .batt-text { font-size: 13px; min-width: 34px; text-align: right; }
+.vrow .batt-text { font-size: 13px; min-width: 34px; text-align: right; flex: none; }
+/* long ArduPilot mode names (STABILIZE) shrink with an ellipsis instead of pushing the battery out */
+.vrow > .row { min-width: 0; }
+.vrow .badge { display: block; line-height: 18px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vrow .batt { flex: none; }
 .vrow .follow-mark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--caution-tint); color: var(--caution); flex: none; }
 .vrail { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; }
 .vrail .btn-icon { width: 44px; height: 44px; display: flex; flex-direction: column; gap: 3px; color: var(--text-2); }
