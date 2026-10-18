@@ -5,10 +5,16 @@ export function hasPosition(v: VehicleState): boolean {
   return v.gps.fix >= 2 && !(v.lat === 0 && v.lon === 0)
 }
 
-const ARROW_SVG =
-  '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg>'
-const ROVER_SVG =
-  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5h14l2 5v5H3z"/></svg>'
+// Markers are plain DOM for MapLibre, so the icons are inline SVG with the same paths as
+// `shared/ui/icons` (Lucide 1.51 `car` / `house`, the prototype's `#i-drone`).
+const svg = (size: number, body: string) =>
+  `<svg class="ic" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
+const DRONE =
+  '<path d="M10 10 7 7"/><path d="m14 10 3-3"/><path d="m14 14 3 3"/><path d="m10 14-3 3"/><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"/><circle cx="5.5" cy="5.5" r="3"/><circle cx="18.5" cy="5.5" r="3"/><circle cx="5.5" cy="18.5" r="3"/><circle cx="18.5" cy="18.5" r="3"/>'
+const CAR =
+  '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>'
+const HOUSE =
+  '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
 
 /** Toggles our classes only; MapLibre owns `maplibregl-marker` on the same element. */
 function applyClasses(el: HTMLElement, v: VehicleState, selected: boolean): void {
@@ -17,24 +23,17 @@ function applyClasses(el: HTMLElement, v: VehicleState, selected: boolean): void
   el.classList.toggle('warn', v.warn || v.link !== 'ok')
 }
 
-/** Builds the `.rg-mk` DOM element MapLibre positions; see `updateMarkerEl` for later frames. */
+/** The prototype's vehicle marker: `.vmk` (heading caret on `.arrow`, type icon on `.disc`) + name pill. */
 export function markerEl(v: VehicleState, selected: boolean): HTMLDivElement {
   const el = document.createElement('div')
-  const glyph = document.createElement('div')
-  glyph.className = v.kind === 'rover' ? 'rov' : 'arrow'
-  glyph.innerHTML = v.kind === 'rover' ? ROVER_SVG : ARROW_SVG
-  const col = document.createElement('div')
-  col.className = 'col'
-  const lbl = document.createElement('span')
-  lbl.className = 'lbl'
-  const alt = document.createElement('span')
-  alt.className = 'alt'
-  col.append(lbl, alt)
-  el.append(glyph, col)
+  const kind = v.kind === 'rover' ? 'rover' : 'copter'
+  el.innerHTML =
+    `<div class="vmk ${kind}"><div class="arrow"><i class="hd"></i></div><div class="disc">${svg(18, kind === 'rover' ? CAR : DRONE)}</div></div>` +
+    '<div><div class="lbl"></div><div class="alt" style="display:none"></div></div>'
   return updateMarkerEl(el, v, selected)
 }
 
-/** Updates classes, rotation and texts in place (no element churn at 10 Hz). */
+/** Updates classes, the caret's rotation and texts in place (no element churn at 10 Hz). */
 export function updateMarkerEl(el: HTMLDivElement, v: VehicleState, selected: boolean): HTMLDivElement {
   applyClasses(el, v, selected)
   el.title = v.name
@@ -44,5 +43,14 @@ export function updateMarkerEl(el: HTMLDivElement, v: VehicleState, selected: bo
   if (lbl) lbl.textContent = v.name
   const alt = el.querySelector('.alt')
   if (alt) alt.textContent = `${Math.round(v.alt_rel)} m`
+  return el
+}
+
+/** The prototype's `.rg-home`: a white tile with a house, its own marker at the vehicle's home. */
+export function homeEl(): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = 'rg-home'
+  el.title = 'Home'
+  el.innerHTML = svg(15, HOUSE)
   return el
 }

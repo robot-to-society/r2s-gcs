@@ -4,7 +4,8 @@ import type { FeatureCollection } from 'geojson'
 import type { Mission, VehicleState } from '../../shared/api/types'
 import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
 import { followTarget, type Padding } from './follow'
-import { hasPosition, markerEl, updateMarkerEl } from './markers'
+import { orderLayers } from './layers'
+import { hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
 import type { LatLon } from './store'
 import { tracksGeoJson, type Tracks } from './tracks'
 
@@ -23,24 +24,28 @@ interface Props {
   /** The selected vehicle's mission (route overlay) and its current item (1-based). */
   readonly mission?: Mission | null
   readonly missionCurrent?: number | null
+  /** Each vehicle's home, when known (its mission's home); drawn as `.rg-home` tiles. */
+  readonly homes?: ReadonlyMap<number, LatLon>
 }
 
 const HOME: [number, number] = [139.372, 36.162]
 const TRACKS = 'tracks'
 const GUIDED = 'guided'
 const MISSION = 'mission-path'
-/** The arrow is 34 px wide at the element's left edge; pull it back so its centre sits on the position. */
+/** The `.vmk` disc is 34 px wide at the element's left edge; pull it back so its centre sits on the position. */
 const ARROW_OFFSET: [number, number] = [-17, 0]
+const NO_HOMES: ReadonlyMap<number, LatLon> = new Map()
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
   const markers = useRef(new Map<number, { marker: Marker; el: HTMLDivElement }>())
   const targetMarker = useRef<Marker | null>(null)
   const missionBadges = useRef<Marker[]>([])
+  const homeMarkers = useRef<Marker[]>([])
   const missionRef = useRef(mission)
   missionRef.current = mission
   const dragRef = useRef(onDragStart)
@@ -85,6 +90,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         source: GUIDED,
         paint: { 'line-color': '#9cc9ff', 'line-width': 2, 'line-dasharray': [1, 2] },
       })
+      orderLayers(m)
       loaded.current = true
       const current = missionRef.current
       if (current) {
@@ -118,7 +124,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         updateMarkerEl(existing.el, v, v.sysid === selected)
       } else {
         const el = markerEl(v, v.sysid === selected)
-        const marker = new maplibregl.Marker({ element: el, anchor: 'left', offset: ARROW_OFFSET }).setLngLat([v.lon, v.lat]).addTo(m)
+        const marker = new maplibregl.Marker({ element: el, anchor: 'left', offset: ARROW_OFFSET, rotationAlignment: 'map', opacityWhenCovered: '1' }).setLngLat([v.lon, v.lat]).addTo(m)
         markers.current.set(v.sysid, { marker, el })
       }
     }
@@ -129,6 +135,14 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       }
     }
   }, [vehicles, selected])
+
+  // Home is its own marker (prototype), never a replacement for the vehicle glyph.
+  useEffect(() => {
+    const m = map.current
+    if (!m) return
+    homeMarkers.current.forEach((h) => h.remove())
+    homeMarkers.current = [...homes.values()].map((h) => new maplibregl.Marker({ element: homeEl() }).setLngLat([h.lon, h.lat]).addTo(m))
+  }, [homes])
 
   useEffect(() => {
     map.current?.setPadding(padding)

@@ -8,8 +8,10 @@ class FakeMarker {
   el: HTMLElement
   lngLat: [number, number] | null = null
   removed = false
+  opts: Record<string, unknown>
   constructor(opts: { element: HTMLElement }) {
     this.el = opts.element
+    this.opts = opts
     created.markers.push(this)
   }
   setLngLat(ll: [number, number]) {
@@ -43,7 +45,16 @@ class FakeMap {
   addSource(id: string) {
     this.sources.set(id, { setData: vi.fn() })
   }
-  addLayer() {}
+  layers: string[] = []
+  addLayer(l: { id: string }) {
+    this.layers.push(l.id)
+  }
+  getLayer(id: string) {
+    return this.layers.includes(id) ? { id } : undefined
+  }
+  moveLayer(id: string) {
+    this.layers = [...this.layers.filter((x) => x !== id), id]
+  }
   getSource(id: string) {
     return this.sources.get(id)
   }
@@ -161,5 +172,22 @@ describe('MapView', () => {
     expect(badges).toHaveLength(3)
     expect(badges.map((b) => b.el.className)).toEqual(['wp-mk small', 'wp-mk small current', 'wp-mk small'])
     expect(badges[1]!.el.textContent).toBe('2')
+  })
+  it('stacks the mission path below the tracks below the guided line once loaded', () => {
+    render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
+    expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line'])
+  })
+
+  it('places vehicle markers like the prototype and a home tile per known home', () => {
+    const homes = new Map([[1, { lat: 36.161, lon: 139.371 }]])
+    const { rerender } = render(
+      <MapView vehicles={new Map([[1, v(1, 3)]])} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} homes={homes} onDragStart={() => {}} onClick={() => {}} />,
+    )
+    const vehicle = created.markers.find((m) => m.el.classList.contains('rg-mk'))!
+    expect(vehicle.opts).toMatchObject({ anchor: 'left', offset: [-17, 0], rotationAlignment: 'map', opacityWhenCovered: '1' })
+    const home = created.markers.find((m) => m.el.className === 'rg-home')!
+    expect(home.lngLat).toEqual([139.371, 36.161])
+    rerender(<MapView vehicles={new Map([[1, v(1, 3)]])} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} homes={new Map()} onDragStart={() => {}} onClick={() => {}} />)
+    expect(home.removed).toBe(true)
   })
 })

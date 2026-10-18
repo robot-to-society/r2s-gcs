@@ -1,4 +1,5 @@
 export { MapView } from './MapView'
+export { missionHomes } from './homes'
 export { FollowChip } from './FollowChip'
 export { rasterStyle } from './style'
 export { hasPosition, markerEl, updateMarkerEl } from './markers'

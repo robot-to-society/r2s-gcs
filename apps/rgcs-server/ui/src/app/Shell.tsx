@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
 import { CommandsSheet, ConfirmDialog, runCommand, type RunResult } from '../features/commands'
 import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
@@ -9,7 +9,7 @@ import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } 
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { MaintView } from '../features/params'
-import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
+import { FollowChip, MapView, cancelPick, missionHomes, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
@@ -67,6 +67,7 @@ export function Shell({ me, lang }: Props) {
   useEffect(() => vehicleStore.subscribe(() => tracksStore.ingest(vehicleStore.getState().vehicles)), [])
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const names = new Map(list.map((v) => [v.sysid, v.name]))
+  const homes = useMemo(() => missionHomes(vehicleMissions), [vehicleMissions])
   useLogHistory(link)
   const current = selected ?? list[0]?.sysid ?? null
   const currentVehicle = current === null ? undefined : vehicles.get(current)
@@ -196,6 +197,7 @@ export function Shell({ me, lang }: Props) {
               target={mapUi.target}
               mission={current === null ? null : (vehicleMissions.get(current) ?? null)}
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}
+              homes={homes}
               onDragStart={() => mapUiStore.update(clearFollow)}
               onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
             />
