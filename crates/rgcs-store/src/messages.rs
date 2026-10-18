@@ -112,17 +112,25 @@ impl Store {
         if e.acked_by.is_some() {
             return Ok(AckOutcome::Already(e));
         }
-        sqlx::query("UPDATE messages SET acked_by = ?2, acked_at = ?3 WHERE id = ?1 AND acked_by IS NULL")
-            .bind(id)
-            .bind(by)
-            .bind(at as i64)
-            .execute(&self.pool)
-            .await?;
+        // The guarded UPDATE decides the winner: a concurrent acknowledgement that lost the
+        // race sees 0 rows and reports the first one (one audit row per acknowledgement).
+        let res = sqlx::query(
+            "UPDATE messages SET acked_by = ?2, acked_at = ?3 WHERE id = ?1 AND acked_by IS NULL",
+        )
+        .bind(id)
+        .bind(by)
+        .bind(at as i64)
+        .execute(&self.pool)
+        .await?;
         let e = self
             .message(id)
             .await?
             .ok_or_else(|| StoreError::Invalid("message vanished".into()))?;
-        Ok(AckOutcome::Acked(e))
+        Ok(if res.rows_affected() == 1 {
+            AckOutcome::Acked(e)
+        } else {
+            AckOutcome::Already(e)
+        })
     }
 
     /// Keeps the newest `keep` rows.
@@ -271,5 +279,33 @@ mod tests {
             .unwrap();
         assert!(next.id > first);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[tokio::test]
+    async fn concurrent_acks_have_one_winner() {
+        let s = Store::open_memory().await.unwrap();
+        let warn = s
+            .record_message(&msg(Some(1), MessageSource::Vehicle, Severity::Warn, "PreArm"))
+            .await
+            .unwrap();
+        let tasks: Vec<_> = (0..8u64)
+            .map(|i| {
+                let s = s.clone();
+                tokio::spawn(async move {
+                    s.ack_message(1, warn.id, &format!("op{i}"), 10 + i)
+                        .await
+                        .unwrap()
+                })
+            })
+            .collect();
+        let mut outcomes = Vec::new();
+        for t in tasks {
+            outcomes.push(t.await.unwrap());
+        }
+        let acked = outcomes
+            .iter()
+            .filter(|o| matches!(o, AckOutcome::Acked(_)))
+            .count();
+        assert_eq!(acked, 1, "{outcomes:?}");
     }
 }
