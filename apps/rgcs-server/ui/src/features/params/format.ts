@@ -1,0 +1,36 @@
+// Display strings for the maintenance view (progress, write results, history rows).
+import type { ParamHistoryEntry, ParamProgress, ParamWriteResult } from '../../shared/api/types'
+import type { Dict } from '../../shared/i18n'
+import { formatNumber } from './changes'
+
+/** Rows rendered at once; the rest is reached by narrowing the search. */
+export const MAX_ROWS = 300
+
+export function progressText(p: ParamProgress | null): string {
+  if (p === null) return '–'
+  return `${p.received} / ${p.total ?? '?'}`
+}
+
+export function progressPct(p: ParamProgress | null): number | null {
+  if (p === null || p.total === null || p.total === 0) return null
+  return Math.min(100, Math.round((p.received / p.total) * 100))
+}
+
+export function resultText(r: ParamWriteResult, dict: Dict): string {
+  if (r.verified) return '✓'
+  const why = r.reason === 'vehicle_armed' ? dict.paramArmedAbort : r.reason === 'mismatch' ? dict.paramMismatch : dict.paramNoEcho
+  return `${dict.paramUnverified} (${why})`
+}
+
+export function historyText(e: ParamHistoryEntry): string {
+  const old = e.old_value === null ? '?' : formatNumber(e.old_value)
+  return `${e.name}: ${old} → ${formatNumber(e.new_value)} ${e.verified ? '✓' : '⚠'}`
+}
+
+/** Local wall time `YYYY-MM-DD HH:MM:SS` of a store timestamp. */
+export function historyTime(ts: string): string {
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ts
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}

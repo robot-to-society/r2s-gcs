@@ -1,4 +1,4 @@
-import type { CameraSnapshot, CommandResult, Deadman, Mission, MissionProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CameraSnapshot, CommandResult, Deadman, Mission, MissionProgress, ParamProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { applyDiff } from '../../shared/ws/apply'
 
 export type LinkState = 'connecting' | 'open' | 'closed'
@@ -14,6 +14,8 @@ export interface VehiclesState {
   readonly missionProgress: ReadonlyMap<SysId, MissionProgress>
   /** The mission each vehicle is known to carry (set after a verified upload or a download). */
   readonly vehicleMissions: ReadonlyMap<SysId, Mission>
+  /** Last `param_progress` per vehicle. */
+  readonly paramProgress: ReadonlyMap<SysId, ParamProgress>
   readonly deadman: Deadman
   readonly link: LinkState
 }
@@ -26,6 +28,7 @@ export const initialState: VehiclesState = {
   videoSources: new Map(),
   missionProgress: new Map(),
   vehicleMissions: new Map(),
+  paramProgress: new Map(),
   deadman: 'ok',
   link: 'connecting',
 }
@@ -95,6 +98,14 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
       const missionProgress = new Map(state.missionProgress)
       missionProgress.set(msg.sysid, msg.progress)
       return { ...state, missionProgress }
+    }
+    case 'param_progress': {
+      const prev = state.paramProgress.get(msg.sysid)
+      const p = msg.progress
+      if (prev && prev.received === p.received && prev.total === p.total && prev.complete === p.complete && prev.downloading === p.downloading) return state
+      const paramProgress = new Map(state.paramProgress)
+      paramProgress.set(msg.sysid, p)
+      return { ...state, paramProgress }
     }
     case 'input_state':
       return state.deadman === msg.deadman ? state : { ...state, deadman: msg.deadman }

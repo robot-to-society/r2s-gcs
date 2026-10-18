@@ -111,6 +111,14 @@ describe('camera, video source and input frames', () => {
     expect(s1.missionProgress.size).toBe(1)
   })
 
+  it('param_progress_is_stored', () => {
+    const p = { received: 25, total: 1200, complete: false, downloading: true }
+    const s1 = reduce(initialState, { t: 'param_progress', sysid: 1, progress: p })
+    expect(s1.paramProgress.get(1)).toEqual(p)
+    expect(reduce(s1, { t: 'param_progress', sysid: 1, progress: { ...p } })).toBe(s1)
+    expect(initialState.paramProgress.size).toBe(0)
+  })
+
   it('vehicle_mission_is_stored_locally', () => {
     const m = { id: 1, name: 'm', sysid: 1, default_alt: 50, default_frame: 'rel' as const, speed: 8, home: null, items: [] }
     const s1 = withVehicleMission(initialState, 1, m)

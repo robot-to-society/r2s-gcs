@@ -8,6 +8,7 @@ import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../feature
 import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
+import { MaintView } from '../features/params'
 import { FollowChip, MapView, cancelPick, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
@@ -42,7 +43,7 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, results, messages, cameras, videoSources, deadman, missionProgress, vehicleMissions } = useVehicles()
+  const { vehicles, link, results, messages, cameras, videoSources, deadman, missionProgress, vehicleMissions, paramProgress } = useVehicles()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -171,7 +172,12 @@ export function Shell({ me, lang }: Props) {
             <MissionView vehicles={vehicles} dict={dict} style={rasterStyle(settings.map_tile_url, settings.map_attribution)} />
           </main>
         )}
-        <main className={`stage${detail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' ? 'none' : undefined }}>
+        {view === 'maint' && (
+          <main className="stage maint-stage" style={{ position: 'absolute', inset: 0 }}>
+            <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} initialSysid={current} />
+          </main>
+        )}
+        <main className={`stage${detail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' || view === 'maint' ? 'none' : undefined }}>
           {settings && (
             <MapView
               vehicles={vehicles}
