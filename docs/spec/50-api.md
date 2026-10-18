@@ -34,7 +34,9 @@
 | POST | `/api/vehicles/{sysid}/command` | `{cmd, args, confirm_token?}` → `{id}`(結果は WS `command_result`) |
 | POST | `/api/vehicles/{sysid}/confirm` | `{cmd}` → `{confirm_token, expires_in: 30}`(70 §1) |
 | POST | `/api/vehicles/{sysid}/guided` | `{lat, lon, alt_mode: keep\|set, alt_rel?, confirm_token?}` → `{id, warning?: "fence_unknown"}`。`409 mode_required`(GUIDED 以外)/ `409 confirm_required`(機体ごと初回)/ `409 fence_alt`(`FENCE_ENABLE`=1 かつ `FENCE_ALT_MAX` 超)/ `400 invalid` / `503 link_lost`。フェンス値が未取得なら `PARAM_REQUEST_READ` を送って `fence_unknown` 付きで通す |
-| GET / PUT | `/api/vehicles/{sysid}/params` | `[{name, value}]` / `{changes: [{name, value}]}` → 書戻し検証結果 |
+| GET / PUT | `/api/vehicles/{sysid}/params` | GET: `{entries: [{name, value, index, ptype}], progress}` / PUT: `{changes: [{name, value}], confirm_token}` → `[{name, requested, actual, verified, reason?}]`(要確認 `param_write`、アーム中は `409 vehicle_armed`、各変更の前にインターロック再確認、≤ 50 件、名前 ≤ 16 文字) |
+| POST | `/api/vehicles/{sysid}/params/refresh` | 全件取得を開始 → `202 {received, total, complete, downloading}`(実行中なら現状を返す) |
+| GET | `/api/vehicles/{sysid}/params/progress` | `{received, total, complete, downloading}`(WS `param_progress` でも 25 件ごと + 完了時に配信) |
 | GET | `/api/vehicles/{sysid}/messages?since=` | `[{ts, severity, text, acked}]` |
 | POST | `/api/vehicles/{sysid}/messages/{id}/ack` | — |
 | POST | `/api/vehicles/{sysid}/calibration` | `{kind: accel\|compass\|level\|rc\|esc}` |
@@ -82,7 +84,7 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | PUT / DELETE | `/api/settings/branding/logo` | 本文 = 画像そのもの(`image/png` / `image/svg+xml`、≤ 1 MB、admin) |
 | GET / PUT | `/api/settings/input/vehicle` | `VehicleInputProfile`(M4) |
 | GET / PUT | `/api/settings/app` | `{lang, map_tile_url, map_attribution}`(P1 は GET のみ。`log_dir, tile_cache, terrain` は P4+) |
-| GET | `/api/history/params?sysid=&limit=` | `[{ts, operator, sysid, name, from, to}]` |
+| GET | `/api/history/params?sysid=&limit=` | `[{id, ts, operator, sysid, name, old_value, new_value, verified}]`(新しい順、limit 既定 100 / 上限 1000) |
 | GET | `/api/history/audit?limit=` | `[{ts, operator, sysid, command, result}]` |
 
 ### 2.5 ログ・AI(M4 / M5)
