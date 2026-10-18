@@ -11,6 +11,12 @@
 4. Audience page: create a link in the UI (user menu → 観客用画面), open `/present?t=…` in a separate
    browser window on the second monitor and press F11. Revoke the link afterwards.
 
+Day before the flight (addendum §4): plan the mission in RGCS (ミッション tab), 保存, then
+`.waypoints 保存` and load the file in Mission Planner to simulate. If you edit it there, save it
+from Mission Planner and load it back with ファイル読込 (the `.waypoints` round trip is exact).
+On the day only RGCS talks to the vehicle (§9): 機体へ書込 verifies the read-back before you
+ARM / AUTO from the operations panel.
+
 Development on a Mac: `scripts/dev.sh --siyi-sim --video` runs SITL, the MT11 simulator, MediaMTX +
 an ffmpeg test pattern and the UI; `scripts/e2e.sh --with-sitl --with-sim --with-video` runs every
 Playwright journey (`brew install mediamtx ffmpeg` first).

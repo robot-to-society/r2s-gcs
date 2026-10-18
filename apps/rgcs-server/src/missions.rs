@@ -54,9 +54,11 @@ impl Drop for BusyGuard {
     }
 }
 
+/// Frames only matter for items that carry a position: ArduPilot stores none for RTL / DO_*
+/// items and reads them back as MAV_FRAME_GLOBAL.
 fn items_match(a: &rgcs_core::MissionItem, b: &rgcs_core::MissionItem) -> bool {
     a.command == b.command
-        && a.frame == b.frame
+        && (!a.has_position() || a.frame == b.frame)
         && a.params == b.params
         && (a.lat - b.lat).abs() <= LAT_LON_EPS
         && (a.lon - b.lon).abs() <= LAT_LON_EPS
@@ -291,6 +293,17 @@ async fn run_download(
 mod tests {
     use super::*;
     use rgcs_core::demo20;
+
+    #[test]
+    fn frame_of_non_positional_items_is_not_compared() {
+        // ArduPilot stores no frame for RTL / DO_* items and reads them back as MAV_FRAME_GLOBAL.
+        let a = demo20();
+        let mut b = a.clone();
+        b.items[19].frame = rgcs_core::MissionFrame::Abs;
+        assert!(mismatches(&a, &b).is_empty(), "{:?}", mismatches(&a, &b));
+        b.items[1].frame = rgcs_core::MissionFrame::Abs;
+        assert_eq!(mismatches(&a, &b), vec![2], "positional items still compare the frame");
+    }
 
     #[test]
     fn mismatches_report_changed_and_missing_sequences() {

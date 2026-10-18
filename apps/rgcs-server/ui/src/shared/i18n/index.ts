@@ -190,6 +190,12 @@ const ja = {
   f_no_land_or_rtl: '最後が LAND / RTL ではありません',
   f_long_flight: '推定飛行時間が 20 分を超えています',
   mSeq: '項目 {n}',
+  cmd_mission_upload: 'ミッション書込',
+  cmd_mission_download: 'ミッション読込',
+  cmd_mission_save: 'ミッション保存',
+  cmd_mission_export: 'ミッション書き出し',
+  cmd_mission_import: 'ミッション読み込み',
+  cmd_mission_open: 'ミッションを開く',
 } as const
 
 const en: Record<keyof typeof ja, string> = {
@@ -382,6 +388,12 @@ const en: Record<keyof typeof ja, string> = {
   f_no_land_or_rtl: 'The mission does not end with LAND / RTL',
   f_long_flight: 'Estimated flight time exceeds 20 minutes',
   mSeq: 'Item {n}',
+  cmd_mission_upload: 'Mission write',
+  cmd_mission_download: 'Mission read',
+  cmd_mission_save: 'Mission save',
+  cmd_mission_export: 'Mission export',
+  cmd_mission_import: 'Mission import',
+  cmd_mission_open: 'Open mission',
 }
 
 export type Dict = Record<keyof typeof ja, string>

@@ -76,7 +76,8 @@ impl MissionItem {
         )
     }
 
-    fn has_position(&self) -> bool {
+    /// A positional command that actually carries a position (RTL / LAND without one do not).
+    pub fn has_position(&self) -> bool {
         self.is_positional() && !(self.lat == 0.0 && self.lon == 0.0)
     }
 }
