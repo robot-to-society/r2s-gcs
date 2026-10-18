@@ -92,4 +92,11 @@ describe('vehicle markers', () => {
     expect(gimbalPose(base, { ...cam, caps: { ...cam.caps, gimbal: { ...caps.gimbal, attitude: false } } } as unknown as CameraSnapshot)).toBeNull()
     expect(gimbalPose({ ...base, hdg: null }, cam)).toBeNull()
   })
+  it('selected_marker_has_lock_and_beacon_elements', () => {
+    const el = markerEl(base, true)
+    expect(el.querySelector('.vmk > i.lock')).not.toBeNull()
+    expect(el.querySelector('.vmk > i.beacon')).not.toBeNull()
+    expect(el).toHaveClass('sel')
+  })
+
 })

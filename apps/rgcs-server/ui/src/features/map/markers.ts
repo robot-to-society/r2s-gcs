@@ -64,7 +64,7 @@ export function markerEl(v: VehicleState, selected: boolean, pose: GimbalPose | 
   const el = document.createElement('div')
   const kind = v.kind === 'rover' ? 'rover' : 'copter'
   el.innerHTML =
-    `<div class="vmk ${kind}">${fovSvg(v.sysid)}<div class="arrow"><i class="hd"></i></div><div class="disc">${svg(18, kind === 'rover' ? CAR : DRONE)}</div></div>` +
+    `<div class="vmk ${kind}">${fovSvg(v.sysid)}<i class="beacon"></i><div class="arrow"><i class="hd"></i></div><div class="disc">${svg(18, kind === 'rover' ? CAR : DRONE)}</div><i class="lock"></i></div>` +
     '<div><div class="lbl"></div><div class="alt" style="display:none"></div></div>'
   return updateMarkerEl(el, v, selected, pose)
 }
