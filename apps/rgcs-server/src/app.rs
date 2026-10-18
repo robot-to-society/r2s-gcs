@@ -46,6 +46,8 @@ pub struct AppState {
     pub video: VideoHub,
     pub whep: WhepRelay,
     pub missions: crate::missions::MissionHub,
+    /// ARM → DISARM flight drafts (addendum §5.6).
+    pub flights: crate::flights::FlightTracker,
     /// Where branding files (and the database) live; `config.toml` `data_dir`.
     pub data_dir: PathBuf,
     pub hostname: String,
@@ -80,6 +82,7 @@ impl AppState {
         let video = VideoHub::new(store.clone(), tx.clone(), Timings::default());
         let missions = crate::missions::MissionHub::new(tx.clone());
         let params = ParamCache::new(tx.clone());
+        let flights = crate::flights::FlightTracker::new(store.clone(), tx.clone());
         let whep = WhepRelay::new(&crate::config::Config::default().whep_upstream)
             .expect("default whep upstream parses");
         Self {
@@ -93,6 +96,7 @@ impl AppState {
             video,
             whep,
             missions,
+            flights,
             data_dir: crate::config::Config::default().data_dir,
             hostname,
             secure_cookies: false,

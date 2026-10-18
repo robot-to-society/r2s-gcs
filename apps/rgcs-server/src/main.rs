@@ -64,6 +64,7 @@ async fn main() -> anyhow::Result<()> {
         state.outgoing.clone(),
     ));
     tokio::spawn(state.missions.clone().resend_loop());
+    tokio::spawn(state.flights.clone().run(router.clone()));
     tokio::spawn(telemetry::diff_loop(
         router.clone(),
         tx.clone(),

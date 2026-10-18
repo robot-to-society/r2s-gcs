@@ -13,6 +13,7 @@ pub mod commands;
 pub mod config;
 pub mod confirm;
 pub mod flight_api;
+pub mod flights;
 pub mod guided;
 pub mod input_api;
 pub mod logbook_api;

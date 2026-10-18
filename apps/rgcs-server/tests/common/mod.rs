@@ -10,9 +10,9 @@ use axum::http::{header, HeaderMap, Method, Request, StatusCode};
 use axum::Router as AxumRouter;
 use http_body_util::BodyExt;
 use mavlink::dialects::ardupilotmega::{
-    MavAutopilot, MavMessage, MavMissionResult, MavMissionType, MavModeFlag, MavState, MavType,
-    HEARTBEAT_DATA, MISSION_ACK_DATA, MISSION_COUNT_DATA, MISSION_ITEM_INT_DATA, MISSION_REQUEST_DATA,
-    MISSION_REQUEST_INT_DATA,
+    GpsFixType, MavAutopilot, MavMessage, MavMissionResult, MavMissionType, MavModeFlag, MavState, MavType,
+    GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA, HEARTBEAT_DATA, MISSION_ACK_DATA, MISSION_COUNT_DATA,
+    MISSION_ITEM_INT_DATA, MISSION_REQUEST_DATA, MISSION_REQUEST_INT_DATA,
 };
 use mavlink::MavHeader;
 use rgcs_camera::siyi::sim::SimServer;
@@ -144,6 +144,33 @@ pub async fn seed_copter(app: &AppState, sysid: u8, custom_mode: u32, armed: boo
             unix_ms: 11_000,
         });
     }
+}
+
+/// Gives `sysid` a position (degrees) and a GPS fix type (3 = 3D).
+pub async fn seed_position(app: &AppState, sysid: u8, lat: f64, lon: f64, fix: u8) {
+    let header = MavHeader {
+        system_id: sysid,
+        component_id: 1,
+        sequence: 0,
+    };
+    let pos = GLOBAL_POSITION_INT_DATA {
+        lat: (lat * 1e7) as i32,
+        lon: (lon * 1e7) as i32,
+        ..GLOBAL_POSITION_INT_DATA::DEFAULT
+    };
+    let gps = GPS_RAW_INT_DATA {
+        fix_type: match fix {
+            0 => GpsFixType::GPS_FIX_TYPE_NO_GPS,
+            1 => GpsFixType::GPS_FIX_TYPE_NO_FIX,
+            2 => GpsFixType::GPS_FIX_TYPE_2D_FIX,
+            _ => GpsFixType::GPS_FIX_TYPE_3D_FIX,
+        },
+        satellites_visible: 12,
+        ..GPS_RAW_INT_DATA::DEFAULT
+    };
+    let mut router = app.router.lock().await;
+    router.on_message(&header, &MavMessage::GLOBAL_POSITION_INT(pos), Clock::default());
+    router.on_message(&header, &MavMessage::GPS_RAW_INT(gps), Clock::default());
 }
 
 pub fn req(method: Method, path: &str, cookie: Option<&str>, json: Option<Value>) -> Request<Body> {
