@@ -1,11 +1,12 @@
 import maplibregl, { type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
 import { useEffect, useRef } from 'react'
 import type { FeatureCollection } from 'geojson'
-import type { Mission, VehicleState } from '../../shared/api/types'
+import type { CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
 import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
 import { followTarget, type Padding } from './follow'
+import { footprintsGeoJson, projectedIds } from './footprints'
 import { orderLayers } from './layers'
-import { hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
+import { gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
 import type { LatLon } from './store'
 import { tracksGeoJson, type Tracks } from './tracks'
 
@@ -26,6 +27,10 @@ interface Props {
   readonly missionCurrent?: number | null
   /** Each vehicle's home, when known (its mission's home); drawn as `.rg-home` tiles. */
   readonly homes?: ReadonlyMap<number, LatLon>
+  /** Camera snapshots for the gimbal fan (and footprint). */
+  readonly cameras?: ReadonlyMap<number, CameraSnapshot>
+  /** App setting 地上への投影: draw the image footprint instead of the fan where it hits the ground. */
+  readonly groundProjection?: boolean
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -35,10 +40,12 @@ const MISSION = 'mission-path'
 /** The `.vmk` disc is 34 px wide at the element's left edge; pull it back so its centre sits on the position. */
 const ARROW_OFFSET: [number, number] = [-17, 0]
 const NO_HOMES: ReadonlyMap<number, LatLon> = new Map()
+const NO_CAMERAS: ReadonlyMap<number, CameraSnapshot> = new Map()
+const FOOTPRINT = 'gimbal-footprint'
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -90,6 +97,9 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         source: GUIDED,
         paint: { 'line-color': '#9cc9ff', 'line-width': 2, 'line-dasharray': [1, 2] },
       })
+      m.addSource(FOOTPRINT, { type: 'geojson', data: EMPTY })
+      m.addLayer({ id: 'gimbal-footprint', type: 'fill', source: FOOTPRINT, paint: { 'fill-color': '#5fd39b', 'fill-opacity': ['case', ['==', ['get', 'sel'], 1], 0.26, 0.14] } })
+      m.addLayer({ id: 'gimbal-footprint-line', type: 'line', source: FOOTPRINT, paint: { 'line-color': '#5fd39b', 'line-width': 1.5 } })
       orderLayers(m)
       loaded.current = true
       const current = missionRef.current
@@ -111,6 +121,15 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const feet = groundProjection ? footprintsGeoJson(vehicles, cameras, selected) : EMPTY
+  const projected = projectedIds(feet)
+
+  useEffect(() => {
+    if (!loaded.current) return
+    const src = map.current?.getSource(FOOTPRINT) as { setData: (d: unknown) => void } | undefined
+    src?.setData(feet)
+  })
+
   useEffect(() => {
     const m = map.current
     if (!m) return
@@ -118,12 +137,13 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     for (const v of vehicles.values()) {
       if (!hasPosition(v)) continue
       seen.add(v.sysid)
+      const pose = projected.has(v.sysid) ? null : gimbalPose(v, cameras.get(v.sysid))
       const existing = markers.current.get(v.sysid)
       if (existing) {
         existing.marker.setLngLat([v.lon, v.lat])
-        updateMarkerEl(existing.el, v, v.sysid === selected)
+        updateMarkerEl(existing.el, v, v.sysid === selected, pose)
       } else {
-        const el = markerEl(v, v.sysid === selected)
+        const el = markerEl(v, v.sysid === selected, pose)
         const marker = new maplibregl.Marker({ element: el, anchor: 'left', offset: ARROW_OFFSET, rotationAlignment: 'map', opacityWhenCovered: '1' }).setLngLat([v.lon, v.lat]).addTo(m)
         markers.current.set(v.sysid, { marker, el })
       }
@@ -134,7 +154,9 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         markers.current.delete(sysid)
       }
     }
-  }, [vehicles, selected])
+    // `projected` derives from vehicles / cameras / groundProjection
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicles, selected, cameras, groundProjection])
 
   // Home is its own marker (prototype), never a replacement for the vehicle glyph.
   useEffect(() => {

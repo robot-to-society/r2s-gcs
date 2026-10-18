@@ -76,6 +76,9 @@ pub struct CameraCaps {
     pub photo: bool,
     pub record: bool,
     pub video_modes: Vec<VideoMode>,
+    /// Horizontal field of view at 1× zoom (degrees), for the map's gimbal fan / footprint.
+    #[ts(type = "number | null")]
+    pub hfov_deg: Option<f32>,
 }
 
 impl CameraCaps {
@@ -88,6 +91,7 @@ impl CameraCaps {
             photo: false,
             record: false,
             video_modes: Vec::new(),
+            hfov_deg: None,
         }
     }
 
@@ -113,6 +117,8 @@ impl CameraCaps {
             photo: true,
             record: true,
             video_modes: vec![VideoMode::Rgb, VideoMode::Thermal, VideoMode::SideBySide],
+            // The prototype's CAM_HFOV until the MT11 is measured.
+            hfov_deg: Some(62.0),
         }
     }
 
@@ -531,6 +537,14 @@ impl GimbalInputProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mt11_caps_have_a_horizontal_fov() {
+        assert_eq!(CameraCaps::siyi_mt11().hfov_deg, Some(62.0));
+        assert_eq!(CameraCaps::none().hfov_deg, None);
+        let json = serde_json::to_value(CameraCaps::siyi_mt11()).unwrap();
+        assert_eq!(json["hfov_deg"], 62.0);
+    }
 
     #[test]
     fn siyi_caps_match_spec() {

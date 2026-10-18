@@ -85,7 +85,7 @@ describe('command results', () => {
 })
 
 describe('camera, video source and input frames', () => {
-  const caps = { kind: 'siyi_mt11' as const, gimbal: null, zoom: null, focus: false, photo: true, record: true, video_modes: ['rgb' as const] }
+  const caps = { kind: 'siyi_mt11' as const, gimbal: null, zoom: null, focus: false, photo: true, record: true, video_modes: ['rgb' as const], hfov_deg: null }
   const state = (zoom: number) => ({
     connected: true, last_error: null, firmware: null, recording: 'idle' as const, zoom, zoom_max: 165, video_mode: 'rgb' as const, gimbal: null, gimbal_mode: null, stream: null,
   })

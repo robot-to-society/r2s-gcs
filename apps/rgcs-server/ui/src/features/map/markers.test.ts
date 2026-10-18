@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { VehicleState } from '../../shared/api/types'
-import { hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
+import type { CameraSnapshot, VehicleState } from '../../shared/api/types'
+import { hfovAt } from './gimbal'
+import { gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
 
 const base: VehicleState = {
   sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'AUTO', armed: true, lat: 36.162, lon: 139.372, alt_rel: 80, alt_msl: 480,
@@ -62,5 +63,33 @@ describe('vehicle markers', () => {
     expect(el.className).toBe('rg-home')
     expect(el.title).toBe('Home')
     expect(el.querySelector('svg.ic path')).not.toBeNull()
+  })
+  it('no_fan_without_attitude', () => {
+    const el = markerEl(base, false, null)
+    expect((el.querySelector('.vmk > svg.fov') as SVGElement).style.display).toBe('none')
+  })
+
+  it('fan_points_along_the_camera_bearing_and_becomes_a_ring_at_nadir', () => {
+    const el = markerEl(base, false, { bearing: 60, hfov: 62, pitch: -20 })
+    const fov = el.querySelector('.vmk > svg.fov') as SVGElement
+    expect(fov.style.display).toBe('')
+    expect(fov.style.transform).toBe('rotate(60deg)')
+    expect(fov.querySelector('.cone')?.getAttribute('d')).toMatch(/^M120,120 L/)
+    expect((fov.querySelector('.nadir') as SVGElement).style.display).toBe('none')
+    updateMarkerEl(el, base, false, { bearing: 60, hfov: 62, pitch: -85 })
+    expect((fov.querySelector('.cone') as SVGElement).style.display).toBe('none')
+    expect((fov.querySelector('.nadir') as SVGElement).style.display).toBe('')
+    expect(fov.querySelector('radialGradient')?.id).toBe('fovg-1')
+  })
+
+  it('gimbal_pose_needs_attitude_caps_and_an_attitude', () => {
+    const caps = { kind: 'siyi_mt11', gimbal: { rate: true, angle: true, center: true, modes: [], attitude: true, pitch_range: [-90, 30] }, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: 62 } as const
+    const state = { connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 2, zoom_max: 165, video_mode: null, gimbal: { yaw: 30, pitch: -10, roll: 0, age_ms: 0 }, gimbal_mode: null, stream: null } as const
+    const cam = { sysid: 1, caps, state } as unknown as CameraSnapshot
+    expect(gimbalPose(base, cam)).toEqual({ bearing: 60, hfov: hfovAt(62, 2), pitch: -10 })
+    expect(gimbalPose(base, undefined)).toBeNull()
+    expect(gimbalPose(base, { ...cam, state: { ...cam.state, gimbal: null } })).toBeNull()
+    expect(gimbalPose(base, { ...cam, caps: { ...cam.caps, gimbal: { ...caps.gimbal, attitude: false } } } as unknown as CameraSnapshot)).toBeNull()
+    expect(gimbalPose({ ...base, hdg: null }, cam)).toBeNull()
   })
 })

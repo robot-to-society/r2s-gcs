@@ -198,6 +198,7 @@ export function Shell({ me, lang }: Props) {
               mission={current === null ? null : (vehicleMissions.get(current) ?? null)}
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}
               homes={homes}
+              cameras={cameras}
               onDragStart={() => mapUiStore.update(clearFollow)}
               onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
             />

@@ -7,4 +7,8 @@ import type { ZoomCaps } from "./ZoomCaps";
 /**
  * What a camera can do; the UI hides (not disables) everything absent (spec 40 §1.1).
  */
-export type CameraCaps = { kind: CameraKind, gimbal: GimbalCaps | null, zoom: ZoomCaps | null, focus: boolean, photo: boolean, record: boolean, video_modes: Array<VideoMode>, };
+export type CameraCaps = { kind: CameraKind, gimbal: GimbalCaps | null, zoom: ZoomCaps | null, focus: boolean, photo: boolean, record: boolean, video_modes: Array<VideoMode>, 
+/**
+ * Horizontal field of view at 1× zoom (degrees), for the map's gimbal fan / footprint.
+ */
+hfov_deg: number | null, };

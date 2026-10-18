@@ -1,5 +1,5 @@
-/** Bottom → top above the base map (spec 20 §9): mission path, tracks, guided line / sight. DOM markers sit above the canvas. */
-export const LAYER_ORDER = ['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line'] as const
+/** Bottom → top above the base map (spec 20 §9, prototype orderLayers): mission path, tracks, guided line / sight, gimbal footprint. DOM markers sit above the canvas. */
+export const LAYER_ORDER = ['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line', 'gimbal-footprint', 'gimbal-footprint-line'] as const
 
 interface LayerStack {
   getLayer(id: string): unknown
