@@ -22,8 +22,8 @@ use crate::params::ParamCache;
 use crate::settings;
 use crate::video::VideoHub;
 use crate::{
-    api, auth, branding, camera_api, commands, guided, input_api, mission_api, param_api, present_api,
-    video_api, ws,
+    api, auth, branding, camera_api, commands, guided, input_api, logbook_api, mission_api, param_api,
+    present_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -257,6 +257,30 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
         .route("/vehicles/{sysid}/params/refresh", post(param_api::refresh))
         .route("/vehicles/{sysid}/params/progress", get(param_api::progress))
         .route("/history/params", get(param_api::history))
+        .route(
+            "/vehicles/{sysid}/registry",
+            get(logbook_api::get_registry).put(logbook_api::put_registry),
+        )
+        .route(
+            "/users/me/pilot",
+            get(logbook_api::get_my_pilot).put(logbook_api::put_my_pilot),
+        )
+        .route(
+            "/inspection/templates",
+            get(logbook_api::list_templates).post(logbook_api::create_template),
+        )
+        .route(
+            "/inspection/templates/{id}",
+            axum::routing::put(logbook_api::update_template).delete(logbook_api::delete_template),
+        )
+        .route(
+            "/vehicles/{sysid}/inspections",
+            get(logbook_api::list_inspections).post(logbook_api::create_inspection),
+        )
+        .route(
+            "/vehicles/{sysid}/inspections/template",
+            get(logbook_api::vehicle_template),
+        )
         .route(
             "/missions",
             get(mission_api::list_missions).post(mission_api::create_mission),
