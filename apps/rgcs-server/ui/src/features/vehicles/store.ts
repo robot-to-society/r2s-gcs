@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { WsClient, defaultWsUrl } from '../../shared/ws/client'
 import type { ClientMessage, CommandResult, Mission } from '../../shared/api/types'
 import { logReduce, type LogEvent } from '../log/store'
-import { addResult, initialState, reduce, setLink, withVehicleMission, type VehiclesState } from './reducer'
+import { addResult, initialState, reduce, setLink, withAck, withVehicleMission, type VehiclesState } from './reducer'
 
 type Listener = () => void
 
@@ -57,6 +57,11 @@ export class VehicleStore {
     const severity = r.ok ? 'ok' : 'error'
     const entry = { id: r.id, ts: r.ts, sysid: r.sysid, source: 'command', severity, text, ackable: false, acked_by: null, acked_at: null } as const
     this.set({ ...this.state, results, log: logReduce(this.state.log, { k: 'entry', entry }) })
+  }
+
+  /** A warning / error was acknowledged here (the WS `message_ack` confirms it for everyone). */
+  markAcked(id: number, by: string, ts: number): void {
+    this.set(withAck(this.state, id, by, ts))
   }
 
   /** History load and the sheet's open / close / filter (UI actions on the log slice). */

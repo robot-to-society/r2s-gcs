@@ -242,6 +242,20 @@ async fn command_results_are_logged_and_broadcast_as_log_entries() {
         (e.source, e.severity, e.sysid, e.ackable),
         (MessageSource::Command, Severity::Error, Some(1), false)
     );
+    assert_eq!(e.text, "arm PreArm");
     let (_, body, _) = call(&app, req(Method::GET, "/api/messages", Some(&admin), None)).await;
     assert_eq!(body["data"][0]["id"].as_i64(), Some(e.id));
+
+    // A successful result keeps its reason too (e.g. the mission upload's 読込一致).
+    let _ = state.tx.send(ServerMessage::CommandResult(CommandResult {
+        id: 10,
+        sysid: 1,
+        cmd: "mission_upload".into(),
+        ok: true,
+        reason: Some("verified".into()),
+        ts: 3_000,
+    }));
+    let frame = next_frame(&mut rx, |m| matches!(m, ServerMessage::LogEntry(_))).await;
+    let ServerMessage::LogEntry(e) = frame else { unreachable!() };
+    assert_eq!((e.severity, e.text.as_str()), (Severity::Ok, "mission_upload verified"));
 }

@@ -4,7 +4,7 @@ import { CommandsSheet, ConfirmDialog, runCommand, type RunResult } from '../fea
 import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
-import { DetailPanel, EMPTY_MESSAGES, ack, type MessagesState } from '../features/detail'
+import { DetailPanel, ackMessage } from '../features/detail'
 import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
@@ -45,7 +45,7 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, log, messages, cameras, videoSources, deadman, missionProgress, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
+  const { vehicles, link, log, cameras, videoSources, deadman, missionProgress, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -58,7 +58,6 @@ export function Shell({ me, lang }: Props) {
     }
   }, [])
   const [selected, setSelected] = useState<number | null>(null)
-  const [acks, setAcks] = useState<MessagesState>(EMPTY_MESSAGES)
   const [view, setView] = useState<View>('ops')
   const [modal, setModal] = useState<Modal>(NO_MODAL)
   const tracks = useTracks()
@@ -80,6 +79,13 @@ export function Shell({ me, lang }: Props) {
       setPending((p) => clearPending(p, sysid))
       vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: `camera:${cmd.cmd}`, ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
     })
+  }
+  const ackAlert = (sysid: number, id: number) => {
+    ackMessage(sysid, id)
+      .then((e) => vehicleStore.markAcked(e.id, e.acked_by ?? me.username, e.acked_at ?? Date.now()))
+      .catch((e: unknown) => {
+        vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'message_ack', ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
+      })
   }
   const lastCameras = useRef(cameras)
   useEffect(
@@ -216,10 +222,10 @@ export function Shell({ me, lang }: Props) {
           {detail && showDetail && (
             <DetailPanel
               vehicle={detail}
-              messages={messages}
-              acked={acks.acked}
+              entries={log.entries}
               dict={dict}
-              onAck={(id) => setAcks((s) => ack(s, id))}
+              onAck={ackAlert}
+              onOpenLog={(sysid) => vehicleStore.logAction({ k: 'open', filter: sysid })}
               onClose={() => setSelected(null)}
               onOpenCommands={() => setModal({ kind: 'commands', sysid: detail.sysid })}
               camera={cameras.get(detail.sysid)}

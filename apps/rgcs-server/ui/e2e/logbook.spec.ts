@@ -1,11 +1,14 @@
 import { expect, test, type Page } from '@playwright/test'
-import { login } from './helpers'
+import { countLogRows, login, waitForLogRow } from './helpers'
 
 async function openMaint(page: Page) {
   await login(page)
   await page.getByRole('button', { name: 'メンテナンス・設定' }).click()
   await expect(page.getByTestId('maint-view')).toBeVisible()
 }
+
+const ARM = /^アーム (成功|失敗)/
+const DISARM = /^ディスアーム/
 
 test('the daily inspection, logbook and app settings tabs are enabled; checks & calibration stays disabled', async ({ page }) => {
   await openMaint(page)
@@ -48,19 +51,20 @@ test('arm, hover, disarm → a flight draft appears; edit and confirm it; export
   await expect(page.locator('.rg-mk')).toHaveCount(1, { timeout: 20_000 })
   await page.getByRole('option').first().click()
   await expect(page.locator('.detail')).toBeVisible()
+  const arms = await countLogRows(page, ARM)
   await page.getByRole('button', { name: '全コマンド' }).click()
   await page.getByRole('button', { name: 'アーム', exact: true }).click()
   await expect(page.getByRole('dialog')).toContainText('アーム')
   await page.getByRole('button', { name: '実行' }).click()
-  const pill = page.locator('[data-testid=pill]').nth(1)
-  await expect(pill).toContainText(/アーム (成功|失敗)/, { timeout: 10_000 })
-  const armed = ((await pill.textContent()) ?? '').includes('成功')
+  const outcome = await waitForLogRow(page, ARM, arms)
+  const armed = outcome.includes('成功')
   test.skip(!armed, 'SITL refused to arm (PreArm)')
   await page.waitForTimeout(5_000)
+  const disarms = await countLogRows(page, DISARM)
   await page.getByRole('button', { name: '全コマンド' }).click()
   await page.getByRole('button', { name: 'ディスアーム', exact: true }).click()
   await page.getByRole('button', { name: '実行' }).click()
-  await expect(page.locator('[data-testid=pill]').nth(1)).toContainText('ディスアーム', { timeout: 10_000 })
+  await waitForLogRow(page, DISARM, disarms)
 
   await page.getByRole('button', { name: 'メンテナンス・設定' }).click()
   await page.getByRole('button', { name: '飛行日誌' }).click()

@@ -67,7 +67,7 @@ impl MessageLog {
     /// Logs a command result and broadcasts it as a `log_entry`.
     pub async fn record_command(&self, r: &CommandResult) {
         let text = match &r.reason {
-            Some(reason) if !r.ok => format!("{} {}", r.cmd, reason),
+            Some(reason) => format!("{} {}", r.cmd, reason),
             _ => r.cmd.clone(),
         };
         let new = NewMessage {

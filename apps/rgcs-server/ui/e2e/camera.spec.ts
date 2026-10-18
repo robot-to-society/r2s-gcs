@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { login } from './helpers'
+import { countLogRows, login, waitForLogRow } from './helpers'
 
 // Needs scripts/e2e.sh --with-sitl --with-sim (the detail panel needs a vehicle; the camera is the simulator).
 test.skip(!process.env.RGCS_E2E_SITL || !process.env.RGCS_E2E_SIM, 'needs SITL and the MT11 simulator')
+
+const SAVED = /^カメラ設定 成功/
 
 test('camera strip appears, zoom changes, record toggles, settings save', async ({ page }) => {
   await login(page)
@@ -26,8 +28,9 @@ test('camera strip appears, zoom changes, record toggles, settings save', async 
   await expect(page.locator('.sheet.settings')).toBeVisible()
   await page.getByRole('button', { name: '操作' }).click()
   await page.getByLabel('最大パン速度').fill('40')
+  const saves = await countLogRows(page, SAVED)
   await page.getByRole('button', { name: '保存' }).click()
-  await expect(page.locator('[data-testid=pill]').nth(1)).toContainText('カメラ設定 成功', { timeout: 5_000 })
+  await waitForLogRow(page, SAVED, saves, 5_000)
 
   // A runtime kind change must reach the strip without a reload (review C1): none → MT11.
   await page.getByRole('button', { name: 'カメラ設定' }).click()

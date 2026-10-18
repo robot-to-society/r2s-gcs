@@ -108,18 +108,6 @@
 .detail-telemetry .batt { margin-top: 4px; }
 .detail-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 12px 14px; }
 .detail-tiles .tile-btn:disabled { opacity: 0.45; }
-.detail-messages .head { gap: 10px; padding: 14px 16px 6px; }
-.msg-row { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: start; padding: 6px 16px 12px; }
-.msg-row .dot { margin-top: 5px; }
-.msg-row .ttl-row { gap: 10px; font-size: 14px; }
-.msg-row .body { font-size: 12px; margin-top: 2px; }
-.msg-row .acts { gap: 6px; }
-.msg-row .acts .btn-icon { border: 1px solid var(--line); }
-.msg-row .acts .btn-icon.ack { border-color: var(--ok); color: var(--ok); }
-.msg-row.acked .acts .btn-icon.ack { background: var(--ok); color: #0b1f14; }
-.msg-text.danger { color: var(--danger); }
-.msg-text.caution { color: var(--caution); }
-.msg-text.ok { color: var(--ok); }
 .detail-empty { padding: 0 16px 14px; }
 
 /* ---- guided modal ---- */
