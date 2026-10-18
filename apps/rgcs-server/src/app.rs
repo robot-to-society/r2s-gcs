@@ -22,8 +22,8 @@ use crate::params::ParamCache;
 use crate::settings;
 use crate::video::VideoHub;
 use crate::{
-    api, auth, branding, camera_api, commands, guided, input_api, logbook_api, mission_api, param_api,
-    present_api, video_api, ws,
+    api, auth, branding, camera_api, commands, flight_api, guided, input_api, logbook_api, mission_api,
+    param_api, present_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -280,6 +280,22 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
         .route(
             "/vehicles/{sysid}/inspections/template",
             get(logbook_api::vehicle_template),
+        )
+        .route(
+            "/vehicles/{sysid}/flights",
+            get(flight_api::list_flights).post(flight_api::create_flight),
+        )
+        .route(
+            "/vehicles/{sysid}/flights/{id}",
+            axum::routing::patch(flight_api::patch_flight).delete(flight_api::delete_flight),
+        )
+        .route(
+            "/vehicles/{sysid}/flights/{id}/squawks",
+            post(flight_api::add_squawk),
+        )
+        .route(
+            "/vehicles/{sysid}/maintenance",
+            get(flight_api::list_maintenance).post(flight_api::create_maintenance),
         )
         .route(
             "/missions",
