@@ -16,11 +16,13 @@ use mavlink::dialects::ardupilotmega::{
 };
 use mavlink::MavHeader;
 use rgcs_camera::siyi::sim::SimServer;
+use rgcs_core::ParamEntry;
 use rgcs_mavlink::MissionFrame;
 use rgcs_mavlink::{Clock, Outcome, Outgoing, QueuedCommand, Router};
 use rgcs_server::app::{self, AppState, BROADCAST_CAPACITY};
 use rgcs_server::cameras::{CameraFactory, CameraManager};
 use rgcs_server::missions::MissionHub;
+use rgcs_server::params::ParamCache;
 use rgcs_store::Store;
 use serde_json::Value;
 use tokio::sync::{broadcast, mpsc, Mutex};
@@ -308,6 +310,94 @@ pub fn fake_vehicle_mission(
                         d.target_component = GCS_COMP;
                         hub.on_frame(sysid, MissionFrame::ItemInt(d));
                     }
+                }
+                _ => {}
+            }
+        }
+    })
+}
+
+/// How the fake vehicle answers parameter traffic.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FakeParamMode {
+    Normal,
+    /// These indexes are dropped from the PARAM_REQUEST_LIST stream (answered on index read).
+    Gaps(Vec<u16>),
+    /// PARAM_SET is swallowed: no echo.
+    SilentSet,
+}
+
+pub const FAKE_PARAM_COUNT: u16 = 1200;
+
+fn fake_param_entry(index: u16) -> ParamEntry {
+    ParamEntry {
+        name: format!("P{index:04}"),
+        value: index as f32,
+        index,
+        ptype: 9,
+    }
+}
+
+/// Streams a 1,200-parameter list, answers index reads and echoes PARAM_SET like ArduPilot.
+/// `index_reads` counts PARAM_REQUEST_READ frames by index.
+pub fn fake_vehicle_params(
+    mut rx: mpsc::Receiver<Outgoing>,
+    cache: ParamCache,
+    sysid: u8,
+    mode: FakeParamMode,
+    index_reads: Arc<std::sync::atomic::AtomicUsize>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut values: std::collections::HashMap<u16, ParamEntry> =
+            (0..FAKE_PARAM_COUNT).map(|i| (i, fake_param_entry(i))).collect();
+        while let Some(out) = rx.recv().await {
+            match out.message {
+                MavMessage::PARAM_REQUEST_LIST(_) => {
+                    let gaps = match &mode {
+                        FakeParamMode::Gaps(g) => g.clone(),
+                        _ => Vec::new(),
+                    };
+                    for i in 0..FAKE_PARAM_COUNT {
+                        if gaps.contains(&i) {
+                            continue;
+                        }
+                        cache.on_value(sysid, values[&i].clone(), FAKE_PARAM_COUNT);
+                    }
+                }
+                MavMessage::PARAM_REQUEST_READ(r) => {
+                    index_reads.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let entry = if r.param_index >= 0 {
+                        values.get(&(r.param_index as u16)).cloned()
+                    } else {
+                        let name = String::from_utf8_lossy(&*r.param_id)
+                            .trim_end_matches('\0')
+                            .to_string();
+                        values.values().find(|e| e.name == name).cloned()
+                    };
+                    if let Some(e) = entry {
+                        cache.on_value(sysid, e, FAKE_PARAM_COUNT);
+                    }
+                }
+                MavMessage::PARAM_SET(d) => {
+                    if mode == FakeParamMode::SilentSet {
+                        continue;
+                    }
+                    let name = String::from_utf8_lossy(&*d.param_id)
+                        .trim_end_matches('\0')
+                        .to_string();
+                    let index = values
+                        .values()
+                        .find(|e| e.name == name)
+                        .map(|e| e.index)
+                        .unwrap_or(0);
+                    let e = ParamEntry {
+                        name,
+                        value: d.param_value,
+                        index,
+                        ptype: 9,
+                    };
+                    values.insert(index, e.clone());
+                    cache.on_value(sysid, e, FAKE_PARAM_COUNT);
                 }
                 _ => {}
             }

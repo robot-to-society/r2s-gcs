@@ -73,7 +73,7 @@ pub const FENCE_PARAMS: [&str; 3] = ["FENCE_ENABLE", "FENCE_ALT_MAX", "FENCE_RAD
 pub async fn pump_events(
     mut events: mpsc::Receiver<RouterEvent>,
     tx: broadcast::Sender<ServerMessage>,
-    params: crate::params::ParamStore,
+    params: crate::params::ParamCache,
     missions: crate::missions::MissionHub,
     outgoing: mpsc::Sender<rgcs_mavlink::Outgoing>,
 ) {
@@ -125,13 +125,8 @@ mod tests {
         let (tx, _keep) = broadcast::channel(8);
         let (out_tx, mut out_rx) = mpsc::channel(8);
         let hub = crate::missions::MissionHub::new(tx.clone());
-        tokio::spawn(pump_events(
-            events_rx,
-            tx,
-            crate::params::ParamStore::default(),
-            hub,
-            out_tx,
-        ));
+        let params = crate::params::ParamCache::new(tx.clone());
+        tokio::spawn(pump_events(events_rx, tx, params, hub, out_tx));
         events_tx.send(RouterEvent::Discovered(1)).await.unwrap();
         let mut names = Vec::new();
         for _ in 0..3 {

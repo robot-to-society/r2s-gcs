@@ -18,11 +18,12 @@ use tower_http::trace::TraceLayer;
 
 use crate::cameras::{CameraFactory, CameraManager};
 use crate::confirm::{ConfirmError, ConfirmTokens};
-use crate::params::ParamStore;
+use crate::params::ParamCache;
 use crate::settings;
 use crate::video::VideoHub;
 use crate::{
-    api, auth, branding, camera_api, commands, guided, input_api, mission_api, present_api, video_api, ws,
+    api, auth, branding, camera_api, commands, guided, input_api, mission_api, param_api, present_api,
+    video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -40,7 +41,7 @@ pub struct AppState {
     pub queue: mpsc::Sender<QueuedCommand>,
     /// Frames sent straight to the link without waiting for an ACK (Guided targets, param reads).
     pub outgoing: mpsc::Sender<Outgoing>,
-    pub params: ParamStore,
+    pub params: ParamCache,
     pub cameras: CameraManager,
     pub video: VideoHub,
     pub whep: WhepRelay,
@@ -78,6 +79,7 @@ impl AppState {
         let cameras = CameraManager::new(store.clone(), tx.clone(), CameraFactory::Real);
         let video = VideoHub::new(store.clone(), tx.clone(), Timings::default());
         let missions = crate::missions::MissionHub::new(tx.clone());
+        let params = ParamCache::new(tx.clone());
         let whep = WhepRelay::new(&crate::config::Config::default().whep_upstream)
             .expect("default whep upstream parses");
         Self {
@@ -86,7 +88,7 @@ impl AppState {
             store,
             queue,
             outgoing,
-            params: ParamStore::default(),
+            params,
             cameras,
             video,
             whep,
@@ -248,6 +250,13 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
             get(mission_api::get_progress),
         )
         .route("/vehicles/{sysid}/mission/known", get(mission_api::get_known))
+        .route(
+            "/vehicles/{sysid}/params",
+            get(param_api::list).put(param_api::write),
+        )
+        .route("/vehicles/{sysid}/params/refresh", post(param_api::refresh))
+        .route("/vehicles/{sysid}/params/progress", get(param_api::progress))
+        .route("/history/params", get(param_api::history))
         .route(
             "/missions",
             get(mission_api::list_missions).post(mission_api::create_mission),
