@@ -22,8 +22,8 @@ use crate::params::ParamCache;
 use crate::settings;
 use crate::video::VideoHub;
 use crate::{
-    api, auth, branding, camera_api, commands, flight_api, guided, input_api, logbook_api, mission_api,
-    param_api, present_api, video_api, ws,
+    api, auth, branding, camera_api, commands, flight_api, guided, input_api, logbook_api, logs_api,
+    mission_api, param_api, present_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -48,6 +48,8 @@ pub struct AppState {
     pub missions: crate::missions::MissionHub,
     /// ARM → DISARM flight drafts (addendum §5.6).
     pub flights: crate::flights::FlightTracker,
+    /// DataFlash retrieval over LOG_REQUEST_* (addendum §9).
+    pub logs: crate::logs::LogHub,
     /// Where branding files (and the database) live; `config.toml` `data_dir`.
     pub data_dir: PathBuf,
     pub hostname: String,
@@ -83,6 +85,7 @@ impl AppState {
         let missions = crate::missions::MissionHub::new(tx.clone());
         let params = ParamCache::new(tx.clone());
         let flights = crate::flights::FlightTracker::new(store.clone(), tx.clone());
+        let logs = crate::logs::LogHub::new(tx.clone(), true);
         let whep = WhepRelay::new(&crate::config::Config::default().whep_upstream)
             .expect("default whep upstream parses");
         Self {
@@ -97,6 +100,7 @@ impl AppState {
             whep,
             missions,
             flights,
+            logs,
             data_dir: crate::config::Config::default().data_dir,
             hostname,
             secure_cookies: false,
@@ -114,6 +118,14 @@ impl AppState {
 
     pub fn with_outgoing(self, outgoing: mpsc::Sender<Outgoing>) -> Self {
         Self { outgoing, ..self }
+    }
+
+    /// `config.toml` `log_fetch` resolved for this link (see `Config::log_fetch_enabled`).
+    pub fn with_log_fetch(self, enabled: bool) -> Self {
+        Self {
+            logs: self.logs.clone().with_enabled(enabled),
+            ..self
+        }
     }
 
     pub fn with_cameras(self, cameras: CameraManager) -> Self {
@@ -301,6 +313,18 @@ pub fn build(state: AppState, ui_dir: Option<PathBuf>) -> AxumRouter {
             "/vehicles/{sysid}/maintenance",
             get(flight_api::list_maintenance).post(flight_api::create_maintenance),
         )
+        .route("/vehicles/{sysid}/logs", get(logs_api::list))
+        .route("/vehicles/{sysid}/logs/fc", get(logs_api::list_fc))
+        .route("/vehicles/{sysid}/logs/fetch", post(logs_api::fetch))
+        .route(
+            "/vehicles/{sysid}/logs/upload",
+            post(logs_api::upload).layer(DefaultBodyLimit::max(logs_api::MAX_UPLOAD_BYTES)),
+        )
+        .route(
+            "/vehicles/{sysid}/logs/{id}",
+            axum::routing::patch(logs_api::attach),
+        )
+        .route("/vehicles/{sysid}/logs/{id}/file", get(logs_api::file))
         .route(
             "/missions",
             get(mission_api::list_missions).post(mission_api::create_mission),

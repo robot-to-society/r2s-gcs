@@ -52,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
         .with_map(config.map_tile_url.clone(), config.map_attribution.clone())
         .with_whep_upstream(&config.whep_upstream)
         .with_data_dir(config.data_dir.clone())
+        .with_log_fetch(config.log_fetch_enabled())
         .with_video_timings(rgcs_video::Timings {
             timeout: Duration::from_millis(config.video_probe_timeout_ms),
             ..rgcs_video::Timings::default()
@@ -61,6 +62,7 @@ async fn main() -> anyhow::Result<()> {
         tx.clone(),
         state.params.clone(),
         state.missions.clone(),
+        state.logs.clone(),
         state.outgoing.clone(),
     ));
     tokio::spawn(state.missions.clone().resend_loop());

@@ -12,6 +12,7 @@ use tokio::sync::watch;
 
 use crate::decode;
 use crate::heartbeat::{is_flight_controller, link_status};
+use crate::log_frame::LogFrame;
 use crate::mission_frame::MissionFrame;
 use crate::statustext::{is_full_chunk, Complete, Joiner};
 
@@ -47,6 +48,11 @@ pub enum RouterEvent {
     Mission {
         sysid: SysId,
         frame: MissionFrame,
+    },
+    /// A DataFlash log transfer frame (LOG_ENTRY / LOG_DATA).
+    Log {
+        sysid: SysId,
+        frame: LogFrame,
     },
 }
 
@@ -111,6 +117,11 @@ impl Router {
             m if MissionFrame::from_message(m).is_some() => {
                 if let Some(frame) = MissionFrame::from_message(m) {
                     events.push(RouterEvent::Mission { sysid, frame });
+                }
+            }
+            m if LogFrame::from_message(m).is_some() => {
+                if let Some(frame) = LogFrame::from_message(m) {
+                    events.push(RouterEvent::Log { sysid, frame });
                 }
             }
             MavMessage::PARAM_VALUE(pv) => events.push(RouterEvent::ParamValue {
@@ -499,5 +510,32 @@ mod tests {
         assert_eq!(rx.borrow().sysid, 1);
         assert_eq!(r.last_seen(1).get(&74), Some(&50));
         assert_eq!(r.last_seen(1).get(&0), Some(&0));
+    }
+
+    #[test]
+    fn log_frames_become_log_events() {
+        use mavlink::dialects::ardupilotmega::{HEARTBEAT_DATA, LOG_ENTRY_DATA};
+        let mut r = Router::default();
+        let header = MavHeader {
+            system_id: 1,
+            component_id: 1,
+            sequence: 0,
+        };
+        let entry = LOG_ENTRY_DATA {
+            id: 3,
+            num_logs: 1,
+            last_log_num: 3,
+            time_utc: 0,
+            size: 100,
+        };
+        r.on_message(
+            &header,
+            &MavMessage::HEARTBEAT(HEARTBEAT_DATA::DEFAULT),
+            Clock::default(),
+        );
+        let events = r.on_message(&header, &MavMessage::LOG_ENTRY(entry.clone()), Clock::default());
+        assert!(events.iter().any(
+            |e| matches!(e, RouterEvent::Log { sysid: 1, frame: crate::LogFrame::Entry(d) } if d.id == 3)
+        ));
     }
 }

@@ -15,6 +15,18 @@ pub enum Role {
     Hub,
 }
 
+/// MAVLink log retrieval (addendum §9): `auto` = on for tcp/udp links and serial links at
+/// 921600 baud or more, off for slower serial links.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogFetch {
+    Auto,
+    On,
+    Off,
+}
+
+pub const LOG_FETCH_MIN_BAUD: u32 = 921_600;
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -33,6 +45,7 @@ pub struct Config {
     pub whep_upstream: String,
     /// RTSP DESCRIBE probe timeout for the video source monitor.
     pub video_probe_timeout_ms: u64,
+    pub log_fetch: LogFetch,
 }
 
 impl Default for Config {
@@ -48,6 +61,7 @@ impl Default for Config {
             map_attribution: "© OpenStreetMap contributors".into(),
             whep_upstream: "http://127.0.0.1:8889/mt11/whep".into(),
             video_probe_timeout_ms: 2000,
+            log_fetch: LogFetch::Auto,
         }
     }
 }
@@ -55,6 +69,18 @@ impl Default for Config {
 impl Config {
     pub fn parse(text: &str) -> Result<Self, toml::de::Error> {
         toml::from_str(text)
+    }
+
+    /// Whether `LOG_REQUEST_*` retrieval is offered (see [`LogFetch`]).
+    pub fn log_fetch_enabled(&self) -> bool {
+        match self.log_fetch {
+            LogFetch::On => true,
+            LogFetch::Off => false,
+            LogFetch::Auto => !matches!(
+                self.mavlink_url.parse::<rgcs_mavlink::LinkUrl>(),
+                Ok(rgcs_mavlink::LinkUrl::Serial { baud, .. }) if baud < LOG_FETCH_MIN_BAUD
+            ),
+        }
     }
 
     /// Missing file → defaults; unreadable or invalid file → error.
@@ -126,6 +152,29 @@ mod tests {
         assert_eq!(
             Config::load(Path::new("/nonexistent/rgcs.toml")).unwrap(),
             Config::default()
+        );
+    }
+
+    #[test]
+    fn log_fetch_auto_follows_the_link_speed() {
+        let tcp = Config::parse("mavlink_url = 'tcp:127.0.0.1:5760'").unwrap();
+        assert_eq!(tcp.log_fetch, LogFetch::Auto);
+        assert!(tcp.log_fetch_enabled());
+        assert!(!Config::parse("mavlink_url = '/dev/ttyAMA0,57600'")
+            .unwrap()
+            .log_fetch_enabled());
+        assert!(Config::parse("mavlink_url = '/dev/ttyAMA0,921600'")
+            .unwrap()
+            .log_fetch_enabled());
+        assert!(
+            !Config::parse("mavlink_url = 'tcp:127.0.0.1:5760'\nlog_fetch = 'off'")
+                .unwrap()
+                .log_fetch_enabled()
+        );
+        assert!(
+            Config::parse("mavlink_url = '/dev/ttyAMA0,57600'\nlog_fetch = 'on'")
+                .unwrap()
+                .log_fetch_enabled()
         );
     }
 }

@@ -2,7 +2,8 @@
 
 use mavlink::dialects::ardupilotmega::{
     MavCmd, MavFrame, MavMessage, MavParamType, PositionTargetTypemask, COMMAND_LONG_DATA,
-    PARAM_REQUEST_LIST_DATA, PARAM_REQUEST_READ_DATA, PARAM_SET_DATA, SET_POSITION_TARGET_GLOBAL_INT_DATA,
+    LOG_REQUEST_DATA_DATA, LOG_REQUEST_END_DATA, LOG_REQUEST_LIST_DATA, PARAM_REQUEST_LIST_DATA,
+    PARAM_REQUEST_READ_DATA, PARAM_SET_DATA, SET_POSITION_TARGET_GLOBAL_INT_DATA,
 };
 use rgcs_core::{VehicleCommand, VehicleKind};
 
@@ -168,6 +169,35 @@ pub fn encode_param_set(target: u8, name: &str, value: f32, ptype: u8) -> MavMes
     })
 }
 
+/// List DataFlash logs `start..=end` (answers stream in as LOG_ENTRY).
+pub fn encode_log_request_list(target: u8, start: u16, end: u16) -> MavMessage {
+    MavMessage::LOG_REQUEST_LIST(LOG_REQUEST_LIST_DATA {
+        start,
+        end,
+        target_system: target,
+        target_component: 1,
+    })
+}
+
+/// Ask for `count` bytes of log `id` from offset `ofs` (answers stream in as 90-byte LOG_DATA).
+pub fn encode_log_request_data(target: u8, id: u16, ofs: u32, count: u32) -> MavMessage {
+    MavMessage::LOG_REQUEST_DATA(LOG_REQUEST_DATA_DATA {
+        ofs,
+        count,
+        id,
+        target_system: target,
+        target_component: 1,
+    })
+}
+
+/// Stop a log transfer.
+pub fn encode_log_request_end(target: u8) -> MavMessage {
+    MavMessage::LOG_REQUEST_END(LOG_REQUEST_END_DATA {
+        target_system: target,
+        target_component: 1,
+    })
+}
+
 /// MAV_CMD number → dialect enum (the generated enum derives `FromPrimitive`).
 fn mav_cmd_from_u16(n: u16) -> Option<MavCmd> {
     <MavCmd as num_traits::FromPrimitive>::from_u32(u32::from(n))
@@ -282,5 +312,40 @@ mod tests {
             1
         )
         .is_err());
+    }
+}
+
+#[cfg(test)]
+mod log_tests {
+    use super::*;
+
+    #[test]
+    fn log_requests_target_the_flight_controller() {
+        assert_eq!(
+            encode_log_request_list(1, 0, 0xFFFF),
+            MavMessage::LOG_REQUEST_LIST(LOG_REQUEST_LIST_DATA {
+                start: 0,
+                end: 0xFFFF,
+                target_system: 1,
+                target_component: 1,
+            })
+        );
+        assert_eq!(
+            encode_log_request_data(1, 7, 2880, 2880),
+            MavMessage::LOG_REQUEST_DATA(LOG_REQUEST_DATA_DATA {
+                ofs: 2880,
+                count: 2880,
+                id: 7,
+                target_system: 1,
+                target_component: 1,
+            })
+        );
+        assert_eq!(
+            encode_log_request_end(1),
+            MavMessage::LOG_REQUEST_END(LOG_REQUEST_END_DATA {
+                target_system: 1,
+                target_component: 1,
+            })
+        );
     }
 }

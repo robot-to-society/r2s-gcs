@@ -444,11 +444,16 @@ impl Store {
                     ..next
                 })
                 .await?;
-            sqlx::query("UPDATE flight_squawks SET flight_id = ?2 WHERE flight_id = ?1")
-                .bind(id)
-                .bind(new_id)
-                .execute(&self.pool)
-                .await?;
+            // The confirmed row keeps its own squawks; the correction gets copies.
+            sqlx::query(
+                "INSERT INTO flight_squawks (flight_id, occurred_on, description, action_on, action, confirmer, created_by, created_at) \
+                 SELECT ?2, occurred_on, description, action_on, action, confirmer, created_by, created_at \
+                 FROM flight_squawks WHERE flight_id = ?1 ORDER BY id",
+            )
+            .bind(id)
+            .bind(new_id)
+            .execute(&self.pool)
+            .await?;
             new_id
         };
         self.flight(target).await
@@ -760,7 +765,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn supersede_relinks_squawks_and_marks_the_old_row() {
+    async fn supersede_copies_squawks_and_marks_the_old_row() {
         let s = Store::open_memory().await.unwrap();
         let f = s.create_flight(1, &manual(T0, T0 + 1), "admin").await.unwrap();
         let sq = FlightSquawkInput {
@@ -795,6 +800,11 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(newer.squawks.len(), 1);
+        assert_eq!(
+            s.flight(f.id).await.unwrap().unwrap().squawks.len(),
+            1,
+            "the confirmed row is untouched"
+        );
         assert_eq!(s.flight_superseded_by(f.id).await.unwrap(), Some(newer.id));
         assert_eq!(s.flight_superseded_by(newer.id).await.unwrap(), None);
     }

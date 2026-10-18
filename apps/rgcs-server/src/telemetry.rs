@@ -62,7 +62,10 @@ pub fn event_frame(ev: RouterEvent, now_ms: u64) -> Option<ServerMessage> {
                 ts: now_ms,
             }))
         }
-        RouterEvent::Updated(_) | RouterEvent::ParamValue { .. } | RouterEvent::Mission { .. } => None,
+        RouterEvent::Updated(_)
+        | RouterEvent::ParamValue { .. }
+        | RouterEvent::Mission { .. }
+        | RouterEvent::Log { .. } => None,
     }
 }
 
@@ -75,12 +78,14 @@ pub async fn pump_events(
     tx: broadcast::Sender<ServerMessage>,
     params: crate::params::ParamCache,
     missions: crate::missions::MissionHub,
+    logs: crate::logs::LogHub,
     outgoing: mpsc::Sender<rgcs_mavlink::Outgoing>,
 ) {
     while let Some(ev) = events.recv().await {
         params.apply(&ev);
         match &ev {
             RouterEvent::Mission { sysid, frame } => missions.on_frame(*sysid, frame.clone()),
+            RouterEvent::Log { sysid, frame } => logs.on_frame(*sysid, frame.clone()),
             RouterEvent::Discovered(sysid) => {
                 for name in FENCE_PARAMS {
                     let _ = outgoing.try_send(rgcs_mavlink::Outgoing {
@@ -126,7 +131,8 @@ mod tests {
         let (out_tx, mut out_rx) = mpsc::channel(8);
         let hub = crate::missions::MissionHub::new(tx.clone());
         let params = crate::params::ParamCache::new(tx.clone());
-        tokio::spawn(pump_events(events_rx, tx, params, hub, out_tx));
+        let logs = crate::logs::LogHub::new(tx.clone(), true);
+        tokio::spawn(pump_events(events_rx, tx, params, hub, logs, out_tx));
         events_tx.send(RouterEvent::Discovered(1)).await.unwrap();
         let mut names = Vec::new();
         for _ in 0..3 {

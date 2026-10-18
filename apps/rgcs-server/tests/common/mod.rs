@@ -11,16 +11,18 @@ use axum::Router as AxumRouter;
 use http_body_util::BodyExt;
 use mavlink::dialects::ardupilotmega::{
     GpsFixType, MavAutopilot, MavMessage, MavMissionResult, MavMissionType, MavModeFlag, MavState, MavType,
-    GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA, HEARTBEAT_DATA, MISSION_ACK_DATA, MISSION_COUNT_DATA,
-    MISSION_ITEM_INT_DATA, MISSION_REQUEST_DATA, MISSION_REQUEST_INT_DATA,
+    GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA, HEARTBEAT_DATA, LOG_DATA_DATA, LOG_ENTRY_DATA,
+    MISSION_ACK_DATA, MISSION_COUNT_DATA, MISSION_ITEM_INT_DATA, MISSION_REQUEST_DATA,
+    MISSION_REQUEST_INT_DATA,
 };
 use mavlink::MavHeader;
 use rgcs_camera::siyi::sim::SimServer;
 use rgcs_core::ParamEntry;
-use rgcs_mavlink::MissionFrame;
 use rgcs_mavlink::{Clock, Outcome, Outgoing, QueuedCommand, Router};
+use rgcs_mavlink::{LogFrame, MissionFrame};
 use rgcs_server::app::{self, AppState, BROADCAST_CAPACITY};
 use rgcs_server::cameras::{CameraFactory, CameraManager};
+use rgcs_server::logs::LogHub;
 use rgcs_server::missions::MissionHub;
 use rgcs_server::params::ParamCache;
 use rgcs_store::Store;
@@ -459,6 +461,78 @@ pub fn fake_vehicle_params_counting(
                     values.insert(index, e.clone());
                     // ArduPilot's PARAM_SET echo carries param_index = -1 (65535).
                     cache.on_value(sysid, ParamEntry { index: u16::MAX, ..e }, FAKE_PARAM_COUNT);
+                }
+                _ => {}
+            }
+        }
+    })
+}
+
+pub const FAKE_LOG_ID: u16 = 7;
+pub const FAKE_LOG_TIME_UTC: u32 = 1_700_000_000;
+
+/// Deterministic pseudo-random log bytes.
+pub fn fake_log_bytes(len: usize) -> Vec<u8> {
+    let mut x: u32 = 0x9E37_79B9;
+    (0..len)
+        .map(|_| {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            (x & 0xFF) as u8
+        })
+        .collect()
+}
+
+/// A flight controller on the other end of `outgoing` that owns exactly one DataFlash log
+/// (`FAKE_LOG_ID`). LOG_REQUEST_LIST → one LOG_ENTRY; LOG_REQUEST_DATA → 90-byte LOG_DATA
+/// frames. The chunk starting at `drop_first_chunk_at` is skipped the first time it is asked
+/// for. `requests` counts every LOG_REQUEST_DATA by offset.
+pub fn fake_vehicle_logs(
+    mut rx: mpsc::Receiver<Outgoing>,
+    hub: LogHub,
+    sysid: u8,
+    log: Vec<u8>,
+    drop_first_chunk_at: Option<u32>,
+    requests: Arc<std::sync::Mutex<Vec<u32>>>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut dropped = false;
+        while let Some(out) = rx.recv().await {
+            match out.message {
+                MavMessage::LOG_REQUEST_LIST(_) => hub.on_frame(
+                    sysid,
+                    LogFrame::Entry(LOG_ENTRY_DATA {
+                        id: FAKE_LOG_ID,
+                        num_logs: 1,
+                        last_log_num: FAKE_LOG_ID,
+                        time_utc: FAKE_LOG_TIME_UTC,
+                        size: log.len() as u32,
+                    }),
+                ),
+                MavMessage::LOG_REQUEST_DATA(r) if r.id == FAKE_LOG_ID => {
+                    requests.lock().unwrap().push(r.ofs);
+                    let end = (r.ofs as usize + r.count as usize).min(log.len());
+                    let mut ofs = r.ofs as usize;
+                    while ofs < end {
+                        let n = (end - ofs).min(90);
+                        if drop_first_chunk_at == Some(ofs as u32) && !dropped {
+                            dropped = true;
+                        } else {
+                            let mut data = [0u8; 90];
+                            data[..n].copy_from_slice(&log[ofs..ofs + n]);
+                            hub.on_frame(
+                                sysid,
+                                LogFrame::Data(LOG_DATA_DATA {
+                                    ofs: ofs as u32,
+                                    id: FAKE_LOG_ID,
+                                    count: n as u8,
+                                    data,
+                                }),
+                            );
+                        }
+                        ofs += n;
+                    }
                 }
                 _ => {}
             }
