@@ -15,6 +15,9 @@ async function adminToken(request: APIRequestContext): Promise<string> {
 }
 
 test('the audience video keeps playing through an operator sweep', async ({ browser, request }) => {
+  // A whole operator journey; over emulated LTE (accept-stack) it outlasts the 30 s default. The
+  // requirement is the stall bound below, not the journey's length.
+  test.setTimeout(60_000)
   const token = await adminToken(request)
   const audience = await browser.newPage()
   await audience.goto(`/present?t=${token}`)
