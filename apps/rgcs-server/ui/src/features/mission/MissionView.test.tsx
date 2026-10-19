@@ -89,9 +89,25 @@ describe('MissionView', () => {
     expect(screen.queryByTestId('item-editor')).not.toBeInTheDocument()
     fireEvent.click(wpRows()[1]!)
     expect((screen.getByLabelText('コマンド') as HTMLSelectElement).value).toBe('WAYPOINT')
-    fireEvent.click(wpRows()[2]!, { shiftKey: true })
+    fireEvent.click(wpRows()[2]!, { ctrlKey: true })
     expect(screen.getByTestId('bulk-edit')).toHaveTextContent('2')
     expect(screen.getByText('件を選択中')).toBeInTheDocument()
+  })
+
+  it('list_shift_selects_a_range_ctrl_toggles_and_both_combine', () => {
+    setup()
+    addPoints(5) // T + 5 WP = 6 rows
+    const sel = () => wpRows().map((r) => r.className.includes('sel'))
+    fireEvent.click(wpRows()[1]!)
+    fireEvent.click(wpRows()[3]!, { shiftKey: true })
+    expect(sel()).toEqual([false, true, true, true, false, false])
+    fireEvent.click(wpRows()[5]!, { ctrlKey: true })
+    expect(sel()).toEqual([false, true, true, true, false, true])
+    fireEvent.click(wpRows()[2]!, { metaKey: true })
+    expect(sel()).toEqual([false, true, false, true, false, true])
+    // Shift extends from the last Ctrl-clicked row and keeps the rest
+    fireEvent.click(wpRows()[0]!, { shiftKey: true })
+    expect(sel()).toEqual([true, true, true, true, false, true])
   })
 
   it('save_calls_create_then_update', async () => {

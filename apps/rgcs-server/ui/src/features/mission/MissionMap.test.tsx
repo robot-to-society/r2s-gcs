@@ -215,12 +215,14 @@ describe('MissionMap', () => {
     expect(props.onMoveSelected).toHaveBeenCalledWith(expect.closeTo(0.05, 6), expect.closeTo(0.05, 6))
   })
 
-  it('shift_click_selects_additively_and_contextmenu_reports_the_item', () => {
+  it('ctrl_or_cmd_click_toggles_shift_click_selects_a_range_and_contextmenu_reports_the_item', () => {
     const { props } = renderMap()
     const el = badges()[2]!.el
-    act(() => el.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })))
+    act(() => el.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })))
     expect(props.onSelect).toHaveBeenCalledWith(3, true, false)
     act(() => el.dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true })))
+    expect(props.onSelect).toHaveBeenLastCalledWith(3, true, false)
+    act(() => el.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })))
     expect(props.onSelect).toHaveBeenLastCalledWith(3, false, true)
     act(() => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 40, clientY: 50 })))
     expect(props.onContext).toHaveBeenCalledWith({ uid: 3, x: 40, y: 50 })
@@ -316,7 +318,7 @@ describe('MissionMap', () => {
     act(() => f.fire('dragend'))
     expect(props.onMove).toHaveBeenCalledWith(2, 36.25, 139.25)
     expect(props.onShiftAlt).not.toHaveBeenCalled()
-    act(() => f.el.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })))
+    act(() => f.el.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })))
     expect(props.onSelect).toHaveBeenCalledWith(2, true, false)
     rerender(<MissionMap {...props} terrainTiles={DEM} mode="2d" />)
     expect(feet()).toHaveLength(0)

@@ -258,7 +258,7 @@ function attachBadge(marker: Marker, el: HTMLDivElement, uid: number, cb: React.
   })
   el.addEventListener('click', (e) => {
     e.stopPropagation()
-    cb.current.onSelect(uid, e.shiftKey, e.metaKey || e.ctrlKey)
+    cb.current.onSelect(uid, e.metaKey || e.ctrlKey, e.shiftKey)
   })
   el.addEventListener('contextmenu', (e) => {
     e.preventDefault()

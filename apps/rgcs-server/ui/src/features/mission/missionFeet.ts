@@ -60,7 +60,7 @@ function attachFoot(marker: Marker, el: HTMLElement, uid: number, { selected, cb
   })
   el.addEventListener('click', (e) => {
     e.stopPropagation()
-    cb.current.onSelect(uid, e.shiftKey, e.metaKey || e.ctrlKey)
+    cb.current.onSelect(uid, e.metaKey || e.ctrlKey, e.shiftKey)
   })
 }
 

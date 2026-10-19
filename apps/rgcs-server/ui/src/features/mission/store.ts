@@ -10,7 +10,7 @@ export type Busy = 'idle' | 'saving' | 'uploading' | 'downloading'
 export interface MissionUi {
   readonly history: History<Draft>
   readonly selected: ReadonlySet<number>
-  /** The uid the last plain click landed on: the anchor for ⌘/Ctrl range selection. */
+  /** The uid the last plain or ⌘/Ctrl click landed on: the anchor for Shift range selection. */
   readonly anchor: number | null
   readonly tool: Tool
   readonly savedId: number | null
@@ -56,7 +56,7 @@ export const redoUi = (ui: MissionUi): MissionUi => {
   return { ...ui, history, dirty: true, selected: prune(ui.selected, history.present) }
 }
 
-/** Plain click = only this one; Shift (additive) toggles it. */
+/** Plain click = only this one; ⌘/Ctrl (additive) toggles it. Both move the anchor. */
 export function selectOne(ui: MissionUi, uid: number, additive: boolean): MissionUi {
   if (!additive) return { ...ui, selected: new Set([uid]), anchor: uid }
   const next = new Set(ui.selected)
@@ -65,7 +65,7 @@ export function selectOne(ui: MissionUi, uid: number, additive: boolean): Missio
   return { ...ui, selected: next, anchor: uid }
 }
 
-/** ⌘/Ctrl click: every item between the anchor and `uid` in list order. */
+/** Shift click: adds every item between the anchor and `uid` in list order (the rest stays selected). */
 export function selectRange(ui: MissionUi, uid: number): MissionUi {
   const items = ui.history.present.items
   const to = items.findIndex((it) => it.uid === uid)

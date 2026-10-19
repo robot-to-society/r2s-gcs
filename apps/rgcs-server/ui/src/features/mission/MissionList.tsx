@@ -51,7 +51,7 @@ export function MissionList({ items, selected, kind, dict, onSelect, onReorder, 
             role="option"
             aria-selected={sel}
             style={{ paddingLeft: pos ? 12 : 28 }}
-            onClick={(e) => onSelect(it.uid, e.shiftKey, e.metaKey || e.ctrlKey)}
+            onClick={(e) => onSelect(it.uid, e.metaKey || e.ctrlKey, e.shiftKey)}
             onContextMenu={(e) => {
               e.preventDefault()
               onContext(it.uid, e.clientX, e.clientY)
