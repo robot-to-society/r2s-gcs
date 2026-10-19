@@ -22,6 +22,22 @@ fn finish(w: csv::Writer<Vec<u8>>) -> Vec<u8> {
     out
 }
 
+/// A cell Excel would run as a formula (`=` `+` `-` `@`, tab, CR first) gets a leading `'`
+/// (OWASP CSV injection); plain numbers such as `-12.5` stay as they are.
+fn safe(cell: String) -> String {
+    let risky = cell.starts_with(['=', '+', '-', '@', '\t', '\r']);
+    if risky && cell.trim().parse::<f64>().is_err() {
+        format!("'{cell}")
+    } else {
+        cell
+    }
+}
+
+/// A data row: every cell through `safe` (headers are ours and go out as written).
+fn row<const N: usize>(w: &mut csv::Writer<Vec<u8>>, cells: [String; N]) {
+    let _ = w.write_record(cells.map(safe));
+}
+
 pub fn squawk_text(f: &Flight) -> String {
     f.squawks
         .iter()
@@ -60,7 +76,7 @@ pub fn csv_form1(flights: &[Flight]) -> Vec<u8> {
         "記事",
     ]);
     for (i, f) in flights.iter().enumerate() {
-        let _ = w.write_record([
+        row(&mut w, [
             (i + 1).to_string(),
             jst::date(f.takeoff_at),
             f.pilot.clone(),
@@ -97,7 +113,7 @@ pub fn csv_form2(runs: &[InspectionRun]) -> Vec<u8> {
     ]);
     for run in runs {
         for r in &run.results {
-            let _ = w.write_record([
+            row(&mut w, [
                 run.id.to_string(),
                 run.performed_on.clone(),
                 place_text(&run.place, run.lat, run.lon),
@@ -126,7 +142,7 @@ pub fn csv_form3(records: &[MaintenanceRecord]) -> Vec<u8> {
         "特記事項",
     ]);
     for r in records {
-        let _ = w.write_record([
+        row(&mut w, [
             r.performed_on.clone(),
             r.total_minutes.to_string(),
             r.detail.clone(),

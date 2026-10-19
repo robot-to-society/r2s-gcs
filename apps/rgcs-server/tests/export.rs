@@ -199,6 +199,25 @@ fn csv_form1_has_bom_crlf_and_squawks() {
 }
 
 #[test]
+fn csv_cells_cannot_become_spreadsheet_formulas() {
+    // free text typed by an operator must not run as a formula when the CSV is opened in Excel
+    let mut f = flight(0, 1);
+    f.summary = "=HYPERLINK(\"http://x\",\"y\")".into();
+    f.safety_notes = "@SUM(A1)".into();
+    f.pilot = "+81 3".into();
+    let csv = String::from_utf8(csv_form1(&[f])).unwrap();
+    assert!(csv.contains("'=HYPERLINK"), "{csv}");
+    assert!(csv.contains("'@SUM(A1)"), "{csv}");
+    assert!(csv.contains("'+81 3"), "{csv}");
+    let mut r = record(1);
+    r.notes = "-5 + cmd".into();
+    r.detail = "-12.5".into();
+    let csv3 = String::from_utf8(csv_form3(&[r])).unwrap();
+    assert!(csv3.contains("'-5 + cmd"), "{csv3}");
+    assert!(csv3.contains(",-12.5,"), "plain numbers stay numbers: {csv3}");
+}
+
+#[test]
 fn empty_range_renders_a_one_page_form() {
     let r = registry();
     assert_eq!(pages(&render_form1(&ctx(&r), &[])), 1);
