@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
-import { CommandsSheet, ConfirmDialog, runCommand, type RunResult } from '../features/commands'
+import { CommandDock, ConfirmDialog, type RunResult } from '../features/commands'
 import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
@@ -59,6 +59,8 @@ export function Shell({ me, lang }: Props) {
   const [selected, setSelected] = useState<number | null>(null)
   const [view, setView] = useState<View>('ops')
   const [modal, setModal] = useState<Modal>(NO_MODAL)
+  // The command panel is a tool, not a dialog: open until closed, across commands and selections.
+  const [commandsOpen, setCommandsOpen] = useState(false)
   const tracks = useTracks()
   const mapUi = useMapUi()
   const settings = useAppSettings()
@@ -243,7 +245,7 @@ export function Shell({ me, lang }: Props) {
               onAck={ackAlert}
               onOpenLog={(sysid) => vehicleStore.logAction({ k: 'open', filter: sysid })}
               onClose={() => setSelected(null)}
-              onOpenCommands={() => setModal({ kind: 'commands', sysid: detail.sysid })}
+              onOpenCommands={() => setCommandsOpen((o) => !o)}
               camera={cameras.get(detail.sysid)}
               videoSource={videoSources.get(detail.sysid)}
               cameraPending={pending.bySysid.has(detail.sysid)}
@@ -253,17 +255,18 @@ export function Shell({ me, lang }: Props) {
               missionProgress={missionProgress.get(detail.sysid)}
               onWriteMission={() => setModal({ kind: 'mission-pick', sysid: detail.sysid })}
               onStartMission={() => setModal({ kind: 'confirm', sysid: detail.sysid, command: { cmd: 'mission_start' } })}
-              commandsOpen={modal.kind === 'commands'}
+              commandsOpen={commandsOpen}
             />
           )}
-          {modal.kind === 'commands' && currentVehicle && (
-            <CommandsSheet
+          {commandsOpen && view === 'ops' && currentVehicle && (
+            <CommandDock
               vehicle={currentVehicle}
+              entries={log.entries}
               dict={dict}
               beside={detail !== undefined}
-              onClose={() => setModal(NO_MODAL)}
-              onOpen={(target) => target === 'guided' && setModal({ kind: 'guided', sysid: currentVehicle.sysid })}
-              onPick={(command) => void runCommand(currentVehicle.sysid, command).then((r) => settle(currentVehicle.sysid, r, command))}
+              onClose={() => setCommandsOpen(false)}
+              onOpenGuided={(sysid) => setModal({ kind: 'guided', sysid })}
+              onError={(sysid, command, message) => vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: command.cmd, ok: false, reason: message, ts: Date.now() })}
             />
           )}
           {modal.kind === 'guided' && currentVehicle && (

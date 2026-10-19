@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react'
+import { useState, type ReactElement, type ReactNode } from 'react'
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import { cmdLabel, type Dict } from '../../shared/i18n'
 import {
@@ -28,6 +28,8 @@ interface Props {
   readonly dict: Dict
   /** Rendered beside the detail panel (prototype `map-r top2`) when it is open. */
   readonly beside?: boolean
+  /** Shown under the commands (the dock's sending / last-result line). */
+  readonly footer?: ReactNode
 }
 
 const GROUP_LABEL: Record<CommandGroup, keyof Dict> = { flight: 'groupFlight', move: 'groupMove', mode: 'groupMode', payload: 'groupPayload' }
@@ -54,7 +56,7 @@ function label(item: CatalogItem, dict: Dict): string {
 }
 
 /** Right-aligned 380 px sheet listing every command by group in a 2-column grid (spec 10 §3.5). */
-export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside = false }: Props) {
+export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside = false, footer }: Props) {
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState(vehicle.mode || COPTER_MODES[0]!)
   const [alt, setAlt] = useState('')
@@ -136,6 +138,7 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
           </div>
         ))}
       </div>
+      {footer}
     </aside>
   )
 }

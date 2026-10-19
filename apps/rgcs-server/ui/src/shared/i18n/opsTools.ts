@@ -33,6 +33,8 @@ export const opsToolsJa = {
   rsTimeout: 'タイムアウト',
   rsLinkClosed: 'リンク切断',
   camProject: 'ジンバルを地面に投影',
+  cmdSending: '送信中…',
+  cmdNoResult: 'コマンドの結果がここに表示されます',
   camProjectNote: 'カメラの視野が地形と交わる範囲（撮影範囲）を地図に表示します。オフの場合は撮影方向のみを表示します。',
 } as const
 
@@ -68,5 +70,7 @@ export const opsToolsEn: Record<keyof typeof opsToolsJa, string> = {
   rsTimeout: 'timeout',
   rsLinkClosed: 'link closed',
   camProject: 'Project gimbal onto the ground',
+  cmdSending: 'Sending…',
+  cmdNoResult: 'Command results appear here',
   camProjectNote: 'Shows where the camera view meets the terrain (the footprint). When off, only the viewing direction is shown.',
 }

@@ -22,7 +22,8 @@ test('vehicle marker, detail panel and a confirmed ARM / DISARM', async ({ page 
   if (armed) {
     await expect(page.locator('.detail .msg .ttl').first()).toBeVisible()
     const disarms = await countLogRows(page, DISARM)
-    await page.getByRole('button', { name: '全コマンド' }).click()
+    // the command panel stays open across commands (2026-10-19)
+    await expect(page.getByRole('complementary', { name: '全コマンド' })).toBeVisible()
     await page.getByRole('button', { name: 'ディスアーム', exact: true }).click()
     await page.getByRole('button', { name: '実行' }).click()
     await waitForLogRow(page, DISARM, disarms)
