@@ -1,16 +1,14 @@
 // 3D vehicles on the operations map (prototype updateVehicleAir): a thin post from the ground
 // to the vehicle, a ground disc, and the DOM marker floated to its altitude.
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useEffect, type RefObject } from 'react'
 import type { FeatureCollection, Point } from 'geojson'
 import type { Map as MlMap, Marker } from 'maplibre-gl'
 import type { VehicleState } from '../../shared/api/types'
 import { mercatorLine, vehicleAmsl, type AirVertex, type ElevAt, type Rgb } from './air'
-import { AirPathLayer } from './airLayer'
-import { floatMarkers, type Floating } from './float'
+import { useAir3d } from './air3d'
 import { orderLayers } from './layers'
-import { applyMapMode, DEM_SOURCE, type MapMode } from './mapMode'
+import type { MapMode } from './mapMode'
 import type { LatLon } from './store'
-import { TerrainSampler, terrainSource } from './terrain'
 import type { Tracks } from './tracks'
 
 const CYAN: Rgb = [0x9c / 255, 0xc9 / 255, 1]
@@ -63,8 +61,7 @@ interface Args {
   readonly base: readonly [number, number]
 }
 
-function setup(m: MlMap, url: string, layer: AirPathLayer): void {
-  m.addSource(DEM_SOURCE, terrainSource(url))
+function setupGround(m: MlMap): void {
   m.addSource(GROUND, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
   m.addLayer({
     id: GROUND,
@@ -73,38 +70,12 @@ function setup(m: MlMap, url: string, layer: AirPathLayer): void {
     layout: { visibility: 'none' },
     paint: { 'circle-radius': 6, 'circle-color': ['case', ['==', ['get', 'sel'], 1], '#f2b544', '#9cc9ff'], 'circle-stroke-color': '#0f1824', 'circle-stroke-width': 2, 'circle-opacity': 0.9, 'circle-pitch-alignment': 'map' },
   })
-  m.addLayer(layer)
-  orderLayers(m)
 }
 
 /** Terrain, posts and floated markers; a no-op without terrain tiles. */
 export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base }: Args): void {
-  const [tick, setTick] = useState(0)
-  const [ready, setReady] = useState(false)
-  const sampler = useMemo(() => (terrainTiles ? new TerrainSampler(terrainTiles, () => setTick((n) => n + 1)) : null), [terrainTiles])
-  const layer = useRef<AirPathLayer>(new AirPathLayer(AIR))
-  const floats = useRef<readonly Floating[]>([])
-  const is3d = mode === '3d' && sampler !== null
-
-  useEffect(() => {
-    const m = map.current
-    if (!m || !terrainTiles) return
-    const go = () => {
-      setup(m, terrainTiles, layer.current)
-      layer.current.onFrame = (matrix) => floatMarkers(m, matrix, floats.current)
-      setReady(true)
-    }
-    if (loaded.current) go()
-    else m.once('load', go)
-  }, [map, loaded, terrainTiles])
-
-  useEffect(() => {
-    const m = map.current
-    if (!m || !ready) return
-    layer.current.visible = is3d
-    applyMapMode(m, is3d ? '3d' : '2d', OPS_3D_LAYERS)
-    if (!is3d) floatMarkers(m, null, floats.current)
-  }, [map, ready, is3d])
+  const air = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup: setupGround, modeLayers: OPS_3D_LAYERS, order: orderLayers })
+  const { sampler, ready, tick, layer, floats } = air
 
   useEffect(() => {
     const m = map.current
@@ -114,8 +85,8 @@ export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selec
       const v = vehicles.get(sysid)
       return v ? [{ marker, lon: v.lon, lat: v.lat, amsl: d.alts.get(sysid) ?? null, base }] : []
     })
-    layer.current.setLines([], d.posts)
+    layer.setLines([], d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, sampler, vehicles, selected, homes, tracks, markers, base, tick])
+  }, [map, ready, sampler, vehicles, selected, homes, tracks, markers, base, tick, layer, floats])
 }

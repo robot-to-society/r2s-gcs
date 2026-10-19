@@ -32,7 +32,8 @@ export function badgeEl(seq: number, selected: boolean, cmdKey: string): HTMLDiv
   return updateBadgeEl(el, seq, selected, cmdKey)
 }
 
-export function updateBadgeEl(el: HTMLDivElement, seq: number, selected: boolean, cmdKey: string): HTMLDivElement {
+/** `chip`: the 3D altitude chip ("▲ 80 m Rel"), `null` in 2D. */
+export function updateBadgeEl(el: HTMLDivElement, seq: number, selected: boolean, cmdKey: string, chip: string | null = null): HTMLDivElement {
   el.classList.add('rg-wp')
   el.classList.toggle('sel', selected)
   const dot = el.querySelector('.dot')
@@ -41,7 +42,19 @@ export function updateBadgeEl(el: HTMLDivElement, seq: number, selected: boolean
     dot.classList.toggle('roi', cmdKey === 'DO_SET_ROI')
   }
   el.title = title(cmdKey)
+  setChip(el, chip)
   return el
+}
+
+function setChip(el: HTMLDivElement, chip: string | null): void {
+  const box = el.querySelector('.chips')
+  if (chip === null) {
+    box?.remove()
+    return
+  }
+  const chips = box ?? el.appendChild(Object.assign(document.createElement('div'), { className: 'chips' }))
+  const c = chips.querySelector('.altc') ?? chips.appendChild(Object.assign(document.createElement('span'), { className: 'chip altc' }))
+  c.textContent = chip
 }
 
 /** The "+" between two waypoints that inserts a new one (prototype `.rg-mid`). */

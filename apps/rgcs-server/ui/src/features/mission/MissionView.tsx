@@ -18,6 +18,8 @@ import { appendWaypoint, clearItems, insertAfter, insertCommandAfter, moveItem, 
 import { MissionStore, clearSelection, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
 import { localWarnings, stats } from './summary'
 import { BasemapPicker } from '../map/BasemapPicker'
+import { MapModeToggle } from '../map/MapModeToggle'
+import { saveMapMode, useMapMode } from '../map/mapMode'
 import type { Basemap } from '../../shared/api/types'
 
 interface Props {
@@ -27,6 +29,8 @@ interface Props {
   readonly basemap?: Basemap
   readonly basemaps?: readonly Basemap[]
   readonly onPickBasemap?: (id: string) => void
+  /** Terrarium DEM tiles; `null` / absent → 2D only. */
+  readonly terrainTiles?: string | null
   readonly store?: MissionStore
 }
 
@@ -34,7 +38,9 @@ const isEditable = (t: EventTarget | null): boolean => t instanceof HTMLElement 
 const NUDGE = 0.0001
 
 /** The mission planning screen (spec 10 §6, 2D subset) built on the Glass prototype's layout. */
-export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onPickBasemap, store = missionStore }: Props) {
+export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore }: Props) {
+  const mapMode = useMapMode()
+  const is3d = mapMode === '3d' && terrainTiles !== null
   const ui = useMissionUi(store)
   const draft = ui.history.present
   const [menu, setMenu] = useState<Menu | null>(null)
@@ -85,6 +91,8 @@ export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onP
         tool={ui.tool}
         style={style}
         basemap={basemap}
+        mode={mapMode}
+        terrainTiles={terrainTiles}
         vehicle={vehicle}
         fitRequest={io.fitRequest}
         onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon))}
@@ -95,22 +103,14 @@ export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onP
         onBackgroundClick={() => store.update(clearSelection)}
         onContext={setMenu}
       />
-      <div className="g-ctl float map-l top1 compass" aria-hidden="true">
+      <div className="g-ctl float map-l top1 compass" aria-hidden="true" style={{ transform: is3d ? 'rotate(25deg)' : undefined }}>
         <span>N</span>
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
           <path d="M12 3l6 16-6-4-6 4z" />
         </svg>
       </div>
       {basemap && onPickBasemap && basemaps.length > 1 && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" />}
-      <div className="seg onmap float map-r top1" style={{ width: 148, height: 40 }} role="group" aria-label="2D / 3D">
-        <span className="lens" />
-        <button type="button" className="on" style={{ fontSize: 14 }}>
-          2D
-        </button>
-        <button type="button" className="off" aria-disabled="true" title={dict.comingSoon} style={{ fontSize: 14 }}>
-          3D
-        </button>
-      </div>
+      <MapModeToggle mode={mapMode} available={terrainTiles !== null} dict={dict} onChange={saveMapMode} />
       <button type="button" className={`g-ctl ctl float map-r2 top1 help-btn${help ? ' on' : ''}`} title={dict.mHelpTitle} aria-label={dict.mHelpTitle} onClick={() => setHelp((h) => !h)}>
         ?
       </button>

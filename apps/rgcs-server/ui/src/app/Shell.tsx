@@ -194,6 +194,7 @@ export function Shell({ me, lang }: Props) {
               basemap={basemap ?? undefined}
               basemaps={settings.basemaps}
               onPickBasemap={saveBasemapChoice}
+              terrainTiles={settings.terrain_tiles}
             />
             {logDock}
           </main>

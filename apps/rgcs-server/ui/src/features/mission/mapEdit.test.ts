@@ -31,4 +31,11 @@ describe('map editing helpers', () => {
   it('drag_delta_is_the_difference_of_lat_lon', () => {
     expect(dragDelta({ lat: 36, lon: 139 }, { lat: 36.5, lon: 139.25 })).toEqual({ dLat: 0.5, dLon: 0.25 })
   })
+  it('shows the altitude chip in 3D and removes it in 2D', () => {
+    const el = badgeEl(1, false, 'WAYPOINT')
+    updateBadgeEl(el, 1, false, 'WAYPOINT', '▲ 80 m Rel')
+    expect(el.querySelector('.chips .chip.altc')?.textContent).toBe('▲ 80 m Rel')
+    updateBadgeEl(el, 1, false, 'WAYPOINT', null)
+    expect(el.querySelector('.chips')).toBeNull()
+  })
 })
