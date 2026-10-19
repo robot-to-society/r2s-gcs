@@ -2,7 +2,7 @@
 // checks need the vehicle's parameters and stay on the server: `POST /api/missions/validate`).
 import type { Home, MissionItem, MissionStats } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { hasPosition, haversineM, isPositional } from './geo'
+import { hasPosition, isPositional, legDistanceM } from './geo'
 
 export const LONG_FLIGHT_S = 1200
 
@@ -20,7 +20,7 @@ export function stats(items: readonly MissionItem[], home: Home | null, speed: n
   let prev: { lat: number; lon: number } | null = home ? { lat: home.lat, lon: home.lon } : null
   for (const it of items) {
     if (hasPosition(it)) {
-      if (prev) distance += haversineM(prev.lat, prev.lon, it.lat, it.lon)
+      if (prev) distance += legDistanceM(prev, it)
       prev = { lat: it.lat, lon: it.lon }
       maxAlt = Math.max(maxAlt, it.alt)
     }

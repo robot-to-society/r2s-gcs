@@ -14,6 +14,8 @@ pub const MAV_CMD_NAV_RETURN_TO_LAUNCH: u16 = 20;
 pub const MAV_CMD_NAV_LAND: u16 = 21;
 pub const MAV_CMD_NAV_TAKEOFF: u16 = 22;
 pub const MAV_CMD_NAV_SPLINE_WAYPOINT: u16 = 82;
+/// Copter 4.7+: the leg into this item is a circular arc of `param1` degrees (+ clockwise).
+pub const MAV_CMD_NAV_ARC_WAYPOINT: u16 = 36;
 pub const MAV_CMD_NAV_DELAY: u16 = 93;
 pub const MAV_CMD_CONDITION_DELAY: u16 = 112;
 pub const MAV_CMD_DO_JUMP: u16 = 177;
@@ -72,7 +74,7 @@ impl MissionItem {
     pub fn is_positional(&self) -> bool {
         matches!(
             self.command,
-            16..=22 | MAV_CMD_NAV_SPLINE_WAYPOINT | MAV_CMD_DO_SET_ROI
+            16..=22 | MAV_CMD_NAV_ARC_WAYPOINT | MAV_CMD_NAV_SPLINE_WAYPOINT | MAV_CMD_DO_SET_ROI
         )
     }
 
@@ -209,6 +211,17 @@ pub struct FenceInfo {
     pub enabled: Option<bool>,
     pub alt_max: Option<f32>,
     pub radius: Option<f32>,
+}
+
+/// Metres flown into `it` from (`lat`, `lon`): along the arc for an ARC_WAYPOINT
+/// (r = chord / (2·|sin(θ/2)|), length r·θ; under 1° it is straight, as ArduPilot flies it).
+pub fn leg_distance_m(lat: f64, lon: f64, it: &MissionItem) -> f64 {
+    let chord = haversine_m(lat, lon, it.lat, it.lon);
+    let theta = f64::from(it.params[0].abs().min(359.0)).to_radians();
+    if it.command != MAV_CMD_NAV_ARC_WAYPOINT || theta < 1f64.to_radians() || chord == 0.0 {
+        return chord;
+    }
+    chord / (2.0 * (theta / 2.0).sin().abs()) * theta
 }
 
 pub fn haversine_m(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
@@ -383,7 +396,7 @@ impl Mission {
         for it in &self.items {
             if it.has_position() {
                 if let Some((plat, plon)) = prev {
-                    distance += haversine_m(plat, plon, it.lat, it.lon);
+                    distance += leg_distance_m(plat, plon, it);
                 }
                 prev = Some((it.lat, it.lon));
                 max_alt = max_alt.max(it.alt);
@@ -471,6 +484,17 @@ mod tests {
             home: None,
             items,
         }
+    }
+
+    #[test]
+    fn arc_waypoint_is_positional_and_counts_its_arc_length() {
+        let east = |m: f64| m / (111_320.0 * (36.25f64).to_radians().cos());
+        let mut arc = item(MAV_CMD_NAV_ARC_WAYPOINT, 36.25, 137.6 + east(100.0), 50.0);
+        arc.params[0] = 90.0;
+        assert!(arc.has_position());
+        let m = mission(vec![item(MAV_CMD_NAV_TAKEOFF, 36.25, 137.6, 50.0), arc]);
+        // chord 100 m, 90° → r = 70.71 m, arc = r·π/2 = 111.07 m
+        assert!((m.stats().distance_m - 111.07).abs() < 0.5, "{}", m.stats().distance_m);
     }
 
     fn codes(f: &[Finding]) -> Vec<&str> {

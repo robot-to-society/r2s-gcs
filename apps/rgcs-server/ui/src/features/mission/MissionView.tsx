@@ -15,7 +15,7 @@ import { canRedo, canUndo } from './history'
 import { km, mmss } from './labels'
 import type { ContextMenu as Menu } from './mapEdit'
 import { useMissionIo } from './useMissionIo'
-import { appendWaypoint, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, removeItems, reorder, reverseItems, setAltBulk, setCommand, setMeta, shiftAlts, updateItem, type Draft } from './model'
+import { appendWaypoint, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, removeItems, reorder, reverseItems, setAltBulk, setArc, setCommand, setMeta, shiftAlts, updateItem, type Draft } from './model'
 import { MissionStore, addToSelection, clearSelection, copySelected, pasteClipboard, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
 import { localWarnings, stats } from './summary'
 import { BasemapPicker } from '../map/BasemapPicker'
@@ -108,6 +108,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onMoveSelected={(dLat, dLon) => change((d) => moveItems(d, ui.selected, dLat, dLon))}
         onShiftAlt={(uids, dAlt) => change((d) => shiftAlts(d, uids, dAlt))}
         onBoxSelect={(uids) => store.update((u) => addToSelection(u, uids))}
+        onArc={(uid, angle) => change((d) => setArc(d, uid, angle))}
         onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))}
         onBackgroundClick={() => store.update(clearSelection)}
         onContext={setMenu}
@@ -134,7 +135,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
             </button>
           </div>
           <div className="help-grid">
-            {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map((n) => (
+            {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const).map((n) => (
               <HelpRow key={n} k={dict[`mHelp${n}k` as keyof Dict]} v={dict[`mHelp${n}v` as keyof Dict]} />
             ))}
           </div>

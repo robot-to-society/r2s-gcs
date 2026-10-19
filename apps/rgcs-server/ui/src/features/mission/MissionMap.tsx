@@ -5,7 +5,7 @@ import type { VehicleState } from '../../shared/api/types'
 import { hasPosition as vehicleHasPosition, markerEl, updateMarkerEl } from '../map/markers'
 import { hasPosition, pathGeoJson } from './geo'
 import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl, type ContextMenu } from './mapEdit'
-import { cmdKey, isTakeoff, moveItem, moveItems, shiftAlts, type Draft, type DraftItem } from './model'
+import { cmdKey, isTakeoff, moveItem, moveItems, setArc, shiftAlts, type Draft, type DraftItem } from './model'
 import type { Tool } from './store'
 import { useBasemapSwap } from '../map/basemaps'
 import type { Basemap } from '../../shared/api/types'
@@ -14,6 +14,7 @@ import { altChip, useMissionAir, type MissionAir3d } from './missionAir'
 import { attachAltDrag } from './altDrag'
 import { useMissionFeet, type FeetCallbacks } from './missionFeet'
 import { useBoxSelect } from './boxSelect'
+import { attachArcDrag } from './arcDrag'
 
 interface Props {
   readonly draft: Draft
@@ -36,6 +37,8 @@ interface Props {
   readonly onShiftAlt: (uids: ReadonlySet<number>, dAlt: number) => void
   /** Shift-drag box on the map: these items join the selection. */
   readonly onBoxSelect: (uids: number[]) => void
+  /** Long press + drag on a "+": the leg into `uid` becomes an arc of `angle`° (0 = straight). */
+  readonly onArc: (uid: number, angle: number) => void
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
   readonly onBackgroundClick: () => void
   readonly onContext: (menu: ContextMenu | null) => void
@@ -164,6 +167,7 @@ export function MissionMap(props: Props) {
         e.stopPropagation()
         cb.current.onInsertAfter(h.afterUid, h.lat, h.lon)
       })
+      attachArcDrag(el, h, arcDeps)
       return new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([h.lon, h.lat]).addTo(m)
     })
   }, [draft])
@@ -219,6 +223,26 @@ export function MissionMap(props: Props) {
     // Only the request counter triggers a fit; the draft is read at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitRequest])
+
+  const arcDeps = {
+    toLatLon: (x: number, y: number) => {
+      const m = map.current
+      const box = container.current?.getBoundingClientRect()
+      if (!m || !box) return null
+      const p = m.unproject([x - box.left, y - box.top])
+      return { lat: p.lat, lon: p.lng }
+    },
+    end: (uid: number) => {
+      const it = draftRef.current.items.find((x) => x.uid === uid)
+      return it ? { lat: it.lat, lon: it.lon } : null
+    },
+    onPreview: (uid: number, angle: number) => setPreview(() => (d: Draft) => setArc(d, uid, angle)),
+    onCommit: (uid: number, angle: number) => {
+      setPreview(null)
+      cb.current.onArc(uid, angle)
+    },
+    onCancel: () => setPreview(null),
+  }
 
   function altDeps(uid: number) {
     return {

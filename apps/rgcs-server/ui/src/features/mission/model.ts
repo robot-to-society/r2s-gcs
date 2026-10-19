@@ -112,6 +112,17 @@ export function insertItemsAfter(d: Draft, afterUid: number | null, items: reado
   return { draft, uids: copies.map((c) => c.uid) }
 }
 
+const WAYPOINT_CMD = 16
+const ARC_CMD = 36
+
+/** A WAYPOINT / ARC_WAYPOINT becomes an arc of `angle`° (+ clockwise); 0 makes it a plain waypoint again. */
+export function setArc(d: Draft, uid: number, angle: number): Draft {
+  const it = d.items.find((x) => x.uid === uid)
+  if (!it || (it.command !== WAYPOINT_CMD && it.command !== ARC_CMD)) return d
+  const command = angle === 0 ? WAYPOINT_CMD : ARC_CMD
+  return updateItem(d, uid, { command, params: [angle, 0, 0, 0] })
+}
+
 export function shiftAlts(d: Draft, uids: ReadonlySet<number>, dAlt: number): Draft {
   const alt = (it: DraftItem) => (it.frame === 'abs' ? it.alt + dAlt : Math.max(0, it.alt + dAlt))
   return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt: alt(it) } : it)) }

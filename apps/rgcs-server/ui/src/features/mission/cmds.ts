@@ -40,6 +40,8 @@ export const CMDS: Readonly<Record<string, CmdSpec>> = {
     alt: true,
     fields: [num(1, 'delay', 0, { min: 0, step: 1 }), num(2, 'acceptRadius', 0, { min: 0, only: ['plane', 'rover'] }), num(3, 'passRadius', 0, { only: ['plane'] })],
   },
+  // Copter 4.7+: the leg into this item is a circular arc of `arcAngle` degrees (+ clockwise, ±359)
+  ARC_WAYPOINT: { id: 36, mav: 'MAV_CMD_NAV_ARC_WAYPOINT', pos: true, alt: true, fields: [num(1, 'arcAngle', 0, { min: -359, max: 359, step: 1, only: ['copter'] })] },
   SPLINE_WAYPOINT: { id: 82, mav: 'MAV_CMD_NAV_SPLINE_WAYPOINT', pos: true, alt: true, fields: [num(1, 'delay', 0, { min: 0, step: 1 })] },
   LOITER_TIME: { id: 19, mav: 'MAV_CMD_NAV_LOITER_TIME', pos: true, alt: true, fields: [num(1, 'time', 10, { min: 0, step: 1 }), num(3, 'radius', 0, { only: ['plane'] })] },
   LOITER_TURNS: { id: 18, mav: 'MAV_CMD_NAV_LOITER_TURNS', pos: true, alt: true, fields: [num(1, 'turns', 1, { min: 0, step: 0.5 }), num(3, 'radius', 20, { step: 1 })] },
@@ -124,7 +126,7 @@ export const CMDS: Readonly<Record<string, CmdSpec>> = {
 }
 
 export const PALETTE = {
-  pos: ['WAYPOINT', 'SPLINE_WAYPOINT', 'TAKEOFF', 'LAND', 'LOITER_TIME', 'LOITER_TURNS', 'LOITER_UNLIM', 'DO_SET_ROI'],
+  pos: ['WAYPOINT', 'ARC_WAYPOINT', 'SPLINE_WAYPOINT', 'TAKEOFF', 'LAND', 'LOITER_TIME', 'LOITER_TURNS', 'LOITER_UNLIM', 'DO_SET_ROI'],
   do: [
     'DO_CHANGE_SPEED',
     'DO_SET_CAM_TRIGG_DIST',
@@ -172,7 +174,7 @@ export function mavFontSize(name: string): string {
 /** Unit per field key (language independent; labels come from the dictionary `fld_<key>`). */
 export const UNITS: Readonly<Record<string, string>> = {
   alt: 'm', delay: 's', acceptRadius: 'm', passRadius: 'm', time: 's', radius: 'm', abortAlt: 'm', secs: 's', speed: 'm/s', throttle: '%',
-  dist: 'm', pwm: 'µs', cycleTime: 's', pitch: '°', roll: '°', yaw: '°', pitchRate: '°/s', yawRate: '°/s', angle: '°', rate: '°/s',
+  dist: 'm', pwm: 'µs', cycleTime: 's', pitch: '°', roll: '°', yaw: '°', pitchRate: '°/s', yawRate: '°/s', angle: '°', rate: '°/s', arcAngle: '°',
 }
 
 /** Nav commands that carry a position but are not "waypoints" in the summary count. */

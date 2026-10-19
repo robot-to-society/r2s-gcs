@@ -8,6 +8,7 @@ import { climbColor, itemAmsl, mercatorLine, type AirPoint, type AirVertex, type
 import { useAir3d } from '../map/air3d'
 import { pixelsPerMetre } from '../map/float'
 import type { MapMode } from '../map/mapMode'
+import { arcPoints, isArc } from './arc'
 import { haversineM, hasPosition, type LatLon } from './geo'
 import type { Draft, DraftItem } from './model'
 
@@ -45,11 +46,15 @@ export const altChip = (it: DraftItem): string => `▲ ${Math.round(it.alt)} m $
 function legPoints(a: Stop, b: Stop, elevAt: ElevAt): Pt[] {
   const len = haversineM(a.lat, a.lon, b.lat, b.lon)
   const ter = a.item?.frame === 'ter' && b.item?.frame === 'ter'
-  const n = ter ? Math.min(200, Math.max(2, Math.ceil(len / 20))) : Math.max(2, Math.min(8, Math.ceil(len / 400)))
+  const arc = b.item && isArc(b.item) ? b.item.params[0] : 0
+  const n0 = ter ? Math.min(200, Math.max(2, Math.ceil(len / 20))) : Math.max(2, Math.min(8, Math.ceil(len / 400)))
+  const n = arc ? Math.max(n0, 16) : n0
+  // an ARC_WAYPOINT leg follows its arc; the altitude still changes linearly along it
+  const along = arc ? arcPoints(a, b, arc, n) : null
   return Array.from({ length: n + 1 }, (_, k) => {
     const t = k / n
-    const lat = a.lat + (b.lat - a.lat) * t
-    const lon = a.lon + (b.lon - a.lon) * t
+    const lat = along ? along[k]!.lat : a.lat + (b.lat - a.lat) * t
+    const lon = along ? along[k]!.lon : a.lon + (b.lon - a.lon) * t
     const g = ter ? elevAt(lon, lat) : null
     const amsl = ter && g !== null ? g + a.item!.alt + (b.item!.alt - a.item!.alt) * t : a.amsl + (b.amsl - a.amsl) * t
     return { lat, lon, amsl }

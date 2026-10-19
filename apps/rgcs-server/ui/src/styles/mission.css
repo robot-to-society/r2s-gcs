@@ -58,3 +58,5 @@
 .transfer-bar { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-2); }
 .transfer-bar .bar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 .transfer-bar .bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.25s; }
+/* Long press on a "+": ready to bend the leg into an arc (NAV_ARC_WAYPOINT) */
+.rg-mid.arc-armed { background: var(--caution); color: var(--on-caution); transform: scale(1.25); cursor: grabbing; }

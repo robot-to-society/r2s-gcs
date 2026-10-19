@@ -2,7 +2,8 @@
 // altitude along it, in a 1000 × 100 SVG box, with one point per positioned item. Ground comes from
 // the terrain tiles; while a tile is missing the home ground stands in (`hasDem` false).
 import type { ElevAt } from '../map/air'
-import { haversineM, hasPosition } from './geo'
+import { arcPoints, isArc } from './arc'
+import { hasPosition, legDistanceM } from './geo'
 import type { Draft, DraftItem } from './model'
 
 const W = 1000
@@ -53,7 +54,7 @@ export function elevProfile(draft: Draft, elevAt: ElevAt): ElevProfile | null {
   let cum = 0
   const stops: Stop[] = positioned.map(({ it, seq }, i) => {
     const prev = positioned[i - 1]?.it
-    if (prev) cum += haversineM(prev.lat, prev.lon, it.lat, it.lon)
+    if (prev) cum += legDistanceM(prev, it)
     return { item: it, seq, amsl: amslOf(it), d: cum }
   })
   const total = Math.max(cum, 1)
@@ -93,10 +94,12 @@ function sample(stops: readonly Stop[], ground: (lon: number, lat: number) => nu
     const a = stops[i]!
     const n = Math.max(1, Math.ceil((b.d - a.d) / step))
     const ter = a.item.frame === 'ter' && b.item.frame === 'ter'
+    const along = isArc(b.item) ? arcPoints(a.item, b.item, b.item.params[0], n) : null
     return Array.from({ length: i === 0 ? n + 1 : n }, (_, j) => {
-      const t = (i === 0 ? j : j + 1) / n
-      const lon = a.item.lon + (b.item.lon - a.item.lon) * t
-      const lat = a.item.lat + (b.item.lat - a.item.lat) * t
+      const k = i === 0 ? j : j + 1
+      const t = k / n
+      const lon = along ? along[k]!.lon : a.item.lon + (b.item.lon - a.item.lon) * t
+      const lat = along ? along[k]!.lat : a.item.lat + (b.item.lat - a.item.lat) * t
       const g = ground(lon, lat)
       const z = ter ? g + a.item.alt + (b.item.alt - a.item.alt) * t : a.amsl + (b.amsl - a.amsl) * t
       return { d: a.d + (b.d - a.d) * t, g, z }

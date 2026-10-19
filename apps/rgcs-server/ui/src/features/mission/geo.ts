@@ -1,6 +1,7 @@
 // Geometry helpers shared by the editor map, the summary and the ops progress row.
 import type { Feature, FeatureCollection, LineString } from 'geojson'
 import type { Home, MissionItem } from '../../shared/api/types'
+import { arcLengthM, isArc, legPath, MAV_CMD_NAV_ARC_WAYPOINT } from './arc'
 
 export interface LatLon {
   readonly lat: number
@@ -22,7 +23,7 @@ export const midpoint = (a: LatLon, b: LatLon): LatLon => ({ lat: (a.lat + b.lat
 
 /** NAV commands that fly to a position (same rule as `MissionItem::is_positional` in rgcs-core). */
 export function isPositional(it: MissionItem): boolean {
-  return (it.command >= 16 && it.command <= 22) || it.command === 82 || it.command === 201
+  return (it.command >= 16 && it.command <= 22) || it.command === 82 || it.command === 201 || it.command === MAV_CMD_NAV_ARC_WAYPOINT
 }
 
 export function hasPosition(it: MissionItem): boolean {
@@ -32,6 +33,11 @@ export function hasPosition(it: MissionItem): boolean {
 /** Positioned items with their 1-based mission sequence. */
 export function positioned(items: readonly MissionItem[]): readonly { seq: number; item: MissionItem }[] {
   return items.flatMap((item, i) => (hasPosition(item) ? [{ seq: i + 1, item }] : []))
+}
+
+/** Metres flown from `prev` to `item`: along the arc for an ARC_WAYPOINT. */
+export function legDistanceM(prev: LatLon, item: MissionItem): number {
+  return isArc(item) ? arcLengthM(prev, { lat: item.lat, lon: item.lon }, item.params[0]) : haversineM(prev.lat, prev.lon, item.lat, item.lon)
 }
 
 export type PathProps = { readonly seq: number; readonly alt_t: number }
@@ -50,7 +56,7 @@ export function pathGeoJson(items: readonly MissionItem[], home: Home | null): F
       features.push({
         type: 'Feature',
         properties: { seq, alt_t: t(item.alt) },
-        geometry: { type: 'LineString', coordinates: [[prev.lon, prev.lat], [item.lon, item.lat]] },
+        geometry: { type: 'LineString', coordinates: legPath(prev, item).map((p) => [p.lon, p.lat]) },
       })
     }
     prev = { lat: item.lat, lon: item.lon }
@@ -69,7 +75,7 @@ export function remainingDistanceM(items: readonly MissionItem[], seq: number, v
   let total = 0
   let prev: LatLon | null = vehicle
   for (const { item } of ahead) {
-    if (prev) total += haversineM(prev.lat, prev.lon, item.lat, item.lon)
+    if (prev) total += legDistanceM(prev, item)
     prev = { lat: item.lat, lon: item.lon }
   }
   return total

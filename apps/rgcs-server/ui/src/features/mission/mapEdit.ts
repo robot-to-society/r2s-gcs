@@ -1,6 +1,7 @@
 // Pure helpers behind MissionMap: DOM elements for the badges / mid-leg handles, the handle
 // positions and the drag arithmetic. Kept out of the component so they are testable without MapLibre.
 import { CMDS } from './cmds'
+import { arcPoints, isArc } from './arc'
 import { hasPosition, midpoint, type LatLon } from './geo'
 import type { Draft } from './model'
 
@@ -8,6 +9,10 @@ export interface MidHandle {
   readonly afterUid: number
   readonly lat: number
   readonly lon: number
+  /** The leg: from the previous position to the item `toUid` (the arc gesture bends it). */
+  readonly fromLat: number
+  readonly fromLon: number
+  readonly toUid: number
 }
 
 export interface ContextMenu {
@@ -76,8 +81,9 @@ export function midHandles(d: Draft): readonly MidHandle[] {
   for (const it of d.items) {
     if (hasPosition(it)) {
       if (prev && lastUid !== null) {
-        const m = midpoint(prev, it)
-        out.push({ afterUid: lastUid, lat: m.lat, lon: m.lon })
+        // on the arc for an ARC_WAYPOINT, so the handle sits on the drawn path
+        const m = isArc(it) ? arcPoints(prev, it, it.params[0], 2)[1]! : midpoint(prev, it)
+        out.push({ afterUid: lastUid, lat: m.lat, lon: m.lon, fromLat: prev.lat, fromLon: prev.lon, toUid: it.uid })
       }
       prev = { uid: it.uid, lat: it.lat, lon: it.lon }
     }

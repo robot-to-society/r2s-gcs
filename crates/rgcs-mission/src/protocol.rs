@@ -45,7 +45,7 @@ fn for_us(gcs: u8, target_system: u8, mission_type: MavMissionType) -> bool {
 pub fn cmd_has_location(command: u16) -> bool {
     matches!(
         command,
-        16..=22 | 30 | 31 | 82 | 84 | 85 | 92 | 94 | 179 | 189 | 191 | 195 | 201 | 210 | 211
+        16..=22 | 30 | 31 | 36 | 82 | 84 | 85 | 92 | 94 | 179 | 189 | 191 | 195 | 201 | 210 | 211
     )
 }
 
@@ -434,6 +434,23 @@ impl Download {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn arc_waypoint_carries_its_location_and_angle() {
+        // MAV_CMD_NAV_ARC_WAYPOINT (36, Copter 4.7+): lat / lon must go out ×1e7 like a waypoint
+        let it = MissionItem {
+            command: 36,
+            frame: rgcs_core::MissionFrame::Rel,
+            params: [90.0, 0.0, 0.0, 0.0],
+            lat: 36.2509,
+            lon: 137.6385,
+            alt: 50.0,
+            autocontinue: true,
+        };
+        let w = item_to_int(1, 1, 1, &it, false).expect("known command");
+        assert_eq!((w.x, w.y, w.param1), (362_509_000, 1_376_385_000, 90.0));
+        assert!((from_wire_xy(36, w.x) - 36.2509).abs() < 1e-9);
+    }
     use mavlink::dialects::ardupilotmega::*;
     use rgcs_core::{demo20, Mission, MissionFrame, MissionItem};
 

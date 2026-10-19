@@ -26,6 +26,11 @@ describe('map editing helpers', () => {
     const withDo = setCommand(appendWaypoint(d, 36.4, 139.4), 3, 'DO_CHANGE_SPEED')
     expect(midHandles(withDo).map((h) => h.afterUid)).toEqual([1, 3])
     expect(midHandles(emptyDraft())).toEqual([])
+    // each handle knows its leg: from the previous position to the leg's end item
+    expect(hs.map((h) => [h.fromLat, h.toUid])).toEqual([
+      [36.1, 2],
+      [36.2, 3],
+    ])
   })
 
   it('drag_delta_is_the_difference_of_lat_lon', () => {

@@ -95,6 +95,10 @@ class FakeMap {
     this.visibility.set(id, v)
   }
   triggerRepaint() {}
+  /** 1e-4° per px from (139, 36): enough to aim the arc gesture. */
+  unproject(p: [number, number]) {
+    return { lng: 139 + p[0] * 1e-4, lat: 36 - p[1] * 1e-4 }
+  }
   getContainer() {
     return { clientWidth: 800, clientHeight: 600 }
   }
@@ -144,6 +148,7 @@ function renderMap(over: Partial<React.ComponentProps<typeof MissionMap>> = {}) 
     onMoveSelected: vi.fn(),
     onShiftAlt: vi.fn(),
     onBoxSelect: vi.fn(),
+    onArc: vi.fn(),
     onSelect: vi.fn(),
     onBackgroundClick: vi.fn(),
     onContext: vi.fn(),
@@ -479,5 +484,44 @@ describe('MissionMap', () => {
     expect(down.defaultPrevented).toBe(false)
     window.dispatchEvent(new MouseEvent('mouseup', { clientX: 250, clientY: 150 }))
     expect(props.onBoxSelect).not.toHaveBeenCalled()
+  })
+
+  describe('the + between two waypoints', () => {
+    const pdown = (el: HTMLElement, x: number, y: number) => el.dispatchEvent(Object.assign(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y }), { pointerId: 1 }))
+    const pmove = (x: number, y: number) => window.dispatchEvent(Object.assign(new MouseEvent('pointermove', { clientX: x, clientY: y }), { pointerId: 1 }))
+    const pup = (x: number, y: number) => window.dispatchEvent(Object.assign(new MouseEvent('pointerup', { clientX: x, clientY: y }), { pointerId: 1 }))
+    it('a short click still inserts a waypoint', () => {
+      const { props } = renderMap()
+      const h = handles()[0]!.el
+      act(() => {
+        pdown(h, 10, 10)
+        pup(10, 10)
+        h.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+      expect(props.onInsertAfter).toHaveBeenCalledTimes(1)
+      expect(props.onArc).not.toHaveBeenCalled()
+    })
+    it('a long press then drag bends the leg into an arc through the pointer (no insert)', () => {
+      vi.useFakeTimers()
+      // leg 2 → 3 runs north-east from (139.2, 36.2) to (139.3, 36.3); its + is at (139.25, 36.25)
+      const { props } = renderMap({ draft: appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3) })
+      const h = handles()[1]!.el
+      document.body.append(h) // MapLibre puts markers in the page; the fake does not
+      act(() => pdown(h, 2500, -2500))
+      act(() => vi.advanceTimersByTime(600))
+      expect(h.classList.contains('arc-armed')).toBe(true)
+      // pointer at (139.24, 36.26): to the left (north-west) of the north-east chord → clockwise (+)
+      act(() => pmove(2400, -2600))
+      act(() => {
+        pup(2400, -2600)
+        h.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+      vi.useRealTimers()
+      expect(props.onArc).toHaveBeenCalledTimes(1)
+      const [uid, angle] = (props.onArc as ReturnType<typeof vi.fn>).mock.calls[0]!
+      expect(uid).toBe(3)
+      expect(angle).toBeGreaterThan(0)
+      expect(props.onInsertAfter).not.toHaveBeenCalled()
+    })
   })
 })

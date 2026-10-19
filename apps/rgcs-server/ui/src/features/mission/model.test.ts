@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendWaypoint, emptyDraft, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, shiftAlts, setCommand, toMission, updateItem } from './model'
+import { appendWaypoint, emptyDraft, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, setArc, shiftAlts, setCommand, toMission, updateItem } from './model'
 
 describe('mission draft model', () => {
   it('first_point_is_takeoff_then_waypoints', () => {
@@ -92,5 +92,19 @@ describe('takeoff at the vehicle', () => {
     expect(d.nextUid).toBe(3)
     const d2 = appendWaypoint(d, 36.27, 137.65, { lat: 36.2509, lon: 137.6385 })
     expect(d2.items.map((i) => i.command)).toEqual([22, 16, 16])
+  })
+})
+
+describe('setArc', () => {
+  const d = appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
+  it('turns a waypoint into an ARC_WAYPOINT with the angle in param1, and back to a waypoint at 0°', () => {
+    const arc = setArc(d, 2, 75)
+    expect(arc.items[1]).toMatchObject({ command: 36, params: [75, 0, 0, 0], lat: 36.2, lon: 139.2 })
+    expect(arc.items[0]).toBe(d.items[0])
+    expect(setArc(arc, 2, -120).items[1]!.params[0]).toBe(-120)
+    expect(setArc(arc, 2, 0).items[1]).toMatchObject({ command: 16, params: [0, 0, 0, 0] })
+  })
+  it('leaves other commands (TAKEOFF, LAND …) alone', () => {
+    expect(setArc(d, 1, 90)).toBe(d)
   })
 })
