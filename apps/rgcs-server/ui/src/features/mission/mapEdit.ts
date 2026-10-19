@@ -87,3 +87,9 @@ export function midHandles(d: Draft): readonly MidHandle[] {
 }
 
 export const dragDelta = (start: LatLon, now: LatLon): { dLat: number; dLon: number } => ({ dLat: now.lat - start.lat, dLon: now.lon - start.lon })
+
+/** The altitude after dragging `dyPx` down the screen (negative = up), in whole metres. */
+export function altFromDrag(startAlt: number, dyPx: number, pxPerMetre: number | null): number {
+  if (pxPerMetre === null || !(Math.abs(pxPerMetre) > 1e-6)) return startAlt
+  return Math.round(startAlt - dyPx / pxPerMetre)
+}

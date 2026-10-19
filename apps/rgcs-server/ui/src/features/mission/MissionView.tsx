@@ -14,7 +14,7 @@ import { canRedo, canUndo } from './history'
 import { km, mmss } from './labels'
 import type { ContextMenu as Menu } from './mapEdit'
 import { useMissionIo } from './useMissionIo'
-import { appendWaypoint, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, removeItems, reorder, reverseItems, setAltBulk, setCommand, setMeta, updateItem, type Draft } from './model'
+import { appendWaypoint, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, removeItems, reorder, reverseItems, setAltBulk, setCommand, setMeta, shiftAlts, updateItem, type Draft } from './model'
 import { MissionStore, clearSelection, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
 import { localWarnings, stats } from './summary'
 import { BasemapPicker } from '../map/BasemapPicker'
@@ -99,6 +99,7 @@ export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onP
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}
         onMove={(uid, lat, lon) => change((d) => moveItem(d, uid, lat, lon))}
         onMoveSelected={(dLat, dLon) => change((d) => moveItems(d, ui.selected, dLat, dLon))}
+        onShiftAlt={(uids, dAlt) => change((d) => shiftAlts(d, uids, dAlt))}
         onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))}
         onBackgroundClick={() => store.update(clearSelection)}
         onContext={setMenu}
@@ -124,7 +125,7 @@ export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onP
             </button>
           </div>
           <div className="help-grid">
-            {([1, 2, 3, 4, 5, 6, 7] as const).map((n) => (
+            {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map((n) => (
               <HelpRow key={n} k={dict[`mHelp${n}k` as keyof Dict]} v={dict[`mHelp${n}v` as keyof Dict]} />
             ))}
           </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendWaypoint, emptyDraft, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, setCommand, toMission, updateItem } from './model'
+import { appendWaypoint, emptyDraft, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, shiftAlts, setCommand, toMission, updateItem } from './model'
 
 describe('mission draft model', () => {
   it('first_point_is_takeoff_then_waypoints', () => {
@@ -58,5 +58,15 @@ describe('mission draft model', () => {
     const again = fromMission({ ...m, id: 7 })
     expect(again.items.map((i) => i.uid)).toEqual([1, 2, 3])
     expect(again.mission.id).toBe(7)
+  })
+})
+
+describe('shiftAlts', () => {
+  it('adds the same metres to the given items only, keeping their frames', () => {
+    const d = appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
+    const s = shiftAlts(d, new Set([2, 3]), 25)
+    expect(s.items.map((i) => i.alt)).toEqual([50, 75, 75])
+    expect(s.items[0]).toBe(d.items[0])
+    expect(d.items[1]!.alt).toBe(50)
   })
 })

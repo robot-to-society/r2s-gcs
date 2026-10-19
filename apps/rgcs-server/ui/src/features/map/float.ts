@@ -23,6 +23,13 @@ export function projectToScreen(m: Mat, size: Size, p: { x: number; y: number; z
   return { x: ((cx / cw + 1) / 2) * size.w, y: ((1 - cy / cw) / 2) * size.h }
 }
 
+/** Screen pixels one metre of altitude lifts a point by (perspective-correct at `amsl`). */
+export function pixelsPerMetre(m: Mat, size: Size, lon: number, lat: number, amsl: number): number | null {
+  const a = projectToScreen(m, size, toMercator(lon, lat, amsl))
+  const b = projectToScreen(m, size, toMercator(lon, lat, amsl + 10))
+  return a && b ? (a.y - b.y) / 10 : null
+}
+
 export function floatOffset(m: Mat, size: Size, merc: { x: number; y: number; z: number }, ground: Pt): [number, number] {
   const p = projectToScreen(m, size, merc)
   return p ? [p.x - ground.x, p.y - ground.y] : [0, 0]

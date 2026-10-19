@@ -54,6 +54,10 @@ describe('climbColor', () => {
     expect(climbColor(100, 100)).toEqual(RED)
     expect(climbColor(300, 100)).toEqual(RED)
   })
+  it('passes through mint (not grey) on a gentle climb', () => {
+    const c = climbColor(Math.tan(Math.PI / 16) * 100, 100)
+    c.forEach((x, i) => expect(x).toBeCloseTo([0x8f / 255, 0xe3 / 255, 0xa6 / 255][i]!, 9))
+  })
   it('passes amber half way and turns red for a vertical climb', () => {
     climbColor(Math.tan(Math.PI / 8) * 100, 100).forEach((c, i) => expect(c).toBeCloseTo(AMBER[i]!, 9))
     expect(climbColor(10, 0)).toEqual(RED)

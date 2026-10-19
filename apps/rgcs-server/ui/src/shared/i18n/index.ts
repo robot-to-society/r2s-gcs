@@ -1,6 +1,7 @@
 import { logbookEn, logbookJa } from './logbook'
 import { opsToolsEn, opsToolsJa } from './opsTools'
 import { p9En, p9Ja } from './p9'
+import { edit3dEn, edit3dJa } from './edit3d'
 
 export type Lang = 'ja' | 'en'
 
@@ -386,7 +387,7 @@ const baseJa = {
   cmd_param_write: 'パラメータ書込',
 } as const
 
-const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja } as const
+const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa } as const
 
 const baseEn: Record<keyof typeof baseJa, string> = {
   vehicles: 'Vehicles',
@@ -770,7 +771,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   cmd_param_write: 'Parameter write',
 }
 
-const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En }
+const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn }
 
 export type Dict = Record<keyof typeof ja, string>
 

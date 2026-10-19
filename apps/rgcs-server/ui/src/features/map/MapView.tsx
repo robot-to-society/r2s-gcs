@@ -5,7 +5,7 @@ import type { Basemap, CameraSnapshot, Mission, VehicleState } from '../../share
 import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
 import { followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
-import type { MapMode } from './mapMode'
+import { KEEP_ELEVATION, type MapMode } from './mapMode'
 import { useVehicleAir } from './vehicleAir'
 import { MODE_EASE_MS } from './air3d'
 import { courseGeoJson, metresPerPixel } from './course'
@@ -232,7 +232,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     // A new follow always centres; after that, sub-pixel GPS noise is ignored (dead band).
     const fresh = followed.current !== follow
     followed.current = follow
-    if (fresh || needsRecenter(m.project(m.getCenter()), m.project(center))) m.easeTo({ center, duration: 200 })
+    if (fresh || needsRecenter(m.project(m.getCenter()), m.project(center))) m.easeTo({ center, duration: 200, ...KEEP_ELEVATION })
   }, [vehicles, follow])
 
   const focused = useRef(0)
@@ -242,7 +242,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     const v = vehicles.get(focus.sysid)
     if (!v || !hasPosition(v)) return
     focused.current = focus.n
-    m.easeTo({ center: [v.lon, v.lat], duration: 600 })
+    m.easeTo({ center: [v.lon, v.lat], duration: 600, ...KEEP_ELEVATION })
   }, [focus, vehicles])
 
   useEffect(() => {

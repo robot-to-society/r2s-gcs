@@ -169,7 +169,7 @@ describe('MapView', () => {
     )
     const map = created.maps[0]!
     expect(map.padding).toEqual(pad)
-    expect(map.eased.at(-1)).toMatchObject({ center: [139.37, 36.16], duration: 200 })
+    expect(map.eased.at(-1)).toMatchObject({ center: [139.37, 36.16], duration: 200, freezeElevation: true })
     const moved = new Map([[1, v(1, 3, 139.38, 36.17)]])
     const pad2 = { ...pad, right: 396 }
     rerender(
@@ -333,7 +333,7 @@ describe('MapView', () => {
     const m = created.maps.at(-1)!
     const before = m.eased.length
     rerender(<MapView {...props} focus={{ sysid: 2, n: 1 }} />)
-    expect(m.eased.at(-1)).toMatchObject({ center: [139.39, 36.17] })
+    expect(m.eased.at(-1)).toMatchObject({ center: [139.39, 36.17], freezeElevation: true })
     rerender(<MapView {...props} focus={{ sysid: 2, n: 1 }} vehicles={new Map([[2, v(2, 3, 139.4, 36.2)]])} />)
     expect(m.eased.length).toBe(before + 1)
   })

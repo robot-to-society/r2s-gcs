@@ -32,6 +32,8 @@ export interface Air3d {
   readonly floats: { current: readonly Floating[] }
   /** When the last 2D / 3D camera animation started (ms); camera moves should not cut it short. */
   readonly modeSwitchAt: { readonly current: number }
+  /** The last 3D frame's matrix (`null` before the first one): screen maths for drags. */
+  readonly matrix: { readonly current: ArrayLike<number> | null }
 }
 
 /** The 2D / 3D camera animation (applyMapMode) plus a margin. */
@@ -44,6 +46,7 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
   const layer = useRef(new AirPathLayer(layerId)).current
   const floats = useRef<readonly Floating[]>([])
   const modeSwitchAt = useRef(0)
+  const matrix = useRef<ArrayLike<number> | null>(null)
   const setupRef = useRef({ setup, order })
   setupRef.current = { setup, order }
   const modeRef = useRef(modeLayers)
@@ -58,7 +61,10 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
       setupRef.current.setup(m)
       m.addLayer(layer)
       setupRef.current.order?.(m)
-      layer.onFrame = (matrix) => floatMarkers(m, matrix, floats.current)
+      layer.onFrame = (mx) => {
+        matrix.current = mx
+        floatMarkers(m, mx, floats.current)
+      }
       setReady(true)
     }
     if (loaded.current) go()
@@ -74,5 +80,5 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
     if (!is3d) floatMarkers(m, null, floats.current)
   }, [map, ready, is3d, layer])
 
-  return { sampler, ready, is3d, tick, layer, floats, modeSwitchAt }
+  return { sampler, ready, is3d, tick, layer, floats, modeSwitchAt, matrix }
 }

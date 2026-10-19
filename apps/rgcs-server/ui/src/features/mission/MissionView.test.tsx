@@ -45,6 +45,15 @@ describe('MissionView', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
+  it('help_lists_the_3d_altitude_and_position_drags_and_the_path_colours', () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: 'マップ操作ガイド' }))
+    const panel = screen.getByRole('dialog', { name: 'マップ操作ガイド' })
+    expect(panel.textContent).toContain('高度だけを変更')
+    expect(panel.textContent).toContain('位置だけを変更')
+    expect(panel.textContent).toContain('急上昇ほど赤')
+  })
+
   it('adding_three_points_lists_takeoff_then_two_waypoints', () => {
     setup()
     addPoints(3)

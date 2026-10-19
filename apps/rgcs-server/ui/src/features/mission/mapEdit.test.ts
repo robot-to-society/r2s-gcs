@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl } from './mapEdit'
+import { altFromDrag, badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl } from './mapEdit'
 import { appendWaypoint, emptyDraft, setCommand } from './model'
 
 describe('map editing helpers', () => {
@@ -37,5 +37,16 @@ describe('map editing helpers', () => {
     expect(el.querySelector('.chips .chip.altc')?.textContent).toBe('▲ 80 m Rel')
     updateBadgeEl(el, 1, false, 'WAYPOINT', null)
     expect(el.querySelector('.chips')).toBeNull()
+  })
+})
+
+describe('altFromDrag', () => {
+  it('turns a vertical drag into whole metres (up is higher)', () => {
+    expect(altFromDrag(80, -50, 2)).toBe(105)
+    expect(altFromDrag(80, 31, 2)).toBe(65)
+  })
+  it('keeps the altitude when the scale is unknown or degenerate', () => {
+    expect(altFromDrag(80, -50, null)).toBe(80)
+    expect(altFromDrag(80, -50, 0)).toBe(80)
   })
 })

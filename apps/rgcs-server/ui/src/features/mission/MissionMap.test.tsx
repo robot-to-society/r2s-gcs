@@ -1,4 +1,5 @@
 import { act, render } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type Handler = (e?: unknown) => void
@@ -29,6 +30,10 @@ class FakeMarker {
     this.removed = true
   }
   offset: [number, number] | null = null
+  setDraggable(d: boolean) {
+    this.draggable = d
+    return this
+  }
   setOffset(o: [number, number]) {
     this.offset = o
     return this
@@ -79,6 +84,10 @@ class FakeMap {
   moveLayer() {}
   stop() {}
   easeTo() {}
+  jumps: unknown[] = []
+  jumpTo(o: unknown) {
+    this.jumps.push(o)
+  }
   setTerrain(t: unknown) {
     this.terrain = t
   }
@@ -95,8 +104,10 @@ class FakeMap {
   getSource(id: string) {
     return this.sources.get(id)
   }
-  fitBounds(b: unknown) {
+  fitOptions: unknown[] = []
+  fitBounds(b: unknown, o?: unknown) {
     this.fitted.push(b)
+    this.fitOptions.push(o)
   }
   getCanvas() {
     return document.createElement('canvas')
@@ -111,10 +122,12 @@ vi.mock('maplibre-gl', () => ({
 const { MissionMap } = await import('./MissionMap')
 const { appendWaypoint, emptyDraft } = await import('./model')
 const { rasterStyle } = await import('../map/style')
+const { toMercator } = await import('../map/air')
 
 const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
 const draft3 = () => appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
 const badges = () => created.markers.filter((m) => m.el.classList.contains('rg-wp') && !m.removed)
+const feet = () => created.markers.filter((m) => m.el.classList.contains('rg-foot') && !m.removed)
 const handles = () => created.markers.filter((m) => m.el.classList.contains('rg-mid') && !m.removed)
 
 function renderMap(over: Partial<React.ComponentProps<typeof MissionMap>> = {}) {
@@ -129,6 +142,7 @@ function renderMap(over: Partial<React.ComponentProps<typeof MissionMap>> = {}) 
     onInsertAfter: vi.fn(),
     onMove: vi.fn(),
     onMoveSelected: vi.fn(),
+    onShiftAlt: vi.fn(),
     onSelect: vi.fn(),
     onBackgroundClick: vi.fn(),
     onContext: vi.fn(),
@@ -218,6 +232,8 @@ describe('MissionMap', () => {
     expect(created.maps[0]!.fitted).toHaveLength(0)
     rerender(<MissionMap {...props} fitRequest={1} />)
     expect(created.maps[0]!.fitted).toHaveLength(1)
+    // MapLibre keeps the terrain elevation frozen after an animation unless it is told to freeze it
+    expect(created.maps[0]!.fitOptions[0]).toMatchObject({ freezeElevation: true })
   })
   it('3D adds the terrain, the altitude path layer and shows the ground footprint instead of the 2D path', () => {
     const { rerender, props } = renderMap({ terrainTiles: 'https://dem/{z}/{x}/{y}.png', mode: '2d' })
@@ -238,5 +254,106 @@ describe('MissionMap', () => {
     expect(handles()).toHaveLength(3)
     expect(handles().every((h) => h.offset !== null)).toBe(true)
     expect(badges().every((b) => b.offset !== null)).toBe(true)
+  })
+
+  const DEM = 'https://dem/{z}/{x}/{y}.png'
+  /** A frame where one metre of altitude at item 2 is 2 px up the 800×600 screen. */
+  const frame = () => {
+    const k = 2 / (300 * toMercator(139.2, 36.2, 1).z)
+    const layer = created.maps[0]!.layerObjs.get('mission-air3d') as { onFrame: (m: number[]) => void }
+    act(() => layer.onFrame([1, 0, 0, 0, 0, 1, 0, 0, 0, k, 1, 0, 0, 0, 0, 1]))
+  }
+  const altDrag = (el: HTMLElement, fromY: number, toY: number) => {
+    act(() => {
+      el.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientY: fromY, bubbles: true }))
+      window.dispatchEvent(new MouseEvent('pointermove', { clientY: toY }))
+    })
+  }
+  it('in 3D a badge drags up and down to change only the altitude, previewing the chip', () => {
+    const { props } = renderMap({ terrainTiles: DEM, mode: '3d' })
+    frame()
+    const b = badges()[1]!
+    expect(b.draggable).toBe(false)
+    altDrag(b.el, 300, 250)
+    expect(b.el.querySelector('.altc')!.textContent).toBe('▲ 75 m Rel')
+    act(() => {
+      window.dispatchEvent(new MouseEvent('pointerup', { clientY: 250 }))
+      b.el.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(props.onShiftAlt).toHaveBeenCalledWith(new Set([2]), 25)
+    expect(props.onSelect).not.toHaveBeenCalled()
+    expect(props.onMove).not.toHaveBeenCalled()
+    expect(b.el.querySelector('.altc')!.textContent).toBe('▲ 50 m Rel')
+  })
+  it('an altitude drag on a selected badge moves the whole selection; a plain click still selects', () => {
+    const { props } = renderMap({ terrainTiles: DEM, mode: '3d', selected: new Set([1, 2]) })
+    frame()
+    const b = badges()[1]!
+    altDrag(b.el, 300, 280)
+    act(() => window.dispatchEvent(new MouseEvent('pointerup', { clientY: 280 })))
+    expect(props.onShiftAlt).toHaveBeenCalledWith(new Set([1, 2]), 10)
+    act(() => {
+      b.el.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientY: 300, bubbles: true }))
+      window.dispatchEvent(new MouseEvent('pointerup', { clientY: 301 }))
+      b.el.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(props.onShiftAlt).toHaveBeenCalledTimes(1)
+    expect(props.onSelect).toHaveBeenCalledWith(2, false, false)
+  })
+  it('in 3D the ground foot drags to change only the position; 2D has no feet', () => {
+    const { props, rerender } = renderMap({ terrainTiles: DEM, mode: '3d' })
+    expect(feet()).toHaveLength(3)
+    expect(feet().every((f) => f.draggable)).toBe(true)
+    const f = feet()[1]!
+    act(() => {
+      f.fire('dragstart')
+      f.setLngLat([139.25, 36.25])
+      f.fire('drag')
+    })
+    expect(badges()[1]!.lngLat).toEqual([139.25, 36.25])
+    act(() => f.fire('dragend'))
+    expect(props.onMove).toHaveBeenCalledWith(2, 36.25, 139.25)
+    expect(props.onShiftAlt).not.toHaveBeenCalled()
+    act(() => f.el.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })))
+    expect(props.onSelect).toHaveBeenCalledWith(2, true, false)
+    rerender(<MissionMap {...props} terrainTiles={DEM} mode="2d" />)
+    expect(feet()).toHaveLength(0)
+    expect(badges().every((b) => b.draggable)).toBe(true)
+  })
+
+  const uav = { sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'STABILIZE', armed: false, lat: 36.2509, lon: 137.6385, alt_rel: 0, alt_msl: 1505, hdg: 0, ground_speed: 0, climb: 0, battery: { pct: 90, volt: 16, current: null }, link: 'ok', last_rx_ms: 0, gps: { fix: 3, sats: 10, hdop: 1 }, warn: false, unread: 0 } as never
+  it('an empty mission opens over the vehicle (once); a mission with items keeps its view', () => {
+    const { props, rerender } = renderMap({ draft: emptyDraft(), vehicle: null })
+    const m = created.maps[0]!
+    expect(m.jumps).toHaveLength(0)
+    rerender(<MissionMap {...props} vehicle={uav} />)
+    expect(m.jumps).toEqual([{ center: [137.6385, 36.2509] }])
+    rerender(<MissionMap {...props} vehicle={{ ...(uav as object), lat: 36.26 } as never} />)
+    expect(m.jumps).toHaveLength(1)
+    created.maps = []
+    renderMap({ vehicle: uav })
+    expect(created.maps[0]!.jumps).toHaveLength(0)
+  })
+
+  it('opens over the vehicle under StrictMode too (the first map is thrown away)', () => {
+    const { props } = renderMap({ draft: emptyDraft(), vehicle: null })
+    created.maps = []
+    render(
+      <StrictMode>
+        <MissionMap {...props} vehicle={uav} />
+      </StrictMode>,
+    )
+    expect(created.maps.at(-1)!.jumps).toEqual([{ center: [137.6385, 36.2509] }])
+  })
+
+  it('keeps its feet under StrictMode when it mounts in 3D', () => {
+    const { props } = renderMap()
+    created.markers = []
+    render(
+      <StrictMode>
+        <MissionMap {...props} terrainTiles={DEM} mode="3d" />
+      </StrictMode>,
+    )
+    expect(feet()).toHaveLength(3)
   })
 })

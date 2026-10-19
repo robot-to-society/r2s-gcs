@@ -95,6 +95,10 @@ export function moveItems(d: Draft, uids: ReadonlySet<number>, dLat: number, dLo
   return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, lat: it.lat + dLat, lon: it.lon + dLon } : it)) }
 }
 
+export function shiftAlts(d: Draft, uids: ReadonlySet<number>, dAlt: number): Draft {
+  return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt: it.alt + dAlt } : it)) }
+}
+
 export function reorder(d: Draft, uid: number, dir: -1 | 1): Draft {
   const idx = d.items.findIndex((it) => it.uid === uid)
   const to = idx + dir

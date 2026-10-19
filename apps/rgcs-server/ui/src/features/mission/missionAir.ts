@@ -1,11 +1,12 @@
 // 3D mission path (prototype updateMissionAir): one altitude polyline per leg coloured by
 // its climb angle (steep climbs turn red), a post per positioned item (amber when selected), ground discs, and the altitude of
 // every badge and mid-leg handle so the DOM markers can float to it.
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import type { FeatureCollection, Point } from 'geojson'
 import type { Map as MlMap, Marker } from 'maplibre-gl'
 import { climbColor, itemAmsl, mercatorLine, type AirPoint, type AirVertex, type ElevAt, type Rgb } from '../map/air'
 import { useAir3d } from '../map/air3d'
+import { pixelsPerMetre } from '../map/float'
 import type { MapMode } from '../map/mapMode'
 import { haversineM, hasPosition, type LatLon } from './geo'
 import type { Draft, DraftItem } from './model'
@@ -114,13 +115,20 @@ function setup(m: MlMap): void {
   })
 }
 
-/** Returns whether 3D is on (the badges show their altitude chip). */
-export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles }: Args): boolean {
-  const { sampler, ready, is3d, tick, layer, floats } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
+export interface MissionAir3d {
+  readonly is3d: boolean
+  /** Screen pixels per metre of altitude at an item in the last 3D frame, `null` before one. */
+  readonly pxPerMetre: (uid: number) => number | null
+}
+
+export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles }: Args): MissionAir3d {
+  const { sampler, ready, is3d, tick, layer, floats, matrix } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
+  const latest = useRef({ draft, alts: new Map<number, number | null>() as ReadonlyMap<number, number | null> })
   useEffect(() => {
     const m = map.current
     if (!m || !ready || !sampler || !is3d) return
     const d = missionAirData(draft, selected, sampler.elevAt)
+    latest.current = { draft, alts: d.alts }
     const byUid = new Map(draft.items.map((it) => [it.uid, it]))
     const badgeFloats = [...badges.current.entries()].flatMap(([uid, { marker }]) => {
       const it = byUid.get(uid)
@@ -135,5 +143,14 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
   }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats])
-  return is3d
+
+  const pxPerMetre = (uid: number): number | null => {
+    const m = map.current
+    const it = latest.current.draft.items.find((x) => x.uid === uid)
+    if (!m || !matrix.current || !it) return null
+    const el = m.getContainer()
+    // before its ground is known an item floats at 0 m: the scale barely depends on it
+    return pixelsPerMetre(matrix.current, { w: el.clientWidth, h: el.clientHeight }, it.lon, it.lat, latest.current.alts.get(uid) ?? 0)
+  }
+  return { is3d, pxPerMetre }
 }
