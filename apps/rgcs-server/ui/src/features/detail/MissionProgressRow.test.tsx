@@ -21,12 +21,13 @@ describe('MissionProgressRow', () => {
     expect(screen.getByTestId('mission-progress')).toHaveTextContent(/残り 1\.[45]\d km/)
   })
 
-  it('write_button_disabled_while_armed_and_start_needs_a_known_mission', () => {
+  it('write_works_in_flight_and_start_needs_a_known_mission', () => {
     const onWrite = vi.fn()
     const onStart = vi.fn()
     const { rerender } = render(<MissionProgressRow progress={null} mission={null} vehicle={v(true)} dict={t('ja')} onWrite={onWrite} onStart={onStart} />)
     expect(screen.getByTestId('mission-progress')).toHaveTextContent('—')
-    expect(screen.getByRole('button', { name: 'ミッション書込' })).toBeDisabled()
+    // ArduPilot takes a new mission while armed
+    expect(screen.getByRole('button', { name: 'ミッション書込' })).toBeEnabled()
     expect(screen.queryByRole('button', { name: '開始' })).not.toBeInTheDocument()
     rerender(<MissionProgressRow progress={null} mission={mission} vehicle={v(false)} dict={t('ja')} onWrite={onWrite} onStart={onStart} />)
     fireEvent.click(screen.getByRole('button', { name: 'ミッション書込' }))

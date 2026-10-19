@@ -47,7 +47,7 @@
 ### 2.2.1 ミッション(P3、2026-10-17 追補 §5.2 / §5.9)
 | メソッド | パス | 本文 / 応答 |
 |---|---|---|
-| PUT | `/api/vehicles/{sysid}/mission` | `Mission` → `UploadReport{items, verified, mismatched[], findings[]}`。書込 → 読込 → 一致検証。`409 vehicle_armed` / `409 mission_busy` / `409 mission_invalid`(`data.findings` に致命) / `409 mission_rejected`(MISSION_ACK) / `503 link_lost` / `504 mission_timeout`(1.5 s × 3 回)。監査 target `mission` |
+| PUT | `/api/vehicles/{sysid}/mission` | `Mission` → `UploadReport{items, verified, mismatched[], findings[]}`。書込 → 読込 → 一致検証。`409 mission_busy` / `409 mission_invalid`(`data.findings` に致命) / `409 mission_rejected`(MISSION_ACK) / `503 link_lost` / `504 mission_timeout`(1.5 s × 3 回)。監査 target `mission` |
 | POST | `/api/vehicles/{sysid}/mission/upload` | `{mission_id}` → 保存済みミッションを同じ手順で書込 |
 | GET | `/api/vehicles/{sysid}/mission` | 機体から読込 → `Mission`(`sysid` 入り) |
 | GET | `/api/vehicles/{sysid}/mission/progress` | → `MissionProgress{seq, total}` または `null`(`total` = 項目数) |

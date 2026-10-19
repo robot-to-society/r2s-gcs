@@ -122,26 +122,10 @@ async fn component_of(app: &AppState, sysid: SysId) -> u8 {
 }
 
 async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) -> Response {
-    let vehicle = match vehicle_for_write(app, sysid).await {
-        Ok(v) => v,
-        Err(r) => return *r,
-    };
-    if vehicle.armed {
-        audit(
-            app,
-            op,
-            sysid,
-            "upload",
-            mission,
-            "rejected",
-            Some("vehicle_armed"),
-        )
-        .await;
-        return err(
-            StatusCode::CONFLICT,
-            "vehicle_armed",
-            "disarm before writing a mission",
-        );
+    // ArduPilot accepts a mission while armed (a flying vehicle picks up the new one); only the
+    // link and the transfer lock gate a write.
+    if let Err(r) = vehicle_for_write(app, sysid).await {
+        return *r;
     }
     // Structural problems are refused before anything goes to the link (Review Focus 4); the
     // fence check then waits briefly for parameters that may still be in flight.

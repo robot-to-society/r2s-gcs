@@ -25,7 +25,7 @@ export function MissionProgressRow({ progress, mission, vehicle, dict, onWrite, 
         {remaining !== null && ` · ${dict.mRemaining} ${km(remaining)}`}
       </span>
       <span className="grow" />
-      <button type="button" className="btn btn-ghost btn-sm" disabled={vehicle.armed} onClick={onWrite}>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onWrite}>
         {dict.mWriteMission}
       </button>
       {mission && (

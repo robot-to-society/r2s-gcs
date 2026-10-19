@@ -116,14 +116,15 @@ async fn timeout_releases_the_transaction() {
 }
 
 #[tokio::test]
-async fn armed_vehicle_refuses_upload_without_sending_frames() {
-    let (app, state, mut rx) = spawn_app_with_link().await;
+async fn armed_vehicle_accepts_an_upload_in_flight() {
+    // ArduPilot takes a new mission while flying (user request 2026-10-19)
+    let (app, state, rx) = spawn_app_with_link().await;
     seed_vehicle(&state, 1, true, false).await;
     let cookie = login(&app).await;
+    let _fake = fake_vehicle_mission(rx, state.missions.clone(), 1, stored(), FakeMode::Normal);
     let (status, body) = put_mission(&app, &cookie, &demo20()).await;
-    assert_eq!(status, StatusCode::CONFLICT, "{body}");
-    assert_eq!(error_code(&body), "vehicle_armed");
-    assert!(rx.try_recv().is_err(), "nothing was sent to the link");
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["verified"], true);
 }
 
 #[tokio::test]
