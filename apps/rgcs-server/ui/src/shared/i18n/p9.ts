@@ -7,6 +7,7 @@ export const p9Ja = {
   fromHome: 'ホームから',
   holdToRun: '長押しで実行',
   quickModes: 'クイックモード',
+  emergency: '緊急操作',
 } as const
 
 export const p9En: Record<keyof typeof p9Ja, string> = {
@@ -16,4 +17,5 @@ export const p9En: Record<keyof typeof p9Ja, string> = {
   fromHome: 'From home',
   holdToRun: 'Hold to run',
   quickModes: 'Quick modes',
+  emergency: 'Emergency',
 }

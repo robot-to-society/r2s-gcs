@@ -1,9 +1,11 @@
-import type { CameraCommand, CameraSnapshot, Mission, MissionProgress, LogEntry, SysId, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CameraCommand, CameraSnapshot, Mission, MissionProgress, LogEntry, SysId, VehicleCommand, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { BtnState } from '../commands'
 import { CameraStatusRow, CameraStrip, VideoThumb } from '../camera'
 import type { Dict } from '../../shared/i18n'
 import { IconClock, IconClose, IconGrid, IconPin, IconWrench } from '../../shared/ui/icons'
 import { battWidth, dotClass } from '../vehicles/format'
 import { DetailMessages } from './DetailMessages'
+import { EmergencyRow } from './EmergencyRow'
 import { MissionProgressRow } from './MissionProgressRow'
 
 interface Props {
@@ -26,6 +28,9 @@ interface Props {
   readonly onWriteMission?: () => void
   readonly onStartMission?: () => void
   readonly commandsOpen?: boolean
+  /** Emergency buttons (pause / RTL / land) send through the shared command runner. */
+  readonly onCommand?: (command: VehicleCommand) => void
+  readonly feedback?: (cmd: string) => BtnState | null
 }
 
 const NONE_CAPS: CameraSnapshot['caps'] = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: null }
@@ -85,6 +90,7 @@ export function DetailPanel(p: Props) {
             </span>
           </span>
         </div>
+        {p.onCommand && <EmergencyRow vehicle={v} dict={dict} onCommand={p.onCommand} feedback={p.feedback} />}
         {p.onWriteMission && (
           <MissionProgressRow progress={p.missionProgress ?? null} mission={p.vehicleMission ?? null} vehicle={v} dict={dict} onWrite={p.onWriteMission} onStart={() => p.onStartMission?.()} />
         )}

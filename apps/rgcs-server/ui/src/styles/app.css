@@ -191,3 +191,11 @@
 .quick-modes .chip.on { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent); }
 .cmd-param .step { min-width: 40px; padding: 0 6px; }
 .cmd-prearm { grid-column: 1 / -1; margin: 0; padding: 6px 10px; list-style: none; border-radius: var(--r-ctl); border: 1px solid var(--caution-line); color: var(--caution); font-size: 12px; line-height: 1.5; }
+.emerg-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 0; }
+.emerg-btn { display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border-radius: var(--r-ctl); border: 1px solid var(--line-hi); background: rgba(255, 255, 255, 0.04); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; }
+.emerg-btn.primary { border-color: var(--caution-line); color: var(--caution); }
+.emerg-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.emerg-btn.stale { opacity: 0.6; border-style: dashed; }
+.emerg-btn.sending { border-color: var(--accent-line); }
+.emerg-btn.ok { border-color: var(--ok); }
+.emerg-btn.fail { border-color: var(--danger); }

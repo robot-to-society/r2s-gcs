@@ -267,6 +267,8 @@ export function Shell({ me, lang }: Props) {
               onWriteMission={() => setModal({ kind: 'mission-pick', sysid: detail.sysid })}
               onStartMission={() => setModal({ kind: 'confirm', sysid: detail.sysid, command: { cmd: 'mission_start' } })}
               commandsOpen={commandsOpen}
+              onCommand={(command) => runner.pick(detail.sysid, command)}
+              feedback={(cmd) => runner.feedback(detail.sysid, cmd)}
             />
           )}
           {commandsOpen && view === 'ops' && currentVehicle && (
