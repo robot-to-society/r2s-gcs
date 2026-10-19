@@ -221,7 +221,28 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   }, [top, right, bottom, left])
 
   useBasemapSwap(map, loaded, basemap)
-  const modeSwitchAt = useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base: ARROW_OFFSET })
+  // Mission overlay: route line + small numbered badges, the current one highlighted (addendum §5.2).
+  useEffect(() => {
+    const m = map.current
+    if (!m) return
+    if (loaded.current) {
+      const src = m.getSource(MISSION) as { setData: (d: unknown) => void } | undefined
+      src?.setData(mission ? pathGeoJson(mission.items, mission.home) : EMPTY)
+    }
+    missionBadges.current.forEach((b) => b.remove())
+    missionBadges.current = []
+    if (!mission) return
+    mission.items.forEach((it, i) => {
+      if (!itemHasPosition(it)) return
+      const el = document.createElement('div')
+      el.className = `wp-mk small${i + 1 === missionCurrent ? ' current' : ''}`
+      el.textContent = String(i + 1)
+      missionBadges.current.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m))
+    })
+  }, [mission, missionCurrent])
+
+  // After the vehicle markers and the mission badges exist: effects run in declaration order.
+  const modeSwitchAt = useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base: ARROW_OFFSET, mission, missionBadges })
   const [zoom, setZoom] = useState(14)
   const followed = useRef<number | null>(null)
   useEffect(() => {
@@ -293,25 +314,6 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     }
   }, [target])
 
-  // Mission overlay: route line + small numbered badges, the current one highlighted (addendum §5.2).
-  useEffect(() => {
-    const m = map.current
-    if (!m) return
-    if (loaded.current) {
-      const src = m.getSource(MISSION) as { setData: (d: unknown) => void } | undefined
-      src?.setData(mission ? pathGeoJson(mission.items, mission.home) : EMPTY)
-    }
-    missionBadges.current.forEach((b) => b.remove())
-    missionBadges.current = []
-    if (!mission) return
-    mission.items.forEach((it, i) => {
-      if (!itemHasPosition(it)) return
-      const el = document.createElement('div')
-      el.className = `wp-mk small${i + 1 === missionCurrent ? ' current' : ''}`
-      el.textContent = String(i + 1)
-      missionBadges.current.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m))
-    })
-  }, [mission, missionCurrent])
 
   return <div ref={container} className="map" data-testid="map" />
 }

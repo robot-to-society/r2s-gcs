@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
+import { toMercator } from './air'
 import { vehicleAirData } from './vehicleAir'
+import type { Mission } from '../../shared/api/types'
 
 const v = (sysid: number, alt_rel: number, lon = 139.37, lat = 36.16) => ({ sysid, lat, lon, alt_rel }) as unknown as VehicleState
 
@@ -25,5 +27,24 @@ describe('vehicleAirData', () => {
     const none = vehicleAirData(new Map([[2, v(2, 20)]]), null, new Map(), tracks, () => null)
     expect(none.alts.get(2)).toBeNull()
     expect(none.posts).toHaveLength(0)
+  })
+
+  it('draws each track in the air at home ground + its recorded altitude, amber for the selected vehicle', () => {
+    const tracks = new Map([[1, [[139.37, 36.16, 0, 0], [139.371, 36.16, 40, 1000]] as const]])
+    const d = vehicleAirData(new Map([[1, v(1, 40)]]), 1, homes, tracks, () => 100)
+    expect(d.lines).toHaveLength(1)
+    const [a, b] = d.lines[0]!
+    expect(a!.z).toBeCloseTo(toMercator(139.37, 36.16, 100).z, 12)
+    expect(b!.z).toBeCloseTo(toMercator(139.371, 36.16, 140).z, 12)
+    expect(a!.c).toEqual([0xf2 / 255, 0xb5 / 255, 0x44 / 255])
+  })
+  it('adds the mission like the planner: climb-coloured legs, posts and the altitude of each positioned item', () => {
+    const item = (command: number, lat: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon: 139.37, alt, autocontinue: true })
+    const mission = { id: null, name: 'm', sysid: 1, default_alt: 50, default_frame: 'rel', speed: 8, home: null, items: [item(22, 36.16, 50), item(16, 36.161, 50), item(178, 0, 0)] } as unknown as Mission
+    const d = vehicleAirData(new Map(), null, homes, new Map(), () => 100, mission)
+    expect(d.lines).toHaveLength(1) // one leg T → 2, level → cyan
+    expect(d.lines[0]![0]!.c).toEqual([0x9c / 255, 0xc9 / 255, 1])
+    expect(d.posts).toHaveLength(2)
+    expect(d.missionAlts).toEqual([150, 150])
   })
 })

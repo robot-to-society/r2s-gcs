@@ -19,6 +19,14 @@ class FakeMarker {
     this.lngLat = ll
     return this
   }
+  getLngLat() {
+    return { lng: this.lngLat?.[0] ?? 0, lat: this.lngLat?.[1] ?? 0 }
+  }
+  offset: [number, number] | null = null
+  setOffset(o: [number, number]) {
+    this.offset = o
+    return this
+  }
   map: FakeMap | null = null
   addTo(m: FakeMap) {
     this.map = m
@@ -391,5 +399,26 @@ describe('MapView', () => {
     const live = (pred: (m: (typeof created.markers)[number]) => boolean) => created.markers.filter((m) => pred(m) && m.live)
     expect(live((m) => m.el.className === 'rg-home')).toHaveLength(1)
     expect(live((m) => m.lngLat?.[0] === 139.38 && m.lngLat?.[1] === 36.17)).toHaveLength(1)
+  })
+
+  it('3D shows the mission like the planner (badges floated, 2D route and 2D tracks hidden), display only', () => {
+    const item = (command: number, lat: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon: 139.372, alt, autocontinue: true })
+    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, items: [item(22, 36.162, 30), item(16, 36.163, 60)] }
+    const props = { vehicles: new Map(), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {}, mission, missionCurrent: 2 }
+    const { rerender } = render(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" />)
+    const m = created.maps.at(-1)!
+    expect(m.visibility.get('mission-path-line')).toBe('none')
+    expect(m.visibility.get('tracks-others')).toBe('none')
+    expect(m.visibility.get('tracks-selected')).toBe('none')
+    // a new mission rebuilds the badges: they float too
+    rerender(<MapView {...props} mission={{ ...mission, items: [...mission.items, item(16, 36.164, 60)] }} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" />)
+    const layer = m.layerObjs.get('veh-air3d') as { onFrame: (mx: number[]) => void }
+    layer.onFrame([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
+    const badges = created.markers.filter((mk) => mk.el.classList.contains('wp-mk') && mk.live)
+    expect(badges).toHaveLength(3)
+    expect(badges.every((b) => b.offset !== null)).toBe(true)
+    expect(badges.every((b) => !b.opts.draggable)).toBe(true)
+    rerender(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="2d" />)
+    expect(m.visibility.get('mission-path-line')).toBe('visible')
   })
 })
