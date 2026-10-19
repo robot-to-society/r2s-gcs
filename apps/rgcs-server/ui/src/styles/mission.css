@@ -71,9 +71,10 @@
 .plan-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
 .plan-row.inc .plan-swatch { background: rgba(95, 211, 155, 0.35); border: 1.5px solid var(--ok); }
 .plan-row.exc .plan-swatch { background: var(--danger-tint); border: 1.5px solid var(--danger); }
-.plan-io { display: grid; gap: 8px; padding: 10px 12px 12px; font-size: 12px; }
+.plan-io { display: grid; gap: 8px; padding: 10px 12px 12px; font-size: 12px; min-width: 0; }
+.plan-io > * { min-width: 0; overflow-wrap: anywhere; }
 .plan-note { line-height: 1.5; font-size: 11px; }
-.plan-io-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.plan-io-btns { display: grid; gap: 8px; }
 .rg-fence-pt { width: 12px; height: 12px; border-radius: 3px; background: #fff; border: 2px solid #141b26; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); cursor: move; }
 .rg-fence-pt.center { border-radius: 50%; }
 .rg-fence-pt.radius { border-radius: 50%; background: var(--caution); cursor: ew-resize; }
