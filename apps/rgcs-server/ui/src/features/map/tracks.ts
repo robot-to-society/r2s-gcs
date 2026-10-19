@@ -1,26 +1,47 @@
 import type { Feature, FeatureCollection, LineString } from 'geojson'
 
-export type Point = readonly [number, number]
+/** [lon, lat, alt_rel (m), time (ms)]: the altitude draws the 3D track, the time trims it. */
+export type Point = readonly [number, number, number, number]
 export type Track = readonly Point[]
 export type Tracks = ReadonlyMap<number, Track>
 
-export const MAX_TRACK_POINTS = 600
-const MIN_STEP_M = 0.5
+/** Memory guard per vehicle (about 2 h at 10 m/s with 1 m steps is ~70 k: ample for 120 min of typical flight). */
+export const MAX_TRACK_POINTS = 20_000
+const MIN_STEP_M = 1
 
-function metres(a: Point, b: Point): number {
-  const dx = (b[0] - a[0]) * 111_320 * Math.cos((a[1] * Math.PI) / 180)
-  const dy = (b[1] - a[1]) * 110_540
-  return Math.hypot(dx, dy)
+export interface Fix {
+  readonly lon: number
+  readonly lat: number
+  readonly alt: number
+  readonly t: number
 }
 
-/** New map with the point appended to `sysid`'s track; identity-stable when the move is jitter. */
-export function appendPoint(tracks: Tracks, sysid: number, lon: number, lat: number): Tracks {
+function metres(a: Point, b: Fix): number {
+  const dx = (b.lon - a[0]) * 111_320 * Math.cos((a[1] * Math.PI) / 180)
+  const dy = (b.lat - a[1]) * 110_540
+  return Math.hypot(dx, dy, b.alt - a[2])
+}
+
+/** New map with the fix appended to `sysid`'s track; identity-stable when the move is jitter. */
+export function appendPoint(tracks: Tracks, sysid: number, fix: Fix): Tracks {
   const prev = tracks.get(sysid) ?? []
   const last = prev.at(-1)
-  const next: Point = [lon, lat]
-  if (last && metres(last, next) < MIN_STEP_M) return tracks
+  if (last && metres(last, fix) < MIN_STEP_M) return tracks
   const out = new Map(tracks)
-  out.set(sysid, [...prev, next].slice(-MAX_TRACK_POINTS))
+  out.set(sysid, [...prev, [fix.lon, fix.lat, fix.alt, fix.t] as const].slice(-MAX_TRACK_POINTS))
+  return out
+}
+
+/** Drops points older than `keepMs` before `now` (empty tracks vanish); the same map when nothing expired. */
+export function trimTracks(tracks: Tracks, now: number, keepMs: number): Tracks {
+  const cutoff = now - keepMs
+  const stale = [...tracks.values()].some((tr) => keepMs <= 0 || (tr[0] !== undefined && tr[0][3] < cutoff))
+  if (!stale) return tracks
+  const out = new Map<number, Track>()
+  for (const [sysid, tr] of tracks) {
+    const kept = keepMs <= 0 ? [] : tr.filter((p) => p[3] >= cutoff)
+    if (kept.length > 0) out.set(sysid, kept)
+  }
   return out
 }
 

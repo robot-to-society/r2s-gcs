@@ -20,7 +20,7 @@ describe('vehicleAirData', () => {
     expect(d.alts.get(1)).toBeCloseTo(100.4)
   })
   it('falls back to the first track point for home, and to the ground while the DEM is missing', () => {
-    const tracks = new Map([[2, [[139.36, 36.15]] as const]])
+    const tracks = new Map([[2, [[139.36, 36.15, 0, 0]] as const]])
     expect(vehicleAirData(new Map([[2, v(2, 20)]]), null, new Map(), tracks, () => 50).alts.get(2)).toBe(70)
     const none = vehicleAirData(new Map([[2, v(2, 20)]]), null, new Map(), tracks, () => null)
     expect(none.alts.get(2)).toBeNull()

@@ -78,6 +78,10 @@ export function Shell({ me, lang }: Props) {
   const basemap = settings && settings.basemaps.length > 0 ? chooseBasemap(settings.basemaps, basemapId) : null
   const clock = useClock(lang)
   useEffect(() => vehicleStore.subscribe(() => tracksStore.ingest(vehicleStore.getState().vehicles)), [])
+  const trackMinutes = settings?.map.track_minutes
+  useEffect(() => {
+    if (trackMinutes !== undefined) tracksStore.setKeepMinutes(trackMinutes)
+  }, [trackMinutes])
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const names = new Map(list.map((v) => [v.sysid, v.name]))
   const homes = useMemo(() => vehicleHomes(vehicles, vehicleMissions), [vehicles, vehicleMissions])
