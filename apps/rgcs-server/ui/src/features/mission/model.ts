@@ -95,8 +95,10 @@ export function moveItems(d: Draft, uids: ReadonlySet<number>, dLat: number, dLo
   return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, lat: it.lat + dLat, lon: it.lon + dLon } : it)) }
 }
 
+/** Adds `dAlt` metres; Rel / Ter items stop at 0 m so a quick drag never puts a waypoint underground. */
 export function shiftAlts(d: Draft, uids: ReadonlySet<number>, dAlt: number): Draft {
-  return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt: it.alt + dAlt } : it)) }
+  const alt = (it: DraftItem) => (it.frame === 'abs' ? it.alt + dAlt : Math.max(0, it.alt + dAlt))
+  return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt: alt(it) } : it)) }
 }
 
 export function reorder(d: Draft, uid: number, dir: -1 | 1): Draft {

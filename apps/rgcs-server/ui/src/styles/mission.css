@@ -45,6 +45,8 @@
 .mission-progress .num { font-family: var(--mono); }
 /* 3D editing: the floating badge drags up / down (altitude), the ground foot drags across (position). */
 .mission-map.is-3d .rg-wp .dot, .mission-map.is-3d .rg-wp .chip { cursor: ns-resize; }
+.mission-map.is-3d .rg-wp { touch-action: none; }
 .rg-foot { width: 20px; height: 20px; border-radius: 50%; cursor: move; border: 2px solid transparent; transition: border-color 0.12s; }
 .rg-foot:hover, .rg-foot:active { border-color: var(--accent); background: var(--accent-tint); }
-.maplibregl-marker:has(.rg-foot) { z-index: 1; }
+/* under the badge: where they overlap (low items, ground not loaded yet) a press means altitude */
+.maplibregl-marker:has(.rg-foot) { z-index: 0; }

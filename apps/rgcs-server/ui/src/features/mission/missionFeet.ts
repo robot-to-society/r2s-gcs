@@ -13,6 +13,8 @@ export interface FeetCallbacks {
   readonly onMove: (uid: number, lat: number, lon: number) => void
   readonly onMoveSelected: (dLat: number, dLon: number) => void
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
+  /** The item's committed position: MapLibre has already moved the marker when `dragstart` fires. */
+  readonly origin: (uid: number) => LatLon | null
 }
 
 interface Args {
@@ -29,7 +31,7 @@ export function footEl(): HTMLDivElement {
   return el
 }
 
-function attachFoot(marker: Marker, el: HTMLElement, uid: number, { selected, cb }: Pick<Args, 'selected' | 'cb'>): void {
+function attachFoot(marker: Marker, el: HTMLElement, uid: number, { selected, cb }: Pick<Args, 'selected' | 'cb'>, dragging: Set<number>): void {
   let start: LatLon | null = null
   let multi = false
   const at = (): LatLon => {
@@ -37,7 +39,8 @@ function attachFoot(marker: Marker, el: HTMLElement, uid: number, { selected, cb
     return { lat: p.lat, lon: p.lng }
   }
   marker.on('dragstart', () => {
-    start = at()
+    dragging.add(uid)
+    start = cb.current.origin(uid) ?? at()
     multi = selected.current.has(uid) && selected.current.size > 1
   })
   marker.on('drag', () => {
@@ -52,6 +55,7 @@ function attachFoot(marker: Marker, el: HTMLElement, uid: number, { selected, cb
       cb.current.onMove(uid, p.lat, p.lon)
     }
     start = null
+    dragging.delete(uid)
     cb.current.onEnd()
   })
   el.addEventListener('click', (e) => {
@@ -63,6 +67,7 @@ function attachFoot(marker: Marker, el: HTMLElement, uid: number, { selected, cb
 /** One draggable foot per positioned item in 3D, none in 2D; reconciled in place. */
 export function useMissionFeet({ map, is3d, draft, selected, cb }: Args): void {
   const feet = useRef(new Map<number, Marker>())
+  const dragging = useRef(new Set<number>())
   useEffect(() => {
     const m = map.current
     if (!m) return
@@ -70,6 +75,8 @@ export function useMissionFeet({ map, is3d, draft, selected, cb }: Args): void {
     const seen = new Set(want.map((it) => it.uid))
     for (const [uid, f] of feet.current) {
       if (!seen.has(uid)) {
+        // a removed marker never fires dragend: end its preview here
+        if (dragging.current.delete(uid)) cb.current.onEnd()
         f.remove()
         feet.current.delete(uid)
       }
@@ -82,7 +89,7 @@ export function useMissionFeet({ map, is3d, draft, selected, cb }: Args): void {
       }
       const el = footEl()
       const marker = new maplibregl.Marker({ element: el, draggable: true, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m)
-      attachFoot(marker, el, it.uid, { selected, cb })
+      attachFoot(marker, el, it.uid, { selected, cb }, dragging.current)
       feet.current.set(it.uid, marker)
     }
   }, [map, is3d, draft, selected, cb])

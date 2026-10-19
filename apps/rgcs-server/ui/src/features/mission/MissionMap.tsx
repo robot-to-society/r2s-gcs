@@ -135,7 +135,7 @@ export function MissionMap(props: Props) {
       }
       const el = updateBadgeEl(badgeEl(seq, selected.has(it.uid), cmdKey(it)), seq, selected.has(it.uid), cmdKey(it), is3d ? altChip(it) : null)
       const marker = new maplibregl.Marker({ element: el, draggable: !is3d, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m)
-      attachBadge(marker, el, it.uid, cb, selectedRef)
+      attachBadge(marker, el, it.uid, cb, selectedRef, draftRef)
       attachAltDrag(el, altDeps(it.uid))
       badges.current.set(it.uid, { marker, el })
     })
@@ -172,7 +172,10 @@ export function MissionMap(props: Props) {
     onMove: (uid, lat, lon) => cb.current.onMove(uid, lat, lon),
     onMoveSelected: (dLat, dLon) => cb.current.onMoveSelected(dLat, dLon),
     onSelect: (uid, additive, range) => cb.current.onSelect(uid, additive, range),
+    origin: (uid) => itemPos(draftRef.current, uid),
   }
+  // a drag cut short by the 2D / 3D switch never reports its end
+  useEffect(() => setPreview(null), [is3d])
   useMissionFeet({ map, is3d, draft: shown, selected: selectedRef, cb: feetCb })
 
   // The selected vehicle, for context
@@ -227,12 +230,18 @@ export function MissionMap(props: Props) {
   return <div ref={container} className={`map mission-map tool-${tool}${is3d ? ' is-3d' : ''}`} data-testid="mission-map" />
 }
 
-function attachBadge(marker: Marker, el: HTMLDivElement, uid: number, cb: React.RefObject<Callbacks>, selected: React.RefObject<ReadonlySet<number>>): void {
+function itemPos(d: Draft, uid: number): { lat: number; lon: number } | null {
+  const it = d.items.find((x) => x.uid === uid)
+  return it ? { lat: it.lat, lon: it.lon } : null
+}
+
+function attachBadge(marker: Marker, el: HTMLDivElement, uid: number, cb: React.RefObject<Callbacks>, selected: React.RefObject<ReadonlySet<number>>, draft: React.RefObject<Draft>): void {
   let start: { lat: number; lon: number } | null = null
   let multi = false
   marker.on('dragstart', () => {
+    // MapLibre has already moved the marker by the first step: count from the item itself
     const p = marker.getLngLat()
-    start = { lat: p.lat, lon: p.lng }
+    start = itemPos(draft.current, uid) ?? { lat: p.lat, lon: p.lng }
     multi = selected.current.has(uid) && selected.current.size > 1
   })
   marker.on('dragend', () => {

@@ -70,3 +70,12 @@ describe('shiftAlts', () => {
     expect(d.items[1]!.alt).toBe(50)
   })
 })
+
+describe('shiftAlts floor', () => {
+  it('stops Rel / Ter items at 0 m (never underground) and leaves Abs alone', () => {
+    const d = appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2)
+    const mixed = { ...d, items: [d.items[0]!, { ...d.items[1]!, frame: 'abs' as const, alt: 1600 }] }
+    const s = shiftAlts(mixed, new Set([1, 2]), -80)
+    expect(s.items.map((i) => i.alt)).toEqual([0, 1520])
+  })
+})

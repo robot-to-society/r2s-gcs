@@ -120,7 +120,7 @@ vi.mock('maplibre-gl', () => ({
 }))
 
 const { MissionMap } = await import('./MissionMap')
-const { appendWaypoint, emptyDraft } = await import('./model')
+const { appendWaypoint, emptyDraft, removeItems } = await import('./model')
 const { rasterStyle } = await import('../map/style')
 const { toMercator } = await import('../map/air')
 
@@ -355,5 +355,73 @@ describe('MissionMap', () => {
       </StrictMode>,
     )
     expect(feet()).toHaveLength(3)
+  })
+
+  // MapLibre fires dragstart only after its first move has already moved the marker.
+  it('a multi foot drag moves the selection by the whole pointer travel (MapLibre moves before dragstart)', () => {
+    const { props } = renderMap({ terrainTiles: DEM, mode: '3d', selected: new Set([1, 2]) })
+    const f = feet()[1]!
+    act(() => {
+      f.setLngLat([139.21, 36.21])
+      f.fire('dragstart')
+      f.setLngLat([139.25, 36.25])
+      f.fire('drag')
+    })
+    expect(badges()[1]!.lngLat[0]).toBeCloseTo(139.25, 9)
+    act(() => f.fire('dragend'))
+    expect(props.onMoveSelected).toHaveBeenCalledWith(expect.closeTo(0.05, 9), expect.closeTo(0.05, 9))
+  })
+  it('a multi badge drag in 2D also counts from the item, not from the first move', () => {
+    const { props } = renderMap({ selected: new Set([1, 2]) })
+    const b = badges()[1]!
+    act(() => {
+      b.setLngLat([139.21, 36.21])
+      b.fire('dragstart')
+      b.setLngLat([139.25, 36.25])
+      b.fire('dragend')
+    })
+    expect(props.onMoveSelected).toHaveBeenCalledWith(expect.closeTo(0.05, 9), expect.closeTo(0.05, 9))
+  })
+  it('a foot drag cut short (item deleted, or 2D) drops its preview', () => {
+    const { props, rerender } = renderMap({ terrainTiles: DEM, mode: '3d', selected: new Set([1, 2]) })
+    const f = feet()[1]!
+    act(() => {
+      f.fire('dragstart')
+      f.setLngLat([139.25, 36.25])
+      f.fire('drag')
+    })
+    expect(badges()[0]!.lngLat[0]).toBeCloseTo(139.15, 9)
+    rerender(<MissionMap {...props} terrainTiles={DEM} mode="3d" selected={new Set([1])} draft={removeItems(props.draft, new Set([2]))} />)
+    expect(badges()[0]!.lngLat).toEqual([139.1, 36.1])
+    const g = feet()[0]!
+    act(() => {
+      g.fire('dragstart')
+      g.setLngLat([139.15, 36.15])
+      g.fire('drag')
+    })
+    rerender(<MissionMap {...props} terrainTiles={DEM} mode="2d" selected={new Set([1])} draft={removeItems(props.draft, new Set([2]))} />)
+    expect(badges()[0]!.lngLat).toEqual([139.1, 36.1])
+  })
+  it('a cancelled altitude drag reverts; another pointer cannot drive or end it', () => {
+    const { props } = renderMap({ terrainTiles: DEM, mode: '3d' })
+    frame()
+    const b = badges()[1]!
+    const ev = (type: string, y: number, id: number) => Object.assign(new MouseEvent(type, { button: 0, clientY: y, bubbles: true }), { pointerId: id })
+    act(() => {
+      b.el.dispatchEvent(ev('pointerdown', 300, 1))
+      window.dispatchEvent(ev('pointermove', 250, 1))
+      window.dispatchEvent(ev('pointermove', 100, 2))
+      window.dispatchEvent(ev('pointerup', 100, 2))
+    })
+    expect(b.el.querySelector('.altc')!.textContent).toBe('▲ 75 m Rel')
+    act(() => window.dispatchEvent(ev('pointercancel', 250, 1)))
+    expect(b.el.querySelector('.altc')!.textContent).toBe('▲ 50 m Rel')
+    expect(props.onShiftAlt).not.toHaveBeenCalled()
+  })
+  it('a touch on a 3D badge does not pan the map', () => {
+    renderMap({ terrainTiles: DEM, mode: '3d' })
+    const t = new Event('touchstart', { bubbles: true, cancelable: true })
+    badges()[1]!.el.dispatchEvent(t)
+    expect(t.defaultPrevented).toBe(true)
   })
 })

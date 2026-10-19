@@ -20,6 +20,14 @@ export interface AltDragDeps {
 
 export function attachAltDrag(el: HTMLElement, deps: AltDragDeps): void {
   let swallowClick = false
+  // preventDefault on pointerdown does not stop touchstart: MapLibre would pan under the finger
+  el.addEventListener(
+    'touchstart',
+    (e) => {
+      if (deps.active()) e.preventDefault()
+    },
+    { passive: false },
+  )
   el.addEventListener(
     'click',
     (e) => {
@@ -35,6 +43,8 @@ export function attachAltDrag(el: HTMLElement, deps: AltDragDeps): void {
     if (e.button !== 0 || !deps.active()) return
     e.preventDefault()
     e.stopPropagation()
+    const id = e.pointerId
+    const mine = (ev: Event) => (ev as PointerEvent).pointerId === id
     const y0 = e.clientY
     const alt0 = deps.alt()
     const scale = deps.pxPerMetre()
@@ -42,22 +52,25 @@ export function attachAltDrag(el: HTMLElement, deps: AltDragDeps): void {
     let dragging = false
     let dAlt = 0
     const move = (ev: MouseEvent) => {
+      if (!mine(ev)) return
       const dy = ev.clientY - y0
       if (!dragging && Math.abs(dy) < DRAG_PX) return
       dragging = true
       dAlt = altFromDrag(alt0, dy, scale) - alt0
       deps.onPreview(targets, dAlt)
     }
-    const up = () => {
+    const finish = (ev: Event) => {
+      if (!mine(ev)) return
       window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-      window.removeEventListener('pointercancel', up)
+      window.removeEventListener('pointerup', finish)
+      window.removeEventListener('pointercancel', finish)
       if (!dragging) return
       swallowClick = true
-      deps.onCommit(targets, dAlt)
+      // a cancelled gesture (e.g. the browser took the touch) reverts instead of committing
+      deps.onCommit(targets, ev.type === 'pointercancel' ? 0 : dAlt)
     }
     window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-    window.addEventListener('pointercancel', up)
+    window.addEventListener('pointerup', finish)
+    window.addEventListener('pointercancel', finish)
   })
 }
