@@ -20,6 +20,8 @@ import type { Tracks } from './tracks'
 const CYAN: Rgb = [0x9c / 255, 0xc9 / 255, 1]
 const AMBER: Rgb = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
 const WHITE: Rgb = [1, 1, 1]
+/** Mission Planner's track purple (#800080). */
+const TRACK_PURPLE: Rgb = [0x80 / 255, 0, 0x80 / 255]
 const GROUND = 'veh-ground'
 const AIR = 'veh-air3d'
 /** Layers shown only in 3D on the operations map. */
@@ -43,14 +45,13 @@ function homeOf(sysid: number, homes: ReadonlyMap<number, LatLon>, tracks: Track
   return first ? { lon: first[0], lat: first[1] } : null
 }
 
-/** Each track at its vehicle's home ground + the recorded relative altitude (like the vehicle). */
-function trackLines(tracks: Tracks, selected: number | null, homes: ReadonlyMap<number, LatLon>, elevAt: ElevAt): AirVertex[][] {
+/** Each track at its vehicle's home ground + the recorded relative altitude (like the vehicle), in Mission Planner purple. */
+function trackLines(tracks: Tracks, homes: ReadonlyMap<number, LatLon>, elevAt: ElevAt): AirVertex[][] {
   return [...tracks].flatMap(([sysid, track]) => {
     const home = homeOf(sysid, homes, tracks)
     const ground = home ? elevAt(home.lon, home.lat) : null
     if (ground === null || track.length < 2) return []
-    const c = sysid === selected ? AMBER : CYAN
-    return [mercatorLine(track.map((p) => ({ lon: p[0], lat: p[1], amsl: ground + p[2], color: c })))]
+    return [mercatorLine(track.map((p) => ({ lon: p[0], lat: p[1], amsl: ground + p[2], color: TRACK_PURPLE })))]
   })
 }
 
@@ -99,7 +100,7 @@ export function vehicleAirData(vehicles: ReadonlyMap<number, VehicleState>, sele
   const m = plan ? missionAirData(plan, new Set(), elevAt) : null
   const missionAlts = plan ? plan.items.filter(itemHasPosition).map((it) => m!.alts.get(it.uid) ?? null) : []
   return {
-    lines: [...trackLines(tracks, selected, homes, elevAt), ...(m?.lines ?? []), ...course],
+    lines: [...trackLines(tracks, homes, elevAt), ...(m?.lines ?? []), ...course],
     posts: [...posts, ...(m?.posts ?? [])],
     discs: { ...discs, features: [...discs.features, ...(m?.discs.features ?? [])] },
     alts,

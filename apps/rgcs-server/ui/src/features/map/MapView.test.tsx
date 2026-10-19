@@ -450,4 +450,13 @@ describe('MapView', () => {
     expect(m.clamped).toBe(true)
     vi.restoreAllMocks()
   })
+
+  it('draws the flight tracks in Mission Planner purple (the selected one solid, the others dashed)', () => {
+    render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
+    const m = created.maps.at(-1)!
+    const paint = (id: string) => (m.layerObjs.get(id) as { paint: Record<string, unknown> }).paint
+    expect(paint('tracks-selected')['line-color']).toBe('#800080')
+    expect(paint('tracks-others')['line-color']).toBe('#800080')
+    expect(paint('tracks-others')['line-dasharray']).toBeDefined()
+  })
 })

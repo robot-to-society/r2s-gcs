@@ -52,6 +52,8 @@ const HOME: [number, number] = [139.372, 36.162]
 const TRACKS = 'tracks'
 const GUIDED = 'guided'
 const MISSION = 'mission-path'
+/** Mission Planner draws the flight track in this dark purple. */
+const TRACK_PURPLE = '#800080'
 /** The `.vmk` disc is 34 px wide at the element's left edge; pull it back so its centre sits on the position. */
 const ARROW_OFFSET: [number, number] = [-17, 0]
 const NO_HOMES: ReadonlyMap<number, LatLon> = new Map()
@@ -93,14 +95,15 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         type: 'line',
         source: TRACKS,
         filter: ['!', ['get', 'selected']],
-        paint: { 'line-color': '#9cc9ff', 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.8 },
+        // Mission Planner's track purple (user request 2026-10-19); other vehicles dashed
+        paint: { 'line-color': TRACK_PURPLE, 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.8 },
       })
       m.addLayer({
         id: 'tracks-selected',
         type: 'line',
         source: TRACKS,
         filter: ['get', 'selected'],
-        paint: { 'line-color': '#f2b544', 'line-width': 3 },
+        paint: { 'line-color': TRACK_PURPLE, 'line-width': 3.5 },
       })
       m.addSource(MISSION, { type: 'geojson', data: EMPTY })
       m.addLayer({

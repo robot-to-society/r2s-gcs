@@ -29,14 +29,14 @@ describe('vehicleAirData', () => {
     expect(none.posts).toHaveLength(0)
   })
 
-  it('draws each track in the air at home ground + its recorded altitude, amber for the selected vehicle', () => {
+  it('draws each track in the air at home ground + its recorded altitude, in Mission Planner purple', () => {
     const tracks = new Map([[1, [[139.37, 36.16, 0, 0], [139.371, 36.16, 40, 1000]] as const]])
     const d = vehicleAirData(new Map([[1, v(1, 40)]]), 1, homes, tracks, () => 100)
     expect(d.lines).toHaveLength(1)
     const [a, b] = d.lines[0]!
     expect(a!.z).toBeCloseTo(toMercator(139.37, 36.16, 100).z, 12)
     expect(b!.z).toBeCloseTo(toMercator(139.371, 36.16, 140).z, 12)
-    expect(a!.c).toEqual([0xf2 / 255, 0xb5 / 255, 0x44 / 255])
+    expect(a!.c).toEqual([0x80 / 255, 0, 0x80 / 255])
   })
   it('adds the mission like the planner: climb-coloured legs, posts and the altitude of each positioned item', () => {
     const item = (command: number, lat: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon: 139.37, alt, autocontinue: true })
