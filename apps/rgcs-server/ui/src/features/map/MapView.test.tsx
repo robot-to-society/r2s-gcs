@@ -111,9 +111,22 @@ class FakeMap {
     this.paddingCalls += 1
   }
   center: [number, number] = [139.372, 36.162]
-  easeTo(o: { center?: [number, number] }) {
+  bearing = 0
+  easeTo(o: { center?: [number, number]; bearing?: number }) {
     this.eased.push(o)
     if (o.center) this.center = o.center
+    if (o.bearing !== undefined) this.bearing = o.bearing
+  }
+  getBearing() {
+    return this.bearing
+  }
+  jumps: unknown[] = []
+  jumpTo(o: unknown) {
+    this.jumps.push(o)
+  }
+  clamped = true
+  setCenterClampedToGround(c: boolean) {
+    this.clamped = c
   }
   getCenter() {
     return { lng: this.center[0], lat: this.center[1] }
@@ -420,5 +433,21 @@ describe('MapView', () => {
     expect(badges.every((b) => !b.opts.draggable)).toBe(true)
     rerender(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="2d" />)
     expect(m.visibility.get('mission-path-line')).toBe('visible')
+  })
+
+  it('3D follow looks from behind and above: the camera centre rises to the vehicle and turns with its heading', () => {
+    const flying = { ...v(1, 3), alt_rel: 120, alt_msl: 1625, hdg: 135 }
+    const props = { tracks: new Map(), follow: 1, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {}, terrainTiles: 'https://dem/{z}/{x}/{y}.png' }
+    const { rerender } = render(<MapView {...props} vehicles={new Map([[1, flying]])} mode="3d" />)
+    const m = created.maps.at(-1)!
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 5000) // past the 2D / 3D tilt
+    rerender(<MapView {...props} vehicles={new Map([[1, { ...flying, lon: 139.3705 }]])} mode="3d" />)
+    expect(m.clamped).toBe(false)
+    // no DEM tile yet: the reported MSL altitude stands in
+    expect(m.jumps.at(-1)).toEqual({ elevation: 1625 })
+    expect(m.eased.at(-1)).toMatchObject({ center: [139.3705, 36.16], bearing: 135, freezeElevation: true })
+    rerender(<MapView {...props} vehicles={new Map([[1, { ...flying, lon: 139.3705 }]])} mode="3d" follow={null} />)
+    expect(m.clamped).toBe(true)
+    vi.restoreAllMocks()
   })
 })

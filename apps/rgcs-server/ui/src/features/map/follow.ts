@@ -40,3 +40,37 @@ export interface ScreenPoint {
 export function needsRecenter(center: ScreenPoint, vehicle: ScreenPoint, minPx = FOLLOW_DEADBAND_PX): boolean {
   return Math.hypot(vehicle.x - center.x, vehicle.y - center.y) > minPx
 }
+
+/** 3D follow dead bands: GPS jitter, yaw wobble and altitude noise of a hovering vehicle. */
+const FOLLOW3D_MOVE_M = 0.5
+const FOLLOW3D_TURN_DEG = 3
+const FOLLOW3D_CLIMB_M = 1
+
+export interface Camera3d {
+  readonly lng: number
+  readonly lat: number
+  readonly bearing: number
+  readonly elevation: number
+}
+
+export interface Follow3d {
+  readonly center: [number, number]
+  readonly bearing: number
+  readonly elevation: number
+}
+
+const turn = (a: number, b: number) => Math.abs(((((a - b) % 360) + 540) % 360) - 180)
+
+/**
+ * The 3D follow camera: centred on the vehicle at its altitude (`amsl`), looking along its heading
+ * (course when the heading is unknown) so the view is from behind and above. `null` when the
+ * current camera (`cur`) is already within the dead bands.
+ */
+export function follow3dCamera(v: VehicleState, amsl: number, cur: Camera3d | null): Follow3d | null {
+  const bearing = v.hdg ?? v.cog ?? cur?.bearing ?? 0
+  const next: Follow3d = { center: [v.lon, v.lat], bearing, elevation: amsl }
+  if (!cur) return next
+  const moved = Math.hypot((v.lon - cur.lng) * 111_320 * Math.cos((v.lat * Math.PI) / 180), (v.lat - cur.lat) * 110_540)
+  const still = moved < FOLLOW3D_MOVE_M && turn(bearing, cur.bearing) < FOLLOW3D_TURN_DEG && Math.abs(amsl - cur.elevation) < FOLLOW3D_CLIMB_M
+  return still ? null : next
+}
