@@ -181,3 +181,8 @@
 @keyframes cmd-spin { to { transform: rotate(360deg); } }
 .target-flash { animation: target-flash 0.9s ease-out; border-radius: 6px; }
 @keyframes target-flash { 0% { background: rgba(242, 181, 68, 0.55); box-shadow: 0 0 0 4px rgba(242, 181, 68, 0.35); } 100% { background: transparent; box-shadow: 0 0 0 0 transparent; } }
+.confirm-ctx { font-size: 12px; margin-top: 6px; }
+.btn.hold { position: relative; overflow: hidden; touch-action: none; user-select: none; }
+.btn.hold .hold-fill { position: absolute; inset: 0; transform: scaleX(0); transform-origin: left; background: rgba(255, 255, 255, 0.28); }
+.btn.hold.holding .hold-fill { transform: scaleX(1); transition: transform 1.5s linear; }
+.btn.hold .hold-label { position: relative; }

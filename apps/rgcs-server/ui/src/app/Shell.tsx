@@ -325,6 +325,7 @@ export function Shell({ me, lang }: Props) {
               command={modal.command}
               message={modal.message}
               vehicleName={vehicles.get(modal.sysid)?.name ?? `#${modal.sysid}`}
+              vehicle={vehicles.get(modal.sysid)}
               dict={dict}
               onCancel={() => setModal(NO_MODAL)}
               onDone={(r) => settle(modal.sysid, r, modal.command)}
