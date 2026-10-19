@@ -41,11 +41,21 @@ export function itemAmsl(item: MissionItem, home: LatLon | null, elevAt: ElevAt)
 
 const CYAN: Rgb = [0x9c / 255, 0xc9 / 255, 1]
 const ALT_HI: Rgb = [0xd8 / 255, 0xa8 / 255, 1]
+const AMBER: Rgb = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
+const DANGER: Rgb = [0xff / 255, 0x69 / 255, 0x61 / 255]
+/** The climb (or descent) angle that reaches the end of the scale. */
+const STEEP_DEG = 45
 
-/** `--accent` → `--alt-hi` by the normalised altitude (spec 10 §6). */
-export function altColor(t: number): Rgb {
-  const k = Math.min(1, Math.max(0, t))
-  return [CYAN[0] + (ALT_HI[0] - CYAN[0]) * k, CYAN[1] + (ALT_HI[1] - CYAN[1]) * k, CYAN[2] + (ALT_HI[2] - CYAN[2]) * k]
+const mix = (a: Rgb, b: Rgb, k: number): Rgb => (k <= 0 ? a : k >= 1 ? b : [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k])
+
+/**
+ * Path colour by climb angle: level `--accent`, climbing through amber to `--danger` at 45°,
+ * descending towards `--alt-hi` at 45°.
+ */
+export function climbColor(dz: number, dh: number): Rgb {
+  const t = ((Math.atan2(dz, Math.max(0, dh)) * 180) / Math.PI) / STEEP_DEG
+  if (t <= 0) return mix(CYAN, ALT_HI, -t)
+  return t < 0.5 ? mix(CYAN, AMBER, t * 2) : mix(AMBER, DANGER, (t - 0.5) * 2)
 }
 
 /** Same maths as `maplibregl.MercatorCoordinate.fromLngLat` (kept pure for tests). */

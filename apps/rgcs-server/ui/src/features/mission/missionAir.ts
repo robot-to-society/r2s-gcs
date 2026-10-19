@@ -1,10 +1,10 @@
 // 3D mission path (prototype updateMissionAir): one altitude polyline per leg coloured by
-// altitude, a post per positioned item (amber when selected), ground discs, and the altitude of
+// its climb angle (steep climbs turn red), a post per positioned item (amber when selected), ground discs, and the altitude of
 // every badge and mid-leg handle so the DOM markers can float to it.
 import { useEffect, type RefObject } from 'react'
 import type { FeatureCollection, Point } from 'geojson'
 import type { Map as MlMap, Marker } from 'maplibre-gl'
-import { altColor, itemAmsl, mercatorLine, type AirPoint, type AirVertex, type ElevAt, type Rgb } from '../map/air'
+import { climbColor, itemAmsl, mercatorLine, type AirPoint, type AirVertex, type ElevAt, type Rgb } from '../map/air'
 import { useAir3d } from '../map/air3d'
 import type { MapMode } from '../map/mapMode'
 import { haversineM, hasPosition, type LatLon } from './geo'
@@ -29,6 +29,8 @@ export interface MissionAir {
   readonly mids: readonly (number | null)[]
 }
 
+type Pt = { lat: number; lon: number; amsl: number }
+
 interface Stop {
   readonly lat: number
   readonly lon: number
@@ -39,7 +41,7 @@ interface Stop {
 /** "▲ 80 m Rel" (prototype 3D badge chip). */
 export const altChip = (it: DraftItem): string => `▲ ${Math.round(it.alt)} m ${FRAME_LABEL[it.frame]}`
 
-function legPoints(a: Stop, b: Stop, elevAt: ElevAt): { lat: number; lon: number; amsl: number }[] {
+function legPoints(a: Stop, b: Stop, elevAt: ElevAt): Pt[] {
   const len = haversineM(a.lat, a.lon, b.lat, b.lon)
   const ter = a.item?.frame === 'ter' && b.item?.frame === 'ter'
   const n = ter ? Math.min(200, Math.max(2, Math.ceil(len / 20))) : Math.max(2, Math.min(8, Math.ceil(len / 400)))
@@ -53,6 +55,14 @@ function legPoints(a: Stop, b: Stop, elevAt: ElevAt): { lat: number; lon: number
   })
 }
 
+/** Each vertex takes the climb of the segment that leaves it (the last one, the segment into it). */
+function coloured(pts: readonly Pt[]): AirPoint[] {
+  return pts.map((p, i) => {
+    const [a, b] = i < pts.length - 1 ? [p, pts[i + 1]!] : [pts[i - 1] ?? p, p]
+    return { ...p, color: climbColor(b.amsl - a.amsl, haversineM(a.lat, a.lon, b.lat, b.lon)) }
+  })
+}
+
 export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elevAt: ElevAt): MissionAir {
   const items = draft.items.filter(hasPosition)
   const home: LatLon | null = draft.mission.home ?? items[0] ?? null
@@ -63,11 +73,7 @@ export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elev
     return amsl === null || amsl === undefined ? [] : [{ lat: it.lat, lon: it.lon, amsl, item: it }]
   })
   const route = draft.mission.home && homeGround !== null && stops.length > 0 ? [{ ...draft.mission.home, amsl: homeGround, item: null }, ...stops] : stops
-  const zs = route.map((s) => s.amsl)
-  const lo = Math.min(...zs)
-  const hi = Math.max(...zs)
-  const colour = (z: number): Rgb => altColor(hi > lo ? (z - lo) / (hi - lo) : 0)
-  const lines = route.slice(1).map((b, i) => mercatorLine(legPoints(route[i]!, b, elevAt).map((p): AirPoint => ({ ...p, color: colour(p.amsl) }))))
+  const lines = route.slice(1).map((b, i) => mercatorLine(coloured(legPoints(route[i]!, b, elevAt))))
   const discs: FeatureCollection<Point, { sel: number }> = { type: 'FeatureCollection', features: [] }
   const posts = stops.flatMap((s) => {
     const g = elevAt(s.lon, s.lat) ?? homeGround

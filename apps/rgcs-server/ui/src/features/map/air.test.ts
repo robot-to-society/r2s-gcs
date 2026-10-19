@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MissionItem, VehicleState } from '../../shared/api/types'
-import { altColor, itemAmsl, mercatorLine, vehicleAmsl, type ElevAt } from './air'
+import { climbColor, itemAmsl, mercatorLine, vehicleAmsl, type ElevAt } from './air'
 
 const flat = (h: number): ElevAt => () => h
 const none: ElevAt = () => null
@@ -44,12 +44,26 @@ describe('itemAmsl', () => {
   })
 })
 
-describe('altColor', () => {
-  it('runs from cyan to violet and clamps', () => {
-    expect(altColor(0)).toEqual([0x9c / 255, 0xc9 / 255, 1])
-    expect(altColor(1)).toEqual([0xd8 / 255, 0xa8 / 255, 1])
-    expect(altColor(2)).toEqual(altColor(1))
-    expect(altColor(-1)).toEqual(altColor(0))
+describe('climbColor', () => {
+  const CYAN = [0x9c / 255, 0xc9 / 255, 1]
+  const RED = [0xff / 255, 0x69 / 255, 0x61 / 255]
+  const AMBER = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
+  const VIOLET = [0xd8 / 255, 0xa8 / 255, 1]
+  it('is cyan when level and red from a 45° climb', () => {
+    expect(climbColor(0, 100)).toEqual(CYAN)
+    expect(climbColor(100, 100)).toEqual(RED)
+    expect(climbColor(300, 100)).toEqual(RED)
+  })
+  it('passes amber half way and turns red for a vertical climb', () => {
+    climbColor(Math.tan(Math.PI / 8) * 100, 100).forEach((c, i) => expect(c).toBeCloseTo(AMBER[i]!, 9))
+    expect(climbColor(10, 0)).toEqual(RED)
+  })
+  it('turns violet for a steep descent', () => {
+    expect(climbColor(-100, 100)).toEqual(VIOLET)
+    expect(climbColor(-10, 0)).toEqual(VIOLET)
+  })
+  it('is cyan for a point (no length)', () => {
+    expect(climbColor(0, 0)).toEqual(CYAN)
   })
 })
 
