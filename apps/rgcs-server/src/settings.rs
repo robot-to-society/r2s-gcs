@@ -36,6 +36,8 @@ pub struct AppSettings {
     pub map_attribution: String,
     pub map: MapSettings,
     pub basemaps: Vec<crate::config::Basemap>,
+    /// Terrarium DEM tile template for the 3D map; `null` when 3D is off.
+    pub terrain_tiles: Option<String>,
     pub mavlink: MavlinkSettings,
 }
 
@@ -80,6 +82,7 @@ async fn current(app: &AppState) -> rgcs_store::Result<AppSettings> {
             gimbal_ground_projection: projection.as_deref() == Some("true"),
         },
         basemaps: app.basemaps.clone(),
+        terrain_tiles: app.terrain_tiles.clone(),
         mavlink: MavlinkSettings {
             gcs_sysid: app.gcs.get(),
         },

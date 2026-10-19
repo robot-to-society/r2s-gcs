@@ -65,6 +65,8 @@ pub struct AppState {
     pub map_attribution: String,
     /// Base maps for the picker (config `[[basemaps]]` or the defaults).
     pub basemaps: Vec<crate::config::Basemap>,
+    /// Terrarium DEM tiles for the 3D map; `None` turns 3D off.
+    pub terrain_tiles: Option<String>,
     started: Instant,
     lockout: Arc<StdMutex<Lockout>>,
     /// One async mutex per username so check-lockout → verify → record is serialized
@@ -120,6 +122,7 @@ impl AppState {
             map_tile_url: crate::config::Config::default().map_tile_url,
             map_attribution: crate::config::Config::default().map_attribution,
             basemaps: crate::config::Config::default().basemaps(),
+            terrain_tiles: crate::config::Config::default().terrain(),
             started: Instant::now(),
             lockout: Arc::new(StdMutex::new(Lockout::default())),
             login_guards: Arc::new(StdMutex::new(HashMap::new())),
@@ -187,6 +190,10 @@ impl AppState {
 
     pub fn with_basemaps(self, basemaps: Vec<crate::config::Basemap>) -> Self {
         Self { basemaps, ..self }
+    }
+
+    pub fn with_terrain(self, terrain_tiles: Option<String>) -> Self {
+        Self { terrain_tiles, ..self }
     }
 
     pub fn with_map(self, tile_url: String, attribution: String) -> Self {
