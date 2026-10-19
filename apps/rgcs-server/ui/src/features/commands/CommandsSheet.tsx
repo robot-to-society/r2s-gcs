@@ -1,9 +1,10 @@
-import { useState, type ReactElement, type ReactNode } from 'react'
+import { Fragment, useState, type ReactElement, type ReactNode } from 'react'
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import { cmdLabel, type Dict } from '../../shared/i18n'
 import {
   IconAltitude,
   IconCamera,
+  IconCheck,
   IconClose,
   IconCrosshair,
   IconEllipsis,
@@ -19,6 +20,7 @@ import {
   IconStepForward,
 } from '../../shared/ui/icons'
 import { CATALOG, COPTER_MODES, catalogGroups, type CatalogItem, type CommandGroup, type ModalTarget } from './catalog'
+import type { BtnState } from './feedback'
 
 interface Props {
   readonly vehicle: VehicleState
@@ -30,7 +32,11 @@ interface Props {
   readonly beside?: boolean
   /** Shown under the commands (the dock's sending / last-result line). */
   readonly footer?: ReactNode
+  /** Per-button sending / done / failed for the shown vehicle. */
+  readonly feedback?: (cmd: string) => BtnState | null
 }
+
+const FB_ICON: Record<BtnState, () => ReactElement | null> = { sending: () => null, ok: () => <IconCheck size={12} />, fail: () => <IconClose size={12} /> }
 
 const GROUP_LABEL: Record<CommandGroup, keyof Dict> = { flight: 'groupFlight', move: 'groupMove', mode: 'groupMode', payload: 'groupPayload' }
 /** Lucide icon per command name (spec 20 §9). */
@@ -56,7 +62,7 @@ function label(item: CatalogItem, dict: Dict): string {
 }
 
 /** Right-aligned 380 px sheet listing every command by group in a 2-column grid (spec 10 §3.5). */
-export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside = false, footer }: Props) {
+export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside = false, footer, feedback }: Props) {
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState(vehicle.mode || COPTER_MODES[0]!)
   const [alt, setAlt] = useState('')
@@ -97,7 +103,10 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
   return (
     <aside className={`g-strong panel sheet${beside ? ' beside' : ''}`} aria-label={dict.allCommands}>
       <div className="panel-h">
-        <span className="h1">{vehicle.name}</span>
+        {/* keyed: a new target remounts the name and replays the flash (operator proposal 3) */}
+        <span key={vehicle.sysid} className="h1 target-flash">
+          {vehicle.name}
+        </span>
         <span className="h1 t2" style={{ fontWeight: 300 }}>
           {dict.allCommands}
         </span>
@@ -117,23 +126,26 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
           <div key={group}>
             <div className="cmd-group-title">{dict[GROUP_LABEL[group]]}</div>
             <div className="cmd-grid">
-              {items.map((item) => (
-                <>
-                  <button
-                    key={item.name}
-                    type="button"
-                    className={`cmd-btn${item.name === 'guided' ? ' full' : ''}${open === item.name ? ' on' : ''}`}
-                    disabled={!item.enabled(vehicle)}
-                    onClick={() => pick(item)}
-                  >
-                    <span className="glyph" aria-hidden="true">
-                      {(ICON[item.name] ?? ICON.other)()}
-                    </span>
-                    <span className="ell">{label(item, dict)}</span>
-                  </button>
-                  {open === item.name && item.param && paramRow(item)}
-                </>
-              ))}
+              {items.map((item) => {
+                const fb = item.build ? (feedback?.(item.name) ?? null) : null
+                return (
+                  <Fragment key={item.name}>
+                    <button
+                      type="button"
+                      className={`cmd-btn${item.name === 'guided' ? ' full' : ''}${open === item.name ? ' on' : ''}${fb ? ` ${fb}` : ''}`}
+                      disabled={!item.enabled(vehicle)}
+                      onClick={() => pick(item)}
+                    >
+                      <span className="glyph" aria-hidden="true">
+                        {(ICON[item.name] ?? ICON.other)()}
+                      </span>
+                      <span className="ell">{label(item, dict)}</span>
+                      {fb && <span className="cmd-fb" aria-hidden="true">{FB_ICON[fb]()}</span>}
+                    </button>
+                    {open === item.name && item.param && paramRow(item)}
+                  </Fragment>
+                )
+              })}
             </div>
           </div>
         ))}

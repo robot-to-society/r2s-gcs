@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
-import { CommandDock, ConfirmDialog, type RunResult } from '../features/commands'
+import { CommandDock, ConfirmDialog, useCommandRunner, type RunResult } from '../features/commands'
 import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
@@ -61,6 +61,12 @@ export function Shell({ me, lang }: Props) {
   const [modal, setModal] = useState<Modal>(NO_MODAL)
   // The command panel is a tool, not a dialog: open until closed, across commands and selections.
   const [commandsOpen, setCommandsOpen] = useState(false)
+  const runner = useCommandRunner({
+    entries: log.entries,
+    dict,
+    vehicleOf: (sysid) => vehicles.get(sysid),
+    onError: (sysid, command, message) => vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: command.cmd, ok: false, reason: message, ts: Date.now() }),
+  })
   const tracks = useTracks()
   const mapUi = useMapUi()
   const settings = useAppSettings()
@@ -271,9 +277,10 @@ export function Shell({ me, lang }: Props) {
               beside={detail !== undefined}
               onClose={() => setCommandsOpen(false)}
               onOpenGuided={(sysid) => setModal({ kind: 'guided', sysid })}
-              onError={(sysid, command, message) => vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: command.cmd, ok: false, reason: message, ts: Date.now() })}
+              runner={runner}
             />
           )}
+          {runner.confirm}
           {modal.kind === 'guided' && currentVehicle && (
             <GuidedModal
               vehicle={currentVehicle}

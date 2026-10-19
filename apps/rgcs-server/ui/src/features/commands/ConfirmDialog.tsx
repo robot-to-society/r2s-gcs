@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { VehicleCommand } from '../../shared/api/types'
+import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import { cmdLabel, type Dict } from '../../shared/i18n'
 import { requestConfirm, sendCommand } from './api'
 import { DESTRUCTIVE } from './catalog'
@@ -14,6 +14,8 @@ interface Props {
   readonly sysid: number
   readonly command: VehicleCommand
   readonly vehicleName: string
+  /** The target's live state, for the context row. */
+  readonly vehicle?: VehicleState
   /** Why we are asking again (e.g. the server said the previous token expired). */
   readonly message?: string
   readonly onCancel: () => void
