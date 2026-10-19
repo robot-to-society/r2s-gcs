@@ -42,6 +42,8 @@ interface Props {
   /** Terrarium DEM tile template (`/api/settings/app`), `null` → 2D only. */
   readonly terrainTiles?: string | null
   /** Right-click: the map point and the viewport position for a menu. */
+  /** One-shot centre on a vehicle (from the message log). */
+  readonly focus?: { readonly sysid: number; readonly n: number } | null
   readonly onContext?: (p: { lat: number; lon: number; x: number; y: number }) => void
 }
 
@@ -59,7 +61,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -229,6 +231,16 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     followed.current = follow
     if (fresh || needsRecenter(m.project(m.getCenter()), m.project(center))) m.easeTo({ center, duration: 200 })
   }, [vehicles, follow])
+
+  const focused = useRef(0)
+  useEffect(() => {
+    const m = map.current
+    if (!m || !focus || focus.n === focused.current) return
+    const v = vehicles.get(focus.sysid)
+    if (!v || !hasPosition(v)) return
+    focused.current = focus.n
+    m.easeTo({ center: [v.lon, v.lat], duration: 600 })
+  }, [focus, vehicles])
 
   useEffect(() => {
     if (!loaded.current) return

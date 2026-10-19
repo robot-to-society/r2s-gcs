@@ -13,9 +13,11 @@ export interface MapUi {
   readonly aside: 'full' | 'rail'
   readonly pick: PickMode
   readonly target: LatLon | null
+  /** One-shot "centre on this vehicle"; `n` counts requests so a repeat still moves the map. */
+  readonly focus: { readonly sysid: number; readonly n: number } | null
 }
 
-export const INITIAL_MAP_UI: MapUi = { follow: null, selected: null, aside: 'full', pick: 'none', target: null }
+export const INITIAL_MAP_UI: MapUi = { follow: null, selected: null, aside: 'full', pick: 'none', target: null, focus: null }
 
 export const setFollow = (s: MapUi, sysid: number): MapUi => (s.follow === sysid ? s : { ...s, follow: sysid })
 export const clearFollow = (s: MapUi): MapUi => (s.follow === null ? s : { ...s, follow: null })
@@ -23,6 +25,7 @@ export const select = (s: MapUi, sysid: number | null): MapUi => (s.selected ===
 export const toggleAside = (s: MapUi): MapUi => ({ ...s, aside: s.aside === 'full' ? 'rail' : 'full' })
 export const startPick = (s: MapUi, pick: PickMode): MapUi => ({ ...s, pick, target: null })
 export const setTarget = (s: MapUi, target: LatLon): MapUi => ({ ...s, pick: 'none', target })
+export const requestFocus = (s: MapUi, sysid: number): MapUi => ({ ...s, focus: { sysid, n: (s.focus?.n ?? 0) + 1 } })
 export const cancelPick = (s: MapUi): MapUi => (s.pick === 'none' && s.target === null ? s : { ...s, pick: 'none', target: null })
 
 /** Map UI state shared by the shell, the list and the modals. */

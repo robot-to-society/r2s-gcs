@@ -326,4 +326,15 @@ describe('MapView', () => {
     act(() => created.maps.at(-1)!.fire('contextmenu', { lngLat: { lat: 36.1, lng: 139.3 }, originalEvent: { clientX: 40, clientY: 50, preventDefault } }))
     expect(onContext).toHaveBeenCalledWith({ lat: 36.1, lon: 139.3, x: 40, y: 50 })
   })
+  it('a focus request centres the map on that vehicle once per request', () => {
+    const vehicles = new Map([[2, v(2, 3, 139.39, 36.17)]])
+    const props = { vehicles, tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} focus={null} />)
+    const m = created.maps.at(-1)!
+    const before = m.eased.length
+    rerender(<MapView {...props} focus={{ sysid: 2, n: 1 }} />)
+    expect(m.eased.at(-1)).toMatchObject({ center: [139.39, 36.17] })
+    rerender(<MapView {...props} focus={{ sysid: 2, n: 1 }} vehicles={new Map([[2, v(2, 3, 139.4, 36.2)]])} />)
+    expect(m.eased.length).toBe(before + 1)
+  })
 })

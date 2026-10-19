@@ -60,4 +60,11 @@ describe('LogSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: '閉じる' }))
     expect(onClose).toHaveBeenCalled()
   })
+  it('a vehicle name jumps to that vehicle; system rows have no link', () => {
+    const onFocusVehicle = vi.fn()
+    render(<LogSheet log={{ ...EMPTY_LOG, open: true, entries }} names={names} dict={t('ja')} onFilter={vi.fn()} onClose={vi.fn()} onFocusVehicle={onFocusVehicle} />)
+    fireEvent.click(screen.getByRole('button', { name: 'UAV-02' }))
+    expect(onFocusVehicle).toHaveBeenCalledWith(2)
+    expect(screen.queryByRole('button', { name: 'システム' })).toBeNull()
+  })
 })

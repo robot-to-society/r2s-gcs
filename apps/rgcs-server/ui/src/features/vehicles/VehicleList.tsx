@@ -2,7 +2,8 @@ import { useState } from 'react'
 import type { Dict } from '../../shared/i18n'
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import { cmdLabel } from '../../shared/i18n'
-import { IconCollapse, IconCopter, IconMenu, IconPin, IconRover } from '../../shared/ui/icons'
+import { IconCollapse, IconCopter, IconMenu, IconPin, IconRover, IconSortAlerts } from '../../shared/ui/icons'
+import { saveVehicleSort, sortVehicles, useVehicleSort } from './sort'
 import { matches } from './format'
 import { VehicleRow } from './VehicleRow'
 import { dotClass } from './format'
@@ -37,7 +38,8 @@ function FleetRow({ dict, onFleet }: { dict: Dict; onFleet: (c: VehicleCommand) 
 
 export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, following = null, aside = 'full', onToggleAside, onFleet }: Props) {
   const [query, setQuery] = useState('')
-  const shown = vehicles.filter((v) => matches(v, query, dict))
+  const sort = useVehicleSort()
+  const shown = sortVehicles(vehicles.filter((v) => matches(v, query, dict)), sort)
   if (aside === 'rail') {
     return (
       <aside className="g panel float float-l" aria-label={dict.vehicles}>
@@ -63,6 +65,9 @@ export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, foll
           {vehicles.length}
         </span>
         <div className="grow" />
+        <button type="button" className={`btn-icon${sort === 'alerts' ? ' on' : ''}`} title={dict.sortAlerts} aria-label={dict.sortAlerts} aria-pressed={sort === 'alerts'} onClick={() => saveVehicleSort(sort === 'alerts' ? 'id' : 'alerts')}>
+          <IconSortAlerts />
+        </button>
         <button type="button" className="btn-icon" title={dict.pinned} aria-label={dict.pinned} disabled>
           <IconPin />
         </button>

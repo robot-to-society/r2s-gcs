@@ -9,7 +9,7 @@ import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } 
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { MaintView } from '../features/params'
-import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
+import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
@@ -94,7 +94,12 @@ export function Shell({ me, lang }: Props) {
       vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: `camera:${cmd.cmd}`, ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
     })
   }
-  const logDock = <LogDock log={log} names={names} dict={dict} clock={clock.slice(-5)} lead={view !== 'maint'} deadmanLost={deadman === 'lost'} />
+  const focusVehicle = (sysid: number) => {
+    setSelected(sysid)
+    setView('ops')
+    mapUiStore.update((s) => requestFocus(s, sysid))
+  }
+  const logDock = <LogDock log={log} names={names} dict={dict} clock={clock.slice(-5)} lead={view !== 'maint'} deadmanLost={deadman === 'lost'} onFocusVehicle={focusVehicle} />
   const ackAlert = (sysid: number, id: number) => {
     ackMessage(sysid, id)
       .then((e) => vehicleStore.markAcked(e.id, e.acked_by ?? me.username, e.acked_at ?? Date.now()))
@@ -221,6 +226,7 @@ export function Shell({ me, lang }: Props) {
               mode={mapMode}
               terrainTiles={settings.terrain_tiles}
               target={mapUi.target}
+              focus={mapUi.focus}
               mission={current === null ? null : (vehicleMissions.get(current) ?? null)}
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}
               homes={homes}

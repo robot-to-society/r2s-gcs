@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { INITIAL_MAP_UI, cancelPick, clearFollow, select, setFollow, setTarget, startPick, toggleAside } from './store'
+import { INITIAL_MAP_UI, cancelPick, clearFollow, requestFocus, select, setFollow, setTarget, startPick, toggleAside } from './store'
 
 describe('map ui transitions', () => {
   it('follow / select / aside return new objects and are identity-stable when unchanged', () => {
@@ -22,5 +22,11 @@ describe('map ui transitions', () => {
     const reset = cancelPick(withTarget)
     expect(reset.pick).toBe('none')
     expect(reset.target).toBeNull()
+  })
+  it('focus requests count up so the same vehicle can be focused twice', () => {
+    const a = requestFocus(INITIAL_MAP_UI, 2)
+    const b = requestFocus(a, 2)
+    expect(a.focus).toEqual({ sysid: 2, n: 1 })
+    expect(b.focus).toEqual({ sysid: 2, n: 2 })
   })
 })

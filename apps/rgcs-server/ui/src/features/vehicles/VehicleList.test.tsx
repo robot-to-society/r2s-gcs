@@ -62,4 +62,14 @@ describe('VehicleList follow (double-click, memory: ops map)', () => {
     rerender(<VehicleList vehicles={[mk(1, 'UAV-01', 'AUTO')]} selected={1} dict={t('ja')} onSelect={() => {}} onFleet={onFleet} />)
     expect(screen.queryByRole('button', { name: '全機 一時停止' })).toBeNull()
   })
+  it('shows the unread alert count and can sort by alerts (remembered)', () => {
+    localStorage.removeItem('rgcs.vehicleSort')
+    const list = [mk(1, 'UAV-01', 'AUTO'), { ...mk(2, 'UAV-02', 'RTL'), unread: 3 }]
+    render(<VehicleList vehicles={list} selected={1} dict={t('ja')} onSelect={() => {}} />)
+    expect(screen.getAllByRole('option').map((o) => o.querySelector('.nm')?.textContent)).toEqual(['UAV-01', 'UAV-02'])
+    expect(screen.getByLabelText('未読の警告 3')).toHaveTextContent('3')
+    fireEvent.click(screen.getByRole('button', { name: '警告順' }))
+    expect(screen.getAllByRole('option').map((o) => o.querySelector('.nm')?.textContent)).toEqual(['UAV-02', 'UAV-01'])
+    expect(localStorage.getItem('rgcs.vehicleSort')).toBe('alerts')
+  })
 })

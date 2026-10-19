@@ -12,6 +12,8 @@ interface Props {
   readonly dict: Dict
   readonly onFilter: (f: LogFilter) => void
   readonly onClose: () => void
+  /** Selects the entry's vehicle and centres the map on it (operator proposal 9). */
+  readonly onFocusVehicle?: (sysid: SysId) => void
 }
 
 function shown(log: LogState) {
@@ -36,7 +38,7 @@ function Filters({ log, names, dict, onFilter }: Omit<Props, 'onClose'>) {
 }
 
 /** メッセージ履歴 (prototype `.logsheet`): filters, newest 500 rows, the note about older entries. */
-export function LogSheet({ log, names, dict, onFilter, onClose }: Props) {
+export function LogSheet({ log, names, dict, onFilter, onClose, onFocusVehicle }: Props) {
   const rows = shown(log)
   return (
     <div className="g-strong float map-c logsheet" role="dialog" aria-label={dict.logTitle}>
@@ -54,7 +56,13 @@ export function LogSheet({ log, names, dict, onFilter, onClose }: Props) {
           <div key={e.id} className={`logrow ${e.severity}`} data-testid="logrow">
             <SevIcon severity={e.severity} size={15} />
             <span className="num t3">{hhmmss(e.ts)}</span>
-            <span className="src">{entrySource(e, names, dict)}</span>
+            {e.sysid !== null && onFocusVehicle ? (
+              <button type="button" className="src link" title={dict.focusVehicle} onClick={() => onFocusVehicle(e.sysid!)}>
+                {entrySource(e, names, dict)}
+              </button>
+            ) : (
+              <span className="src">{entrySource(e, names, dict)}</span>
+            )}
             <span className="txt ell">{entryText(e, dict)}</span>
           </div>
         ))}

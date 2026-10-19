@@ -3,6 +3,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   ArrowDownToLine,
+  ArrowDownWideNarrow,
   ArrowUpDown,
   ArrowUpToLine,
   BotMessageSquare,
@@ -146,3 +147,4 @@ export const IconSignal = ({ size = 18, top = 'var(--text-3)' }: IconProps & { r
     <rect x="17" y="4" width="3" height="18" fill={top} />
   </svg>
 )
+export const IconSortAlerts = ({ size = 18, className }: IconProps) => <Lucide icon={ArrowDownWideNarrow} size={size} className={className} />
