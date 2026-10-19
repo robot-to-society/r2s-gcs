@@ -34,8 +34,9 @@ pub use logbook::{
 };
 pub use mission::{
     demo20, haversine_m, FenceInfo, Finding, FindingLevel, Home, Mission, MissionFrame, MissionItem,
-    MissionProgress, MissionStats, MissionSummaryRow, UploadReport, MAV_CMD_DO_JUMP, MAV_CMD_NAV_LAND,
-    MAV_CMD_NAV_RETURN_TO_LAUNCH, MAV_CMD_NAV_TAKEOFF, MAV_CMD_NAV_WAYPOINT,
+    MissionProgress, MissionStats, MissionSummaryRow, MissionTransfer, TransferPhase, UploadReport,
+    MAV_CMD_DO_JUMP, MAV_CMD_NAV_LAND, MAV_CMD_NAV_RETURN_TO_LAUNCH, MAV_CMD_NAV_TAKEOFF,
+    MAV_CMD_NAV_WAYPOINT,
 };
 pub use operator::Operator;
 pub use params::{ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult};

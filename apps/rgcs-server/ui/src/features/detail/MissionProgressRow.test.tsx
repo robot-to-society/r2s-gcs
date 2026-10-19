@@ -41,4 +41,9 @@ describe('MissionProgressRow', () => {
     render(<MissionProgressRow progress={{ seq: 3, total: 20 }} mission={null} vehicle={v(true)} dict={t('ja')} onWrite={() => {}} onStart={() => {}} />)
     expect(screen.getByTestId('mission-progress')).toHaveTextContent('WP 3 / 20')
   })
+
+  it('shows_the_write_progress_while_a_mission_is_written', () => {
+    render(<MissionProgressRow progress={null} mission={mission} vehicle={v(true)} dict={t('ja')} onWrite={() => {}} onStart={() => {}} transfer={{ phase: 'write', done: 3, total: 5 }} />)
+    expect(screen.getByRole('progressbar', { name: 'ミッション書込' })).toHaveTextContent('書込中 3 / 5')
+  })
 })

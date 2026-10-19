@@ -21,10 +21,12 @@ import { localWarnings, stats } from './summary'
 import { BasemapPicker } from '../map/BasemapPicker'
 import { MapModeToggle } from '../map/MapModeToggle'
 import { saveMapMode, useMapMode } from '../map/mapMode'
-import type { Basemap } from '../../shared/api/types'
+import type { Basemap, MissionTransfer } from '../../shared/api/types'
 
 interface Props {
   readonly vehicles: ReadonlyMap<number, VehicleState>
+  /** Mission writes in progress (`mission_transfer`), per vehicle. */
+  readonly transfers?: ReadonlyMap<number, MissionTransfer>
   readonly dict: Dict
   readonly style: StyleSpecification
   readonly basemap?: Basemap
@@ -37,9 +39,10 @@ interface Props {
 
 const isEditable = (t: EventTarget | null): boolean => t instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName)
 const NUDGE = 0.0001
+const NO_TRANSFERS: ReadonlyMap<number, MissionTransfer> = new Map()
 
 /** The mission planning screen (spec 10 §6, 2D subset) built on the Glass prototype's layout. */
-export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore }: Props) {
+export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore }: Props) {
   const mapMode = useMapMode()
   const is3d = mapMode === '3d' && terrainTiles !== null
   const ui = useMissionUi(store)
@@ -240,6 +243,7 @@ export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onP
       </aside>
 
       <MissionSidebar
+        transfer={sysid === null ? null : (transfers.get(sysid) ?? null)}
         draft={draft}
         selectedItems={selectedItems}
         vehicles={list}

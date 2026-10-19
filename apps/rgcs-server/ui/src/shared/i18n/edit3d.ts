@@ -22,6 +22,8 @@ export const edit3dJa = {
   elevAgl: '対地',
   elevBelowGround: '経路の一部が地面より下です',
   elevEmpty: 'ウェイポイントを追加すると表示されます',
+  transferWrite: '書込中',
+  transferVerify: '読み戻して照合中',
 } as const
 
 export const edit3dEn: Record<keyof typeof edit3dJa, string> = {
@@ -45,4 +47,6 @@ export const edit3dEn: Record<keyof typeof edit3dJa, string> = {
   elevAgl: 'AGL',
   elevBelowGround: 'Part of the route is below the ground',
   elevEmpty: 'Add waypoints to see the profile',
+  transferWrite: 'Writing',
+  transferVerify: 'Reading back to verify',
 }

@@ -172,6 +172,26 @@ pub struct MissionProgress {
     pub total: Option<u16>,
 }
 
+/// Stage of a mission write (`mission_transfer` frames): items sent, then read back for the check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum TransferPhase {
+    Write,
+    Verify,
+    Done,
+    Failed,
+}
+
+/// Progress of a mission write: `done` of `total` frames (items + home) in the current phase.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct MissionTransfer {
+    pub phase: TransferPhase,
+    pub done: u16,
+    pub total: u16,
+}
+
 /// Result of `PUT /api/vehicles/{sysid}/mission`: what was written and whether the read-back matched.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]

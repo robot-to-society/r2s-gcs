@@ -6,7 +6,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 
-use rgcs_core::{Mission, MissionProgress, ServerMessage, SysId, UploadReport};
+use rgcs_core::{
+    Mission, MissionProgress, MissionTransfer, ServerMessage, SysId, TransferPhase, UploadReport,
+};
 use rgcs_mavlink::{MissionFrame, Outgoing};
 use rgcs_mission::{Done, Download, ProtocolError, Upload};
 use tokio::sync::{broadcast, mpsc};
@@ -177,9 +179,24 @@ impl MissionHub {
         let (up, out) = Upload::start(sysid, component, mission, 0)
             .map_err(|e: ProtocolError| MissionError::Invalid(e.to_string()))?;
         let up = up.for_gcs(gcs);
-        send_all(outgoing, out).await?;
-        run_upload(up, &mut rx, sysid, outgoing, started).await?;
-        let got = run_download(sysid, component, gcs, &mut rx, outgoing, started).await?;
+        let total = mission.items.len() as u16 + 1;
+        let report = Reporter::new(self.tx.clone(), sysid, total);
+        report.send(TransferPhase::Write, 0);
+        let written = async {
+            send_all(outgoing, out).await?;
+            run_upload(up, &mut rx, sysid, outgoing, started, &report).await?;
+            report.send(TransferPhase::Verify, 0);
+            run_download(sysid, component, gcs, &mut rx, outgoing, started, Some(&report)).await
+        }
+        .await;
+        let got = match written {
+            Ok(got) => got,
+            Err(e) => {
+                report.send(TransferPhase::Failed, 0);
+                return Err(e);
+            }
+        };
+        report.send(TransferPhase::Done, total);
         let mismatched = mismatches(mission, &got);
         let verified = mismatched.is_empty();
         if verified {
@@ -209,6 +226,7 @@ impl MissionHub {
             &mut rx,
             outgoing,
             Instant::now(),
+            None,
         )
         .await?;
         self.remember(sysid, &got);
@@ -227,6 +245,61 @@ impl MissionHub {
                     ..mission.clone()
                 },
             );
+        }
+    }
+}
+
+/// Sends `mission_transfer` frames for one upload; `done` never goes backwards within a phase.
+struct Reporter {
+    tx: broadcast::Sender<ServerMessage>,
+    sysid: SysId,
+    total: u16,
+    last: StdMutex<(Option<TransferPhase>, u16)>,
+}
+
+impl Reporter {
+    fn new(tx: broadcast::Sender<ServerMessage>, sysid: SysId, total: u16) -> Self {
+        Self {
+            tx,
+            sysid,
+            total,
+            last: StdMutex::new((None, 0)),
+        }
+    }
+
+    fn send(&self, phase: TransferPhase, done: u16) {
+        let done = done.min(self.total);
+        if let Ok(mut last) = self.last.lock() {
+            if last.0 == Some(phase) && done <= last.1 {
+                return;
+            }
+            *last = (Some(phase), done);
+        }
+        let _ = self.tx.send(ServerMessage::MissionTransfer {
+            sysid: self.sysid,
+            transfer: MissionTransfer {
+                phase,
+                done,
+                total: self.total,
+            },
+        });
+    }
+
+    /// Write phase: a request for seq `n` means `n` frames were taken; the final ACK, all of them.
+    #[allow(deprecated)]
+    fn on_write_frame(&self, frame: &MissionFrame) {
+        match frame {
+            MissionFrame::RequestInt(r) => self.send(TransferPhase::Write, r.seq),
+            MissionFrame::Request(r) => self.send(TransferPhase::Write, r.seq),
+            MissionFrame::Ack(_) => self.send(TransferPhase::Write, self.total),
+            _ => {}
+        }
+    }
+
+    /// Verify phase: each item read back.
+    fn on_read_frame(&self, frame: &MissionFrame) {
+        if let MissionFrame::ItemInt(d) = frame {
+            self.send(TransferPhase::Verify, d.seq + 1);
         }
     }
 }
@@ -258,12 +331,16 @@ async fn run_upload(
     sysid: SysId,
     outgoing: &mpsc::Sender<Outgoing>,
     started: Instant,
+    report: &Reporter,
 ) -> Result<(), MissionError> {
     let mut tick = tokio::time::interval(TICK);
     loop {
         let (next, out, done) = tokio::select! {
             frame = rx.recv() => match frame {
-                Ok((s, frame)) if s == sysid => up.on_message(&frame.into_message(), started.elapsed().as_millis() as u64),
+                Ok((s, frame)) if s == sysid => {
+                    report.on_write_frame(&frame);
+                    up.on_message(&frame.into_message(), started.elapsed().as_millis() as u64)
+                }
                 Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => (up, Vec::new(), None),
                 Err(broadcast::error::RecvError::Closed) => return Err(MissionError::LinkClosed),
             },
@@ -286,6 +363,7 @@ async fn run_download(
     rx: &mut broadcast::Receiver<(SysId, MissionFrame)>,
     outgoing: &mpsc::Sender<Outgoing>,
     started: Instant,
+    report: Option<&Reporter>,
 ) -> Result<Mission, MissionError> {
     let (dl, out) = Download::start(sysid, component, started.elapsed().as_millis() as u64);
     let mut dl = dl.for_gcs(gcs);
@@ -294,7 +372,12 @@ async fn run_download(
     loop {
         let (next, out, result) = tokio::select! {
             frame = rx.recv() => match frame {
-                Ok((s, frame)) if s == sysid => dl.on_message(&frame.into_message(), started.elapsed().as_millis() as u64),
+                Ok((s, frame)) if s == sysid => {
+                    if let Some(r) = report {
+                        r.on_read_frame(&frame);
+                    }
+                    dl.on_message(&frame.into_message(), started.elapsed().as_millis() as u64)
+                }
                 Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => (dl, Vec::new(), None),
                 Err(broadcast::error::RecvError::Closed) => return Err(MissionError::LinkClosed),
             },

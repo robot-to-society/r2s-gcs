@@ -103,6 +103,14 @@ describe('camera, video source and input frames', () => {
     expect(reduce(s3, { t: 'camera_state', sysid: 1, caps: none, state: state(1) }).cameras.get(1)?.caps.kind).toBe('none')
   })
 
+  it('mission_transfer_keeps_the_latest_write_progress_per_vehicle', () => {
+    const s1 = reduce(initialState, { t: 'mission_transfer', sysid: 1, transfer: { phase: 'write', done: 4, total: 21 } })
+    expect(s1.missionTransfers.get(1)).toEqual({ phase: 'write', done: 4, total: 21 })
+    expect(reduce(s1, { t: 'mission_transfer', sysid: 1, transfer: { phase: 'write', done: 4, total: 21 } })).toBe(s1)
+    const s2 = reduce(s1, { t: 'mission_transfer', sysid: 1, transfer: { phase: 'verify', done: 0, total: 21 } })
+    expect(s2.missionTransfers.get(1)?.phase).toBe('verify')
+  })
+
   it('mission_progress_is_stored_per_vehicle', () => {
     const s1 = reduce(initialState, { t: 'mission_progress', sysid: 1, progress: { seq: 3, total: 21 } })
     expect(s1.missionProgress.get(1)).toEqual({ seq: 3, total: 21 })

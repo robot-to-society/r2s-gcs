@@ -54,3 +54,7 @@
 .box-select { position: absolute; z-index: 5; pointer-events: none; border: 1.5px dashed var(--accent); background: var(--accent-tint); border-radius: 4px; }
 /* The elevation sheet (200 px over the map bottom) pushes the summary pill above it. */
 .mission-view:has(.elev-sheet) .mission-pill { bottom: calc(60px + 200px + 12px); }
+/* Mission write progress (planner sidebar, detail panel) */
+.transfer-bar { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-2); }
+.transfer-bar .bar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.transfer-bar .bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.25s; }

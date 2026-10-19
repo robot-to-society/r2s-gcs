@@ -44,7 +44,7 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, log, cameras, videoSources, deadman, missionProgress, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
+  const { vehicles, link, log, cameras, videoSources, deadman, missionProgress, missionTransfers, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -207,6 +207,7 @@ export function Shell({ me, lang }: Props) {
           <main className="stage mission" style={{ position: 'absolute', inset: 0 }}>
             <MissionView
               vehicles={vehicles}
+              transfers={missionTransfers}
               dict={dict}
               style={basemap ? basemapStyle(basemap) : rasterStyle(settings.map_tile_url, settings.map_attribution)}
               basemap={basemap ?? undefined}
@@ -279,6 +280,7 @@ export function Shell({ me, lang }: Props) {
               onCameraSettings={() => setModal({ kind: 'camera-settings', sysid: detail.sysid })}
               vehicleMission={vehicleMissions.get(detail.sysid)}
               missionProgress={missionProgress.get(detail.sysid)}
+              missionTransfer={missionTransfers.get(detail.sysid)}
               onWriteMission={() => setModal({ kind: 'mission-pick', sysid: detail.sysid })}
               onStartMission={() => setModal({ kind: 'confirm', sysid: detail.sysid, command: { cmd: 'mission_start' } })}
               commandsOpen={commandsOpen}

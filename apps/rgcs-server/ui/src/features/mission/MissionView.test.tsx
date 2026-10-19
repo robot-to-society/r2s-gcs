@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { VehicleState } from '../../shared/api/types'
+import type { MissionTransfer, VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 
 let adds = 0
@@ -25,11 +25,11 @@ const copter: VehicleState = {
 const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
 const envelope = (data: unknown, status = 200) => new Response(JSON.stringify({ success: true, data }), { status, headers: { 'content-type': 'application/json' } })
 
-function setup(fetchImpl?: (url: string, init?: RequestInit) => Response) {
+function setup(fetchImpl?: (url: string, init?: RequestInit) => Response, transfers: ReadonlyMap<number, MissionTransfer> = new Map()) {
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => (fetchImpl ? fetchImpl(String(input), init) : envelope([])))
   vi.stubGlobal('fetch', fetchMock)
   const store = new MissionStore()
-  const utils = render(<MissionView vehicles={new Map([[1, copter]])} dict={t('ja')} style={style} store={store} />)
+  const utils = render(<MissionView vehicles={new Map([[1, copter]])} transfers={transfers} dict={t('ja')} style={style} store={store} />)
   return { ...utils, fetchMock, store }
 }
 
@@ -108,6 +108,11 @@ describe('MissionView', () => {
     // Shift extends from the last Ctrl-clicked row and keeps the rest
     fireEvent.click(wpRows()[0]!, { shiftKey: true })
     expect(sel()).toEqual([true, true, true, true, false, true])
+  })
+
+  it('shows_the_write_progress_of_the_target_vehicle', () => {
+    setup(undefined, new Map([[1, { phase: 'verify', done: 5, total: 21 } as MissionTransfer]]))
+    expect(screen.getByRole('progressbar', { name: 'ミッション書込' })).toHaveTextContent('読み戻して照合中 5 / 21')
   })
 
   it('the_elevation_profile_opens_from_the_map', () => {
