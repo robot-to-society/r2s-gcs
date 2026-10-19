@@ -125,3 +125,36 @@ async fn an_invalid_rally_point_is_refused_before_anything_is_sent() {
     assert_eq!(reply["data"]["findings"][0]["code"], "rally_position");
     assert!(rx.try_recv().is_err(), "nothing was sent to the link");
 }
+
+#[tokio::test]
+async fn fence_params_report_the_altitude_ceiling_and_whether_zones_are_enforced() {
+    let (app, state, _rx) = spawn_app_with_link().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    seed_param(&state, 1, "FENCE_ENABLE", 1.0);
+    seed_param(&state, 1, "FENCE_ALT_MAX", 120.0);
+    seed_param(&state, 1, "FENCE_TYPE", 7.0);
+    let (status, reply, _) = call(
+        &app,
+        req(Method::GET, "/api/vehicles/1/fence/params", Some(&cookie), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply}");
+    assert_eq!(
+        reply["data"],
+        json!({ "enabled": true, "alt_max": 120.0, "alt_max_on": true, "zones_on": true })
+    );
+    seed_param(&state, 1, "FENCE_TYPE", 2.0);
+    let (_, reply, _) = call(
+        &app,
+        req(Method::GET, "/api/vehicles/1/fence/params", Some(&cookie), None),
+    )
+    .await;
+    assert_eq!(
+        (
+            reply["data"]["alt_max_on"].clone(),
+            reply["data"]["zones_on"].clone()
+        ),
+        (json!(false), json!(false))
+    );
+}

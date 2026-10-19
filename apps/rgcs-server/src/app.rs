@@ -321,6 +321,10 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
             get(geofence_api::get_fence).put(geofence_api::put_fence),
         )
         .route(
+            "/vehicles/{sysid}/fence/params",
+            get(geofence_api::get_fence_params),
+        )
+        .route(
             "/vehicles/{sysid}/rally",
             get(geofence_api::get_rally).put(geofence_api::put_rally),
         )

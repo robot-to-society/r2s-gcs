@@ -46,6 +46,8 @@ interface Props {
   readonly onPlanClick: (tab: Exclude<PlanTab, 'mission'>, lat: number, lon: number) => void
   readonly onFenceEdit: (e: FenceEdit) => void
   readonly onRallyMove: (index: number, lat: number, lon: number) => void
+  /** FENCE_ALT_MAX (m above home): the 3D fence walls reach it; null = no walls. */
+  readonly ceiling?: number | null
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
   readonly onBackgroundClick: () => void
   readonly onContext: (menu: ContextMenu | null) => void
@@ -62,7 +64,7 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling'>
 
 /** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
@@ -187,7 +189,7 @@ export function MissionMap(props: Props) {
   }, [draft])
 
   // After the map, the badges and the handles exist: effects run in declaration order.
-  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles })
+  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle) })
   const feetCb = useRef<FeetCallbacks>(null!)
   feetCb.current = {
     onPreview: (uid, multi, from, to) => setPreview(() => (d: Draft) => (multi ? moveItems(d, selectedRef.current, to.lat - from.lat, to.lon - from.lon) : moveItem(d, uid, to.lat, to.lon))),
@@ -278,6 +280,13 @@ export function MissionMap(props: Props) {
   }
 
   return <div ref={container} className={`map mission-map tool-${tool} tab-${tab}${is3d ? ' is-3d' : ''}`} data-testid="mission-map" />
+}
+
+/** The vehicle's home (else its position): where FENCE_ALT_MAX is measured from. */
+function vehicleHomeOf(v: VehicleState | null): { lat: number; lon: number } | null {
+  if (!v) return null
+  if (v.home && !(v.home.lat === 0 && v.home.lon === 0)) return { lat: v.home.lat, lon: v.home.lon }
+  return v.lat === 0 && v.lon === 0 ? null : { lat: v.lat, lon: v.lon }
 }
 
 function itemPos(d: Draft, uid: number): { lat: number; lon: number } | null {

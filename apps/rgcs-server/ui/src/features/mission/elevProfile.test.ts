@@ -33,4 +33,13 @@ describe('elevProfile', () => {
     expect(p.points.map((q) => Math.round(q.agl))).toEqual([40, 40])
     expect(p.hasDem).toBe(false)
   })
+
+  it('places the FENCE_ALT_MAX ceiling (home ground + alt max) on the chart', () => {
+    const p = elevProfile(draft([item(1, 36.16, 50, 'rel', 22), item(2, 36.161, 50)]) as never, () => 100, 120)!
+    expect(p.ceiling).toBe(220)
+    expect(p.yMax).toBeGreaterThan(220)
+    expect(p.ceilingY).toBeGreaterThan(0)
+    expect(p.ceilingY).toBeLessThan(100)
+    expect(elevProfile(draft([item(1, 36.16, 50, 'rel', 22)]) as never, () => 100)!.ceiling).toBeNull()
+  })
 })

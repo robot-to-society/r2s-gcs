@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Mission } from '../../shared/api/types'
-import { createMission, downloadMission, readFence, readRally, writeFence, writeRally, exportWaypoints, getKnownMission, importWaypoints, listMissions, updateMission, uploadMission, uploadSavedMission, validateMission } from './api'
+import { createMission, downloadMission, readFence, readFenceParams, readRally, setFenceAltMax, writeFence, writeRally, exportWaypoints, getKnownMission, importWaypoints, listMissions, updateMission, uploadMission, uploadSavedMission, validateMission } from './api'
 
 const mission: Mission = { id: null, name: 'm', sysid: null, default_alt: 50, default_frame: 'rel', speed: 8, home: null, fence: [], rally: [], items: [] }
 
@@ -53,6 +53,18 @@ describe('mission api', () => {
       ['/api/vehicles/1/fence', 'GET', undefined],
       ['/api/vehicles/2/rally', 'PUT', { points }],
       ['/api/vehicles/2/rally', 'GET', undefined],
+    ])
+  })
+
+  it('reads the fence parameters and sets FENCE_ALT_MAX through a confirmed parameter write', async () => {
+    const f = stub((url) => (url.endsWith('/confirm') ? envelope({ confirm_token: 'tok', expires_in: 30 }) : url.endsWith('/1/params') ? envelope([{ name: 'FENCE_ALT_MAX', requested: 150, actual: 150, verified: true }]) : envelope({ enabled: true, alt_max: 120, alt_max_on: true, zones_on: true })))
+    expect(await readFenceParams(1)).toMatchObject({ alt_max: 120 })
+    expect(await setFenceAltMax(1, 150)).toBe(true)
+    const calls = f.mock.calls.map(([url, init]) => [String(url), init?.method ?? 'GET', typeof init?.body === 'string' ? JSON.parse(init.body) : undefined])
+    expect(calls).toEqual([
+      ['/api/vehicles/1/fence/params', 'GET', undefined],
+      ['/api/vehicles/1/confirm', 'POST', { cmd: 'param_write' }],
+      ['/api/vehicles/1/params', 'PUT', { changes: [{ name: 'FENCE_ALT_MAX', value: 150 }], confirm_token: 'tok' }],
     ])
   })
 

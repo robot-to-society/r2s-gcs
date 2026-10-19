@@ -1,7 +1,9 @@
 // REST calls for missions (spec 50 §2.2.1). JSON goes through `apiFetch`; the `.waypoints`
 // text endpoints use fetch directly because they are not JSON envelopes.
 import { ApiError, CSRF_HEADER, CSRF_VALUE, apiFetch } from '../../shared/api/client'
-import type { FenceZone, Finding, Mission, MissionStats, MissionSummaryRow, RallyPoint, UploadReport } from '../../shared/api/types'
+import { requestConfirm } from '../commands/api'
+import { writeParams } from '../params/api'
+import type { FenceParams, FenceZone, Finding, Mission, MissionStats, MissionSummaryRow, RallyPoint, UploadReport } from '../../shared/api/types'
 
 export const listMissions = (): Promise<MissionSummaryRow[]> => apiFetch('/api/missions')
 export const getMission = (id: number): Promise<Mission> => apiFetch(`/api/missions/${id}`)
@@ -21,6 +23,16 @@ export const writeFence = (sysid: number, zones: readonly FenceZone[]): Promise<
 export const readFence = (sysid: number): Promise<{ zones: FenceZone[] }> => apiFetch(`/api/vehicles/${sysid}/fence`)
 export const writeRally = (sysid: number, points: readonly RallyPoint[]): Promise<UploadReport> => apiFetch(`/api/vehicles/${sysid}/rally`, { method: 'PUT', body: { points } })
 export const readRally = (sysid: number): Promise<{ points: RallyPoint[] }> => apiFetch(`/api/vehicles/${sysid}/rally`)
+
+/** FENCE_ENABLE / FENCE_ALT_MAX / FENCE_TYPE as the vehicle reported them. */
+export const readFenceParams = (sysid: number): Promise<FenceParams> => apiFetch(`/api/vehicles/${sysid}/fence/params`)
+
+/** Sets FENCE_ALT_MAX (a confirmed parameter write); true when the vehicle echoed the value. */
+export async function setFenceAltMax(sysid: number, value: number): Promise<boolean> {
+  const { confirm_token } = await requestConfirm(sysid, 'param_write')
+  const [result] = await writeParams(sysid, [{ name: 'FENCE_ALT_MAX', value }], confirm_token)
+  return result?.verified === true
+}
 
 export function validateMission(m: Mission, sysid: number | null): Promise<{ findings: Finding[]; stats: MissionStats }> {
   const q = sysid === null ? '' : `?sysid=${sysid}`

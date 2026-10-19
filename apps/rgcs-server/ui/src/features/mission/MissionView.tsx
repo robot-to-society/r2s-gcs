@@ -124,6 +124,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onPlanClick={plan.onPlanClick}
         onFenceEdit={plan.onFenceEdit}
         onRallyMove={plan.onRallyMove}
+        ceiling={plan.fenceParams?.alt_max ?? null}
         onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))}
         onBackgroundClick={() => store.update(clearSelection)}
         onContext={setMenu}
@@ -137,7 +138,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       {basemap && onPickBasemap && basemaps.length > 1 && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" />}
       <MapModeToggle mode={mapMode} available={terrainTiles !== null} dict={dict} onChange={saveMapMode} />
       <PlanTabs tab={plan.tab} dict={dict} onChange={plan.setTab} />
-      <ElevationSheet draft={draft} selected={ui.selected} terrainTiles={terrainTiles} dict={dict} onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))} />
+      <ElevationSheet draft={draft} selected={ui.selected} terrainTiles={terrainTiles} ceiling={plan.fenceParams?.alt_max ?? null} dict={dict} onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))} />
       <button type="button" className={`g-ctl ctl float map-r2 top1 help-btn${help ? ' on' : ''}`} title={dict.mHelpTitle} aria-label={dict.mHelpTitle} onClick={() => setHelp((h) => !h)}>
         ?
       </button>
@@ -191,6 +192,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           onRemove={(zi) => change((d) => removeZone(d, zi))}
           onWrite={plan.write}
           onRead={plan.read}
+          fenceParams={plan.fenceParams}
+          onAltMax={plan.setAltMax}
         />
       )}
       {plan.tab === 'rally' && (

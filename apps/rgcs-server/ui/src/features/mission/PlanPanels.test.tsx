@@ -21,7 +21,7 @@ describe('PlanTabs', () => {
 })
 
 describe('FencePanel', () => {
-  const base = { zones: [square, line, circle], armed: null, drawing: null, sysid: 1, busy: false, status: null, dict, onArm: vi.fn(), onDone: vi.fn(), onRadius: vi.fn(), onInclusion: vi.fn(), onRemove: vi.fn(), onWrite: vi.fn(), onRead: vi.fn() }
+  const base = { zones: [square, line, circle], armed: null, drawing: null, sysid: 1, busy: false, status: null, dict, onArm: vi.fn(), onDone: vi.fn(), onRadius: vi.fn(), onInclusion: vi.fn(), onRemove: vi.fn(), onWrite: vi.fn(), onRead: vi.fn(), fenceParams: null, onAltMax: vi.fn() }
   it('lists the zones with their kind, size and problems', () => {
     render(<FencePanel {...base} />)
     const rows = screen.getAllByTestId('fence-row')
@@ -44,6 +44,18 @@ describe('FencePanel', () => {
     expect(screen.getByText(/3 点以上で「完了」/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '完了' }))
     expect(base.onDone).toHaveBeenCalled()
+  })
+  it('shows the vehicle\'s FENCE_ALT_MAX and sets a new one', () => {
+    const onAltMax = vi.fn()
+    const { rerender } = render(<FencePanel {...base} fenceParams={{ enabled: true, alt_max: 120, alt_max_on: true, zones_on: true }} onAltMax={onAltMax} />)
+    const box = screen.getByTestId('fence-alt-max')
+    expect((within(box).getByLabelText('高度上限 (FENCE_ALT_MAX)') as HTMLInputElement).value).toBe('120')
+    fireEvent.change(within(box).getByLabelText('高度上限 (FENCE_ALT_MAX)'), { target: { value: '150' } })
+    fireEvent.click(within(box).getByRole('button', { name: '設定' }))
+    expect(onAltMax).toHaveBeenCalledWith(150)
+    rerender(<FencePanel {...base} fenceParams={{ enabled: false, alt_max: 120, alt_max_on: false, zones_on: false }} onAltMax={onAltMax} />)
+    expect(screen.getByTestId('fence-alt-max')).toHaveTextContent('FENCE_TYPE で無効')
+    expect(screen.getByTestId('fence-alt-max')).toHaveTextContent('FENCE_ENABLE = 0')
   })
   it('writes and reads, and needs a vehicle to do so', () => {
     const { rerender } = render(<FencePanel {...base} status={{ ok: true, text: '書き込みました (読み戻して一致)' }} />)

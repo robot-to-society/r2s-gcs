@@ -34,6 +34,9 @@ export interface ElevProfile {
   readonly hasDem: boolean
   /** Some part of the path is more than 0.5 m under the ground. */
   readonly belowGround: boolean
+  /** FENCE_ALT_MAX as AMSL (home ground + alt max) and its chart position (0–100 %), or null. */
+  readonly ceiling: number | null
+  readonly ceilingY: number | null
 }
 
 interface Stop {
@@ -43,7 +46,8 @@ interface Stop {
   readonly d: number
 }
 
-export function elevProfile(draft: Draft, elevAt: ElevAt): ElevProfile | null {
+/** `ceilingAlt`: FENCE_ALT_MAX (m above home) to draw as a line, `null` = none. */
+export function elevProfile(draft: Draft, elevAt: ElevAt, ceilingAlt: number | null = null): ElevProfile | null {
   const positioned = draft.items.map((it, i) => ({ it, seq: i + 1 })).filter(({ it }) => hasPosition(it))
   if (positioned.length === 0) return null
   const home = draft.mission.home ?? positioned[0]!.it
@@ -59,7 +63,8 @@ export function elevProfile(draft: Draft, elevAt: ElevAt): ElevProfile | null {
   })
   const total = Math.max(cum, 1)
   const samples = sample(stops, ground, Math.max(5, total / 700))
-  const zs = samples.flatMap((s) => [s.g, s.z])
+  const ceiling = ceilingAlt === null ? null : homeGround + ceilingAlt
+  const zs = [...samples.flatMap((s) => [s.g, s.z]), ...(ceiling === null ? [] : [ceiling])]
   const lo = Math.min(...zs)
   const hi = Math.max(...zs)
   const span = Math.max(20, hi - lo)
@@ -81,6 +86,8 @@ export function elevProfile(draft: Draft, elevAt: ElevAt): ElevProfile | null {
     total: cum,
     hasDem,
     belowGround: samples.some((s) => s.z - s.g < -0.5),
+    ceiling,
+    ceilingY: ceiling === null ? null : (Y(ceiling) / H) * 100,
   }
 }
 

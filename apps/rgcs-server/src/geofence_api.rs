@@ -19,6 +19,7 @@ use crate::api::{err, ok};
 use crate::app::AppState;
 use crate::auth::AuthUser;
 use crate::mission_api::{mission_error, vehicle_for_write};
+use crate::telemetry::FENCE_PARAMS;
 
 const FENCE: MavMissionType = MavMissionType::MAV_MISSION_TYPE_FENCE;
 const RALLY: MavMissionType = MavMissionType::MAV_MISSION_TYPE_RALLY;
@@ -126,6 +127,60 @@ fn refused(code: &str, findings: &[Finding]) -> Response {
         })),
     )
         .into_response()
+}
+
+/// What the planner shows next to the zones: the altitude ceiling and whether ArduPilot enforces
+/// it and the zones (`FENCE_TYPE` bit 0 = max altitude, bit 2 = polygons / circles). `None` while
+/// the vehicle has not reported the parameter.
+#[derive(Debug, Serialize, ts_rs::TS)]
+#[ts(export)]
+pub struct FenceParams {
+    pub enabled: Option<bool>,
+    pub alt_max: Option<f32>,
+    pub alt_max_on: Option<bool>,
+    pub zones_on: Option<bool>,
+}
+
+const FENCE_TYPE_ALT_MAX: u32 = 1;
+const FENCE_TYPE_ZONES: u32 = 4;
+const PARAM_WAIT: std::time::Duration = std::time::Duration::from_millis(200);
+const PARAM_WAIT_ROUNDS: u32 = 5;
+
+fn fence_params(app: &AppState, sysid: SysId) -> FenceParams {
+    let get = |name: &str| app.params.get(sysid, name);
+    let mask = get("FENCE_TYPE").map(|v| v as u32);
+    FenceParams {
+        enabled: get("FENCE_ENABLE").map(|v| v >= 1.0),
+        alt_max: get("FENCE_ALT_MAX"),
+        alt_max_on: mask.map(|m| m & FENCE_TYPE_ALT_MAX != 0),
+        zones_on: mask.map(|m| m & FENCE_TYPE_ZONES != 0),
+    }
+}
+
+/// `GET /api/vehicles/{sysid}/fence/params` — from the parameter cache; asks the vehicle for
+/// what is missing and waits up to ~1 s for the answers.
+pub async fn get_fence_params(
+    State(app): State<AppState>,
+    AuthUser(_user): AuthUser,
+    Path(sysid): Path<SysId>,
+) -> Response {
+    let known = |p: &FenceParams| p.enabled.is_some() && p.alt_max.is_some() && p.alt_max_on.is_some();
+    let mut p = fence_params(&app, sysid);
+    if !known(&p) {
+        for name in FENCE_PARAMS {
+            let _ = app.outgoing.try_send(rgcs_mavlink::Outgoing {
+                message: rgcs_mavlink::encode_param_request_read(sysid, name),
+            });
+        }
+        for _ in 0..PARAM_WAIT_ROUNDS {
+            tokio::time::sleep(PARAM_WAIT).await;
+            p = fence_params(&app, sysid);
+            if known(&p) {
+                break;
+            }
+        }
+    }
+    ok(p)
 }
 
 /// `PUT /api/vehicles/{sysid}/fence {zones}`.

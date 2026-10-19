@@ -82,3 +82,5 @@
 .rg-rally.static { width: 20px; height: 20px; font-size: 11px; }
 /* outside the mission tab the waypoints stay on the map but do not react */
 .mission-map:not(.tab-mission) .rg-wp, .mission-map:not(.tab-mission) .rg-mid, .mission-map:not(.tab-mission) .rg-foot { pointer-events: none; opacity: 0.75; }
+.plan-altmax { display: grid; gap: 6px; padding: 10px 14px; font-size: 13px; }
+.elev-ceiling { position: absolute; right: 4px; transform: translateY(-120%); font-size: 10px; color: var(--danger); pointer-events: none; }

@@ -1,7 +1,8 @@
 // Mission / Fence / Rally planner tabs and the left panels of the fence and rally tabs
 // (user request 2026-10-19). The data lives in the plan (`draft.mission.fence / .rally`); these
 // panels only show it and report the operator's choices.
-import type { FenceZone, RallyPoint } from '../../shared/api/types'
+import { useState } from 'react'
+import type { FenceParams, FenceZone, RallyPoint } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconClose } from '../../shared/ui/icons'
 import type { PlanTab } from './fenceMap'
@@ -77,6 +78,43 @@ interface FenceProps extends IoProps {
   readonly onRadius: (zone: number, radius: number) => void
   readonly onInclusion: (zone: number, inclusion: boolean) => void
   readonly onRemove: (zone: number) => void
+  /** The target vehicle's FENCE_* parameters (null until read). */
+  readonly fenceParams: FenceParams | null
+  readonly onAltMax: (value: number) => void
+}
+
+/** FENCE_ALT_MAX: shown, settable, with whether ArduPilot enforces it. */
+function AltMaxBox({ params, busy, dict, onSet }: { readonly params: FenceParams | null; readonly busy: boolean; readonly dict: Dict; readonly onSet: (v: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const known = params?.alt_max ?? null
+  const text = draft ?? (known === null ? '' : String(Math.round(known)))
+  const value = Number(text)
+  const valid = text !== '' && Number.isFinite(value) && value > 0
+  return (
+    <div className="hair plan-altmax" data-testid="fence-alt-max">
+      <label className="row" style={{ gap: 8 }}>
+        <span className="grow">{dict.fenceAltMax}</span>
+        <input className="in num" type="number" min={1} step={1} aria-label={dict.fenceAltMax} style={{ width: 80 }} value={text} placeholder="—" onChange={(e) => setDraft(e.target.value)} />
+        <span className="t3">m</span>
+        <button
+          type="button"
+          className="btn btn-sm"
+          disabled={busy || !valid || draft === null}
+          onClick={() => {
+            onSet(value)
+            setDraft(null)
+          }}
+        >
+          {dict.fenceAltMaxSet}
+        </button>
+      </label>
+      <div className="t3 plan-note">
+        {known === null ? dict.fenceAltMaxUnknown : dict.fenceAltMaxNote}
+        {params?.alt_max_on === false && <div className="hint caution">{dict.fenceAltMaxOff}</div>}
+        {params?.enabled === false && <div className="hint caution">{dict.fenceDisabled}</div>}
+      </div>
+    </div>
+  )
 }
 
 function zoneTitle(z: FenceZone, dict: Dict): string {
@@ -108,6 +146,7 @@ export function FencePanel(p: FenceProps) {
           </button>
         ))}
       </div>
+      <AltMaxBox params={p.fenceParams} busy={p.busy} dict={dict} onSet={p.onAltMax} />
       {armed && (
         <div className="hair plan-armed t2">
           <span>{armed.kind === 'polygon' ? dict.fenceArmedPoly : dict.fenceArmedCircle}</span>

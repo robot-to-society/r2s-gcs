@@ -58,4 +58,27 @@ describe('missionAirData', () => {
     const d = missionAirData(draft([it_(1, 36.16, 30), it_(2, 36.161, 80)]) as never, new Set(), () => 100)
     expect(d.mids).toEqual([155])
   })
+
+  it('raises each fence zone as a wall up to the FENCE_ALT_MAX ceiling (green inclusion, red exclusion)', () => {
+    const base = draft([it_(1, 36.16, 30)], { lat: 36.16, lon: 139.37, alt: 400 }) as never as Parameters<typeof missionAirData>[0]
+    const fenced = { ...base, mission: { ...base.mission, fence: [{ kind: 'polygon', inclusion: true, vertices: [{ lat: 36.16, lon: 139.37 }, { lat: 36.16, lon: 139.38 }, { lat: 36.17, lon: 139.38 }] }, { kind: 'circle', inclusion: false, center: { lat: 36.165, lon: 139.375 }, radius: 50 }] } } as never
+    const plain = missionAirData(fenced, new Set(), () => 100)
+    const walled = missionAirData(fenced, new Set(), () => 100, 120)
+    expect(walled.lines.length).toBe(plain.lines.length + 2) // a top ring per zone
+    const ring = walled.lines.at(-2)!
+    expect(ring).toHaveLength(4) // closed triangle
+    expect(ring[0]!.z).toBeCloseTo(toMercator(139.37, 36.16, 220).z, 12)
+    expect(ring[0]!.c).toEqual([0x5f / 255, 0xd3 / 255, 0x9b / 255])
+    expect(walled.lines.at(-1)![0]!.c).toEqual([1, 0x69 / 255, 0x61 / 255])
+    expect(walled.posts.length).toBe(plain.posts.length + 3 + 4) // polygon vertices + 4 around the circle
+  })
+
+  it('without a mission home or items the walls stand on the vehicle\'s home (FENCE_ALT_MAX is above it)', () => {
+    const empty = draft([]) as never as Parameters<typeof missionAirData>[0]
+    const fenced = { ...empty, mission: { ...empty.mission, fence: [{ kind: 'circle', inclusion: true, center: { lat: 36.165, lon: 139.375 }, radius: 50 }] } } as never
+    expect(missionAirData(fenced, new Set(), () => 100, 120).lines).toHaveLength(0)
+    const walled = missionAirData(fenced, new Set(), () => 100, 120, { lat: 36.16, lon: 139.37 })
+    expect(walled.lines).toHaveLength(1)
+    expect(walled.lines[0]![0]!.z).toBeCloseTo(toMercator(139.375, 36.165 + 50 / 110_540, 220).z, 9)
+  })
 })

@@ -9,6 +9,8 @@ import { useAir3d } from '../map/air3d'
 import { pixelsPerMetre } from '../map/float'
 import type { MapMode } from '../map/mapMode'
 import { arcPoints, isArc } from './arc'
+import { circleRing } from './geofenceModel'
+import type { FenceZone } from '../../shared/api/types'
 import { haversineM, hasPosition, type LatLon } from './geo'
 import type { Draft, DraftItem } from './model'
 
@@ -71,7 +73,35 @@ function coloured(pts: readonly Pt[]): AirPoint[] {
   })
 }
 
-export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elevAt: ElevAt): MissionAir {
+const FENCE_OK: Rgb = [0x5f / 255, 0xd3 / 255, 0x9b / 255]
+const FENCE_DANGER: Rgb = [1, 0x69 / 255, 0x61 / 255]
+
+/**
+ * The fence in 3D: each zone's outline at the FENCE_ALT_MAX ceiling (home ground + `ceiling`), and
+ * posts from the ground up to it at the polygon vertices / four points of a circle.
+ */
+function fenceWalls(zones: readonly FenceZone[], ceilingAmsl: number, ground: (lon: number, lat: number) => number): { lines: AirVertex[][]; posts: AirVertex[][] } {
+  const lines: AirVertex[][] = []
+  const posts: AirVertex[][] = []
+  for (const z of zones) {
+    const color = z.inclusion ? FENCE_OK : FENCE_DANGER
+    const ring = z.kind === 'circle' ? circleRing(z.center, z.radius, 32) : z.vertices.length >= 3 ? [...z.vertices, z.vertices[0]!] : []
+    if (ring.length < 2) continue
+    lines.push(mercatorLine(ring.map((p) => ({ lon: p.lon, lat: p.lat, amsl: ceilingAmsl, color }))))
+    const corners = z.kind === 'circle' ? [0, 8, 16, 24].map((i) => ring[i]!) : z.vertices
+    for (const p of corners) {
+      const g = ground(p.lon, p.lat)
+      posts.push(mercatorLine([{ lon: p.lon, lat: p.lat, amsl: Math.min(g, ceilingAmsl), color }, { lon: p.lon, lat: p.lat, amsl: Math.max(g, ceilingAmsl), color }]))
+    }
+  }
+  return { lines, posts }
+}
+
+/**
+ * `ceiling`: FENCE_ALT_MAX (m above home) to raise the fence zones to, `null` = no walls.
+ * `vehicleHome`: the target vehicle's home, the ceiling's base when the plan has neither home nor items.
+ */
+export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elevAt: ElevAt, ceiling: number | null = null, vehicleHome: LatLon | null = null): MissionAir {
   const items = draft.items.filter(hasPosition)
   const home: LatLon | null = draft.mission.home ?? items[0] ?? null
   const alts = new Map(items.map((it) => [it.uid, itemAmsl(it, home, elevAt)] as const))
@@ -96,7 +126,9 @@ export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elev
     const zb = alts.get(b.uid)
     return za == null || zb == null ? null : (za + zb) / 2
   })
-  return { lines, posts, discs, alts, mids }
+  const base = home ? homeGround : vehicleHome ? elevAt(vehicleHome.lon, vehicleHome.lat) : null
+  const walls = ceiling !== null && base !== null ? fenceWalls(draft.mission.fence, base + ceiling, (lon, lat) => elevAt(lon, lat) ?? base) : { lines: [], posts: [] }
+  return { lines: [...lines, ...walls.lines], posts: [...posts, ...walls.posts], discs, alts, mids }
 }
 
 interface Args {
@@ -108,6 +140,9 @@ interface Args {
   readonly selected: ReadonlySet<number>
   readonly badges: RefObject<ReadonlyMap<number, { marker: Marker }>>
   readonly handles: RefObject<readonly Marker[]>
+  /** FENCE_ALT_MAX: the fence zones rise to it in 3D (above `vehicleHome` when the plan has no home). */
+  readonly ceiling?: number | null
+  readonly vehicleHome?: LatLon | null
 }
 
 function setup(m: MlMap): void {
@@ -128,13 +163,13 @@ export interface MissionAir3d {
   readonly pxPerMetre: (uid: number) => number | null
 }
 
-export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles }: Args): MissionAir3d {
+export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles, ceiling = null, vehicleHome = null }: Args): MissionAir3d {
   const { sampler, ready, is3d, tick, layer, floats, matrix } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
   const latest = useRef({ draft, alts: new Map<number, number | null>() as ReadonlyMap<number, number | null> })
   useEffect(() => {
     const m = map.current
     if (!m || !ready || !sampler || !is3d) return
-    const d = missionAirData(draft, selected, sampler.elevAt)
+    const d = missionAirData(draft, selected, sampler.elevAt, ceiling, vehicleHome)
     latest.current = { draft, alts: d.alts }
     const byUid = new Map(draft.items.map((it) => [it.uid, it]))
     const badgeFloats = [...badges.current.entries()].flatMap(([uid, { marker }]) => {
@@ -149,7 +184,7 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     layer.setLines(d.lines, d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats])
+  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats, ceiling, vehicleHome?.lat, vehicleHome?.lon])
 
   const pxPerMetre = (uid: number): number | null => {
     const m = map.current

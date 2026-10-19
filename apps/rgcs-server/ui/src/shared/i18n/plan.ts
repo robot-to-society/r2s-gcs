@@ -34,6 +34,14 @@ export const planJa = {
   planMismatch: '書き込みましたが、読み戻しが一致しません',
   planReadDone: '機体から読み込みました',
   planNoVehicle: '対象機体を選んでください',
+  fenceAltMax: '高度上限 (FENCE_ALT_MAX)',
+  fenceAltMaxSet: '設定',
+  fenceAltMaxNote: 'ホーム基準。3D ではフェンスをこの高さの壁で、標高プロファイルでは線で表示します',
+  fenceAltMaxOff: 'FENCE_TYPE で無効 (bit 0 = 1 で有効)',
+  fenceDisabled: 'FENCE_ENABLE = 0 (フェンス無効)',
+  fenceAltMaxUnknown: '機体から未取得',
+  fenceAltMaxSaved: 'FENCE_ALT_MAX を設定しました',
+  elevCeiling: '高度上限',
 } as const
 
 export const planEn: Record<keyof typeof planJa, string> = {
@@ -70,4 +78,12 @@ export const planEn: Record<keyof typeof planJa, string> = {
   planMismatch: 'Written, but the read-back does not match',
   planReadDone: 'Read from the vehicle',
   planNoVehicle: 'Choose a target vehicle',
+  fenceAltMax: 'Altitude ceiling (FENCE_ALT_MAX)',
+  fenceAltMaxSet: 'Set',
+  fenceAltMaxNote: 'Above home. 3D shows the fence as walls this high; the elevation profile shows a line',
+  fenceAltMaxOff: 'Off in FENCE_TYPE (set bit 0 to enforce)',
+  fenceDisabled: 'FENCE_ENABLE = 0 (fence off)',
+  fenceAltMaxUnknown: 'Not reported by the vehicle yet',
+  fenceAltMaxSaved: 'FENCE_ALT_MAX set',
+  elevCeiling: 'Ceiling',
 }

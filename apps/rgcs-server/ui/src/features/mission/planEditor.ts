@@ -1,12 +1,12 @@
 // The fence / rally side of the planner: which tab is open, the zone being drawn, map clicks and
 // handle drags turned into plan edits, and writing / reading the lists to / from the vehicle.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ApiError } from '../../shared/api/client'
 import type { Dict } from '../../shared/i18n'
-import { readFence, readRally, writeFence, writeRally } from './api'
+import { readFence, readFenceParams, readRally, setFenceAltMax, writeFence, writeRally } from './api'
 import type { FenceEdit, PlanTab } from './fenceMap'
 import { addRally, addZone, rallyDefaultAlt, moveCircle, moveRally, moveVertex, replaceZone, setFence, setRadius, setRally } from './geofenceModel'
-import type { FenceZone } from '../../shared/api/types'
+import type { FenceParams, FenceZone } from '../../shared/api/types'
 import type { Draft } from './model'
 import type { ArmedZone, PlanStatus } from './PlanPanels'
 import { readPlanTab } from './planTab'
@@ -30,6 +30,19 @@ export function usePlanEditor({ draft, sysid, dict, change }: Args) {
   const [drawingZone, setDrawingZone] = useState<FenceZone | null>(null)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<PlanStatus | null>(null)
+  // the target vehicle's FENCE_* parameters: the ceiling of the 3D walls and the profile line
+  const [fenceParams, setFenceParams] = useState<FenceParams | null>(null)
+  useEffect(() => {
+    let live = true
+    if (sysid !== null) {
+      readFenceParams(sysid)
+        .then((p) => live && setFenceParams(p))
+        .catch(() => live && setFenceParams(null))
+    }
+    return () => {
+      live = false
+    }
+  }, [sysid])
   const fence = draft.mission.fence
   const at = drawingZone ? fence.indexOf(drawingZone) : -1
   const lost = drawingZone !== null && at < 0
@@ -102,5 +115,14 @@ export function usePlanEditor({ draft, sysid, dict, change }: Args) {
     })
   }
 
-  return { tab, setTab, armed, arm, drawing, finish, busy, status, write, read, onPlanClick, onFenceEdit, onRallyMove }
+  const setAltMax = (value: number) => {
+    if (sysid === null) return
+    void run(async () => {
+      const verified = await setFenceAltMax(sysid, value)
+      setFenceParams(await readFenceParams(sysid))
+      return verified ? dict.fenceAltMaxSaved : dict.planMismatch
+    })
+  }
+
+  return { tab, setTab, armed, arm, drawing, finish, busy, status, write, read, onPlanClick, onFenceEdit, onRallyMove, fenceParams: sysid === null ? null : fenceParams, setAltMax }
 }
