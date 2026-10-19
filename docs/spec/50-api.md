@@ -48,6 +48,8 @@
 | メソッド | パス | 本文 / 応答 |
 |---|---|---|
 | PUT | `/api/vehicles/{sysid}/mission` | `Mission` → `UploadReport{items, verified, mismatched[], findings[]}`。書込 → 読込 → 一致検証。`409 mission_busy` / `409 mission_invalid`(`data.findings` に致命) / `409 mission_rejected`(MISSION_ACK) / `503 link_lost` / `504 mission_timeout`(1.5 s × 3 回)。監査 target `mission` |
+| GET / PUT | `/api/vehicles/{sysid}/fence` | PUT `{zones: FenceZone[]}` → `UploadReport`。`FenceZone` = `{kind: "polygon", inclusion, vertices: [{lat, lon}]}` / `{kind: "circle", inclusion, center, radius}`。`MAV_MISSION_TYPE_FENCE` で書込(ホームなし、ポリゴンは頂点を連続で 5001 / 5002 + param1 = 頂点数、円は 5003 / 5004 + param1 = 半径 m)→ 読込 → 一致検証。`409 fence_invalid`(頂点 3〜255、半径 > 0、緯度経度の範囲。`data.findings`)。GET `{zones}`(リターンポイント 5000 は Copter が使わないので読み飛ばす)。監査 target `fence` |
+| GET / PUT | `/api/vehicles/{sysid}/rally` | PUT `{points: [{lat, lon, alt}]}`(alt はホーム相対 m。整数 m に丸める = ArduPilot int16)→ `UploadReport`。`MAV_MISSION_TYPE_RALLY`、5100。`409 rally_invalid`(緯度経度の範囲、±10000 m)。GET `{points}`。監査 target `rally` |
 | POST | `/api/vehicles/{sysid}/mission/upload` | `{mission_id}` → 保存済みミッションを同じ手順で書込 |
 | GET | `/api/vehicles/{sysid}/mission` | 機体から読込 → `Mission`(`sysid` 入り) |
 | GET | `/api/vehicles/{sysid}/mission/progress` | → `MissionProgress{seq, total}` または `null`(`total` = 項目数) |
