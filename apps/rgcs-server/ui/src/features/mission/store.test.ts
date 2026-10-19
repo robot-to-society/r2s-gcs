@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Mission } from '../../shared/api/types'
-import { appendWaypoint, emptyDraft } from './model'
+import { appendWaypoint, emptyDraft, insertAfter, insertCommandAfter, removeItems, reorder, updateItem } from './model'
 import { INITIAL_MISSION_UI, MissionStore, addToSelection, copySelected, pasteClipboard, clearSelection, edit, loaded, markSaved, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi } from './store'
 
 const threePoints = () => appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
@@ -93,5 +93,31 @@ describe('copy / paste', () => {
     const nothing = base()
     expect(pasteClipboard(nothing)).toBe(nothing)
     expect(copySelected(nothing)).toBe(nothing)
+  })
+})
+
+describe('DO_JUMP follows its target item', () => {
+  // T(1) WP(2) WP(3) DO_JUMP→3(4)
+  const plan = () => {
+    const d = appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
+    const withJump = insertCommandAfter(d, 3, 'DO_JUMP')
+    return edit(INITIAL_MISSION_UI, updateItem(withJump, 4, { params: [3, 2, 0, 0] }))
+  }
+  const jump = (ui: ReturnType<typeof plan>) => ui.history.present.items.filter((it) => it.command === 177).map((it) => it.params[0])
+  it('keeps pointing at the same waypoint when items move or are inserted before it', () => {
+    const ui = plan()
+    expect(jump(edit(ui, reorder(ui.history.present, 3, -1)))).toEqual([2])
+    expect(jump(edit(ui, insertAfter(ui.history.present, 1, 36.15, 139.15)))).toEqual([4])
+  })
+  it('a typed target stays as typed, a deleted target leaves the number alone', () => {
+    const ui = plan()
+    expect(jump(edit(ui, updateItem(ui.history.present, 4, { params: [2, 2, 0, 0] })))).toEqual([2])
+    expect(jump(edit(ui, removeItems(ui.history.present, new Set([3]))))).toEqual([3])
+  })
+  it('a pasted jump whose target was copied with it points at the copy; the original keeps its target', () => {
+    const ui = selectRange(selectOne(plan(), 3, false), 4)
+    const pasted = pasteClipboard(copySelected(ui))
+    // T WP WP JUMP | WP' JUMP' → the copy jumps to WP' (seq 5)
+    expect(jump(pasted)).toEqual([3, 5])
   })
 })

@@ -123,6 +123,32 @@ export function setArc(d: Draft, uid: number, angle: number): Draft {
 }
 
 /** Adds `dAlt` metres; Rel / Ter items stop at 0 m so a quick drag never puts a waypoint underground. */
+const DO_JUMP_CMD = 177
+
+/**
+ * DO_JUMP's param1 is a mission sequence number: after an edit each jump is re-pointed at the
+ * same target item (by uid), so moving / inserting / pasting never retargets it silently. A value
+ * the edit itself typed stays as typed; a deleted target leaves the number alone. `pasted`: jumps
+ * pasted in this edit, whose targets copied along with them go to the copy (`alias` old → new uid).
+ */
+export function remapJumps(prev: Draft, next: Draft, alias: ReadonlyMap<number, number> = new Map(), pasted: ReadonlySet<number> = new Set()): Draft {
+  const before = new Map(prev.items.map((it) => [it.uid, it]))
+  const seqOf = new Map(next.items.map((it, i) => [it.uid, i + 1]))
+  let changed = false
+  const items = next.items.map((it) => {
+    if (it.command !== DO_JUMP_CMD) return it
+    const old = before.get(it.uid)
+    if (old && old.params[0] !== it.params[0]) return it
+    const target = prev.items[it.params[0] - 1]?.uid
+    if (target === undefined) return it
+    const seq = seqOf.get(pasted.has(it.uid) ? (alias.get(target) ?? target) : target)
+    if (seq === undefined || seq === it.params[0]) return it
+    changed = true
+    return { ...it, params: [seq, it.params[1], it.params[2], it.params[3]] as [number, number, number, number] }
+  })
+  return changed ? { ...next, items } : next
+}
+
 export function shiftAlts(d: Draft, uids: ReadonlySet<number>, dAlt: number): Draft {
   const alt = (it: DraftItem) => (it.frame === 'abs' ? it.alt + dAlt : Math.max(0, it.alt + dAlt))
   return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt: alt(it) } : it)) }

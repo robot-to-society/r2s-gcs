@@ -2,7 +2,7 @@
 import { useSyncExternalStore } from 'react'
 import type { Finding, Mission, MissionItem, UploadReport } from '../../shared/api/types'
 import { canRedo, canUndo, initHistory, push, redo, undo, type History } from './history'
-import { emptyDraft, fromMission, insertItemsAfter, removeItems, type Draft } from './model'
+import { emptyDraft, fromMission, insertItemsAfter, remapJumps, removeItems, type Draft } from './model'
 
 export type Tool = 'select' | 'add'
 export type Busy = 'idle' | 'saving' | 'uploading' | 'downloading'
@@ -20,6 +20,8 @@ export interface MissionUi {
   readonly lastReport: UploadReport | null
   /** ⌘/Ctrl+C: copies of the selected items in list order (kept across missions). */
   readonly clipboard: readonly MissionItem[]
+  /** The uids the clipboard was copied from (a pasted DO_JUMP follows its copied target). */
+  readonly clipboardUids: readonly number[]
 }
 
 export const INITIAL_MISSION_UI: MissionUi = {
@@ -33,6 +35,7 @@ export const INITIAL_MISSION_UI: MissionUi = {
   findings: [],
   lastReport: null,
   clipboard: [],
+  clipboardUids: [],
 }
 
 const EMPTY: ReadonlySet<number> = new Set()
@@ -43,9 +46,11 @@ function prune(selected: ReadonlySet<number>, draft: Draft): ReadonlySet<number>
   return kept.length === selected.size ? selected : new Set(kept)
 }
 
-/** Records an edit: new present, redo cleared, mission dirty. */
-export const edit = (ui: MissionUi, next: Draft): MissionUi =>
+const commit = (ui: MissionUi, next: Draft): MissionUi =>
   next === ui.history.present ? ui : { ...ui, history: push(ui.history, next), dirty: true, selected: prune(ui.selected, next), findings: [] }
+
+/** Records an edit: new present (DO_JUMPs kept on their targets), redo cleared, mission dirty. */
+export const edit = (ui: MissionUi, next: Draft): MissionUi => (next === ui.history.present ? ui : commit(ui, remapJumps(ui.history.present, next)))
 
 export const undoUi = (ui: MissionUi): MissionUi => {
   if (!canUndo(ui.history)) return ui
@@ -88,8 +93,8 @@ export function addToSelection(ui: MissionUi, uids: readonly number[]): MissionU
 
 export function copySelected(ui: MissionUi): MissionUi {
   if (ui.selected.size === 0) return ui
-  const clipboard = ui.history.present.items.filter((it) => ui.selected.has(it.uid)).map(({ uid: _uid, ...it }) => it)
-  return { ...ui, clipboard }
+  const picked = ui.history.present.items.filter((it) => ui.selected.has(it.uid))
+  return { ...ui, clipboard: picked.map(({ uid: _uid, ...it }) => it), clipboardUids: picked.map((it) => it.uid) }
 }
 
 /** ⌘/Ctrl+V: the clipboard after the last selected item (or at the end), one undo step, the copies selected. */
@@ -98,7 +103,8 @@ export function pasteClipboard(ui: MissionUi): MissionUi {
   const d = ui.history.present
   const last = [...d.items].reverse().find((it) => ui.selected.has(it.uid))
   const { draft, uids } = insertItemsAfter(d, last?.uid ?? null, ui.clipboard)
-  return { ...edit(ui, draft), selected: new Set(uids), anchor: uids.at(-1) ?? ui.anchor }
+  const alias = new Map(ui.clipboardUids.map((from, i) => [from, uids[i]!]))
+  return { ...commit(ui, remapJumps(d, draft, alias, new Set(uids))), selected: new Set(uids), anchor: uids.at(-1) ?? ui.anchor }
 }
 
 export const clearSelection = (ui: MissionUi): MissionUi => (ui.selected.size === 0 ? ui : { ...ui, selected: EMPTY, anchor: null })
