@@ -273,6 +273,7 @@ describe('MissionMap', () => {
     const { props } = renderMap({ terrainTiles: DEM, mode: '3d' })
     frame()
     const b = badges()[1]!
+    document.body.append(b.el) // MapLibre puts markers in the page; the fake does not
     expect(b.draggable).toBe(false)
     altDrag(b.el, 300, 250)
     expect(b.el.querySelector('.altc')!.textContent).toBe('▲ 75 m Rel')
@@ -423,5 +424,22 @@ describe('MissionMap', () => {
     const t = new Event('touchstart', { bubbles: true, cancelable: true })
     badges()[1]!.el.dispatchEvent(t)
     expect(t.defaultPrevented).toBe(true)
+  })
+
+  it('the click that ends an altitude drag off the badge never reaches the map (no new WP)', async () => {
+    const { container } = renderMap({ terrainTiles: DEM, mode: '3d' })
+    frame()
+    const mapEl = container.querySelector('[data-testid="mission-map"]')!
+    const onMapClick = vi.fn()
+    mapEl.addEventListener('click', onMapClick)
+    altDrag(badges()[1]!.el, 300, 250)
+    act(() => {
+      window.dispatchEvent(new MouseEvent('pointerup', { clientY: 250 }))
+      mapEl.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(onMapClick).not.toHaveBeenCalled()
+    await new Promise((r) => setTimeout(r, 0))
+    mapEl.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(onMapClick).toHaveBeenCalledTimes(1)
   })
 })

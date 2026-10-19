@@ -18,8 +18,22 @@ export interface AltDragDeps {
   readonly onCommit: (targets: ReadonlySet<number>, dAlt: number) => void
 }
 
+/**
+ * The click that ends a drag lands wherever the pointer was released — off the badge it reaches
+ * the map, which adds a waypoint in the add tool. Swallow that one click anywhere (window capture),
+ * and stop swallowing after this task in case the release produced no click.
+ */
+function swallowNextClick(): void {
+  const stop = (e: Event) => {
+    e.stopImmediatePropagation()
+    e.preventDefault()
+    window.removeEventListener('click', stop, true)
+  }
+  window.addEventListener('click', stop, true)
+  setTimeout(() => window.removeEventListener('click', stop, true), 0)
+}
+
 export function attachAltDrag(el: HTMLElement, deps: AltDragDeps): void {
-  let swallowClick = false
   // preventDefault on pointerdown does not stop touchstart: MapLibre would pan under the finger
   el.addEventListener(
     'touchstart',
@@ -28,18 +42,7 @@ export function attachAltDrag(el: HTMLElement, deps: AltDragDeps): void {
     },
     { passive: false },
   )
-  el.addEventListener(
-    'click',
-    (e) => {
-      if (!swallowClick) return
-      swallowClick = false
-      e.stopImmediatePropagation()
-    },
-    true,
-  )
   el.addEventListener('pointerdown', (e) => {
-    // a drag released off the badge gets no click: never let its flag eat a later one
-    swallowClick = false
     if (e.button !== 0 || !deps.active()) return
     e.preventDefault()
     e.stopPropagation()
@@ -65,7 +68,7 @@ export function attachAltDrag(el: HTMLElement, deps: AltDragDeps): void {
       window.removeEventListener('pointerup', finish)
       window.removeEventListener('pointercancel', finish)
       if (!dragging) return
-      swallowClick = true
+      swallowNextClick()
       // a cancelled gesture (e.g. the browser took the touch) reverts instead of committing
       deps.onCommit(targets, ev.type === 'pointercancel' ? 0 : dAlt)
     }
