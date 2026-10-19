@@ -122,7 +122,6 @@ export function setArc(d: Draft, uid: number, angle: number): Draft {
   return updateItem(d, uid, { command, params: [angle, it.params[1], it.params[2], it.params[3]] })
 }
 
-/** Adds `dAlt` metres; Rel / Ter items stop at 0 m so a quick drag never puts a waypoint underground. */
 const DO_JUMP_CMD = 177
 
 /**
@@ -149,6 +148,7 @@ export function remapJumps(prev: Draft, next: Draft, alias: ReadonlyMap<number, 
   return changed ? { ...next, items } : next
 }
 
+/** Adds `dAlt` metres; Rel / Ter items stop at 0 m so a quick drag never puts a waypoint underground. */
 export function shiftAlts(d: Draft, uids: ReadonlySet<number>, dAlt: number): Draft {
   const alt = (it: DraftItem) => (it.frame === 'abs' ? it.alt + dAlt : Math.max(0, it.alt + dAlt))
   return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt: alt(it) } : it)) }

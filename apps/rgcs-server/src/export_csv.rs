@@ -76,23 +76,26 @@ pub fn csv_form1(flights: &[Flight]) -> Vec<u8> {
         "記事",
     ]);
     for (i, f) in flights.iter().enumerate() {
-        row(&mut w, [
-            (i + 1).to_string(),
-            jst::date(f.takeoff_at),
-            f.pilot.clone(),
-            f.pilot_license.clone(),
-            f.purposes.join("、"),
-            f.specific_flight.join("、"),
-            f.summary.clone(),
-            place_text(&f.takeoff_place, f.takeoff_lat, f.takeoff_lon),
-            place_text(&f.landing_place, f.landing_lat, f.landing_lon),
-            jst::hhmm(f.takeoff_at),
-            f.landed_at.map(jst::hhmm).unwrap_or_default(),
-            f.flight_minutes.to_string(),
-            f.total_minutes.to_string(),
-            f.safety_notes.clone(),
-            squawk_text(f),
-        ]);
+        row(
+            &mut w,
+            [
+                (i + 1).to_string(),
+                jst::date(f.takeoff_at),
+                f.pilot.clone(),
+                f.pilot_license.clone(),
+                f.purposes.join("、"),
+                f.specific_flight.join("、"),
+                f.summary.clone(),
+                place_text(&f.takeoff_place, f.takeoff_lat, f.takeoff_lon),
+                place_text(&f.landing_place, f.landing_lat, f.landing_lon),
+                jst::hhmm(f.takeoff_at),
+                f.landed_at.map(jst::hhmm).unwrap_or_default(),
+                f.flight_minutes.to_string(),
+                f.total_minutes.to_string(),
+                f.safety_notes.clone(),
+                squawk_text(f),
+            ],
+        );
     }
     finish(w)
 }
@@ -113,17 +116,20 @@ pub fn csv_form2(runs: &[InspectionRun]) -> Vec<u8> {
     ]);
     for run in runs {
         for r in &run.results {
-            row(&mut w, [
-                run.id.to_string(),
-                run.performed_on.clone(),
-                place_text(&run.place, run.lat, run.lon),
-                run.inspector.clone(),
-                r.label.clone(),
-                r.detail.clone(),
-                result_text(r.result).to_string(),
-                r.remark.clone(),
-                run.notes.clone(),
-            ]);
+            row(
+                &mut w,
+                [
+                    run.id.to_string(),
+                    run.performed_on.clone(),
+                    place_text(&run.place, run.lat, run.lon),
+                    run.inspector.clone(),
+                    r.label.clone(),
+                    r.detail.clone(),
+                    result_text(r.result).to_string(),
+                    r.remark.clone(),
+                    run.notes.clone(),
+                ],
+            );
         }
     }
     finish(w)
@@ -142,15 +148,18 @@ pub fn csv_form3(records: &[MaintenanceRecord]) -> Vec<u8> {
         "特記事項",
     ]);
     for r in records {
-        row(&mut w, [
-            r.performed_on.clone(),
-            r.total_minutes.to_string(),
-            r.detail.clone(),
-            r.reason.clone(),
-            r.place.clone(),
-            r.engineer.clone(),
-            r.notes.clone(),
-        ]);
+        row(
+            &mut w,
+            [
+                r.performed_on.clone(),
+                r.total_minutes.to_string(),
+                r.detail.clone(),
+                r.reason.clone(),
+                r.place.clone(),
+                r.engineer.clone(),
+                r.notes.clone(),
+            ],
+        );
     }
     finish(w)
 }
