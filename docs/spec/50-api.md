@@ -153,6 +153,7 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | `network_status` | `{diff: Partial<NetworkTopology>}` | 1 Hz(M5、80 §4) |
 | `vehicle_discovered` / `vehicle_lost` | `{sysid}` | 発生時 |
 | `mission_progress` | `{sysid, progress: {seq, total}}` | `MISSION_CURRENT` の変化時 + 1 Hz(サーバーが再送)。`total` はサーバーが書込 / 読込したミッションの項目数(未知なら機体の `MISSION_CURRENT.total`) |
+| `mission_transfer` | `{sysid, transfer: {phase: write\|verify\|done\|failed, done, total}}` | ミッション書込中(`PUT .../mission`)。write は機体が要求した項目数、verify は読み戻した項目数(`total` = 項目数 + ホーム)、最後に done か failed |
 | `flight_draft_created` | `{sysid, flight: Flight}` | DISARM 時(初回 ARM から最後の DISARM までが 1 飛行。10 分以内の再 ARM は同じ飛行、リンク喪失 10 分で最終受信時刻に着陸扱い) |
 | `log_fetch_progress` | `{sysid, progress: {fc_log_id, received, total, done, error?}}` | 64 KB ごとと完了時 |
 | `input_state` | `{deadman: ok\|lost}` | 変化時(`input_hb` 1.5 s 途絶で `lost`、サーバーは速度 0 を 1 回送る) |
