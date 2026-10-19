@@ -186,3 +186,7 @@
 .btn.hold .hold-fill { position: absolute; inset: 0; transform: scaleX(0); transform-origin: left; background: rgba(255, 255, 255, 0.28); }
 .btn.hold.holding .hold-fill { transform: scaleX(1); transition: transform 1.5s linear; }
 .btn.hold .hold-label { position: relative; }
+.quick-modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 10px; }
+.quick-modes .chip { height: 32px; border-radius: var(--r-ctl); border: 1px solid var(--line-hi); background: transparent; color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; }
+.quick-modes .chip.on { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent); }
+.cmd-param .step { min-width: 40px; padding: 0 6px; }

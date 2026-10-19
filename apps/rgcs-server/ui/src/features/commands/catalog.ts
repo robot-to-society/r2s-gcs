@@ -6,6 +6,9 @@ export const REQUIRES_CONFIRM: ReadonlySet<string> = new Set(['arm', 'disarm', '
 /** Commands whose confirm button is rendered as danger. */
 export const DESTRUCTIVE: ReadonlySet<string> = new Set(['arm', 'disarm', 'rtl', 'land'])
 
+/** One-click mode chips above the command groups (operator proposal 5). */
+export const QUICK_MODES: readonly string[] = ['LOITER', 'GUIDED', 'AUTO', 'RTL']
+
 export const COPTER_MODES: readonly string[] = ['STABILIZE', 'ALT_HOLD', 'LOITER', 'AUTO', 'GUIDED', 'RTL', 'LAND', 'BRAKE', 'POSHOLD']
 
 export type CommandGroup = 'flight' | 'move' | 'mode' | 'payload'
