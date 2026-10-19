@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { t } from '../../shared/i18n'
-import { TransferBar, transferPercent } from './TransferBar'
+import { transferPercent } from './transfer'
+import { TransferBar } from './TransferBar'
 
 describe('TransferBar', () => {
   it('fills 0–70 % while writing and 70–100 % while reading back', () => {

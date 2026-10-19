@@ -268,7 +268,9 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     followed.current = follow
     if (amsl !== null) return follow3d(m, v, amsl, fresh)
     if (fresh || needsRecenter(m.project(m.getCenter()), m.project(center))) m.easeTo({ center, duration: 200, ...KEEP_ELEVATION })
-  }, [vehicles, follow])
+    // opsAir.alts / modeSwitchAt are refs (read fresh); is3d switches between the 2D and 3D follow
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicles, follow, opsAir.is3d])
 
   /** From behind and above: the centre at the vehicle's altitude, the bearing along its heading. */
   function follow3d(m: MlMap, v: VehicleState, amsl: number, fresh: boolean): void {

@@ -9,6 +9,9 @@ import { ContextMenu } from './ContextMenu'
 import { MissionList } from './MissionList'
 import { MissionMap } from './MissionMap'
 import { ElevationSheet } from './ElevationSheet'
+import { usePlanEditor } from './planEditor'
+import { FencePanel, PlanTabs, RallyPanel } from './PlanPanels'
+import { removeRally, removeZone, setInclusion, setRadius, setRallyAlt } from './geofenceModel'
 import { MissionPicker } from './MissionPicker'
 import { MissionSidebar } from './MissionSidebar'
 import { canRedo, canUndo } from './history'
@@ -58,6 +61,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const takeoffAt = vehicle && vehicle.gps.fix >= 2 && !(vehicle.lat === 0 && vehicle.lon === 0) ? { lat: vehicle.lat, lon: vehicle.lon } : (draft.mission.home ?? null)
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
   const io = useMissionIo(store, sysid, dict, vehicleStore)
+  const plan = usePlanEditor({ draft, sysid, dict, change })
   const selectedItems = draft.items.filter((it) => ui.selected.has(it.uid))
   const lastSelected = selectedItems[selectedItems.length - 1]
   const st = stats(draft.items, draft.mission.home, draft.mission.speed)
@@ -65,6 +69,13 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (isEditable(e.target)) return
     const meta = e.metaKey || e.ctrlKey
+    // fence / rally tabs: only undo / redo and finishing or cancelling a zone; waypoints stay put
+    if (plan.tab !== 'mission' && !(meta && e.key.toLowerCase() === 'z')) {
+      if (e.key !== 'Enter' && e.key !== 'Escape') return
+      plan.finish()
+      e.preventDefault()
+      return
+    }
     if (e.key === 'Delete' || e.key === 'Backspace') store.update(removeSelected)
     else if (meta && e.key.toLowerCase() === 'z') store.update(e.shiftKey ? redoUi : undoUi)
     else if (meta && e.key.toLowerCase() === 'c') store.update(copySelected)
@@ -109,6 +120,10 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onShiftAlt={(uids, dAlt) => change((d) => shiftAlts(d, uids, dAlt))}
         onBoxSelect={(uids) => store.update((u) => addToSelection(u, uids))}
         onArc={(uid, angle) => change((d) => setArc(d, uid, angle))}
+        tab={plan.tab}
+        onPlanClick={plan.onPlanClick}
+        onFenceEdit={plan.onFenceEdit}
+        onRallyMove={plan.onRallyMove}
         onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))}
         onBackgroundClick={() => store.update(clearSelection)}
         onContext={setMenu}
@@ -121,6 +136,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       </div>
       {basemap && onPickBasemap && basemaps.length > 1 && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" />}
       <MapModeToggle mode={mapMode} available={terrainTiles !== null} dict={dict} onChange={saveMapMode} />
+      <PlanTabs tab={plan.tab} dict={dict} onChange={plan.setTab} />
       <ElevationSheet draft={draft} selected={ui.selected} terrainTiles={terrainTiles} dict={dict} onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))} />
       <button type="button" className={`g-ctl ctl float map-r2 top1 help-btn${help ? ' on' : ''}`} title={dict.mHelpTitle} aria-label={dict.mHelpTitle} onClick={() => setHelp((h) => !h)}>
         ?
@@ -159,89 +175,122 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         </span>
       </div>
 
-      <aside className="g panel float float-l mission-left" aria-label={dict.navMission}>
-        <div className="panel-h" style={{ gap: 6 }}>
-          <span className="h1" style={{ whiteSpace: 'nowrap' }}>
-            {dict.mItemsTitle}
-          </span>
-          <span className="h1 t2" style={{ fontWeight: 300 }}>
-            {draft.items.length}
-          </span>
-          <div className="grow" />
-          <button type="button" className="btn-icon" title={`${dict.mUndo} (⌘Z)`} aria-label={dict.mUndo} disabled={!canUndo(ui.history)} onClick={() => store.update(undoUi)}>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
-          </button>
-          <button type="button" className="btn-icon" title={`${dict.mRedo} (⇧⌘Z)`} aria-label={dict.mRedo} disabled={!canRedo(ui.history)} onClick={() => store.update(redoUi)}>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 14l5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg>
-          </button>
-          <button type="button" className="btn-icon" title={dict.mReverse} aria-label={dict.mReverse} onClick={() => change(reverseItems)}>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 7h11l-3-3M17 17H6l3 3" /></svg>
-          </button>
-          <button type="button" className="btn-icon" title={dict.mClearAll} aria-label={dict.mClearAll} onClick={() => change(clearItems)}>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></svg>
-          </button>
-        </div>
-        <div className="hair mission-tools">
-          <div className="seg" style={{ height: 36 }} role="group" aria-label="tool">
-            <span className="lens" style={{ transform: `translateX(${ui.tool === 'add' ? 0 : 100}%)` }} />
-            <button type="button" className={ui.tool === 'add' ? 'on' : ''} onClick={() => store.update((u) => setTool(u, 'add'))}>
-              {dict.mToolAdd}
+      {plan.tab === 'fence' && (
+        <FencePanel
+          zones={draft.mission.fence}
+          armed={plan.armed}
+          drawing={plan.drawing}
+          sysid={sysid}
+          busy={plan.busy}
+          status={plan.status}
+          dict={dict}
+          onArm={plan.arm}
+          onDone={plan.finish}
+          onRadius={(zi, r) => change((d) => setRadius(d, zi, r))}
+          onInclusion={(zi, inc) => change((d) => setInclusion(d, zi, inc))}
+          onRemove={(zi) => change((d) => removeZone(d, zi))}
+          onWrite={plan.write}
+          onRead={plan.read}
+        />
+      )}
+      {plan.tab === 'rally' && (
+        <RallyPanel
+          points={draft.mission.rally}
+          sysid={sysid}
+          busy={plan.busy}
+          status={plan.status}
+          dict={dict}
+          onAlt={(i, alt) => change((d) => setRallyAlt(d, i, alt))}
+          onRemove={(i) => change((d) => removeRally(d, i))}
+          onWrite={plan.write}
+          onRead={plan.read}
+        />
+      )}
+      {plan.tab === 'mission' && (
+        <aside className="g panel float float-l mission-left" aria-label={dict.navMission}>
+          <div className="panel-h" style={{ gap: 6 }}>
+            <span className="h1" style={{ whiteSpace: 'nowrap' }}>
+              {dict.mItemsTitle}
+            </span>
+            <span className="h1 t2" style={{ fontWeight: 300 }}>
+              {draft.items.length}
+            </span>
+            <div className="grow" />
+            <button type="button" className="btn-icon" title={`${dict.mUndo} (⌘Z)`} aria-label={dict.mUndo} disabled={!canUndo(ui.history)} onClick={() => store.update(undoUi)}>
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
             </button>
-            <button type="button" className={ui.tool === 'select' ? 'on' : ''} onClick={() => store.update((u) => setTool(u, 'select'))}>
-              {dict.mToolSelect}
+            <button type="button" className="btn-icon" title={`${dict.mRedo} (⇧⌘Z)`} aria-label={dict.mRedo} disabled={!canRedo(ui.history)} onClick={() => store.update(redoUi)}>
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 14l5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg>
+            </button>
+            <button type="button" className="btn-icon" title={dict.mReverse} aria-label={dict.mReverse} onClick={() => change(reverseItems)}>
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 7h11l-3-3M17 17H6l3 3" /></svg>
+            </button>
+            <button type="button" className="btn-icon" title={dict.mClearAll} aria-label={dict.mClearAll} onClick={() => change(clearItems)}>
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></svg>
             </button>
           </div>
-          <button type="button" className={`btn${palette ? ' on' : ''}`} style={{ height: 36, padding: '0 12px 0 10px', gap: 6 }} onClick={() => setPalette((p) => !p)}>
-            <span style={{ fontSize: 17, lineHeight: 1, fontWeight: 300 }}>+</span>
-            {dict.mInsertCmd}
-          </button>
-        </div>
-        <div className="wp-scroll">
-          <MissionList
-            items={draft.items}
-            selected={ui.selected}
-            kind={vehicle?.kind ?? null}
-            dict={dict}
-            onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))}
-            onReorder={(uid, dir) => change((d) => reorder(d, uid, dir))}
-            onContext={(uid, x, y) => {
-              store.update((u) => (u.selected.has(uid) ? u : selectOne(u, uid, false)))
-              setMenu({ uid, x, y })
-            }}
-          />
-        </div>
-        <div className="t4 hair-t" style={{ padding: '6px 14px', fontSize: 10, lineHeight: 1.5 }}>
-          {dict.mShortcuts}
-        </div>
-        <div className="hair-t" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, padding: '10px 12px 12px' }}>
-          <button type="button" className="btn" disabled={ui.busy !== 'idle' || vehicle === null} onClick={() => void io.download()}>
-            {dict.mRead}
-          </button>
-          <button type="button" className="btn" onClick={() => file.current?.click()}>
-            {dict.mFileLoad}
-          </button>
-          <input
-            ref={file}
-            type="file"
-            accept=".waypoints,.rgcsmission,.txt,text/plain,application/json"
-            style={{ display: 'none' }}
-            data-testid="mission-file"
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) void io.loadFile(f)
-              e.target.value = ''
-            }}
-          />
-        </div>
-        {palette && (
-          <CommandPalette
-            where={lastSelected ? `#${draft.items.indexOf(lastSelected) + 1} ${dict.mInsertAt}` : dict.mInsertEnd}
-            dict={dict}
-            onInsert={insertFromPalette}
-            onClose={() => setPalette(false)}
-          />
-        )}
-      </aside>
+          <div className="hair mission-tools">
+            <div className="seg" style={{ height: 36 }} role="group" aria-label="tool">
+              <span className="lens" style={{ transform: `translateX(${ui.tool === 'add' ? 0 : 100}%)` }} />
+              <button type="button" className={ui.tool === 'add' ? 'on' : ''} onClick={() => store.update((u) => setTool(u, 'add'))}>
+                {dict.mToolAdd}
+              </button>
+              <button type="button" className={ui.tool === 'select' ? 'on' : ''} onClick={() => store.update((u) => setTool(u, 'select'))}>
+                {dict.mToolSelect}
+              </button>
+            </div>
+            <button type="button" className={`btn${palette ? ' on' : ''}`} style={{ height: 36, padding: '0 12px 0 10px', gap: 6 }} onClick={() => setPalette((p) => !p)}>
+              <span style={{ fontSize: 17, lineHeight: 1, fontWeight: 300 }}>+</span>
+              {dict.mInsertCmd}
+            </button>
+          </div>
+          <div className="wp-scroll">
+            <MissionList
+              items={draft.items}
+              selected={ui.selected}
+              kind={vehicle?.kind ?? null}
+              dict={dict}
+              onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))}
+              onReorder={(uid, dir) => change((d) => reorder(d, uid, dir))}
+              onContext={(uid, x, y) => {
+                store.update((u) => (u.selected.has(uid) ? u : selectOne(u, uid, false)))
+                setMenu({ uid, x, y })
+              }}
+            />
+          </div>
+          <div className="t4 hair-t" style={{ padding: '6px 14px', fontSize: 10, lineHeight: 1.5 }}>
+            {dict.mShortcuts}
+          </div>
+          <div className="hair-t" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, padding: '10px 12px 12px' }}>
+            <button type="button" className="btn" disabled={ui.busy !== 'idle' || vehicle === null} onClick={() => void io.download()}>
+              {dict.mRead}
+            </button>
+            <button type="button" className="btn" onClick={() => file.current?.click()}>
+              {dict.mFileLoad}
+            </button>
+            <input
+              ref={file}
+              type="file"
+              accept=".waypoints,.rgcsmission,.txt,text/plain,application/json"
+              style={{ display: 'none' }}
+              data-testid="mission-file"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) void io.loadFile(f)
+                e.target.value = ''
+              }}
+            />
+          </div>
+          {palette && (
+            <CommandPalette
+              where={lastSelected ? `#${draft.items.indexOf(lastSelected) + 1} ${dict.mInsertAt}` : dict.mInsertEnd}
+              dict={dict}
+              onInsert={insertFromPalette}
+              onClose={() => setPalette(false)}
+            />
+          )}
+        </aside>
+      )}
 
       <MissionSidebar
         transfer={sysid === null ? null : (transfers.get(sysid) ?? null)}

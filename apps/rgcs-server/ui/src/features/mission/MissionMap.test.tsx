@@ -149,6 +149,9 @@ function renderMap(over: Partial<React.ComponentProps<typeof MissionMap>> = {}) 
     onShiftAlt: vi.fn(),
     onBoxSelect: vi.fn(),
     onArc: vi.fn(),
+    onPlanClick: vi.fn(),
+    onFenceEdit: vi.fn(),
+    onRallyMove: vi.fn(),
     onSelect: vi.fn(),
     onBackgroundClick: vi.fn(),
     onContext: vi.fn(),
@@ -522,6 +525,64 @@ describe('MissionMap', () => {
       expect(uid).toBe(3)
       expect(angle).toBeGreaterThan(0)
       expect(props.onInsertAfter).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('fence and rally', () => {
+    const withPlan = () => {
+      const d = draft3()
+      return {
+        ...d,
+        mission: {
+          ...d.mission,
+          fence: [
+            { kind: 'polygon' as const, inclusion: true, vertices: [{ lat: 36.0, lon: 139.0 }, { lat: 36.0, lon: 139.5 }, { lat: 36.5, lon: 139.5 }] },
+            { kind: 'circle' as const, inclusion: false, center: { lat: 36.2, lon: 139.2 }, radius: 200 },
+          ],
+          rally: [{ lat: 36.15, lon: 139.15, alt: 60 }],
+        },
+      }
+    }
+    const fenceData = () => created.maps[0]!.sources.get('plan-fence')!.setData.mock.calls.at(-1)![0] as { features: { properties: { inc: number }; geometry: { type: string } }[] }
+    const vertexPts = () => created.markers.filter((m) => m.el.classList.contains('rg-fence-pt') && !m.removed)
+    const rallyPts = () => created.markers.filter((m) => m.el.classList.contains('rg-rally') && !m.removed)
+    it('draws inclusion (green) and exclusion (red) zones and the rally points in every tab', () => {
+      renderMap({ draft: withPlan(), tab: 'mission' })
+      const fc = fenceData()
+      expect(fc.features.map((f) => [f.geometry.type, f.properties.inc])).toEqual([
+        ['Polygon', 1],
+        ['Polygon', 0],
+      ])
+      expect(rallyPts()).toHaveLength(1)
+      expect(rallyPts()[0]!.draggable).toBe(false)
+      expect(vertexPts()).toHaveLength(0)
+    })
+    it('in the fence tab the vertices and circle handles drag; map clicks go to the plan, not the waypoints', () => {
+      const { props } = renderMap({ draft: withPlan(), tab: 'fence' })
+      // 3 vertices + circle centre + radius handle
+      expect(vertexPts()).toHaveLength(5)
+      const v = vertexPts()[1]!
+      act(() => {
+        v.setLngLat([139.6, 36.05])
+        v.fire('dragend')
+      })
+      expect(props.onFenceEdit).toHaveBeenCalledWith({ kind: 'vertex', zone: 0, index: 1, lat: 36.05, lon: 139.6 })
+      act(() => created.maps[0]!.fire('click', { lngLat: { lat: 36.3, lng: 139.3 }, originalEvent: {} }))
+      expect(props.onPlanClick).toHaveBeenCalledWith('fence', 36.3, 139.3)
+      expect(props.onAdd).not.toHaveBeenCalled()
+      expect(badges().every((b) => !b.draggable)).toBe(true)
+    })
+    it('in the rally tab rally points drag and map clicks add', () => {
+      const { props } = renderMap({ draft: withPlan(), tab: 'rally' })
+      const r = rallyPts()[0]!
+      expect(r.draggable).toBe(true)
+      act(() => {
+        r.setLngLat([139.16, 36.16])
+        r.fire('dragend')
+      })
+      expect(props.onRallyMove).toHaveBeenCalledWith(0, 36.16, 139.16)
+      act(() => created.maps[0]!.fire('click', { lngLat: { lat: 36.3, lng: 139.3 }, originalEvent: {} }))
+      expect(props.onPlanClick).toHaveBeenCalledWith('rally', 36.3, 139.3)
     })
   })
 })

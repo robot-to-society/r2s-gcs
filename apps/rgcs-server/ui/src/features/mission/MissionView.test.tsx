@@ -5,10 +5,13 @@ import { t } from '../../shared/i18n'
 
 let adds = 0
 vi.mock('./MissionMap', () => ({
-  MissionMap: (p: { onAdd: (lat: number, lon: number) => void }) => (
-    <div data-testid="mission-map">
+  MissionMap: (p: { onAdd: (lat: number, lon: number) => void; tab?: string; onPlanClick: (tab: string, lat: number, lon: number) => void }) => (
+    <div data-testid="mission-map" data-tab={p.tab}>
       <button type="button" onClick={() => p.onAdd(36.1 + 0.001 * adds++, 139.1)}>
         map-add
+      </button>
+      <button type="button" onClick={() => p.tab && p.tab !== 'mission' && p.onPlanClick(p.tab, 36.2 + 0.001 * adds, 139.2 + 0.001 * adds++)}>
+        map-plan
       </button>
     </div>
   ),
@@ -131,6 +134,40 @@ describe('MissionView', () => {
     fireEvent.keyDown(container.firstChild as Element, { key: 'v', ctrlKey: true })
     expect(rows()).toEqual(['離陸', 'ウェイポイント', 'ウェイポイント', 'ウェイポイント'])
     expect(wpRows()[2]!.className).toContain('sel')
+  })
+
+  it('fence_tab_draws_a_polygon_by_clicks_and_writes_it_to_the_vehicle', async () => {
+    localStorage.removeItem('rgcs.planTab')
+    const { fetchMock, container } = setup((url, init) => (url.endsWith('/fence') && init?.method === 'PUT' ? envelope({ items: 3, verified: true, mismatched: [], findings: [] }) : envelope([])))
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Fence' }))
+    expect(screen.getByTestId('mission-map').dataset.tab).toBe('fence')
+    fireEvent.click(screen.getByRole('button', { name: '包含ポリゴン' }))
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByText('map-plan'))
+    fireEvent.keyDown(container.firstChild as Element, { key: 'Enter' })
+    expect(screen.getByTestId('fence-row').querySelector('.fence-title')?.textContent).toBe('包含ポリゴン · 3 点')
+    expect(screen.queryByRole('button', { name: '完了' })).not.toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'フェンスを機体に書込' }))
+    })
+    const put = fetchMock.mock.calls.find(([u, i]) => String(u).endsWith('/fence') && i?.method === 'PUT')!
+    expect(JSON.parse(String(put[1]!.body)).zones[0].vertices).toHaveLength(3)
+    expect(screen.getByText('書き込みました (読み戻して一致)')).toBeInTheDocument()
+    // the waypoints still count in the plan; a click on the map does not add one here
+    expect(rows()).toEqual([])
+    localStorage.removeItem('rgcs.planTab')
+  })
+
+  it('rally_tab_adds_points_at_the_default_altitude_and_undo_removes_them', () => {
+    localStorage.removeItem('rgcs.planTab')
+    const { container } = setup()
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Rally' }))
+    fireEvent.click(screen.getByText('map-plan'))
+    fireEvent.click(screen.getByText('map-plan'))
+    expect(screen.getAllByTestId('rally-row')).toHaveLength(2)
+    expect((within(screen.getAllByTestId('rally-row')[0]!).getByLabelText('高度') as HTMLInputElement).value).toBe('50')
+    fireEvent.keyDown(container.firstChild as Element, { key: 'z', metaKey: true })
+    expect(screen.getAllByTestId('rally-row')).toHaveLength(1)
+    localStorage.removeItem('rgcs.planTab')
   })
 
   it('save_calls_create_then_update', async () => {

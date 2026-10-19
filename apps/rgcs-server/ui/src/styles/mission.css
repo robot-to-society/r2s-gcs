@@ -60,3 +60,24 @@
 .transfer-bar .bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.25s; }
 /* Long press on a "+": ready to bend the leg into an arc (NAV_ARC_WAYPOINT) */
 .rg-mid.arc-armed { background: var(--caution); color: var(--on-caution); transform: scale(1.25); cursor: grabbing; }
+/* Mission / Fence / Rally planner tabs and the fence / rally panels */
+.plan-tabs { z-index: 3; height: 40px; width: 300px; }
+.plan-adds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 12px; }
+.plan-adds .btn.inc { border-color: rgba(95, 211, 155, 0.45); }
+.plan-adds .btn.exc { border-color: var(--danger-line); }
+.plan-armed { display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 12px; }
+.plan-row { padding: 10px 14px; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.plan-row.sel { background: var(--accent-tint); }
+.plan-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.plan-row.inc .plan-swatch { background: rgba(95, 211, 155, 0.35); border: 1.5px solid var(--ok); }
+.plan-row.exc .plan-swatch { background: var(--danger-tint); border: 1.5px solid var(--danger); }
+.plan-io { display: grid; gap: 8px; padding: 10px 12px 12px; font-size: 12px; }
+.plan-note { line-height: 1.5; font-size: 11px; }
+.plan-io-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rg-fence-pt { width: 12px; height: 12px; border-radius: 3px; background: #fff; border: 2px solid #141b26; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); cursor: move; }
+.rg-fence-pt.center { border-radius: 50%; }
+.rg-fence-pt.radius { border-radius: 50%; background: var(--caution); cursor: ew-resize; }
+.rg-rally { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-weight: 700; font-size: 12px; background: #ffd27a; color: #2b1d00; border: 2px solid rgba(15, 24, 36, 0.9); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); }
+.rg-rally.static { width: 20px; height: 20px; font-size: 11px; }
+/* outside the mission tab the waypoints stay on the map but do not react */
+.mission-map:not(.tab-mission) .rg-wp, .mission-map:not(.tab-mission) .rg-mid, .mission-map:not(.tab-mission) .rg-foot { pointer-events: none; opacity: 0.75; }

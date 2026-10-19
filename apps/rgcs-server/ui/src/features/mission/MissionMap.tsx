@@ -15,6 +15,7 @@ import { attachAltDrag } from './altDrag'
 import { useMissionFeet, type FeetCallbacks } from './missionFeet'
 import { useBoxSelect } from './boxSelect'
 import { attachArcDrag } from './arcDrag'
+import { useFenceRally, type FenceEdit, type PlanTab } from './fenceMap'
 
 interface Props {
   readonly draft: Draft
@@ -39,6 +40,12 @@ interface Props {
   readonly onBoxSelect: (uids: number[]) => void
   /** Long press + drag on a "+": the leg into `uid` becomes an arc of `angle`° (0 = straight). */
   readonly onArc: (uid: number, angle: number) => void
+  /** Mission / Fence / Rally: only the mission tab edits waypoints. */
+  readonly tab?: PlanTab
+  /** A map click in the fence or rally tab. */
+  readonly onPlanClick: (tab: Exclude<PlanTab, 'mission'>, lat: number, lon: number) => void
+  readonly onFenceEdit: (e: FenceEdit) => void
+  readonly onRallyMove: (index: number, lat: number, lon: number) => void
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
   readonly onBackgroundClick: () => void
   readonly onContext: (menu: ContextMenu | null) => void
@@ -55,11 +62,14 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab'>
 
 /** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
   const { draft, selected, tool, style, vehicle, fitRequest } = props
+  const tab = props.tab ?? 'mission'
+  const tabRef = useRef(tab)
+  tabRef.current = tab
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -96,6 +106,8 @@ export function MissionMap(props: Props) {
       src?.setData(pathGeoJson(draftRef.current.items, draftRef.current.mission.home))
     })
     m.on('click', (e) => {
+      const t = tabRef.current
+      if (t !== 'mission') return cb.current.onPlanClick(t, e.lngLat.lat, e.lngLat.lng)
       if (toolRef.current === 'add') cb.current.onAdd(e.lngLat.lat, e.lngLat.lng)
       else cb.current.onBackgroundClick()
       cb.current.onContext(null)
@@ -130,7 +142,7 @@ export function MissionMap(props: Props) {
     if (!m) return
     const seen = new Set<number>()
     // 3D moves position with the ground foot; the TAKEOFF never moves (ArduCopter climbs in place)
-    const movable = (it: DraftItem) => !is3d && !isTakeoff(it)
+    const movable = (it: DraftItem) => tab === 'mission' && !is3d && !isTakeoff(it)
     shown.items.forEach((it, i) => {
       if (!hasPosition(it)) return
       seen.add(it.uid)
@@ -154,7 +166,7 @@ export function MissionMap(props: Props) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shown, selected, is3d])
+  }, [shown, selected, is3d, tab])
 
   // Mid-leg handles are rebuilt on every draft change (cheap: ≤ 700)
   useEffect(() => {
@@ -170,6 +182,8 @@ export function MissionMap(props: Props) {
       attachArcDrag(el, h, arcDeps)
       return new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([h.lon, h.lat]).addTo(m)
     })
+    // arcDeps only reads refs and setPreview: the handles need rebuilding for a new draft only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft])
 
   // After the map, the badges and the handles exist: effects run in declaration order.
@@ -186,6 +200,9 @@ export function MissionMap(props: Props) {
   // a drag cut short by the 2D / 3D switch never reports its end
   useEffect(() => setPreview(null), [is3d])
   useMissionFeet({ map, is3d, draft: shown, selected: selectedRef, cb: feetCb })
+  const onFenceEdit = useRef((e: FenceEdit) => cb.current.onFenceEdit(e))
+  const onRallyMove = useRef((i: number, lat: number, lon: number) => cb.current.onRallyMove(i, lat, lon))
+  useFenceRally({ map, loaded, draft: shown, tab, onFenceEdit, onRallyMove })
   const onBox = useRef((uids: number[]) => cb.current.onBoxSelect(uids))
   useBoxSelect(container, badges, onBox)
 
@@ -258,7 +275,7 @@ export function MissionMap(props: Props) {
     }
   }
 
-  return <div ref={container} className={`map mission-map tool-${tool}${is3d ? ' is-3d' : ''}`} data-testid="mission-map" />
+  return <div ref={container} className={`map mission-map tool-${tool} tab-${tab}${is3d ? ' is-3d' : ''}`} data-testid="mission-map" />
 }
 
 function itemPos(d: Draft, uid: number): { lat: number; lon: number } | null {
