@@ -12,6 +12,13 @@ const item = z.object({
   autocontinue: z.boolean(),
 })
 
+const latLon = z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) })
+const zone = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('polygon'), inclusion: z.boolean(), vertices: z.array(latLon).max(255) }),
+  z.object({ kind: z.literal('circle'), inclusion: z.boolean(), center: latLon, radius: z.number() }),
+])
+const rallyPoint = z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180), alt: z.number() })
+
 const missionSchema = z.object({
   name: z.string(),
   sysid: z.number().int().nullable(),
@@ -20,6 +27,9 @@ const missionSchema = z.object({
   speed: z.number(),
   home: z.object({ lat: z.number(), lon: z.number(), alt: z.number() }).nullable(),
   items: z.array(item).max(700),
+  // added 2026-10-19: older files have neither
+  fence: z.array(zone).max(100).default([]),
+  rally: z.array(rallyPoint).max(100).default([]),
 })
 
 const fileSchema = z.object({ format: z.literal('rgcsmission'), version: z.number().int(), mission: missionSchema })

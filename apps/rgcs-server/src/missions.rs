@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 
+use mavlink::dialects::ardupilotmega::MavMissionType;
 use rgcs_core::{
     Mission, MissionProgress, MissionTransfer, ServerMessage, SysId, TransferPhase, UploadReport,
 };
@@ -186,7 +187,17 @@ impl MissionHub {
             send_all(outgoing, out).await?;
             run_upload(up, &mut rx, sysid, outgoing, started, &report).await?;
             report.send(TransferPhase::Verify, 0);
-            run_download(sysid, component, gcs, &mut rx, outgoing, started, Some(&report)).await
+            let (dl, out) = Download::start(sysid, component, started.elapsed().as_millis() as u64);
+            run_download(
+                dl.for_gcs(gcs),
+                out,
+                sysid,
+                &mut rx,
+                outgoing,
+                started,
+                Some(&report),
+            )
+            .await
         }
         .await;
         let got = match written {
@@ -210,6 +221,61 @@ impl MissionHub {
         })
     }
 
+    /// Writes a fence or rally list (no home slot), reads it back and returns the read-back
+    /// items with the 1-based positions that differ. Holds the vehicle's transaction slot.
+    pub async fn write_list(
+        &self,
+        sysid: SysId,
+        component: u8,
+        items: Vec<rgcs_core::MissionItem>,
+        mission_type: MavMissionType,
+        outgoing: &mpsc::Sender<Outgoing>,
+    ) -> Result<(Vec<rgcs_core::MissionItem>, Vec<u16>), MissionError> {
+        let _guard = self.acquire(sysid)?;
+        let mut rx = self.frames.subscribe();
+        let started = Instant::now();
+        let gcs = self.gcs.get();
+        let sent = list_mission(items);
+        let (up, out) = Upload::start_typed(sysid, component, &sent, mission_type, 0)
+            .map_err(|e: ProtocolError| MissionError::Invalid(e.to_string()))?;
+        send_all(outgoing, out).await?;
+        let quiet = Reporter::new(broadcast::channel(1).0, sysid, 0);
+        run_upload(up.for_gcs(gcs), &mut rx, sysid, outgoing, started, &quiet).await?;
+        let (dl, out) = Download::start_typed(
+            sysid,
+            component,
+            mission_type,
+            started.elapsed().as_millis() as u64,
+        );
+        let got = run_download(dl.for_gcs(gcs), out, sysid, &mut rx, outgoing, started, None).await?;
+        let mismatched = mismatches(&sent, &got);
+        Ok((got.items, mismatched))
+    }
+
+    /// Reads a fence or rally list. Holds the vehicle's transaction slot.
+    pub async fn read_list(
+        &self,
+        sysid: SysId,
+        component: u8,
+        mission_type: MavMissionType,
+        outgoing: &mpsc::Sender<Outgoing>,
+    ) -> Result<Vec<rgcs_core::MissionItem>, MissionError> {
+        let _guard = self.acquire(sysid)?;
+        let mut rx = self.frames.subscribe();
+        let (dl, out) = Download::start_typed(sysid, component, mission_type, 0);
+        let got = run_download(
+            dl.for_gcs(self.gcs.get()),
+            out,
+            sysid,
+            &mut rx,
+            outgoing,
+            Instant::now(),
+            None,
+        )
+        .await?;
+        Ok(got.items)
+    }
+
     /// Reads the vehicle's mission. Holds the vehicle's transaction slot.
     pub async fn download(
         &self,
@@ -219,10 +285,11 @@ impl MissionHub {
     ) -> Result<Mission, MissionError> {
         let _guard = self.acquire(sysid)?;
         let mut rx = self.frames.subscribe();
+        let (dl, out) = Download::start(sysid, component, 0);
         let got = run_download(
+            dl.for_gcs(self.gcs.get()),
+            out,
             sysid,
-            component,
-            self.gcs.get(),
             &mut rx,
             outgoing,
             Instant::now(),
@@ -304,6 +371,22 @@ impl Reporter {
     }
 }
 
+/// A bare carrier for a fence / rally list (the protocol moves `Mission`s).
+fn list_mission(items: Vec<rgcs_core::MissionItem>) -> Mission {
+    Mission {
+        id: None,
+        name: String::new(),
+        sysid: None,
+        default_alt: 0.0,
+        default_frame: rgcs_core::MissionFrame::Rel,
+        speed: 0.0,
+        home: None,
+        items,
+        fence: Vec::new(),
+        rally: Vec::new(),
+    }
+}
+
 async fn send_all(
     outgoing: &mpsc::Sender<Outgoing>,
     msgs: Vec<mavlink::dialects::ardupilotmega::MavMessage>,
@@ -357,16 +440,14 @@ async fn run_upload(
 }
 
 async fn run_download(
+    mut dl: Download,
+    out: Vec<mavlink::dialects::ardupilotmega::MavMessage>,
     sysid: SysId,
-    component: u8,
-    gcs: u8,
     rx: &mut broadcast::Receiver<(SysId, MissionFrame)>,
     outgoing: &mpsc::Sender<Outgoing>,
     started: Instant,
     report: Option<&Reporter>,
 ) -> Result<Mission, MissionError> {
-    let (dl, out) = Download::start(sysid, component, started.elapsed().as_millis() as u64);
-    let mut dl = dl.for_gcs(gcs);
     send_all(outgoing, out).await?;
     let mut tick = tokio::time::interval(TICK);
     loop {

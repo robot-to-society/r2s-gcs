@@ -189,5 +189,7 @@ pub fn from_wpl(text: &str) -> Result<Mission, WplError> {
         speed: DEFAULT_SPEED,
         home,
         items,
+        fence: Vec::new(),
+        rally: Vec::new(),
     })
 }

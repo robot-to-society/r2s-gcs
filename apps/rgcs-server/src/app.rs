@@ -22,8 +22,8 @@ use crate::params::ParamCache;
 use crate::settings;
 use crate::video::VideoHub;
 use crate::{
-    api, auth, branding, camera_api, commands, export_api, flight_api, guided, input_api, inspector_api,
-    logbook_api, logs_api, messages_api, mission_api, param_api, present_api, video_api, ws,
+    api, auth, branding, camera_api, commands, export_api, flight_api, geofence_api, guided, input_api,
+    inspector_api, logbook_api, logs_api, messages_api, mission_api, param_api, present_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -316,6 +316,14 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
             get(mission_api::get_progress),
         )
         .route("/vehicles/{sysid}/mission/known", get(mission_api::get_known))
+        .route(
+            "/vehicles/{sysid}/fence",
+            get(geofence_api::get_fence).put(geofence_api::put_fence),
+        )
+        .route(
+            "/vehicles/{sysid}/rally",
+            get(geofence_api::get_rally).put(geofence_api::put_rally),
+        )
         .route(
             "/vehicles/{sysid}/params",
             get(param_api::list).put(param_api::write),

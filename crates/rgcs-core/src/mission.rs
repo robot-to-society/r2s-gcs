@@ -105,6 +105,12 @@ pub struct Mission {
     pub speed: f32,
     pub home: Option<Home>,
     pub items: Vec<MissionItem>,
+    /// Geofence zones planned with the mission (written separately: `PUT .../fence`).
+    #[serde(default)]
+    pub fence: Vec<crate::geofence::FenceZone>,
+    /// Rally points planned with the mission (written separately: `PUT .../rally`).
+    #[serde(default)]
+    pub rally: Vec<crate::geofence::RallyPoint>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -139,7 +145,7 @@ pub struct Finding {
 }
 
 impl Finding {
-    fn fatal(code: &str, seq: Option<u16>, message: impl Into<String>) -> Self {
+    pub(crate) fn fatal(code: &str, seq: Option<u16>, message: impl Into<String>) -> Self {
         Self {
             level: FindingLevel::Fatal,
             code: code.into(),
@@ -148,7 +154,7 @@ impl Finding {
         }
     }
 
-    fn warn(code: &str, seq: Option<u16>, message: impl Into<String>) -> Self {
+    pub(crate) fn warn(code: &str, seq: Option<u16>, message: impl Into<String>) -> Self {
         Self {
             level: FindingLevel::Warn,
             code: code.into(),
@@ -454,6 +460,8 @@ pub fn demo20() -> Mission {
             alt: 0.0,
         }),
         items,
+        fence: Vec::new(),
+        rally: Vec::new(),
     }
 }
 
@@ -483,6 +491,8 @@ mod tests {
             speed: 8.0,
             home: None,
             items,
+            fence: Vec::new(),
+            rally: Vec::new(),
         }
     }
 
@@ -494,7 +504,11 @@ mod tests {
         assert!(arc.has_position());
         let m = mission(vec![item(MAV_CMD_NAV_TAKEOFF, 36.25, 137.6, 50.0), arc]);
         // chord 100 m, 90° → r = 70.71 m, arc = r·π/2 = 111.07 m
-        assert!((m.stats().distance_m - 111.07).abs() < 0.5, "{}", m.stats().distance_m);
+        assert!(
+            (m.stats().distance_m - 111.07).abs() < 0.5,
+            "{}",
+            m.stats().distance_m
+        );
     }
 
     fn codes(f: &[Finding]) -> Vec<&str> {

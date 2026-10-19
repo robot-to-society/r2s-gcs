@@ -6,6 +6,7 @@
 pub mod camera;
 pub mod command;
 pub mod gcs;
+pub mod geofence;
 pub mod inspector;
 pub mod jst;
 pub mod log;
@@ -24,6 +25,7 @@ pub use camera::{
 };
 pub use command::{CommandResult, VehicleCommand};
 pub use gcs::GcsId;
+pub use geofence::{FenceZone, LatLon, RallyPoint};
 pub use inspector::{InspectorDetail, InspectorDir, InspectorRow};
 pub use log::{ackable, severity_of_statustext, LogEntry, MessageSource, Severity};
 pub use logbook::{

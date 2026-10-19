@@ -10,7 +10,7 @@ const v = (armed: boolean): VehicleState => ({
 })
 const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
 const mission: Mission = {
-  id: 1, name: 'demo', sysid: 1, default_alt: 60, default_frame: 'rel', speed: 8, home: null,
+  id: 1, name: 'demo', sysid: 1, default_alt: 60, default_frame: 'rel', speed: 8, home: null, fence: [], rally: [],
   items: [item(22, 36.162, 139.372, 30), item(16, 36.162, 139.3831, 60), item(16, 36.162, 139.3942, 60), item(20, 0, 0, 0)],
 }
 

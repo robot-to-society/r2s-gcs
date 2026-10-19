@@ -11,7 +11,7 @@ import { stats } from './summary'
 const east = (m: number) => m / (111_320 * Math.cos((36.25 * Math.PI) / 180))
 const it_ = (command: number, lonM: number, p1 = 0): MissionItem => ({ command, frame: 'rel', params: [p1, 0, 0, 0], lat: 36.25, lon: 137.6 + east(lonM), alt: 50, autocontinue: true })
 const items = [it_(22, 0), it_(36, 100, 90)]
-const draft = { mission: { id: null, name: 'm', sysid: null, default_alt: 50, default_frame: 'rel' as const, speed: 8, home: null }, items: items.map((x, i) => ({ ...x, uid: i + 1 })), nextUid: 3 }
+const draft = { mission: { id: null, name: 'm', sysid: null, default_alt: 50, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [] }, items: items.map((x, i) => ({ ...x, uid: i + 1 })), nextUid: 3 }
 const ARC = arcLengthM({ lat: 36.25, lon: 137.6 }, { lat: 36.25, lon: 137.6 + east(100) }, 90)
 
 describe('ARC_WAYPOINT across the planner', () => {

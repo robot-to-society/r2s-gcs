@@ -16,6 +16,7 @@ pub mod export_api;
 pub mod export_csv;
 pub mod flight_api;
 pub mod flights;
+pub mod geofence_api;
 pub mod guided;
 pub mod input_api;
 pub mod inspector_api;

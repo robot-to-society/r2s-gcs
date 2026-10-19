@@ -168,7 +168,7 @@ describe('MapView', () => {
   it('mission_path_is_set_when_the_style_loads_late', () => {
     created.deferLoad = true
     const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
-    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, items: [item(22, 36.162, 139.372, 30), item(16, 36.163, 139.373, 60)] }
+    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], items: [item(22, 36.162, 139.372, 30), item(16, 36.163, 139.373, 60)] }
     render(
       <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={mission} missionCurrent={null} />,
     )
@@ -234,7 +234,7 @@ describe('MapView', () => {
   it('map_draws_the_mission_path_and_highlights_the_current_badge', () => {
     const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
     const mission = {
-      id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null,
+      id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [],
       items: [item(22, 36.162, 139.372, 30), item(16, 36.163, 139.373, 60), item(16, 36.164, 139.374, 60), item(20, 0, 0, 0)],
     }
     render(
@@ -416,7 +416,7 @@ describe('MapView', () => {
 
   it('3D shows the mission like the planner (badges floated, 2D route and 2D tracks hidden), display only', () => {
     const item = (command: number, lat: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon: 139.372, alt, autocontinue: true })
-    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, items: [item(22, 36.162, 30), item(16, 36.163, 60)] }
+    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], items: [item(22, 36.162, 30), item(16, 36.163, 60)] }
     const props = { vehicles: new Map(), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {}, mission, missionCurrent: 2 }
     const { rerender } = render(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" />)
     const m = created.maps.at(-1)!

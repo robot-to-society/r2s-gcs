@@ -47,6 +47,8 @@ fn row_to_mission(r: &sqlx::sqlite::SqliteRow) -> Result<Mission> {
         speed: r.get::<f64, _>("speed") as f32,
         home,
         items,
+        fence: serde_json::from_str(&r.get::<String, _>("fence")).map_err(json_err)?,
+        rally: serde_json::from_str(&r.get::<String, _>("rally")).map_err(json_err)?,
     })
 }
 
@@ -90,9 +92,11 @@ impl Store {
             .transpose()
             .map_err(json_err)?;
         let items = serde_json::to_string(&m.items).map_err(json_err)?;
+        let fence = serde_json::to_string(&m.fence).map_err(json_err)?;
+        let rally = serde_json::to_string(&m.rally).map_err(json_err)?;
         let id = sqlx::query(
-            "INSERT INTO missions (name, sysid, default_alt, default_frame, speed, home, items, created_by, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
+            "INSERT INTO missions (name, sysid, default_alt, default_frame, speed, home, items, created_by, created_at, updated_at, fence, rally) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, ?10, ?11)",
         )
         .bind(&m.name)
         .bind(m.sysid.map(i64::from))
@@ -103,6 +107,8 @@ impl Store {
         .bind(items)
         .bind(created_by)
         .bind(now)
+        .bind(fence)
+        .bind(rally)
         .execute(&self.pool)
         .await?
         .last_insert_rowid();
@@ -121,8 +127,10 @@ impl Store {
             .transpose()
             .map_err(json_err)?;
         let items = serde_json::to_string(&m.items).map_err(json_err)?;
+        let fence = serde_json::to_string(&m.fence).map_err(json_err)?;
+        let rally = serde_json::to_string(&m.rally).map_err(json_err)?;
         let changed = sqlx::query(
-            "UPDATE missions SET name = ?2, sysid = ?3, default_alt = ?4, default_frame = ?5, speed = ?6, home = ?7, items = ?8, updated_at = ?9 \
+            "UPDATE missions SET name = ?2, sysid = ?3, default_alt = ?4, default_frame = ?5, speed = ?6, home = ?7, items = ?8, updated_at = ?9, fence = ?10, rally = ?11 \
              WHERE id = ?1",
         )
         .bind(id)
@@ -134,6 +142,8 @@ impl Store {
         .bind(home)
         .bind(items)
         .bind(unix_ms())
+        .bind(fence)
+        .bind(rally)
         .execute(&self.pool)
         .await?
         .rows_affected();
@@ -188,5 +198,37 @@ mod tests {
         assert!(s.delete_mission(1).await.unwrap());
         assert!(!s.delete_mission(1).await.unwrap());
         assert!(s.get_mission(1).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn fence_and_rally_are_saved_with_the_mission() {
+        use rgcs_core::{FenceZone, LatLon, RallyPoint};
+        let s = Store::open_memory().await.unwrap();
+        let mut m = demo20();
+        m.fence = vec![FenceZone::Circle {
+            inclusion: true,
+            center: LatLon {
+                lat: 36.25,
+                lon: 137.63,
+            },
+            radius: 300.0,
+        }];
+        m.rally = vec![RallyPoint {
+            lat: 36.251,
+            lon: 137.631,
+            alt: 60.0,
+        }];
+        let created = s.create_mission(&m, "admin").await.unwrap();
+        let got = s.get_mission(created.id.unwrap()).await.unwrap().unwrap();
+        assert_eq!(
+            (got.fence.clone(), got.rally.clone()),
+            (m.fence.clone(), m.rally.clone())
+        );
+        let mut cleared = got.clone();
+        cleared.fence.clear();
+        s.update_mission(created.id.unwrap(), &cleared).await.unwrap();
+        let again = s.get_mission(created.id.unwrap()).await.unwrap().unwrap();
+        assert!(again.fence.is_empty());
+        assert_eq!(again.rally, m.rally);
     }
 }

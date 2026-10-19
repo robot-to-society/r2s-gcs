@@ -19,7 +19,7 @@ export const NEW_MISSION_NAME = '新しいミッション'
 
 export function emptyDraft(): Draft {
   return {
-    mission: { id: null, name: NEW_MISSION_NAME, sysid: null, default_alt: DEFAULT_ALT, default_frame: 'rel', speed: DEFAULT_SPEED, home: null },
+    mission: { id: null, name: NEW_MISSION_NAME, sysid: null, default_alt: DEFAULT_ALT, default_frame: 'rel', speed: DEFAULT_SPEED, home: null, fence: [], rally: [] },
     items: [],
     nextUid: 1,
   }

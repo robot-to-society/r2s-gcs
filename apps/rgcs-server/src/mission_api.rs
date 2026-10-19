@@ -89,7 +89,7 @@ pub async fn get_known(
     ok(app.missions.known(sysid))
 }
 
-async fn vehicle_for_write(app: &AppState, sysid: SysId) -> Result<VehicleState, Box<Response>> {
+pub(crate) async fn vehicle_for_write(app: &AppState, sysid: SysId) -> Result<VehicleState, Box<Response>> {
     let Some(vehicle) = app.router.lock().await.state(sysid).cloned() else {
         return Err(Box::new(err(
             StatusCode::NOT_FOUND,
@@ -107,7 +107,7 @@ async fn vehicle_for_write(app: &AppState, sysid: SysId) -> Result<VehicleState,
     Ok(vehicle)
 }
 
-fn mission_error(e: MissionError) -> Response {
+pub(crate) fn mission_error(e: MissionError) -> Response {
     match e {
         MissionError::Busy => err(StatusCode::CONFLICT, "mission_busy", e.to_string()),
         MissionError::Timeout => err(StatusCode::GATEWAY_TIMEOUT, "mission_timeout", e.to_string()),

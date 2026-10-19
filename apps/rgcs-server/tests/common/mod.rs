@@ -259,35 +259,36 @@ const GCS_COMP: u8 = 190;
 const MISSION: MavMissionType = MavMissionType::MAV_MISSION_TYPE_MISSION;
 
 #[allow(deprecated)]
-fn fake_request(seq: u16, mode: FakeMode) -> MissionFrame {
+fn fake_request(seq: u16, mode: FakeMode, mission_type: MavMissionType) -> MissionFrame {
     if mode == FakeMode::Legacy {
         MissionFrame::Request(MISSION_REQUEST_DATA {
             seq,
             target_system: GCS,
             target_component: GCS_COMP,
-            mission_type: MISSION,
+            mission_type,
         })
     } else {
         MissionFrame::RequestInt(MISSION_REQUEST_INT_DATA {
             seq,
             target_system: GCS,
             target_component: GCS_COMP,
-            mission_type: MISSION,
+            mission_type,
         })
     }
 }
 
-fn fake_ack(result: MavMissionResult) -> MissionFrame {
+fn fake_ack(result: MavMissionResult, mission_type: MavMissionType) -> MissionFrame {
     MissionFrame::Ack(MISSION_ACK_DATA {
         target_system: GCS,
         target_component: GCS_COMP,
         mavtype: result,
-        mission_type: MISSION,
+        mission_type,
         opaque_id: 0,
     })
 }
 
 /// A vehicle on the other end of the `outgoing` channel: stores uploads, serves downloads.
+/// Every list type (mission, fence, rally) goes to `stored`; replies echo the request's type.
 pub fn fake_vehicle_mission(
     mut rx: mpsc::Receiver<Outgoing>,
     hub: MissionHub,
@@ -297,6 +298,7 @@ pub fn fake_vehicle_mission(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut expected: u16 = 0;
+        let mut kind = MISSION;
         let mut staging: Vec<MISSION_ITEM_INT_DATA> = Vec::new();
         while let Some(out) = rx.recv().await {
             if mode == FakeMode::Silent {
@@ -305,21 +307,23 @@ pub fn fake_vehicle_mission(
             match out.message {
                 MavMessage::MISSION_COUNT(c) => {
                     expected = c.count;
+                    kind = c.mission_type;
                     staging.clear();
-                    hub.on_frame(sysid, fake_request(0, mode));
+                    hub.on_frame(sysid, fake_request(0, mode, kind));
                 }
                 MavMessage::MISSION_ITEM_INT(d) => {
                     staging.push(d);
                     if (staging.len() as u16) < expected {
-                        hub.on_frame(sysid, fake_request(staging.len() as u16, mode));
+                        hub.on_frame(sysid, fake_request(staging.len() as u16, mode, kind));
                     } else if mode == FakeMode::RejectAck {
-                        hub.on_frame(sysid, fake_ack(MavMissionResult::MAV_MISSION_ERROR));
+                        hub.on_frame(sysid, fake_ack(MavMissionResult::MAV_MISSION_ERROR, kind));
                     } else {
                         *stored.lock().unwrap() = staging.clone();
-                        hub.on_frame(sysid, fake_ack(MavMissionResult::MAV_MISSION_ACCEPTED));
+                        hub.on_frame(sysid, fake_ack(MavMissionResult::MAV_MISSION_ACCEPTED, kind));
                     }
                 }
-                MavMessage::MISSION_REQUEST_LIST(_) => {
+                MavMessage::MISSION_REQUEST_LIST(r) => {
+                    kind = r.mission_type;
                     let n = stored.lock().unwrap().len() as u16;
                     hub.on_frame(
                         sysid,
@@ -327,7 +331,7 @@ pub fn fake_vehicle_mission(
                             count: n,
                             target_system: GCS,
                             target_component: GCS_COMP,
-                            mission_type: MISSION,
+                            mission_type: kind,
                             opaque_id: 0,
                         }),
                     );
@@ -337,6 +341,7 @@ pub fn fake_vehicle_mission(
                     if let Some(mut d) = item {
                         d.target_system = GCS;
                         d.target_component = GCS_COMP;
+                        d.mission_type = r.mission_type;
                         hub.on_frame(sysid, MissionFrame::ItemInt(d));
                     }
                 }
