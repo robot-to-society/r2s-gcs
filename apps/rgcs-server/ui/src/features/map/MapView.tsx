@@ -147,7 +147,11 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       m.remove()
       map.current = null
       loaded.current = false
+      // m.remove() takes every marker with it: the next map (StrictMode, remount) starts empty
       markers.current = new Map()
+      homeMarkers.current = new Map()
+      targetMarker.current = null
+      missionBadges.current = []
     }
     // The style is applied once; a changed tile source is a page reload concern (spec: config.toml).
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,4 +1,5 @@
 import { act, render } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CameraSnapshot, VehicleState } from '../../shared/api/types'
 
@@ -18,11 +19,17 @@ class FakeMarker {
     this.lngLat = ll
     return this
   }
-  addTo() {
+  map: FakeMap | null = null
+  addTo(m: FakeMap) {
+    this.map = m
     return this
   }
   remove() {
     this.removed = true
+  }
+  /** On the page: not removed, and its map not torn down (MapLibre drops a removed map's markers). */
+  get live() {
+    return !this.removed && !this.map?.gone
   }
 }
 
@@ -108,7 +115,10 @@ class FakeMap {
     const [lng, lat] = Array.isArray(ll) ? ll : [ll.lng, ll.lat]
     return { x: lng * 1e6, y: -lat * 1e6 }
   }
-  remove() {}
+  gone = false
+  remove() {
+    this.gone = true
+  }
 }
 
 vi.mock('maplibre-gl', () => ({
@@ -369,5 +379,17 @@ describe('MapView', () => {
     } finally {
       fetchSpy.mockRestore()
     }
+  })
+
+  it('keeps the home tile and the Guided target on the live map under StrictMode (the first map is thrown away)', () => {
+    created.markers = []
+    render(
+      <StrictMode>
+        <MapView vehicles={new Map([[1, v(1, 3)]])} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} target={{ lat: 36.17, lon: 139.38 }} homes={new Map([[1, { lat: 36.161, lon: 139.371 }]])} onDragStart={() => {}} onClick={() => {}} />
+      </StrictMode>,
+    )
+    const live = (pred: (m: (typeof created.markers)[number]) => boolean) => created.markers.filter((m) => pred(m) && m.live)
+    expect(live((m) => m.el.className === 'rg-home')).toHaveLength(1)
+    expect(live((m) => m.lngLat?.[0] === 139.38 && m.lngLat?.[1] === 36.17)).toHaveLength(1)
   })
 })
