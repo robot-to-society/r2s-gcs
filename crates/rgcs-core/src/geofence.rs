@@ -193,7 +193,14 @@ pub fn validate_fence(zones: &[FenceZone]) -> Vec<Finding> {
         }
     }
     let items = fence_to_items(zones).len();
-    if items > TYPICAL_FENCE_ITEMS {
+    if items > usize::from(u16::MAX) {
+        // MISSION_COUNT is a u16: the count would wrap
+        out.push(Finding::fatal(
+            "fence_size",
+            None,
+            format!("{items} fence items cannot be sent (at most 65535)"),
+        ));
+    } else if items > TYPICAL_FENCE_ITEMS {
         out.push(Finding::warn(
             "fence_size",
             None,
@@ -414,6 +421,19 @@ mod tests {
                 ("rally_alt".to_string(), Some(3))
             ]
         );
+    }
+
+    #[test]
+    fn a_fence_beyond_the_protocol_count_is_fatal() {
+        // MISSION_COUNT is a u16: a larger list would wrap and send garbage
+        let huge = FenceZone::Polygon {
+            inclusion: true,
+            vertices: vec![ll(36.0, 137.0); 255],
+        };
+        let zones = vec![huge; 260];
+        assert!(validate_fence(&zones)
+            .iter()
+            .any(|f| f.code == "fence_size" && f.level == crate::FindingLevel::Fatal));
     }
 
     #[test]
