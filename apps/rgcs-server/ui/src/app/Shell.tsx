@@ -328,7 +328,6 @@ export function Shell({ me, lang }: Props) {
                 mapUiStore.update(cancelPick)
                 setModal(NO_MODAL)
               }}
-              onSwitchToGuided={() => setModal({ kind: 'confirm', sysid: currentVehicle.sysid, command: { cmd: 'set_mode', args: { mode: 'GUIDED' } } })}
               onDone={(outcome) => {
                 if (outcome.kind === 'error') {
                   vehicleStore.pushLocalResult({ id: -Date.now(), sysid: currentVehicle.sysid, cmd: 'guided', ok: false, reason: outcome.message, ts: Date.now() })

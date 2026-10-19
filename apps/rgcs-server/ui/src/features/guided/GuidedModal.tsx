@@ -1,15 +1,23 @@
 import { useState } from 'react'
 import type { VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { requestConfirm } from '../commands/api'
+import { requestConfirm, sendCommand } from '../commands/api'
 import type { LatLon } from '../map/store'
+import { vehicleStore } from '../vehicles/store'
 import { sendGuided, type AltMode } from './api'
-import { runGuided, type GuidedOutcome, type SendGuidedFn } from './run'
+import { pollUntil, startGuided, type GuidedOutcome, type StartDeps } from './run'
 import { IconClose } from '../../shared/ui/icons'
 
-interface Deps {
-  readonly send: SendGuidedFn
-  readonly confirm: typeof requestConfirm
+type Deps = StartDeps
+
+function liveDeps(sysid: number): Deps {
+  return {
+    mode: () => vehicleStore.getState().vehicles.get(sysid)?.mode ?? null,
+    confirm: requestConfirm,
+    command: sendCommand,
+    waitFor: pollUntil,
+    send: sendGuided,
+  }
 }
 
 interface Props {
@@ -18,51 +26,29 @@ interface Props {
   readonly onPickTarget: () => void
   readonly onClose: () => void
   readonly onDone: (outcome: GuidedOutcome) => void
-  readonly onSwitchToGuided: () => void
   readonly dict: Dict
   readonly deps?: Deps
 }
 
-type Step = 'idle' | 'mode_required' | 'confirm' | 'busy'
-
-/** Guided move (spec 10 §3.5): pick a target on the map, keep or set altitude, start. */
-export function GuidedModal({ vehicle, target, onPickTarget, onClose, onDone, onSwitchToGuided, dict, deps }: Props) {
+/**
+ * Guided move (spec 10 §3.5): pick a target on the map, keep or set altitude, then one press of
+ * 移動開始 switches to GUIDED (if needed), waits for the vehicle to report it and sends the target.
+ */
+export function GuidedModal({ vehicle, target, onPickTarget, onClose, onDone, dict, deps }: Props) {
   const [altMode, setAltMode] = useState<AltMode>('keep')
   const [altRel, setAltRel] = useState('')
-  const [step, setStep] = useState<Step>('idle')
-  const [note, setNote] = useState<string | null>(null)
-  const send = deps?.send ?? sendGuided
-  const confirm = deps?.confirm ?? requestConfirm
+  const [busy, setBusy] = useState(false)
   const altValue = Number(altRel)
   const canStart = target !== null && (altMode === 'keep' || (altRel !== '' && Number.isFinite(altValue)))
-
-  const settle = (outcome: GuidedOutcome) => {
-    if (outcome.kind === 'mode_required') return setStep('mode_required')
-    if (outcome.kind === 'needs_confirm') {
-      setNote(outcome.message ?? null)
-      return setStep('confirm')
-    }
-    setStep('idle')
-    onDone(outcome)
-  }
 
   const body = () => ({ lat: target!.lat, lon: target!.lon, alt_mode: altMode, ...(altMode === 'set' ? { alt_rel: altValue } : {}) })
 
   const start = async () => {
-    if (!canStart) return
-    setStep('busy')
-    settle(await runGuided(vehicle.sysid, body(), undefined, send))
-  }
-
-  const confirmAndStart = async () => {
-    setStep('busy')
-    try {
-      const { confirm_token } = await confirm(vehicle.sysid, 'guided')
-      settle(await runGuided(vehicle.sysid, body(), confirm_token, send))
-    } catch (e) {
-      setStep('idle')
-      onDone({ kind: 'error', code: 'unknown', message: e instanceof Error ? e.message : String(e) })
-    }
+    if (!canStart || busy) return
+    setBusy(true)
+    const outcome = await startGuided(vehicle.sysid, body(), deps ?? liveDeps(vehicle.sysid))
+    setBusy(false)
+    onDone(outcome.kind === 'error' && outcome.code === 'mode_timeout' ? { ...outcome, message: dict.guidedModeTimeout } : outcome)
   }
 
   return (
@@ -104,23 +90,8 @@ export function GuidedModal({ vehicle, target, onPickTarget, onClose, onDone, on
         )}
       </div>
       <div className="sec guided-actions">
-        {step === 'mode_required' && (
-          <>
-            <div className="warnbox">{dict.modeRequired}</div>
-            <button type="button" className="btn btn-primary" onClick={onSwitchToGuided}>
-              {dict.switchToGuided}
-            </button>
-          </>
-        )}
-        {step === 'confirm' && (
-          <>
-            {note && <div className="warnbox">{note}</div>}
-            <button type="button" className="btn btn-danger" onClick={confirmAndStart}>
-              {dict.confirmGuided}
-            </button>
-          </>
-        )}
-        <button type="button" className="btn btn-primary" disabled={!canStart || step === 'busy'} onClick={start}>
+        {busy && vehicle.mode !== 'GUIDED' && <div className="t3">{dict.guidedSwitching}</div>}
+        <button type="button" className="btn btn-primary" disabled={!canStart || busy} onClick={start}>
           {dict.startMove}
         </button>
       </div>
