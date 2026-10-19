@@ -122,6 +122,8 @@ async fn component_of(app: &AppState, sysid: SysId) -> u8 {
 }
 
 async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) -> Response {
+    let sent = mission.for_vehicle();
+    let mission = &sent;
     // ArduPilot accepts a mission while armed (a flying vehicle picks up the new one); only the
     // link and the transfer lock gate a write.
     if let Err(r) = vehicle_for_write(app, sysid).await {

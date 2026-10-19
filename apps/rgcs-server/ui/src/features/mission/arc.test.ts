@@ -30,6 +30,14 @@ describe('arc (NAV_ARC_WAYPOINT, MAV_CMD 36: param1 = arc angle, + clockwise)', 
     expect(mid.y).toBeCloseTo(20, 0)
     expect(toLocal(A, arcPoints(A, B, -THETA, 16)[8]!).y).toBeCloseTo(-20, 0)
   })
+  it('bends the way ArduPilot flies it (SITL Copter 4.7-dev, 2026-10-20: ±90° from A to 100 m N / 100 m E)', () => {
+    // flown: +90° passed within 0.6 m of (E 29.3, N 70.7), −90° within 0.9 m of (E 70.7, N 29.3), r ≈ 100 m
+    const ne = { lat: 36.25 + north(100), lon: 137.6 + east(100) }
+    const cw = toLocal(A, arcPoints(A, ne, 90, 16)[8]!)
+    const ccw = toLocal(A, arcPoints(A, ne, -90, 16)[8]!)
+    expect([cw.x, cw.y].map((v) => Math.round(v))).toEqual([29, 71])
+    expect([ccw.x, ccw.y].map((v) => Math.round(v))).toEqual([71, 29])
+  })
   it('an angle under 1° flies straight', () => {
     expect(arcPoints(A, B, 0.5)).toEqual([A, B])
     expect(arcLengthM(A, B, 0)).toBeCloseTo(100, 0)

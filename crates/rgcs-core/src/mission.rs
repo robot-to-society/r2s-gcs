@@ -239,6 +239,30 @@ pub fn haversine_m(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
 }
 
 impl Mission {
+    /// The mission as the flight controller will store it, so the read-back matches what was
+    /// sent: ArduPilot keeps an ARC_WAYPOINT angle as whole degrees (uint16 magnitude + a
+    /// direction flag), so 45.5 is sent as 46 rather than read back as 45.
+    pub fn for_vehicle(&self) -> Mission {
+        let items = self
+            .items
+            .iter()
+            .map(|it| match it.command {
+                MAV_CMD_NAV_ARC_WAYPOINT => {
+                    let [angle, p2, p3, p4] = it.params;
+                    MissionItem {
+                        params: [angle.round(), p2, p3, p4],
+                        ..it.clone()
+                    }
+                }
+                _ => it.clone(),
+            })
+            .collect();
+        Mission {
+            items,
+            ..self.clone()
+        }
+    }
+
     pub fn has_fatal(findings: &[Finding]) -> bool {
         findings.iter().any(|f| f.level == FindingLevel::Fatal)
     }
@@ -494,6 +518,18 @@ mod tests {
             fence: Vec::new(),
             rally: Vec::new(),
         }
+    }
+
+    #[test]
+    fn the_vehicle_copy_has_whole_degree_arc_angles() {
+        // ArduPilot keeps |param1| as a uint16 (45.5 reads back as 45): send what it will store
+        let mut arc = item(MAV_CMD_NAV_ARC_WAYPOINT, 36.0, 137.0, 30.0);
+        arc.params = [-45.5, 1.5, 0.0, 0.0];
+        let mut wp = item(16, 36.0, 137.0, 30.0);
+        wp.params = [2.5, 0.0, 0.0, 0.0];
+        let sent = mission(vec![arc, wp]).for_vehicle();
+        assert_eq!(sent.items[0].params, [-46.0, 1.5, 0.0, 0.0]);
+        assert_eq!(sent.items[1].params[0], 2.5);
     }
 
     #[test]

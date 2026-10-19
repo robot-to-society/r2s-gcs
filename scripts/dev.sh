@@ -16,6 +16,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEV_DIR="$ROOT/.dev"
 UI_DIR="$ROOT/apps/rgcs-server/ui"
+# Prefer the upstream-master worktree (Copter 4.7+: NAV_ARC_WAYPOINT) when it has been built.
+if [ -z "${ARDUPILOT_DIR:-}" ] && [ -x "$HOME/github/rtos/ardupilot-latest/build/sitl/bin/arducopter" ]; then
+  ARDUPILOT_DIR="$HOME/github/rtos/ardupilot-latest"
+fi
 ARDUPILOT_DIR="${ARDUPILOT_DIR:-$HOME/github/rtos/ardupilot}"
 SITL_BIN="$ARDUPILOT_DIR/build/sitl/bin/arducopter"
 SITL_PARAMS="$ARDUPILOT_DIR/Tools/autotest/default_params/copter.parm"
