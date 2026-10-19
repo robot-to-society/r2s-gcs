@@ -156,6 +156,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       targetMarker.current = null
       missionBadges.current = []
       lifted.current = null
+      sent.current = new Map()
     }
     // The style is applied once; a changed tile source is a page reload concern (spec: config.toml).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,11 +165,20 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   const feet = groundProjection ? footprintsGeoJson(vehicles, cameras, selected) : EMPTY
   const projected = projectedIds(feet)
 
-  useEffect(() => {
-    if (!loaded.current) return
-    const src = map.current?.getSource(FOOTPRINT) as { setData: (d: unknown) => void } | undefined
-    src?.setData(feet)
-  })
+  // Every telemetry frame re-renders the map; resending equal GeoJSON would re-parse it in the
+  // worker and repaint each time (≈ 400 updates/s with three vehicles). Send only what changed.
+  const sent = useRef(new Map<string, string>())
+  const send = (id: string, data: unknown) => {
+    const m = map.current
+    if (!m || !loaded.current) return
+    const text = JSON.stringify(data)
+    if (sent.current.get(id) === text) return
+    sent.current.set(id, text)
+    const src = m.getSource(id) as { setData: (d: unknown) => void } | undefined
+    src?.setData(data)
+  }
+
+  useEffect(() => send(FOOTPRINT, feet))
 
   useEffect(() => {
     const m = map.current
@@ -298,9 +308,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   }, [focus, vehicles])
 
   useEffect(() => {
-    if (!loaded.current) return
-    const src = map.current?.getSource(COURSE) as { setData: (d: unknown) => void } | undefined
-    src?.setData(courseGeoJson(vehicles, selected, metresPerPixel(zoom, map.current?.getCenter().lat ?? 36)))
+    send(COURSE, courseGeoJson(vehicles, selected, metresPerPixel(zoom, map.current?.getCenter().lat ?? 36)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicles, selected, zoom])
 
   useEffect(() => {
@@ -310,8 +319,6 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   }, [tracks, selected])
 
   useEffect(() => {
-    if (!loaded.current) return
-    const src = map.current?.getSource(GUIDED) as { setData: (d: unknown) => void } | undefined
     const from = selected === null ? undefined : vehicles.get(selected)
     const line: FeatureCollection =
       target && from && hasPosition(from)
@@ -320,7 +327,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
             features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[from.lon, from.lat], [target.lon, target.lat]] } }],
           }
         : EMPTY
-    src?.setData(line)
+    send(GUIDED, line)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, vehicles, selected])
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AirVertex } from './air'
-import { buildStrip, FLOATS_PER_VERTEX } from './airLayer'
+import { AirPathLayer, buildStrip, FLOATS_PER_VERTEX } from './airLayer'
 
 const p = (x: number, y: number, z = 0): AirVertex => ({ x, y, z, c: [1, 0.5, 0] })
 
@@ -26,5 +26,19 @@ describe('buildStrip', () => {
   })
   it('drops lines with fewer than two points', () => {
     expect(buildStrip([[p(0, 0)]], [[p(0, 0)]]).pathCount).toBe(0)
+  })
+})
+
+describe('AirPathLayer.setLines', () => {
+  const v = (x: number) => ({ x, y: 0, z: 0, c: [1, 1, 1] as const })
+  it('repaints only when the geometry actually changed (telemetry repeats the same frame)', () => {
+    const layer = new AirPathLayer('t')
+    let repaints = 0
+    ;(layer as unknown as { map: { triggerRepaint: () => void } }).map = { triggerRepaint: () => repaints++ }
+    layer.setLines([[v(0), v(1)]], [])
+    layer.setLines([[v(0), v(1)]], [])
+    expect(repaints).toBe(1)
+    layer.setLines([[v(0), v(2)]], [])
+    expect(repaints).toBe(2)
   })
 })

@@ -90,6 +90,13 @@ export function foldOrigin(matrix: ArrayLike<number>, o: readonly [number, numbe
   return new Float32Array(m)
 }
 
+function sameStrip(a: Strip, b: Strip): boolean {
+  if (a.pathCount !== b.pathCount || a.postCount !== b.postCount || a.data.length !== b.data.length) return false
+  if (a.origin.some((v, i) => v !== b.origin[i])) return false
+  for (let i = 0; i < a.data.length; i++) if (a.data[i] !== b.data[i]) return false
+  return true
+}
+
 export class AirPathLayer implements CustomLayerInterface {
   readonly type = 'custom' as const
   readonly renderingMode = '3d' as const
@@ -127,7 +134,10 @@ export class AirPathLayer implements CustomLayerInterface {
   }
 
   setLines(lines: readonly (readonly AirVertex[])[], posts: readonly (readonly AirVertex[])[]): void {
-    this.pending = buildStrip(lines, posts)
+    const next = buildStrip(lines, posts)
+    // telemetry re-sends the same picture many times a second; a repaint of the 3D terrain is costly
+    if (sameStrip(next, this.pending ?? this.strip)) return
+    this.pending = next
     this.map?.triggerRepaint()
   }
 

@@ -32,7 +32,7 @@ test('plan three points, edit, undo, save, write to the vehicle and see the prog
   test.skip(!process.env.RGCS_E2E_SITL, 'needs SITL')
   await openMission(page)
   const canvas = page.locator('.mission-map canvas')
-  await canvas.click({ position: { x: 400, y: 300 } })
+  // with a vehicle the first click adds the TAKEOFF at the vehicle and a WAYPOINT at the click
   await canvas.click({ position: { x: 480, y: 300 } })
   await canvas.click({ position: { x: 560, y: 340 } })
   await expect(page.locator('.wrow .cmd-label')).toHaveText(['離陸', 'ウェイポイント', 'ウェイポイント'])

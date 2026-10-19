@@ -459,4 +459,17 @@ describe('MapView', () => {
     expect(paint('tracks-others')['line-color']).toBe('#800080')
     expect(paint('tracks-others')['line-dasharray']).toBeDefined()
   })
+
+  it('re-renders with the same telemetry do not resend unchanged map data (each setData re-parses and repaints)', () => {
+    const props = { tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} vehicles={new Map([[1, v(1, 3)]])} />)
+    const m = created.maps.at(-1)!
+    const calls = () => ['course', 'guided', 'gimbal-footprint'].map((id) => m.sources.get(id)?.setData.mock.calls.length ?? 0)
+    const before = calls()
+    // a new Map with an equal vehicle, as every telemetry frame produces
+    for (let i = 0; i < 5; i++) rerender(<MapView {...props} vehicles={new Map([[1, v(1, 3)]])} />)
+    expect(calls()).toEqual(before)
+    rerender(<MapView {...props} vehicles={new Map([[1, { ...v(1, 3), cog: 90, ground_speed: 5 }]])} />)
+    expect(calls()[0]).toBe(before[0]! + 1) // the course really changed
+  })
 })
