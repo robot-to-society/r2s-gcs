@@ -16,8 +16,8 @@ use rgcs_core::{Home, Mission, MissionFrame, MissionItem, SysId};
 
 pub const STEP_TIMEOUT_MS: u64 = 1_500;
 pub const ATTEMPTS: u8 = 3;
-/// The GCS identity frames are addressed to (`rgcs_mavlink::connection::GCS_SYSTEM_ID`).
-pub const GCS_SYSTEM_ID: u8 = 255;
+/// The GCS identity frames are addressed to unless set with `for_gcs` (configurable, default 255).
+pub const GCS_SYSTEM_ID: u8 = rgcs_core::gcs::DEFAULT_GCS_SYSID;
 const MISSION: MavMissionType = MavMissionType::MAV_MISSION_TYPE_MISSION;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,8 +36,8 @@ pub enum ProtocolError {
 }
 
 /// Our frame is for us when it names the GCS (or is broadcast) and is about the mission list.
-fn for_us(target_system: u8, mission_type: MavMissionType) -> bool {
-    (target_system == GCS_SYSTEM_ID || target_system == 0) && mission_type == MISSION
+fn for_us(gcs: u8, target_system: u8, mission_type: MavMissionType) -> bool {
+    (target_system == gcs || target_system == 0) && mission_type == MISSION
 }
 
 /// Commands whose x/y carry a location (ArduPilot `stored_in_location`): only these are scaled by 1e7
@@ -173,6 +173,8 @@ impl Step {
 pub struct Upload {
     sysid: SysId,
     component: u8,
+    /// Our SYSID at the start of the transfer (frames to another id are not ours).
+    gcs: u8,
     /// Home at index 0, then the mission items.
     frames: Vec<MISSION_ITEM_INT_DATA>,
     step: Step,
@@ -200,6 +202,11 @@ fn home_item(m: &Mission) -> MissionItem {
 }
 
 impl Upload {
+    /// Answers frames addressed to `gcs` (the RGCS SYSID when the transfer started).
+    pub fn for_gcs(self, gcs: u8) -> Self {
+        Self { gcs, ..self }
+    }
+
     /// Emits `MISSION_COUNT` (items + home).
     pub fn start(
         sysid: SysId,
@@ -229,6 +236,7 @@ impl Upload {
             Self {
                 sysid,
                 component,
+                gcs: GCS_SYSTEM_ID,
                 frames,
                 step: Step::new(count.clone(), now_ms),
             },
@@ -256,13 +264,13 @@ impl Upload {
     #[allow(deprecated)]
     pub fn on_message(self, msg: &MavMessage, now_ms: u64) -> (Self, Vec<MavMessage>, Option<Done>) {
         match msg {
-            MavMessage::MISSION_REQUEST_INT(r) if for_us(r.target_system, r.mission_type) => {
+            MavMessage::MISSION_REQUEST_INT(r) if for_us(self.gcs, r.target_system, r.mission_type) => {
                 self.requested(r.seq, now_ms)
             }
-            MavMessage::MISSION_REQUEST(r) if for_us(r.target_system, r.mission_type) => {
+            MavMessage::MISSION_REQUEST(r) if for_us(self.gcs, r.target_system, r.mission_type) => {
                 self.requested(r.seq, now_ms)
             }
-            MavMessage::MISSION_ACK(a) if for_us(a.target_system, a.mission_type) => {
+            MavMessage::MISSION_ACK(a) if for_us(self.gcs, a.target_system, a.mission_type) => {
                 let done = if a.mavtype == MavMissionResult::MAV_MISSION_ACCEPTED {
                     Done::Ok
                 } else {
@@ -294,12 +302,17 @@ impl Upload {
 pub struct Download {
     sysid: SysId,
     component: u8,
+    gcs: u8,
     expected: Option<u16>,
     received: Vec<MISSION_ITEM_INT_DATA>,
     step: Step,
 }
 
 impl Download {
+    pub fn for_gcs(self, gcs: u8) -> Self {
+        Self { gcs, ..self }
+    }
+
     pub fn start(sysid: SysId, component: u8, now_ms: u64) -> (Self, Vec<MavMessage>) {
         let req = MavMessage::MISSION_REQUEST_LIST(MISSION_REQUEST_LIST_DATA {
             target_system: sysid,
@@ -310,6 +323,7 @@ impl Download {
             Self {
                 sysid,
                 component,
+                gcs: GCS_SYSTEM_ID,
                 expected: None,
                 received: Vec::new(),
                 step: Step::new(req.clone(), now_ms),
@@ -351,7 +365,7 @@ impl Download {
     ) -> (Self, Vec<MavMessage>, Option<Result<Mission, Done>>) {
         match msg {
             MavMessage::MISSION_COUNT(c)
-                if for_us(c.target_system, c.mission_type) && self.expected.is_none() =>
+                if for_us(self.gcs, c.target_system, c.mission_type) && self.expected.is_none() =>
             {
                 if c.count == 0 {
                     let out = vec![self.ack()];
@@ -368,7 +382,7 @@ impl Download {
                     None,
                 )
             }
-            MavMessage::MISSION_ITEM_INT(d) if for_us(d.target_system, d.mission_type) => {
+            MavMessage::MISSION_ITEM_INT(d) if for_us(self.gcs, d.target_system, d.mission_type) => {
                 self.received_item(d, now_ms)
             }
             _ => (self, Vec::new(), None),
@@ -477,6 +491,22 @@ mod tests {
             MavMessage::MISSION_ITEM_INT(d) => d.seq,
             other => panic!("not an item: {other:?}"),
         }
+    }
+
+    #[test]
+    fn mission_frames_to_the_new_sysid_are_accepted() {
+        let (up, _) = Upload::start(SYS, COMP, &mission3(), 0).unwrap();
+        let up = up.for_gcs(200);
+        let to = |target_system: u8| match request_int(0) {
+            MavMessage::MISSION_REQUEST_INT(r) => {
+                MavMessage::MISSION_REQUEST_INT(MISSION_REQUEST_INT_DATA { target_system, ..r })
+            }
+            other => other,
+        };
+        let (up, out, _) = up.on_message(&to(255), 10);
+        assert!(out.is_empty(), "a request to the old id is not ours any more");
+        let (_, out, _) = up.on_message(&to(200), 10);
+        assert_eq!(out.len(), 1);
     }
 
     #[test]

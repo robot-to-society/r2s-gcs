@@ -7,12 +7,16 @@ import { hasPosition, pathGeoJson } from './geo'
 import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl, type ContextMenu } from './mapEdit'
 import { cmdKey, type Draft } from './model'
 import type { Tool } from './store'
+import { useBasemapSwap } from '../map/basemaps'
+import type { Basemap } from '../../shared/api/types'
 
 interface Props {
   readonly draft: Draft
   readonly selected: ReadonlySet<number>
   readonly tool: Tool
   readonly style: StyleSpecification
+  /** The picked base map; a change swaps the base tiles in place. */
+  readonly basemap?: Basemap
   readonly vehicle: VehicleState | null
   /** Bump to fit the view to the mission (after loading / importing). */
   readonly fitRequest: number
@@ -36,7 +40,7 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'vehicle' | 'fitRequest'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest'>
 
 /** 2D mission editing layer (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
@@ -44,6 +48,7 @@ export function MissionMap(props: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
+  useBasemapSwap(map, loaded, props.basemap)
   const badges = useRef(new Map<number, Badge>())
   const handles = useRef<Marker[]>([])
   const vehicleMarker = useRef<Badge | null>(null)

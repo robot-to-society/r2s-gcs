@@ -5,6 +5,8 @@
 
 pub mod camera;
 pub mod command;
+pub mod gcs;
+pub mod inspector;
 pub mod jst;
 pub mod log;
 pub mod logbook;
@@ -21,6 +23,8 @@ pub use camera::{
     VideoSourceStatus, ZoomCaps,
 };
 pub use command::{CommandResult, VehicleCommand};
+pub use gcs::GcsId;
+pub use inspector::{InspectorDetail, InspectorDir, InspectorRow};
 pub use log::{ackable, severity_of_statustext, LogEntry, MessageSource, Severity};
 pub use logbook::{
     FcLogEntry, Flight, FlightInput, FlightLog, FlightPatch, FlightSquawk, FlightSquawkInput, FlightStatus,
@@ -36,6 +40,7 @@ pub use mission::{
 pub use operator::Operator;
 pub use params::{ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult};
 pub use vehicle::{
-    diff, Battery, Gps, LinkStatus, SysId, VehicleKind, VehicleState, VehicleStateDiff, VehicleSummary,
+    diff, Battery, GeoPoint, Gps, LinkStatus, NavInfo, SysId, VehicleKind, VehicleState, VehicleStateDiff,
+    VehicleSummary,
 };
 pub use ws::{ClientMessage, ServerMessage, VehicleMessage, VideoSourceEntry};

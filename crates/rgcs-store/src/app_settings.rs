@@ -6,6 +6,8 @@ use crate::{Result, Store};
 
 /// Key of the 地図表示 › ジンバルを地面に投影 switch (spec 10 §7).
 pub const GIMBAL_GROUND_PROJECTION: &str = "map.gimbal_ground_projection";
+/// Key of the RGCS MAVLink SYSID (1–255).
+pub const GCS_SYSID: &str = "mavlink.gcs_sysid";
 
 impl Store {
     pub async fn app_setting(&self, key: &str) -> Result<Option<String>> {

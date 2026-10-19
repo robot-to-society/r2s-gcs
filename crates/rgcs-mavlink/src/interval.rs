@@ -14,6 +14,9 @@ pub const MSG_ID_VFR_HUD: u32 = 74;
 pub const MSG_ID_SYS_STATUS: u32 = 1;
 pub const MSG_ID_GPS_RAW_INT: u32 = 24;
 pub const MSG_ID_MISSION_CURRENT: u32 = 42;
+pub const MSG_ID_NAV_CONTROLLER_OUTPUT: u32 = 62;
+pub const MSG_ID_POSITION_TARGET_GLOBAL_INT: u32 = 87;
+pub const MSG_ID_HOME_POSITION: u32 = 242;
 
 const GRACE_MS: u64 = 10_000;
 const RETRY_MS: u64 = 5_000;
@@ -28,7 +31,14 @@ pub const WANTED: &[(u32, u32)] = &[
     (MSG_ID_SYS_STATUS, 500_000),
     (MSG_ID_GPS_RAW_INT, 500_000),
     (MSG_ID_MISSION_CURRENT, 1_000_000),
+    (MSG_ID_NAV_CONTROLLER_OUTPUT, 500_000),
+    (MSG_ID_POSITION_TARGET_GLOBAL_INT, 1_000_000),
+    (MSG_ID_HOME_POSITION, 5_000_000),
 ];
+
+/// Streams that only flow in some states (POSITION_TARGET_GLOBAL_INT in GUIDED, HOME_POSITION
+/// once home is set): asked for once, never retried, so the FC is not nagged forever.
+const ONCE: &[u32] = &[MSG_ID_POSITION_TARGET_GLOBAL_INT, MSG_ID_HOME_POSITION];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IntervalRequest {
@@ -56,11 +66,11 @@ impl IntervalRequester {
         }
         let requests: Vec<IntervalRequest> = WANTED
             .iter()
-            .filter(|(id, _)| is_stale(last_seen.get(id).copied(), now_ms))
-            .filter(|(id, _)| {
-                self.last_request
-                    .get(id)
-                    .is_none_or(|t| now_ms.saturating_sub(*t) >= RETRY_MS)
+            .filter(|(id, interval_us)| is_stale(last_seen.get(id).copied(), now_ms, *interval_us))
+            .filter(|(id, _)| match self.last_request.get(id) {
+                None => true,
+                Some(_) if ONCE.contains(id) => false,
+                Some(t) => now_ms.saturating_sub(*t) >= RETRY_MS,
             })
             .map(|&(msg_id, interval_us)| IntervalRequest { msg_id, interval_us })
             .collect();
@@ -71,8 +81,10 @@ impl IntervalRequester {
     }
 }
 
-fn is_stale(last: Option<u64>, now_ms: u64) -> bool {
-    last.is_none_or(|t| now_ms.saturating_sub(t) > STALE_MS)
+/// Stale after 3 s, or 2.5 intervals for slower streams (HOME_POSITION at 5 s).
+fn is_stale(last: Option<u64>, now_ms: u64, interval_us: u32) -> bool {
+    let limit = STALE_MS.max(u64::from(interval_us) / 1000 * 5 / 2);
+    last.is_none_or(|t| now_ms.saturating_sub(t) > limit)
 }
 
 #[cfg(test)]
@@ -81,6 +93,42 @@ mod tests {
 
     fn ids(reqs: &[IntervalRequest]) -> Vec<u32> {
         reqs.iter().map(|r| r.msg_id).collect()
+    }
+
+    #[test]
+    fn slow_streams_seen_recently_are_not_re_requested() {
+        // HOME_POSITION at 5 s, last seen 4 s ago: still flowing
+        let r = IntervalRequester::default();
+        let (r, _) = r.on_heartbeat(10_000, &HashMap::new());
+        let now = 30_000;
+        let seen: HashMap<u32, u64> = WANTED
+            .iter()
+            .map(|(id, _)| (*id, now - 500))
+            .chain([(MSG_ID_HOME_POSITION, now - 4_000)])
+            .collect();
+        let (_, reqs) = r.on_heartbeat(now, &seen);
+        assert!(!ids(&reqs).contains(&MSG_ID_HOME_POSITION), "{reqs:?}");
+    }
+
+    #[test]
+    fn mode_dependent_streams_are_requested_once() {
+        // POSITION_TARGET_GLOBAL_INT only flows in GUIDED: one request, then never again
+        let mut r = IntervalRequester::default();
+        let mut count = 0;
+        for now in (10_000..120_000).step_by(1_000) {
+            let seen: HashMap<u32, u64> = WANTED
+                .iter()
+                .filter(|(id, _)| *id != MSG_ID_POSITION_TARGET_GLOBAL_INT)
+                .map(|(id, _)| (*id, now))
+                .collect();
+            let (next, reqs) = r.on_heartbeat(now, &seen);
+            count += ids(&reqs)
+                .iter()
+                .filter(|id| **id == MSG_ID_POSITION_TARGET_GLOBAL_INT)
+                .count();
+            r = next;
+        }
+        assert_eq!(count, 1);
     }
 
     #[test]
@@ -155,6 +203,10 @@ mod tests {
         let (_, c) = r.on_heartbeat(15_000, &seen);
         assert_eq!(a.len(), WANTED.len());
         assert!(b.is_empty());
-        assert_eq!(c.len(), WANTED.len());
+        assert_eq!(
+            c.len(),
+            WANTED.len() - ONCE.len(),
+            "state-dependent streams are not retried"
+        );
     }
 }

@@ -1845,6 +1845,7 @@ dependencies = [
  "num-traits",
  "rgcs-core",
  "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tracing",

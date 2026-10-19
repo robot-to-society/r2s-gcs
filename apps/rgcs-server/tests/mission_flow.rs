@@ -262,3 +262,42 @@ async fn known_mission_endpoint_returns_what_the_server_wrote() {
     assert_eq!(status, StatusCode::OK);
     assert!(body["data"].is_null());
 }
+
+#[tokio::test]
+async fn the_gcs_sysid_cannot_change_during_a_mission_transfer() {
+    let (app, state, rx) = spawn_app_with_link().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    let _silent = fake_vehicle_mission(rx, state.missions.clone(), 1, stored(), FakeMode::Silent);
+    let upload = {
+        let (app, cookie) = (app.clone(), cookie.clone());
+        tokio::spawn(async move { put_mission(&app, &cookie, &demo20()).await })
+    };
+    // the upload waits for the fence parameters before it takes the vehicle's slot
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !state.missions.any_busy() {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the transfer starts");
+    let put = json!({ "mavlink": { "gcs_sysid": 250 } });
+    let (status, body, _) = call(
+        &app,
+        req(Method::PUT, "/api/settings/app", Some(&cookie), Some(put.clone())),
+    )
+    .await;
+    assert_eq!(
+        (status, error_code(&body)),
+        (StatusCode::CONFLICT, "busy"),
+        "{body}"
+    );
+    assert_eq!(state.gcs.get(), 255);
+    let _ = upload.await;
+    let (status, _, _) = call(
+        &app,
+        req(Method::PUT, "/api/settings/app", Some(&cookie), Some(put)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "allowed once the transfer has ended");
+}

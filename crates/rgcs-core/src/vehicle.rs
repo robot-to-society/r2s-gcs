@@ -68,6 +68,39 @@ pub struct VehicleState {
     pub gps: Gps,
     pub warn: bool,
     pub unread: u32,
+    /// Course over ground (deg, from GLOBAL_POSITION_INT vx/vy), `None` below 0.5 m/s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub cog: Option<f32>,
+    /// NAV_CONTROLLER_OUTPUT: where the autopilot is heading and how far it is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub nav: Option<NavInfo>,
+    /// POSITION_TARGET_GLOBAL_INT: the position the autopilot is steering to (GUIDED).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub target: Option<GeoPoint>,
+    /// HOME_POSITION.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub home: Option<GeoPoint>,
+}
+
+/// A WGS84 point (alt in metres; MSL for home, frame-dependent for targets).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct GeoPoint {
+    pub lat: f64,
+    pub lon: f64,
+    pub alt: f32,
+}
+
+/// Navigation controller output (bearing 0–360° to the current target, distance in metres).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct NavInfo {
+    pub target_bearing: f32,
+    pub wp_dist: u32,
 }
 
 impl VehicleState {
@@ -100,6 +133,10 @@ impl VehicleState {
             },
             warn: false,
             unread: 0,
+            cog: None,
+            nav: None,
+            target: None,
+            home: None,
         }
     }
 }
@@ -173,6 +210,14 @@ pub struct VehicleStateDiff {
     pub warn: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unread: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cog: Option<Option<f32>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nav: Option<Option<NavInfo>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<Option<GeoPoint>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub home: Option<Option<GeoPoint>>,
 }
 
 macro_rules! changed {
@@ -204,6 +249,10 @@ impl VehicleStateDiff {
             gps: Some(s.gps),
             warn: Some(s.warn),
             unread: Some(s.unread),
+            cog: Some(s.cog),
+            nav: Some(s.nav),
+            target: Some(s.target),
+            home: Some(s.home),
         }
     }
 }
@@ -229,7 +278,11 @@ pub fn diff(prev: &VehicleState, next: &VehicleState) -> Option<VehicleStateDiff
         last_rx_ms,
         gps,
         warn,
-        unread
+        unread,
+        cog,
+        nav,
+        target,
+        home
     );
     (d != VehicleStateDiff::default()).then_some(d)
 }
@@ -299,5 +352,34 @@ mod tests {
             r#""copter""#
         );
         assert_eq!(serde_json::to_string(&LinkStatus::Lost).unwrap(), r#""lost""#);
+    }
+
+    #[test]
+    fn diff_carries_new_fields() {
+        let next = VehicleState {
+            cog: Some(90.0),
+            nav: Some(NavInfo {
+                target_bearing: 10.0,
+                wp_dist: 5,
+            }),
+            ..base()
+        };
+        let d = diff(&base(), &next).expect("diff");
+        assert_eq!(d.cog, Some(Some(90.0)));
+        assert_eq!(
+            d.nav,
+            Some(Some(NavInfo {
+                target_bearing: 10.0,
+                wp_dist: 5
+            }))
+        );
+        assert_eq!(d.home, None);
+        let back = diff(&next, &base()).expect("diff");
+        assert_eq!(back.cog, Some(None), "cleared fields are sent as null");
+        let json = serde_json::to_value(base()).unwrap();
+        assert!(
+            json.get("cog").is_none() && json.get("home").is_none(),
+            "absent when unknown: {json}"
+        );
     }
 }

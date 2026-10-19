@@ -22,8 +22,8 @@ use crate::params::ParamCache;
 use crate::settings;
 use crate::video::VideoHub;
 use crate::{
-    api, auth, branding, camera_api, commands, export_api, flight_api, guided, input_api, logbook_api,
-    logs_api, messages_api, mission_api, param_api, present_api, video_api, ws,
+    api, auth, branding, camera_api, commands, export_api, flight_api, guided, input_api, inspector_api,
+    logbook_api, logs_api, messages_api, mission_api, param_api, present_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -46,6 +46,10 @@ pub struct AppState {
     pub video: VideoHub,
     pub whep: WhepRelay,
     pub missions: crate::missions::MissionHub,
+    /// The RGCS MAVLink SYSID (app setting `mavlink.gcs_sysid`, default 255), shared with the link.
+    pub gcs: rgcs_core::GcsId,
+    /// Every MAVLink frame received and sent (maintenance › MAVLink インスペクター).
+    pub inspector: rgcs_mavlink::Inspector,
     /// ARM → DISARM flight drafts (addendum §5.6).
     pub flights: crate::flights::FlightTracker,
     /// DataFlash retrieval over LOG_REQUEST_* (addendum §9).
@@ -59,6 +63,8 @@ pub struct AppState {
     /// Map tile source handed to the UI by `GET /api/settings/app`.
     pub map_tile_url: String,
     pub map_attribution: String,
+    /// Base maps for the picker (config `[[basemaps]]` or the defaults).
+    pub basemaps: Vec<crate::config::Basemap>,
     started: Instant,
     lockout: Arc<StdMutex<Lockout>>,
     /// One async mutex per username so check-lockout → verify → record is serialized
@@ -84,7 +90,8 @@ impl AppState {
         let (outgoing, _) = mpsc::channel(1);
         let cameras = CameraManager::new(store.clone(), tx.clone(), CameraFactory::Real);
         let video = VideoHub::new(store.clone(), tx.clone(), Timings::default());
-        let missions = crate::missions::MissionHub::new(tx.clone());
+        let gcs = rgcs_core::GcsId::default();
+        let missions = crate::missions::MissionHub::new(tx.clone(), gcs.clone());
         let params = ParamCache::new(tx.clone());
         let flights = crate::flights::FlightTracker::new(store.clone(), tx.clone());
         let logs = crate::logs::LogHub::new(tx.clone(), true);
@@ -105,11 +112,14 @@ impl AppState {
             flights,
             logs,
             messages,
+            gcs,
+            inspector: rgcs_mavlink::Inspector::default(),
             data_dir: crate::config::Config::default().data_dir,
             hostname,
             secure_cookies: false,
             map_tile_url: crate::config::Config::default().map_tile_url,
             map_attribution: crate::config::Config::default().map_attribution,
+            basemaps: crate::config::Config::default().basemaps(),
             started: Instant::now(),
             lockout: Arc::new(StdMutex::new(Lockout::default())),
             login_guards: Arc::new(StdMutex::new(HashMap::new())),
@@ -173,6 +183,10 @@ impl AppState {
 
     pub fn mark_guided_confirmed(&self, sysid: SysId) {
         self.guided_confirmed.lock().expect("guided mutex").insert(sysid);
+    }
+
+    pub fn with_basemaps(self, basemaps: Vec<crate::config::Basemap>) -> Self {
+        Self { basemaps, ..self }
     }
 
     pub fn with_map(self, tile_url: String, attribution: String) -> Self {
@@ -352,6 +366,11 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         )
         .route("/vehicles/{sysid}/logs/{id}/file", get(logs_api::file))
         .route("/vehicles/{sysid}/logbook/export", get(export_api::export))
+        .route("/mavlink/inspector", get(inspector_api::list))
+        .route(
+            "/mavlink/inspector/{dir}/{sysid}/{compid}/{msg_id}",
+            get(inspector_api::detail),
+        )
         .route("/messages", get(messages_api::list_all))
         .route("/vehicles/{sysid}/messages", get(messages_api::list_vehicle))
         .route("/vehicles/{sysid}/messages/{id}/ack", post(messages_api::ack))

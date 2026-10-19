@@ -1,12 +1,14 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { apiFetch } from './client'
-import type { AppSettings, MapSettings } from './types'
+import type { AppSettings, MapSettings, MavlinkSettings } from './types'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   lang: 'ja',
   map_tile_url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   map_attribution: '© OpenStreetMap contributors',
   map: { gimbal_ground_projection: false },
+  mavlink: { gcs_sysid: 255 },
+  basemaps: [{ id: 'map', label: '地図', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], attribution: '© OpenStreetMap contributors', max_zoom: 19, overlay: null }],
 }
 
 let cached: Promise<AppSettings> | null = null
@@ -30,6 +32,13 @@ export function loadAppSettings(): Promise<AppSettings> {
 /** `PUT /api/settings/app` (spec 50 §2.4): every component using the settings sees the saved value. */
 export async function saveMapSettings(map: MapSettings): Promise<AppSettings> {
   const saved = await apiFetch<AppSettings>('/api/settings/app', { method: 'PUT', body: { map } })
+  cached = Promise.resolve(saved)
+  return publish(saved)
+}
+
+/** `PUT /api/settings/app {mavlink}` (admin): the RGCS SYSID, applied by the server at once. */
+export async function saveMavlinkSettings(mavlink: MavlinkSettings): Promise<AppSettings> {
+  const saved = await apiFetch<AppSettings>('/api/settings/app', { method: 'PUT', body: { mavlink } })
   cached = Promise.resolve(saved)
   return publish(saved)
 }

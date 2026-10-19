@@ -5,7 +5,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
 use axum::Json;
-use rgcs_store::app_settings::GIMBAL_GROUND_PROJECTION;
+use rgcs_store::app_settings::{GCS_SYSID, GIMBAL_GROUND_PROJECTION};
 use rgcs_store::audit::AuditInput;
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +21,13 @@ pub struct MapSettings {
     pub gimbal_ground_projection: bool,
 }
 
+/// MAVLink identity (spec 30; user request 2026-10-19).
+#[derive(Debug, Clone, Serialize, ts_rs::TS)]
+#[ts(export)]
+pub struct MavlinkSettings {
+    pub gcs_sysid: u8,
+}
+
 #[derive(Serialize, ts_rs::TS)]
 #[ts(export)]
 pub struct AppSettings {
@@ -28,6 +35,8 @@ pub struct AppSettings {
     pub map_tile_url: String,
     pub map_attribution: String,
     pub map: MapSettings,
+    pub basemaps: Vec<crate::config::Basemap>,
+    pub mavlink: MavlinkSettings,
 }
 
 /// `PUT /api/settings/app` body: only the persisted settings, each optional.
@@ -35,6 +44,24 @@ pub struct AppSettings {
 #[serde(deny_unknown_fields)]
 pub struct AppSettingsPut {
     pub map: Option<MapSettingsPut>,
+    /// Admin only.
+    pub mavlink: Option<MavlinkSettingsPut>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MavlinkSettingsPut {
+    /// Wider than u8 so 0 / 256 are a validation error, not a parse error.
+    pub gcs_sysid: Option<i64>,
+}
+
+/// The stored SYSID, or 255 when unset / invalid.
+pub async fn load_gcs_sysid(store: &rgcs_store::Store) -> u8 {
+    let stored = store.app_setting(GCS_SYSID).await.ok().flatten();
+    stored
+        .and_then(|v| v.parse::<u8>().ok())
+        .filter(|v| *v >= 1)
+        .unwrap_or(rgcs_core::gcs::DEFAULT_GCS_SYSID)
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,6 +79,10 @@ async fn current(app: &AppState) -> rgcs_store::Result<AppSettings> {
         map: MapSettings {
             gimbal_ground_projection: projection.as_deref() == Some("true"),
         },
+        basemaps: app.basemaps.clone(),
+        mavlink: MavlinkSettings {
+            gcs_sysid: app.gcs.get(),
+        },
     })
 }
 
@@ -62,31 +93,105 @@ pub async fn app_settings(State(app): State<AppState>, AuthUser(_op): AuthUser) 
     }
 }
 
-/// Any signed-in operator may change it (a display preference shared by the station; audited).
+fn audit_put<'a>(op: &'a str, args: serde_json::Value) -> AuditInput<'a> {
+    AuditInput {
+        operator: op,
+        sysid: None,
+        target: "settings",
+        command: "app_settings_put",
+        args: Some(args.to_string()),
+        result: "ok",
+        reason: None,
+    }
+}
+
+async fn put_map(app: &AppState, op: &str, flag: bool) -> Result<(), Box<Response>> {
+    app.store
+        .put_app_setting(GIMBAL_GROUND_PROJECTION, if flag { "true" } else { "false" })
+        .await
+        .map_err(|e| Box::new(err(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())))?;
+    if let Err(e) = app
+        .store
+        .record_audit(audit_put(
+            op,
+            serde_json::json!({ "map": { "gimbal_ground_projection": flag } }),
+        ))
+        .await
+    {
+        tracing::error!(error = %e, "audit write failed");
+    }
+    Ok(())
+}
+
+/// 1–255 and not a connected vehicle's SYSID; applied to the link at once.
+async fn put_gcs_sysid(
+    app: &AppState,
+    op: &rgcs_core::operator::Operator,
+    value: i64,
+) -> Result<(), Box<Response>> {
+    if op.role != rgcs_core::operator::Role::Admin {
+        return Err(Box::new(err(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "admin role required",
+        )));
+    }
+    let Ok(sysid) = u8::try_from(value)
+        .map_err(|_| ())
+        .and_then(|v| if v >= 1 { Ok(v) } else { Err(()) })
+    else {
+        return Err(Box::new(err(
+            StatusCode::BAD_REQUEST,
+            "validation",
+            "gcs_sysid must be 1–255",
+        )));
+    };
+    if app.missions.any_busy() {
+        return Err(Box::new(err(
+            StatusCode::CONFLICT,
+            "busy",
+            "a mission transfer is running; change the SYSID after it ends",
+        )));
+    }
+    if app.router.lock().await.states().iter().any(|v| v.sysid == sysid) {
+        return Err(Box::new(err(
+            StatusCode::BAD_REQUEST,
+            "sysid_in_use",
+            format!("SYSID {sysid} belongs to a connected vehicle"),
+        )));
+    }
+    app.store
+        .put_app_setting(GCS_SYSID, &sysid.to_string())
+        .await
+        .map_err(|e| Box::new(err(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())))?;
+    app.gcs.set(sysid);
+    if let Err(e) = app
+        .store
+        .record_audit(audit_put(
+            &op.username,
+            serde_json::json!({ "mavlink": { "gcs_sysid": sysid } }),
+        ))
+        .await
+    {
+        tracing::error!(error = %e, "audit write failed");
+    }
+    Ok(())
+}
+
+/// The map switch: any signed-in operator (a station display preference); the SYSID: admin only. Audited.
 pub async fn put_app_settings(
     State(app): State<AppState>,
     AuthUser(op): AuthUser,
     Json(body): Json<AppSettingsPut>,
 ) -> Response {
-    if let Some(flag) = body.map.and_then(|m| m.gimbal_ground_projection) {
-        if let Err(e) = app
-            .store
-            .put_app_setting(GIMBAL_GROUND_PROJECTION, if flag { "true" } else { "false" })
-            .await
-        {
-            return err(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string());
+    if let Some(value) = body.mavlink.and_then(|m| m.gcs_sysid) {
+        if let Err(r) = put_gcs_sysid(&app, &op, value).await {
+            return *r;
         }
-        let entry = AuditInput {
-            operator: &op.username,
-            sysid: None,
-            target: "settings",
-            command: "app_settings_put",
-            args: Some(serde_json::json!({ "map": { "gimbal_ground_projection": flag } }).to_string()),
-            result: "ok",
-            reason: None,
-        };
-        if let Err(e) = app.store.record_audit(entry).await {
-            tracing::error!(error = %e, "audit write failed");
+    }
+    if let Some(flag) = body.map.and_then(|m| m.gimbal_ground_projection) {
+        if let Err(r) = put_map(&app, &op.username, flag).await {
+            return *r;
         }
     }
     app_settings(State(app), AuthUser(op)).await

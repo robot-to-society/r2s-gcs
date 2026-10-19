@@ -6,6 +6,7 @@ import { AppTab } from '../app-settings'
 import { DailyTab } from '../logbook/DailyTab'
 import { LogbookTab } from '../logbook/LogbookTab'
 import { HistoryTab } from './HistoryTab'
+import { InspectorTab } from '../inspector/InspectorTab'
 import { ParamsPane } from './ParamsPane'
 import { ENABLED_TABS, MAINT_TABS, TAB_LABEL, type MaintTab } from './tabs'
 
@@ -64,7 +65,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
         {vehicle && <span className="badge t2">{vehicle.mode}</span>}
         {vehicle && <span className={`t3 num maint-arm${vehicle.armed ? ' armed' : ''}`}>{vehicle.armed ? 'ARMED' : 'DISARMED'}</span>}
       </div>
-      <div className="seg n6 lg g-ctl maint-tabs">
+      <div className={`seg n${MAINT_TABS.length} lg g-ctl maint-tabs`}>
         <span className="lens" style={{ transform: `translateX(${tabIndex * 100}%)` }} />
         {MAINT_TABS.map((tb) => {
           const enabled = ENABLED_TABS.has(tb)
@@ -106,6 +107,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
           onMaintDraftConsumed={onMaintDraftConsumed}
         />
       )}
+      {tab === 'inspector' && <InspectorTab dict={dict} />}
       {tab === 'app' && <AppTab sysid={sysid} vehicle={vehicle} me={me} dict={dict} onOpenPresent={onOpenPresent ?? (() => {})} />}
       {tab === 'history' && (
         <div className="maint-body">

@@ -13,7 +13,7 @@ const registry: VehicleRegistry = {
   initial_flight_minutes: 0, inspection_template_id: null, total_flight_minutes: 0,
 }
 const template: InspectionTemplate = { id: 1, name: '様式2 標準', version: 1, items: [{ label: '機体全般', detail: 'x' }], updated_at: 0 }
-const settings = { lang: 'ja', map_tile_url: 'x', map_attribution: 'y', map: { gimbal_ground_projection: false } }
+const settings = { lang: 'ja', map_tile_url: 'x', map_attribution: 'y', map: { gimbal_ground_projection: false }, basemaps: [], mavlink: { gcs_sysid: 255 } }
 const ok = (data: unknown, status = 200) => new Response(JSON.stringify({ success: true, data }), { status, headers: { 'content-type': 'application/json' } })
 
 function setup(role: Operator['role'] = 'admin') {
@@ -90,5 +90,22 @@ describe('AppTab', () => {
     await waitFor(() => expect(sw).toHaveAttribute('aria-checked', 'true'))
     const put = calls.find((c) => c.url.endsWith('/settings/app') && c.init?.method === 'PUT')
     expect(JSON.parse(String(put?.init?.body))).toEqual({ map: { gimbal_ground_projection: true } })
+  })
+  it('mavlink_card_saves_the_sysid', async () => {
+    const { calls } = setup()
+    const input = await screen.findByLabelText('RGCS の SYSID')
+    await waitFor(() => expect(input).toHaveValue(255))
+    fireEvent.change(input, { target: { value: '250' } })
+    const card = screen.getByTestId('mavlink-card')
+    fireEvent.click(within(card).getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/settings/app') && c.init?.method === 'PUT' && String(c.init.body).includes('gcs_sysid'))).toBe(true))
+    const put = calls.find((c) => String(c.init?.body).includes('gcs_sysid'))
+    expect(JSON.parse(String(put?.init?.body))).toEqual({ mavlink: { gcs_sysid: 250 } })
+  })
+
+  it('mavlink_card_is_read_only_for_operators', async () => {
+    setup('operator')
+    const input = await screen.findByLabelText('RGCS の SYSID')
+    expect(input).toBeDisabled()
   })
 })

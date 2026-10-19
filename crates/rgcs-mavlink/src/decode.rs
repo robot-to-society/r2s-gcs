@@ -1,10 +1,11 @@
 //! ArduPilot messages → [`VehicleState`] updates. Every function returns a new state.
 
 use mavlink::dialects::ardupilotmega::{
-    MavMessage, MavModeFlag, GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA, HEARTBEAT_DATA, SYS_STATUS_DATA,
-    VFR_HUD_DATA,
+    MavMessage, MavModeFlag, PositionTargetTypemask, GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA,
+    HEARTBEAT_DATA, HOME_POSITION_DATA, NAV_CONTROLLER_OUTPUT_DATA, POSITION_TARGET_GLOBAL_INT_DATA,
+    SYS_STATUS_DATA, VFR_HUD_DATA,
 };
-use rgcs_core::{Battery, Gps, VehicleState};
+use rgcs_core::{Battery, GeoPoint, Gps, NavInfo, VehicleState};
 
 use crate::modes::{mode_name, vehicle_kind};
 
@@ -19,6 +20,9 @@ pub fn apply(state: &VehicleState, msg: &MavMessage) -> Option<VehicleState> {
         MavMessage::SYS_STATUS(d) => Some(apply_sys_status(state, d)),
         MavMessage::VFR_HUD(d) => Some(apply_vfr_hud(state, d)),
         MavMessage::GPS_RAW_INT(d) => Some(apply_gps_raw(state, d)),
+        MavMessage::NAV_CONTROLLER_OUTPUT(d) => Some(apply_nav(state, d)),
+        MavMessage::POSITION_TARGET_GLOBAL_INT(d) => Some(apply_position_target(state, d)),
+        MavMessage::HOME_POSITION(d) => Some(apply_home(state, d)),
         _ => None,
     }
 }
@@ -41,6 +45,54 @@ pub fn apply_global_position(state: &VehicleState, p: &GLOBAL_POSITION_INT_DATA)
         alt_msl: p.alt as f32 / 1000.0,
         alt_rel: p.relative_alt as f32 / 1000.0,
         hdg,
+        cog: course_over_ground(p.vx, p.vy),
+        ..state.clone()
+    }
+}
+
+/// Below this ground speed the velocity direction is noise.
+const COG_MIN_MS: f32 = 0.5;
+
+/// Degrees clockwise from north from the NED velocity (cm/s).
+fn course_over_ground(vx: i16, vy: i16) -> Option<f32> {
+    let (n, e) = (vx as f32 / 100.0, vy as f32 / 100.0);
+    (n.hypot(e) >= COG_MIN_MS).then(|| e.atan2(n).to_degrees().rem_euclid(360.0))
+}
+
+pub fn apply_nav(state: &VehicleState, d: &NAV_CONTROLLER_OUTPUT_DATA) -> VehicleState {
+    let nav = NavInfo {
+        target_bearing: (d.target_bearing as f32).rem_euclid(360.0),
+        wp_dist: u32::from(d.wp_dist),
+    };
+    VehicleState {
+        nav: Some(nav),
+        ..state.clone()
+    }
+}
+
+pub fn apply_position_target(state: &VehicleState, d: &POSITION_TARGET_GLOBAL_INT_DATA) -> VehicleState {
+    let ignored = PositionTargetTypemask::POSITION_TARGET_TYPEMASK_X_IGNORE
+        | PositionTargetTypemask::POSITION_TARGET_TYPEMASK_Y_IGNORE;
+    let valid = !d.type_mask.intersects(ignored) && !(d.lat_int == 0 && d.lon_int == 0);
+    let target = valid.then(|| GeoPoint {
+        lat: d.lat_int as f64 / 1e7,
+        lon: d.lon_int as f64 / 1e7,
+        alt: d.alt,
+    });
+    VehicleState {
+        target,
+        ..state.clone()
+    }
+}
+
+pub fn apply_home(state: &VehicleState, d: &HOME_POSITION_DATA) -> VehicleState {
+    let home = GeoPoint {
+        lat: d.latitude as f64 / 1e7,
+        lon: d.longitude as f64 / 1e7,
+        alt: d.altitude as f32 / 1000.0,
+    };
+    VehicleState {
+        home: Some(home),
         ..state.clone()
     }
 }
@@ -83,7 +135,107 @@ pub fn apply_gps_raw(state: &VehicleState, g: &GPS_RAW_INT_DATA) -> VehicleState
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mavlink::dialects::ardupilotmega::{GpsFixType, MavAutopilot, MavType};
+    use mavlink::dialects::ardupilotmega::{
+        GpsFixType, MavAutopilot, MavType, PositionTargetTypemask, HOME_POSITION_DATA,
+        NAV_CONTROLLER_OUTPUT_DATA, POSITION_TARGET_GLOBAL_INT_DATA,
+    };
+    use rgcs_core::{GeoPoint, NavInfo};
+
+    #[test]
+    fn cog_from_velocity() {
+        let gp = |vx: i16, vy: i16| GLOBAL_POSITION_INT_DATA {
+            vx,
+            vy,
+            hdg: u16::MAX,
+            ..GLOBAL_POSITION_INT_DATA::DEFAULT
+        };
+        assert_eq!(apply_global_position(&base(), &gp(300, 0)).cog, Some(0.0));
+        assert_eq!(apply_global_position(&base(), &gp(0, 300)).cog, Some(90.0));
+        assert_eq!(apply_global_position(&base(), &gp(-300, 0)).cog, Some(180.0));
+        assert_eq!(apply_global_position(&base(), &gp(0, -300)).cog, Some(270.0));
+        assert_eq!(
+            apply_global_position(&base(), &gp(30, 20)).cog,
+            None,
+            "< 0.5 m/s: no course"
+        );
+    }
+
+    #[test]
+    fn nav_controller_output_sets_bearing_and_distance() {
+        let msg = MavMessage::NAV_CONTROLLER_OUTPUT(NAV_CONTROLLER_OUTPUT_DATA {
+            target_bearing: -45,
+            wp_dist: 120,
+            ..NAV_CONTROLLER_OUTPUT_DATA::DEFAULT
+        });
+        let s = apply(&base(), &msg).expect("applied");
+        assert_eq!(
+            s.nav,
+            Some(NavInfo {
+                target_bearing: 315.0,
+                wp_dist: 120
+            })
+        );
+    }
+
+    #[test]
+    fn position_target_ignored_when_position_masked_or_zero() {
+        let pt = |lat_int: i32, lon_int: i32, type_mask: PositionTargetTypemask| {
+            MavMessage::POSITION_TARGET_GLOBAL_INT(POSITION_TARGET_GLOBAL_INT_DATA {
+                lat_int,
+                lon_int,
+                alt: 50.0,
+                type_mask,
+                ..POSITION_TARGET_GLOBAL_INT_DATA::DEFAULT
+            })
+        };
+        let s = apply(
+            &base(),
+            &pt(361_620_000, 1_393_720_000, PositionTargetTypemask::empty()),
+        )
+        .unwrap();
+        assert_eq!(
+            s.target,
+            Some(GeoPoint {
+                lat: 36.162,
+                lon: 139.372,
+                alt: 50.0
+            })
+        );
+        let masked = apply(
+            &s,
+            &pt(
+                361_620_000,
+                1_393_720_000,
+                PositionTargetTypemask::POSITION_TARGET_TYPEMASK_X_IGNORE,
+            ),
+        )
+        .unwrap();
+        assert_eq!(masked.target, None);
+        assert_eq!(
+            apply(&s, &pt(0, 0, PositionTargetTypemask::empty()))
+                .unwrap()
+                .target,
+            None
+        );
+    }
+
+    #[test]
+    fn home_position_sets_home() {
+        let msg = MavMessage::HOME_POSITION(HOME_POSITION_DATA {
+            latitude: 361_620_000,
+            longitude: 1_393_720_000,
+            altitude: 400_500,
+            ..HOME_POSITION_DATA::DEFAULT
+        });
+        assert_eq!(
+            apply(&base(), &msg).unwrap().home,
+            Some(GeoPoint {
+                lat: 36.162,
+                lon: 139.372,
+                alt: 400.5
+            })
+        );
+    }
 
     fn base() -> VehicleState {
         VehicleState::new(1, "UAV-01")

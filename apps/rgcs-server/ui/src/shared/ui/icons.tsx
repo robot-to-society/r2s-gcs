@@ -19,6 +19,8 @@ import {
   History,
   House,
   Info,
+  Layers,
+  ListChecks,
   LocateFixed,
   Map as MapIcon,
   Maximize,
@@ -88,6 +90,9 @@ export const IconHeading = ({ size = 14, className }: IconProps) => <Lucide icon
 export const IconHouse = ({ size = 16, className }: IconProps) => <Lucide icon={House} size={size} className={className} />
 export const IconMinus = ({ size = 16, className }: IconProps) => <Lucide icon={Minus} size={size} className={className} />
 export const IconPlus = ({ size = 16, className }: IconProps) => <Lucide icon={Plus} size={size} className={className} />
+
+export const IconLayers = ({ size = 18, className }: IconProps) => <Lucide icon={Layers} size={size} className={className} />
+export const IconBits = ({ size = 16, className }: IconProps) => <Lucide icon={ListChecks} size={size} className={className} />
 
 // Severity (spec 10 §1): info / ok / warn / error.
 export const IconInfo = ({ size = 16, className }: IconProps) => <Lucide icon={Info} size={size} className={className} />

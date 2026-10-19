@@ -1,5 +1,7 @@
 export { MapView } from './MapView'
-export { missionHomes } from './homes'
+export { BasemapPicker } from './BasemapPicker'
+export { basemapStyle, chooseBasemap, saveBasemapChoice, useBasemapChoice } from './basemaps'
+export { missionHomes, vehicleHomes } from './homes'
 export { FollowChip } from './FollowChip'
 export { rasterStyle } from './style'
 export { hasPosition, markerEl, updateMarkerEl } from './markers'

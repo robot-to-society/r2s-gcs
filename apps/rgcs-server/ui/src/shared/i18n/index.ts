@@ -1,4 +1,5 @@
 import { logbookEn, logbookJa } from './logbook'
+import { opsToolsEn, opsToolsJa } from './opsTools'
 
 export type Lang = 'ja' | 'en'
 
@@ -14,21 +15,6 @@ const baseJa = {
   navVideo: '全機体映像',
   navMission: 'ミッション',
   navNetwork: 'ネットワーク',
-  mapDisplay: '地図表示',
-  rsDenied: '拒否',
-  rsUnsupported: '非対応',
-  rsTemporarilyRejected: '一時的に拒否',
-  rsTimeout: 'タイムアウト',
-  rsLinkClosed: 'リンク切断',
-  camProject: 'ジンバルを地面に投影',
-  camProjectNote: 'カメラの視野が地形と交わる範囲（撮影範囲）を地図に表示します。オフの場合は撮影方向のみを表示します。',
-  logTitle: 'メッセージ履歴',
-  logAll: 'すべて',
-  logAlerts: '警告・エラー',
-  logEmpty: 'メッセージはありません',
-  logKeep: '直近 500 件を表示。それ以前はメンテナンス › ログで確認できます。',
-  logNewAlerts: '未読の警告',
-  logSystem: 'システム',
   navAi: 'AIチャット',
   navSettings: 'メンテナンス・設定',
   login: 'ログイン',
@@ -399,7 +385,7 @@ const baseJa = {
   cmd_param_write: 'パラメータ書込',
 } as const
 
-const ja = { ...baseJa, ...logbookJa } as const
+const ja = { ...baseJa, ...logbookJa, ...opsToolsJa } as const
 
 const baseEn: Record<keyof typeof baseJa, string> = {
   vehicles: 'Vehicles',
@@ -413,21 +399,6 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   navVideo: 'All vehicle video',
   navMission: 'Mission',
   navNetwork: 'Network',
-  mapDisplay: 'Map display',
-  rsDenied: 'denied',
-  rsUnsupported: 'unsupported',
-  rsTemporarilyRejected: 'temporarily rejected',
-  rsTimeout: 'timeout',
-  rsLinkClosed: 'link closed',
-  camProject: 'Project gimbal onto the ground',
-  camProjectNote: 'Shows where the camera view meets the terrain (the footprint). When off, only the viewing direction is shown.',
-  logTitle: 'Message history',
-  logAll: 'All',
-  logAlerts: 'Warnings',
-  logEmpty: 'No messages',
-  logKeep: 'Showing the latest 500. Older entries are in Maintenance › Logs.',
-  logNewAlerts: 'Unread warnings',
-  logSystem: 'System',
   navAi: 'AI chat',
   navSettings: 'Maintenance & settings',
   login: 'Sign in',
@@ -798,7 +769,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   cmd_param_write: 'Parameter write',
 }
 
-const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn }
+const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn }
 
 export type Dict = Record<keyof typeof ja, string>
 

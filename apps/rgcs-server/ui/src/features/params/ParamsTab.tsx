@@ -5,6 +5,8 @@ import { formatNumber, parseInput, type Changes } from './changes'
 import { MAX_ROWS, progressPct, progressText } from './format'
 import type { ParamMeta } from './meta'
 import type { ParamRow } from './search'
+import { IconBits } from '../../shared/ui/icons'
+import { BitmaskPopover } from './BitmaskPopover'
 
 interface Props {
   readonly rows: readonly ParamRow[]
@@ -22,6 +24,33 @@ interface Props {
 function rangeText(meta: ParamMeta | undefined): string {
   if (!meta?.r) return ''
   return `${formatNumber(meta.r[0])} – ${formatNumber(meta.r[1])}`
+}
+
+/** The bit editor button for parameters with `@Bitmask` metadata. */
+function BitsButton({ row, value, dict, onChange }: { row: ParamRow; value: number; dict: Dict; onChange: (v: number) => void }) {
+  const [open, setOpen] = useState(false)
+  const bits = row.meta?.b
+  if (!bits || Object.keys(bits).length === 0) return null
+  return (
+    <>
+      <button type="button" className="btn-icon sm" aria-label={dict.bitsOpen} title={dict.bitsOpen} onClick={() => setOpen((o) => !o)}>
+        <IconBits />
+      </button>
+      {open && (
+        <BitmaskPopover
+          name={row.name}
+          value={value}
+          bits={bits}
+          dict={dict}
+          onClose={() => setOpen(false)}
+          onApply={(v) => {
+            setOpen(false)
+            onChange(v)
+          }}
+        />
+      )}
+    </>
+  )
 }
 
 /** One editable value cell: a select for enumerated parameters, a number input otherwise. */
@@ -69,6 +98,7 @@ function ValueCell({ row, pendingValue, dict, onChange }: { row: ParamRow; pendi
         }}
       />
       {row.meta?.v && <span className="t3 param-enum">{row.meta.v[String(shown)]}</span>}
+      <BitsButton row={row} value={shown} dict={dict} onChange={onChange} />
     </span>
   )
 }

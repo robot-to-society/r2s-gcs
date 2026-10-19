@@ -1,9 +1,11 @@
-import maplibregl, { type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
-import { useEffect, useRef } from 'react'
+import maplibregl, { type ExpressionSpecification, type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
+import { useEffect, useRef, useState } from 'react'
 import type { FeatureCollection } from 'geojson'
-import type { CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
+import type { Basemap, CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
 import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
 import { followTarget, needsRecenter, type Padding } from './follow'
+import { useBasemapSwap } from './basemaps'
+import { courseGeoJson, metresPerPixel } from './course'
 import { footprintsGeoJson, projectedIds } from './footprints'
 import { orderLayers } from './layers'
 import { gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
@@ -31,6 +33,8 @@ interface Props {
   readonly cameras?: ReadonlyMap<number, CameraSnapshot>
   /** App setting 地上への投影: draw the image footprint instead of the fan where it hits the ground. */
   readonly groundProjection?: boolean
+  /** The picked base map; a change swaps the base tiles in place. */
+  readonly basemap?: Basemap
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -42,17 +46,19 @@ const ARROW_OFFSET: [number, number] = [-17, 0]
 const NO_HOMES: ReadonlyMap<number, LatLon> = new Map()
 const NO_CAMERAS: ReadonlyMap<number, CameraSnapshot> = new Map()
 const FOOTPRINT = 'gimbal-footprint'
+const COURSE = 'course'
+const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
   const markers = useRef(new Map<number, { marker: Marker; el: HTMLDivElement }>())
   const targetMarker = useRef<Marker | null>(null)
   const missionBadges = useRef<Marker[]>([])
-  const homeMarkers = useRef<Marker[]>([])
+  const homeMarkers = useRef(new Map<number, Marker>())
   const missionRef = useRef(mission)
   missionRef.current = mission
   const dragRef = useRef(onDragStart)
@@ -97,6 +103,11 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         source: GUIDED,
         paint: { 'line-color': '#9cc9ff', 'line-width': 2, 'line-dasharray': [1, 2] },
       })
+      m.addSource(COURSE, { type: 'geojson', data: EMPTY })
+      m.addLayer({ id: 'course-nav', type: 'line', source: COURSE, filter: ['==', ['get', 'kind'], 'nav'], paint: { 'line-color': ['case', SEL, '#f2b544', '#9cc9ff'], 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.9 } })
+      m.addLayer({ id: 'course-vector-casing', type: 'line', source: COURSE, filter: ['==', ['get', 'kind'], 'vector'], layout: { 'line-cap': 'round' }, paint: { 'line-color': '#0f1824', 'line-width': 6, 'line-opacity': 0.6 } })
+      m.addLayer({ id: 'course-vector', type: 'line', source: COURSE, filter: ['==', ['get', 'kind'], 'vector'], layout: { 'line-cap': 'round' }, paint: { 'line-color': ['case', SEL, '#ffffff', '#9cc9ff'], 'line-width': 3, 'line-opacity': 0.95 } })
+      m.addLayer({ id: 'course-target', type: 'circle', source: COURSE, filter: ['==', ['get', 'kind'], 'target'], paint: { 'circle-radius': 5, 'circle-color': ['case', SEL, '#f2b544', '#9cc9ff'], 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } })
       m.addSource(FOOTPRINT, { type: 'geojson', data: EMPTY })
       m.addLayer({ id: 'gimbal-footprint', type: 'fill', source: FOOTPRINT, paint: { 'fill-color': '#5fd39b', 'fill-opacity': ['case', ['==', ['get', 'sel'], 1], 0.26, 0.14] } })
       m.addLayer({ id: 'gimbal-footprint-line', type: 'line', source: FOOTPRINT, paint: { 'line-color': '#5fd39b', 'line-width': 1.5 } })
@@ -109,6 +120,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       }
     })
     m.on('dragstart', () => dragRef.current())
+    m.on('zoomend', () => setZoom(m.getZoom()))
     m.on('click', (e) => clickRef.current({ lat: e.lngLat.lat, lon: e.lngLat.lng }))
     map.current = m
     return () => {
@@ -158,12 +170,23 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicles, selected, cameras, groundProjection])
 
-  // Home is its own marker (prototype), never a replacement for the vehicle glyph.
+  // Home is its own marker (prototype), never a replacement for the vehicle glyph. Keyed by vehicle
+  // and moved in place: `homes` is a new Map on every telemetry frame.
   useEffect(() => {
     const m = map.current
     if (!m) return
-    homeMarkers.current.forEach((h) => h.remove())
-    homeMarkers.current = [...homes.values()].map((h) => new maplibregl.Marker({ element: homeEl() }).setLngLat([h.lon, h.lat]).addTo(m))
+    const markers = homeMarkers.current
+    homes.forEach((h, sysid) => {
+      const existing = markers.get(sysid)
+      if (existing) existing.setLngLat([h.lon, h.lat])
+      else markers.set(sysid, new maplibregl.Marker({ element: homeEl() }).setLngLat([h.lon, h.lat]).addTo(m))
+    })
+    markers.forEach((marker, sysid) => {
+      if (!homes.has(sysid)) {
+        marker.remove()
+        markers.delete(sysid)
+      }
+    })
   }, [homes])
 
   // Compare by value: the Shell builds a new padding object on every render (10 Hz telemetry,
@@ -173,6 +196,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     map.current?.setPadding({ top, right, bottom, left })
   }, [top, right, bottom, left])
 
+  useBasemapSwap(map, loaded, basemap)
+  const [zoom, setZoom] = useState(14)
   const followed = useRef<number | null>(null)
   useEffect(() => {
     const m = map.current
@@ -186,6 +211,12 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     followed.current = follow
     if (fresh || needsRecenter(m.project(m.getCenter()), m.project(center))) m.easeTo({ center, duration: 200 })
   }, [vehicles, follow])
+
+  useEffect(() => {
+    if (!loaded.current) return
+    const src = map.current?.getSource(COURSE) as { setData: (d: unknown) => void } | undefined
+    src?.setData(courseGeoJson(vehicles, selected, metresPerPixel(zoom, map.current?.getCenter().lat ?? 36)))
+  }, [vehicles, selected, zoom])
 
   useEffect(() => {
     if (!loaded.current) return

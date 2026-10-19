@@ -48,16 +48,11 @@ async fn main() -> anyhow::Result<()> {
     let (outgoing_tx, outgoing_rx) = mpsc::channel(64);
     let (acks_tx, _) = broadcast::channel(64);
     let (queue_tx, queue_rx) = mpsc::channel(32);
-    let channels = LinkChannels {
-        events: events_tx,
-        outgoing: outgoing_rx,
-        acks: acks_tx.clone(),
-    };
-    tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), channels));
-    tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx.clone(), acks_tx));
+    let gcs_sysid = rgcs_server::settings::load_gcs_sysid(&store).await;
     let state = AppState::new(router.clone(), tx.clone(), store, queue_tx, dev_mode)
-        .with_outgoing(outgoing_tx)
+        .with_outgoing(outgoing_tx.clone())
         .with_map(config.map_tile_url.clone(), config.map_attribution.clone())
+        .with_basemaps(config.basemaps())
         .with_whep_upstream(&config.whep_upstream)
         .with_data_dir(config.data_dir.clone())
         .with_log_fetch(config.log_fetch_enabled())
@@ -65,6 +60,16 @@ async fn main() -> anyhow::Result<()> {
             timeout: Duration::from_millis(config.video_probe_timeout_ms),
             ..rgcs_video::Timings::default()
         });
+    state.gcs.set(gcs_sysid);
+    let channels = LinkChannels {
+        events: events_tx,
+        outgoing: outgoing_rx,
+        acks: acks_tx.clone(),
+        gcs: state.gcs.clone(),
+        inspector: state.inspector.clone(),
+    };
+    tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), channels));
+    tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx, acks_tx));
     tokio::spawn(telemetry::pump_events(
         events_rx,
         tx.clone(),

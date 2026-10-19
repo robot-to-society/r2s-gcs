@@ -141,7 +141,7 @@ mod tests {
         let (events_tx, events_rx) = mpsc::channel(8);
         let (tx, _keep) = broadcast::channel(8);
         let (out_tx, mut out_rx) = mpsc::channel(8);
-        let hub = crate::missions::MissionHub::new(tx.clone());
+        let hub = crate::missions::MissionHub::new(tx.clone(), rgcs_core::GcsId::default());
         let params = crate::params::ParamCache::new(tx.clone());
         let logs = crate::logs::LogHub::new(tx.clone(), true);
         let store = rgcs_store::Store::open_memory().await.unwrap();

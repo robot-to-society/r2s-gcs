@@ -4,6 +4,7 @@ import type { Operator, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { useLang } from '../../shared/i18n/lang'
 import { MapDisplayCard } from './MapDisplayCard'
+import { MavlinkCard } from './MavlinkCard'
 import { PilotForm } from './PilotForm'
 import { RegistryForm } from './RegistryForm'
 import { TemplateEditor } from './TemplateEditor'
@@ -37,6 +38,7 @@ export function AppTab({ sysid, vehicle, me, dict, onOpenPresent }: Props) {
         </button>
       </div>
       <MapDisplayCard dict={dict} />
+      <MavlinkCard dict={dict} isAdmin={isAdmin} />
       {sysid !== null && <RegistryForm key={sysid} sysid={sysid} vehicle={vehicle} isAdmin={isAdmin} dict={dict} />}
       <PilotForm dict={dict} />
       <TemplateEditor dict={dict} isAdmin={isAdmin} />

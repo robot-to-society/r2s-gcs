@@ -41,6 +41,8 @@
 .vrow .batt-text { font-size: 13px; min-width: 34px; text-align: right; flex: none; }
 /* long ArduPilot mode names (STABILIZE) shrink with an ellipsis instead of pushing the battery out */
 .vrow > .row { min-width: 0; }
+/* 6 px (prototype 8) in the name line: GUIDED / LOITER fit beside "100%" at the 296 px list width */
+.vrow > .row:not(.stat) { gap: 6px; }
 .vrow .badge { display: block; line-height: 18px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vrow .batt { flex: none; }
 .vrow .follow-mark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--caution-tint); color: var(--caution); flex: none; }
@@ -71,6 +73,9 @@
 .sheet-search .in { display: flex; align-items: center; gap: 8px; color: var(--text-4); }
 .sheet-search .in input { flex: 1; }
 .sheet-body { flex: 1; overflow-y: auto; min-height: 0; padding: 0 14px 14px; display: flex; flex-direction: column; gap: 14px; }
+/* command panel footer: sending / the target vehicle's last command result (2026-10-19) */
+.cmd-last { flex: none; min-height: 40px; display: flex; align-items: center; padding: 8px 16px; border-top: 1px solid var(--line-soft); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd-last .bad { color: var(--danger); }
 .cmd-group-title { font-size: 12px; color: var(--text-3); padding: 2px 0 8px; }
 .cmd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .cmd-btn.full { grid-column: 1 / -1; }
@@ -128,3 +133,38 @@
 .present-link-box { display: flex; align-items: center; gap: 8px; word-break: break-all; }
 /* the vehicle marker stays above waypoint badges and the home tile it hovers over */
 .maplibregl-marker:has(.rg-mk) { z-index: 3; }
+
+/* ---- selected vehicle lock-on (user request 2026-10-19): corner brackets + beacon pulse ---- */
+.vmk .lock, .vmk .beacon { display: none; position: absolute; pointer-events: none; }
+.rg-mk.sel .vmk .lock {
+  display: block; inset: -9px;
+  background:
+    linear-gradient(var(--caution), var(--caution)) left top / 13px 3px no-repeat,
+    linear-gradient(var(--caution), var(--caution)) left top / 3px 13px no-repeat,
+    linear-gradient(var(--caution), var(--caution)) right top / 13px 3px no-repeat,
+    linear-gradient(var(--caution), var(--caution)) right top / 3px 13px no-repeat,
+    linear-gradient(var(--caution), var(--caution)) left bottom / 13px 3px no-repeat,
+    linear-gradient(var(--caution), var(--caution)) left bottom / 3px 13px no-repeat,
+    linear-gradient(var(--caution), var(--caution)) right bottom / 13px 3px no-repeat,
+    linear-gradient(var(--caution), var(--caution)) right bottom / 3px 13px no-repeat;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+  animation: rglockin 0.35s ease-out;
+}
+.rg-mk.sel .vmk .beacon { display: block; inset: 0; border-radius: 50%; border: 2px solid var(--caution); animation: rgbeacon 1.8s ease-out infinite; }
+@keyframes rgbeacon { 0% { transform: scale(1); opacity: 0.9; } 100% { transform: scale(2.6); opacity: 0; } }
+@keyframes rglockin { 0% { transform: scale(1.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .rg-mk.sel .vmk .beacon { animation: none; transform: scale(1.6); opacity: 0.45; }
+  .rg-mk.sel .vmk .lock { animation: none; }
+}
+
+/* ---- base map picker (user request 2026-10-19) ---- */
+.basemap-picker { z-index: 3; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.basemap-picker > .btn-icon { width: 40px; height: 40px; border-radius: var(--r-ctl); color: var(--text); }
+.basemap-menu { min-width: 180px; padding: 6px; border-radius: 14px; display: flex; flex-direction: column; }
+.basemap-menu button { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border: none; border-radius: 9px; background: transparent; color: var(--text-2); font-size: 13px; text-align: left; }
+.basemap-menu button:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+.basemap-menu button.on { color: var(--text); font-weight: 500; }
+
+/* maintenance has seven tabs since the MAVLink inspector (the prototype defines n3–n6) */
+.seg.n7 .lens { width: calc((100% - 6px) / 7); }
