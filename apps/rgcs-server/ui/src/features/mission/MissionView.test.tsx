@@ -110,6 +110,16 @@ describe('MissionView', () => {
     expect(sel()).toEqual([true, true, true, true, false, true])
   })
 
+  it('cmd_c_then_cmd_v_duplicates_the_selection_after_it', () => {
+    const { container } = setup()
+    addPoints(2) // T, 2, 3
+    fireEvent.click(wpRows()[1]!)
+    fireEvent.keyDown(container.firstChild as Element, { key: 'c', metaKey: true })
+    fireEvent.keyDown(container.firstChild as Element, { key: 'v', ctrlKey: true })
+    expect(rows()).toEqual(['離陸', 'ウェイポイント', 'ウェイポイント', 'ウェイポイント'])
+    expect(wpRows()[2]!.className).toContain('sel')
+  })
+
   it('save_calls_create_then_update', async () => {
     const { fetchMock } = setup((url, init) => {
       if (url === '/api/missions' && init?.method === 'POST') return envelope({ ...JSON.parse(String(init.body)), id: 5 })

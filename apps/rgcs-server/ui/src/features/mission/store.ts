@@ -1,8 +1,8 @@
 // Editor UI state: the draft history, selection, tool and I/O status. Pure transitions + one store.
 import { useSyncExternalStore } from 'react'
-import type { Finding, Mission, UploadReport } from '../../shared/api/types'
+import type { Finding, Mission, MissionItem, UploadReport } from '../../shared/api/types'
 import { canRedo, canUndo, initHistory, push, redo, undo, type History } from './history'
-import { emptyDraft, fromMission, removeItems, type Draft } from './model'
+import { emptyDraft, fromMission, insertItemsAfter, removeItems, type Draft } from './model'
 
 export type Tool = 'select' | 'add'
 export type Busy = 'idle' | 'saving' | 'uploading' | 'downloading'
@@ -18,6 +18,8 @@ export interface MissionUi {
   readonly busy: Busy
   readonly findings: readonly Finding[]
   readonly lastReport: UploadReport | null
+  /** ⌘/Ctrl+C: copies of the selected items in list order (kept across missions). */
+  readonly clipboard: readonly MissionItem[]
 }
 
 export const INITIAL_MISSION_UI: MissionUi = {
@@ -30,6 +32,7 @@ export const INITIAL_MISSION_UI: MissionUi = {
   busy: 'idle',
   findings: [],
   lastReport: null,
+  clipboard: [],
 }
 
 const EMPTY: ReadonlySet<number> = new Set()
@@ -81,6 +84,21 @@ export function addToSelection(ui: MissionUi, uids: readonly number[]): MissionU
   const alive = new Set(ui.history.present.items.map((it) => it.uid))
   const next = new Set([...ui.selected, ...uids.filter((u) => alive.has(u))])
   return next.size === ui.selected.size ? ui : { ...ui, selected: next }
+}
+
+export function copySelected(ui: MissionUi): MissionUi {
+  if (ui.selected.size === 0) return ui
+  const clipboard = ui.history.present.items.filter((it) => ui.selected.has(it.uid)).map(({ uid: _uid, ...it }) => it)
+  return { ...ui, clipboard }
+}
+
+/** ⌘/Ctrl+V: the clipboard after the last selected item (or at the end), one undo step, the copies selected. */
+export function pasteClipboard(ui: MissionUi): MissionUi {
+  if (ui.clipboard.length === 0) return ui
+  const d = ui.history.present
+  const last = [...d.items].reverse().find((it) => ui.selected.has(it.uid))
+  const { draft, uids } = insertItemsAfter(d, last?.uid ?? null, ui.clipboard)
+  return { ...edit(ui, draft), selected: new Set(uids), anchor: uids.at(-1) ?? ui.anchor }
 }
 
 export const clearSelection = (ui: MissionUi): MissionUi => (ui.selected.size === 0 ? ui : { ...ui, selected: EMPTY, anchor: null })

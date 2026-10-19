@@ -15,7 +15,7 @@ import { km, mmss } from './labels'
 import type { ContextMenu as Menu } from './mapEdit'
 import { useMissionIo } from './useMissionIo'
 import { appendWaypoint, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, removeItems, reorder, reverseItems, setAltBulk, setCommand, setMeta, shiftAlts, updateItem, type Draft } from './model'
-import { MissionStore, addToSelection, clearSelection, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
+import { MissionStore, addToSelection, clearSelection, copySelected, pasteClipboard, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
 import { localWarnings, stats } from './summary'
 import { BasemapPicker } from '../map/BasemapPicker'
 import { MapModeToggle } from '../map/MapModeToggle'
@@ -63,6 +63,8 @@ export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onP
     const meta = e.metaKey || e.ctrlKey
     if (e.key === 'Delete' || e.key === 'Backspace') store.update(removeSelected)
     else if (meta && e.key.toLowerCase() === 'z') store.update(e.shiftKey ? redoUi : undoUi)
+    else if (meta && e.key.toLowerCase() === 'c') store.update(copySelected)
+    else if (meta && e.key.toLowerCase() === 'v') store.update(pasteClipboard)
     else if (meta && e.key.toLowerCase() === 'a') store.update((u) => ({ ...u, selected: new Set(u.history.present.items.map((it) => it.uid)) }))
     else if (e.key === 'Escape') {
       store.update(clearSelection)

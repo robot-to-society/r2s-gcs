@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Mission } from '../../shared/api/types'
 import { appendWaypoint, emptyDraft } from './model'
-import { INITIAL_MISSION_UI, MissionStore, addToSelection, clearSelection, edit, loaded, markSaved, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi } from './store'
+import { INITIAL_MISSION_UI, MissionStore, addToSelection, copySelected, pasteClipboard, clearSelection, edit, loaded, markSaved, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi } from './store'
 
 const threePoints = () => appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
 
@@ -68,5 +68,30 @@ describe('addToSelection (map box)', () => {
     expect(boxed.selected).toEqual(new Set([1, 2, 3]))
     expect(boxed.anchor).toBe(1)
     expect(addToSelection(boxed, [])).toBe(boxed)
+  })
+})
+
+describe('copy / paste', () => {
+  const base = () => edit(INITIAL_MISSION_UI, appendWaypoint(appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3), 36.4, 139.4))
+  it('copies the selection in list order and pastes copies after the last selected item, selecting them', () => {
+    const sel = selectRange(selectOne(base(), 2, false), 3)
+    const copied = copySelected(sel)
+    expect(copied.clipboard.map((it) => it.lat)).toEqual([36.2, 36.3])
+    const pasted = pasteClipboard(copied)
+    const items = pasted.history.present.items
+    expect(items.map((it) => it.lat)).toEqual([36.1, 36.2, 36.3, 36.2, 36.3, 36.4])
+    expect(items.map((it) => it.uid)).toEqual([1, 2, 3, 5, 6, 4])
+    expect(pasted.selected).toEqual(new Set([5, 6]))
+    expect(pasted.dirty).toBe(true)
+    // one undo step removes the paste
+    expect(undoUi(pasted).history.present.items).toHaveLength(4)
+  })
+  it('pastes at the end when nothing is selected, and does nothing with an empty clipboard', () => {
+    const copied = copySelected(selectOne(base(), 2, false))
+    const pasted = pasteClipboard(clearSelection(copied))
+    expect(pasted.history.present.items.at(-1)).toMatchObject({ uid: 5, lat: 36.2 })
+    const nothing = base()
+    expect(pasteClipboard(nothing)).toBe(nothing)
+    expect(copySelected(nothing)).toBe(nothing)
   })
 })

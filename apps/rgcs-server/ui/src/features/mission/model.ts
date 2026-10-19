@@ -103,6 +103,15 @@ export function moveItems(d: Draft, uids: ReadonlySet<number>, dLat: number, dLo
 }
 
 /** Adds `dAlt` metres; Rel / Ter items stop at 0 m so a quick drag never puts a waypoint underground. */
+/** Inserts copies of `items` (new uids) after `afterUid`, or at the end when it is null / gone. */
+export function insertItemsAfter(d: Draft, afterUid: number | null, items: readonly MissionItem[]): { draft: Draft; uids: number[] } {
+  const copies = items.map((it, i) => ({ ...it, uid: d.nextUid + i }))
+  const idx = afterUid === null ? -1 : d.items.findIndex((it) => it.uid === afterUid)
+  const at = idx < 0 ? d.items.length : idx + 1
+  const draft = { ...d, items: [...d.items.slice(0, at), ...copies, ...d.items.slice(at)], nextUid: d.nextUid + copies.length }
+  return { draft, uids: copies.map((c) => c.uid) }
+}
+
 export function shiftAlts(d: Draft, uids: ReadonlySet<number>, dAlt: number): Draft {
   const alt = (it: DraftItem) => (it.frame === 'abs' ? it.alt + dAlt : Math.max(0, it.alt + dAlt))
   return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt: alt(it) } : it)) }
