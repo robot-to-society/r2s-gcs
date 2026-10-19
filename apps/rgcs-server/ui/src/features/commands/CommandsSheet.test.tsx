@@ -63,4 +63,10 @@ describe('CommandsSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: '-5' }))
     expect(screen.getByLabelText('速度変更')).toHaveValue('2')
   })
+  it('shows why the vehicle refused to arm under ARM while disarmed', () => {
+    const { rerender } = render(<CommandsSheet vehicle={v(false)} prearm={['PreArm: Compass not calibrated']} onPick={() => {}} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
+    expect(screen.getByTestId('prearm')).toHaveTextContent('PreArm: Compass not calibrated')
+    rerender(<CommandsSheet vehicle={v(true)} prearm={['PreArm: Compass not calibrated']} onPick={() => {}} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
+    expect(screen.queryByTestId('prearm')).toBeNull()
+  })
 })

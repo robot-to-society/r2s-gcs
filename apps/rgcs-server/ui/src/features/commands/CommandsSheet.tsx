@@ -34,6 +34,8 @@ interface Props {
   readonly footer?: ReactNode
   /** Per-button sending / done / failed for the shown vehicle. */
   readonly feedback?: (cmd: string) => BtnState | null
+  /** The vehicle's recent PreArm refusals, shown under ARM while disarmed. */
+  readonly prearm?: readonly string[]
 }
 
 const FB_ICON: Record<BtnState, () => ReactElement | null> = { sending: () => null, ok: () => <IconCheck size={12} />, fail: () => <IconClose size={12} /> }
@@ -91,7 +93,7 @@ function StepInput({ label, placeholder, value, onChange }: { label: string; pla
 }
 
 /** Right-aligned 380 px sheet listing every command by group in a 2-column grid (spec 10 §3.5). */
-export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside = false, footer, feedback }: Props) {
+export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside = false, footer, feedback, prearm = [] }: Props) {
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState(vehicle.mode || COPTER_MODES[0]!)
   const [alt, setAlt] = useState('')
@@ -178,6 +180,13 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
                       {fb && <span className="cmd-fb" aria-hidden="true">{FB_ICON[fb]()}</span>}
                     </button>
                     {open === item.name && item.param && paramRow(item)}
+                    {item.name === 'arm' && !vehicle.armed && prearm.length > 0 && (
+                      <ul className="cmd-prearm" data-testid="prearm">
+                        {prearm.map((r) => (
+                          <li key={r}>{r}</li>
+                        ))}
+                      </ul>
+                    )}
                   </Fragment>
                 )
               })}

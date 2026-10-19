@@ -6,6 +6,7 @@ import { hhmmss } from '../../shared/format/time'
 import type { Dict } from '../../shared/i18n'
 import { entryText } from '../log/format'
 import { CommandsSheet } from './CommandsSheet'
+import { prearmReasons } from './prearm'
 import type { Runner } from './useCommandRunner'
 
 interface Props {
@@ -48,6 +49,7 @@ export function CommandDock({ vehicle, entries, dict, beside = false, onClose, o
       // The target is fixed when the button is pressed, even if the selection changes meanwhile.
       onPick={(command) => runner.pick(vehicle.sysid, command)}
       feedback={(cmd) => runner.feedback(vehicle.sysid, cmd)}
+      prearm={prearmReasons(entries, vehicle.sysid, Date.now())}
       footer={<LastResult sysid={vehicle.sysid} entries={entries} sending={runner.sending} dict={dict} />}
     />
   )
