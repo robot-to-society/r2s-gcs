@@ -68,7 +68,7 @@
 
 /* ---- sheets (commands / camera settings / present): prototype `float map-r top2` ---- */
 .sheet { position: absolute; right: var(--gap); top: calc(var(--top) + 54px); bottom: var(--gap); width: 380px; z-index: 6; display: flex; flex-direction: column; min-height: 0; }
-.sheet.beside { right: calc(var(--right-w) + 2 * var(--gap)); }
+.sheet.beside { right: calc(var(--right-w) + 2 * var(--gap)); bottom: calc(var(--gap) + 52px); } /* stays open beside the detail panel: keep the footer log pill (bottom 12 + 40 px) clickable */
 .sheet-search { padding: 0 14px 10px; }
 .sheet-search .in { display: flex; align-items: center; gap: 8px; color: var(--text-4); }
 .sheet-search .in input { flex: 1; }

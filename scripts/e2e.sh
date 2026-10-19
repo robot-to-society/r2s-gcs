@@ -6,7 +6,8 @@
 #   scripts/e2e.sh --with-sitl --with-sim   # + camera.spec.ts (MT11 simulator on 37261)
 #   scripts/e2e.sh --with-video [...]       # + present.spec.ts (MediaMTX + ffmpeg, scripts/dev-video.sh)
 #
-# Env: E2E_PORT (default 8010), RGCS_SERVER_BIN (default target/debug/rgcs-server, built if missing).
+# Env: E2E_PORT (default 8010), RGCS_SERVER_BIN (default target/debug/rgcs-server, built if missing),
+#      E2E_SITL_URL (default tcp:127.0.0.1:5760; e.g. a second SITL instance -I1 on tcp:127.0.0.1:5770).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -46,7 +47,7 @@ CONFIG="$DEV_DIR/e2e-config.toml"
 {
   echo "listen = \"127.0.0.1:$PORT\""
   # Without --with-sitl the server must not find a vehicle, even if a SITL happens to be running.
-  if [ "$WITH_SITL" = 1 ]; then echo "mavlink_url = \"tcp:127.0.0.1:5760\""; else echo "mavlink_url = \"tcp:127.0.0.1:5799\""; fi
+  if [ "$WITH_SITL" = 1 ]; then echo "mavlink_url = \"${E2E_SITL_URL:-tcp:127.0.0.1:5760}\""; else echo "mavlink_url = \"tcp:127.0.0.1:5799\""; fi
   echo "data_dir = \"$DEV_DIR/e2e-data\""
   echo "ui_dir = \"$UI_DIR/dist\""
   if [ "$WITH_VIDEO" = 1 ]; then echo "whep_upstream = \"http://127.0.0.1:8889/video1/whep\""; fi
