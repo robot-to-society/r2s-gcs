@@ -209,7 +209,13 @@ pub async fn put_rally(
             ..*p
         })
         .collect();
-    op.write(rally_to_items(&points), validate_rally(&points)).await
+    let findings = validate_rally(&points);
+    if Mission::has_fatal(&findings) {
+        op.audit("upload", points.len(), "rejected", Some("rally_invalid".into()))
+            .await;
+        return refused("rally_invalid", &findings);
+    }
+    op.write(rally_to_items(&points), findings).await
 }
 
 /// `GET /api/vehicles/{sysid}/rally` → `{points}`.

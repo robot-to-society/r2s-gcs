@@ -149,10 +149,30 @@ pub fn fence_from_items(items: &[MissionItem]) -> Result<Vec<FenceZone>, String>
 
 /// What ArduPilot would refuse (fatal) and what may not fit or not work as expected (warn).
 /// `seq` is the 1-based zone number.
+/// A real position: finite, |lat| ≤ 90, |lon| ≤ 180 (ArduPilot `check_latlng`).
+fn on_earth(lat: f64, lon: f64) -> bool {
+    lat.is_finite() && lon.is_finite() && lat.abs() <= 90.0 && lon.abs() <= 180.0
+}
+
+/// Rally altitudes are stored as int16 metres; anything beyond this band is a typing error.
+pub const MAX_RALLY_ALT_M: f32 = 10_000.0;
+
 pub fn validate_fence(zones: &[FenceZone]) -> Vec<Finding> {
     let mut out = Vec::new();
     for (i, z) in zones.iter().enumerate() {
         let seq = Some(i as u16 + 1);
+        let placed = match z {
+            FenceZone::Polygon { vertices, .. } => vertices.iter().all(|v| on_earth(v.lat, v.lon)),
+            FenceZone::Circle { center, .. } => on_earth(center.lat, center.lon),
+        };
+        if !placed {
+            out.push(Finding::fatal(
+                "fence_position",
+                seq,
+                "a fence point is not a valid latitude / longitude",
+            ));
+            continue;
+        }
         match z {
             FenceZone::Polygon { vertices, .. } if vertices.len() < 3 => out.push(Finding::fatal(
                 "fence_vertices",
@@ -213,6 +233,31 @@ pub fn rally_from_items(items: &[MissionItem]) -> Vec<RallyPoint> {
 }
 
 pub fn validate_rally(points: &[RallyPoint]) -> Vec<Finding> {
+    let bad: Vec<Finding> = points
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            let seq = Some(i as u16 + 1);
+            if !on_earth(p.lat, p.lon) {
+                Some(Finding::fatal(
+                    "rally_position",
+                    seq,
+                    "a rally point is not a valid latitude / longitude",
+                ))
+            } else if !p.alt.is_finite() || p.alt.abs() > MAX_RALLY_ALT_M {
+                Some(Finding::fatal(
+                    "rally_alt",
+                    seq,
+                    "a rally altitude must be within ±10000 m",
+                ))
+            } else {
+                None
+            }
+        })
+        .collect();
+    if !bad.is_empty() {
+        return bad;
+    }
     if points.len() > TYPICAL_RALLY_POINTS {
         return vec![Finding::warn(
             "rally_size",
@@ -318,6 +363,57 @@ mod tests {
         );
         let many: Vec<_> = (0..20).map(|_| square(true)).collect();
         assert_eq!(validate_fence(&many)[0].code, "fence_size");
+    }
+
+    #[test]
+    fn coordinates_out_of_range_or_not_finite_are_fatal() {
+        let bad = FenceZone::Circle {
+            inclusion: true,
+            center: ll(91.0, 137.0),
+            radius: 50.0,
+        };
+        let nan = FenceZone::Polygon {
+            inclusion: true,
+            vertices: vec![ll(36.0, f64::NAN), ll(36.0, 137.01), ll(36.01, 137.0)],
+        };
+        let codes: Vec<_> = validate_fence(&[bad, nan])
+            .into_iter()
+            .map(|f| (f.code, f.seq))
+            .collect();
+        assert_eq!(
+            codes,
+            vec![
+                ("fence_position".to_string(), Some(1)),
+                ("fence_position".to_string(), Some(2))
+            ]
+        );
+        let far = RallyPoint {
+            lat: 36.0,
+            lon: 181.0,
+            alt: 60.0,
+        };
+        let high = RallyPoint {
+            lat: 36.0,
+            lon: 137.0,
+            alt: 40_000.0,
+        };
+        let deep = RallyPoint {
+            lat: 36.0,
+            lon: 137.0,
+            alt: f32::NAN,
+        };
+        let codes: Vec<_> = validate_rally(&[far, high, deep])
+            .into_iter()
+            .map(|f| (f.code, f.seq))
+            .collect();
+        assert_eq!(
+            codes,
+            vec![
+                ("rally_position".to_string(), Some(1)),
+                ("rally_alt".to_string(), Some(2)),
+                ("rally_alt".to_string(), Some(3))
+            ]
+        );
     }
 
     #[test]

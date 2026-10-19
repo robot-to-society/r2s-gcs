@@ -108,3 +108,20 @@ async fn rally_points_round_trip_with_whole_metre_altitudes() {
     assert_eq!(reply["data"]["points"][0]["alt"], 60.0);
     assert_eq!(reply["data"]["points"].as_array().unwrap().len(), 2);
 }
+
+#[tokio::test]
+async fn an_invalid_rally_point_is_refused_before_anything_is_sent() {
+    let (app, state, mut rx) = spawn_app_with_link().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    let body = json!({ "points": [{ "lat": 136.0, "lon": 137.6, "alt": 60.0 }] });
+    let (status, reply, _) = call(
+        &app,
+        req(Method::PUT, "/api/vehicles/1/rally", Some(&cookie), Some(body)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{reply}");
+    assert_eq!(reply["error"]["code"], "rally_invalid");
+    assert_eq!(reply["data"]["findings"][0]["code"], "rally_position");
+    assert!(rx.try_recv().is_err(), "nothing was sent to the link");
+}
