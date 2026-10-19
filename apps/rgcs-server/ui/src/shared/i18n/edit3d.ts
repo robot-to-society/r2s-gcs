@@ -14,6 +14,14 @@ export const edit3dJa = {
   trackMinutesNote: '運用画面の飛行軌跡 (2D・3D) を直近この時間だけ残します。0 で残しません',
   trackMinutesRange: '0〜120 分で入力してください',
   trackMinutesSaved: '保存しました',
+  elevProfile: '標高プロファイル',
+  elevTerrainOk: '地形: 標高タイル',
+  elevTerrainNone: '地形データなし (ホームの地面で表示)',
+  elevGround: '地表',
+  elevFlight: '飛行高度',
+  elevAgl: '対地',
+  elevBelowGround: '経路の一部が地面より下です',
+  elevEmpty: 'ウェイポイントを追加すると表示されます',
 } as const
 
 export const edit3dEn: Record<keyof typeof edit3dJa, string> = {
@@ -29,4 +37,12 @@ export const edit3dEn: Record<keyof typeof edit3dJa, string> = {
   trackMinutesNote: 'Keep this many recent minutes of flight track on the operations map (2D and 3D); 0 keeps none',
   trackMinutesRange: 'Enter 0–120 minutes',
   trackMinutesSaved: 'Saved',
+  elevProfile: 'Elevation profile',
+  elevTerrainOk: 'Terrain: elevation tiles',
+  elevTerrainNone: 'No terrain data (home ground shown)',
+  elevGround: 'Ground',
+  elevFlight: 'Flight altitude',
+  elevAgl: 'AGL',
+  elevBelowGround: 'Part of the route is below the ground',
+  elevEmpty: 'Add waypoints to see the profile',
 }

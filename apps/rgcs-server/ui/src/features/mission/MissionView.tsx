@@ -8,6 +8,7 @@ import { CommandPalette } from './CommandPalette'
 import { ContextMenu } from './ContextMenu'
 import { MissionList } from './MissionList'
 import { MissionMap } from './MissionMap'
+import { ElevationSheet } from './ElevationSheet'
 import { MissionPicker } from './MissionPicker'
 import { MissionSidebar } from './MissionSidebar'
 import { canRedo, canUndo } from './history'
@@ -116,6 +117,7 @@ export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onP
       </div>
       {basemap && onPickBasemap && basemaps.length > 1 && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" />}
       <MapModeToggle mode={mapMode} available={terrainTiles !== null} dict={dict} onChange={saveMapMode} />
+      <ElevationSheet draft={draft} selected={ui.selected} terrainTiles={terrainTiles} dict={dict} onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))} />
       <button type="button" className={`g-ctl ctl float map-r2 top1 help-btn${help ? ' on' : ''}`} title={dict.mHelpTitle} aria-label={dict.mHelpTitle} onClick={() => setHelp((h) => !h)}>
         ?
       </button>

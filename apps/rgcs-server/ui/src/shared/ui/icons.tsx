@@ -9,6 +9,7 @@ import {
   BotMessageSquare,
   Camera,
   Car,
+  ChartArea,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -147,4 +148,5 @@ export const IconSignal = ({ size = 18, top = 'var(--text-3)' }: IconProps & { r
     <rect x="17" y="4" width="3" height="18" fill={top} />
   </svg>
 )
+export const IconElevation = ({ size = 20, className }: IconProps) => <Lucide icon={ChartArea} size={size} className={className} />
 export const IconSortAlerts = ({ size = 18, className }: IconProps) => <Lucide icon={ArrowDownWideNarrow} size={size} className={className} />

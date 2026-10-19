@@ -110,6 +110,14 @@ describe('MissionView', () => {
     expect(sel()).toEqual([true, true, true, true, false, true])
   })
 
+  it('the_elevation_profile_opens_from_the_map', () => {
+    setup()
+    addPoints(2)
+    fireEvent.click(screen.getByRole('button', { name: '標高プロファイル' }))
+    expect(screen.getByRole('region', { name: '標高プロファイル' }).querySelectorAll('.rg-elev-pt')).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: '標高プロファイル' }))
+  })
+
   it('cmd_c_then_cmd_v_duplicates_the_selection_after_it', () => {
     const { container } = setup()
     addPoints(2) // T, 2, 3
