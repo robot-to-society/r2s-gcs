@@ -143,6 +143,7 @@ function renderMap(over: Partial<React.ComponentProps<typeof MissionMap>> = {}) 
     onMove: vi.fn(),
     onMoveSelected: vi.fn(),
     onShiftAlt: vi.fn(),
+    onBoxSelect: vi.fn(),
     onSelect: vi.fn(),
     onBackgroundClick: vi.fn(),
     onContext: vi.fn(),
@@ -444,5 +445,39 @@ describe('MissionMap', () => {
     await new Promise((r) => setTimeout(r, 0))
     mapEl.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     expect(onMapClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('shift-drag on the map draws a box and selects the badges inside it (not a pan, no click)', () => {
+    const { props, container } = renderMap()
+    const mapEl = container.querySelector('[data-testid="mission-map"]') as HTMLElement
+    badges().forEach((b, i) => {
+      const dot = b.el.querySelector('.dot') as HTMLElement
+      dot.getBoundingClientRect = () => ({ left: 100 * (i + 1) - 10, top: 90, width: 20, height: 20, right: 100 * (i + 1) + 10, bottom: 110, x: 0, y: 0, toJSON: () => ({}) })
+    })
+    const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true, shiftKey: true, button: 0, clientX: 50, clientY: 50 })
+    mapEl.dispatchEvent(down)
+    expect(down.defaultPrevented).toBe(true)
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 150 }))
+    })
+    expect(mapEl.querySelector('.box-select')).not.toBeNull()
+    const onMapClick = vi.fn()
+    mapEl.addEventListener('click', onMapClick)
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup', { clientX: 250, clientY: 150 }))
+      mapEl.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(props.onBoxSelect).toHaveBeenCalledWith([1, 2])
+    expect(mapEl.querySelector('.box-select')).toBeNull()
+    expect(onMapClick).not.toHaveBeenCalled()
+  })
+  it('a plain drag (no Shift) is left to the map', () => {
+    const { props, container } = renderMap()
+    const mapEl = container.querySelector('[data-testid="mission-map"]') as HTMLElement
+    const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, clientX: 50, clientY: 50 })
+    mapEl.dispatchEvent(down)
+    expect(down.defaultPrevented).toBe(false)
+    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 250, clientY: 150 }))
+    expect(props.onBoxSelect).not.toHaveBeenCalled()
   })
 })

@@ -23,7 +23,7 @@ export interface AltDragDeps {
  * the map, which adds a waypoint in the add tool. Swallow that one click anywhere (window capture),
  * and stop swallowing after this task in case the release produced no click.
  */
-function swallowNextClick(): void {
+export function swallowNextClick(): void {
   const stop = (e: Event) => {
     e.stopImmediatePropagation()
     e.preventDefault()

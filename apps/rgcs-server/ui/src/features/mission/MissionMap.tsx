@@ -13,6 +13,7 @@ import { KEEP_ELEVATION, type MapMode } from '../map/mapMode'
 import { altChip, useMissionAir, type MissionAir3d } from './missionAir'
 import { attachAltDrag } from './altDrag'
 import { useMissionFeet, type FeetCallbacks } from './missionFeet'
+import { useBoxSelect } from './boxSelect'
 
 interface Props {
   readonly draft: Draft
@@ -33,6 +34,8 @@ interface Props {
   readonly onMoveSelected: (dLat: number, dLon: number) => void
   /** 3D altitude drag: add `dAlt` metres to these items. */
   readonly onShiftAlt: (uids: ReadonlySet<number>, dAlt: number) => void
+  /** Shift-drag box on the map: these items join the selection. */
+  readonly onBoxSelect: (uids: number[]) => void
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
   readonly onBackgroundClick: () => void
   readonly onContext: (menu: ContextMenu | null) => void
@@ -179,6 +182,8 @@ export function MissionMap(props: Props) {
   // a drag cut short by the 2D / 3D switch never reports its end
   useEffect(() => setPreview(null), [is3d])
   useMissionFeet({ map, is3d, draft: shown, selected: selectedRef, cb: feetCb })
+  const onBox = useRef((uids: number[]) => cb.current.onBoxSelect(uids))
+  useBoxSelect(container, badges, onBox)
 
   // The selected vehicle, for context
   useEffect(() => {

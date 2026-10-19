@@ -76,6 +76,13 @@ export function selectRange(ui: MissionUi, uid: number): MissionUi {
   return { ...ui, selected: new Set([...ui.selected, ...range]) }
 }
 
+/** Map Shift-drag box: adds the boxed items (existing ones only); the anchor stays. */
+export function addToSelection(ui: MissionUi, uids: readonly number[]): MissionUi {
+  const alive = new Set(ui.history.present.items.map((it) => it.uid))
+  const next = new Set([...ui.selected, ...uids.filter((u) => alive.has(u))])
+  return next.size === ui.selected.size ? ui : { ...ui, selected: next }
+}
+
 export const clearSelection = (ui: MissionUi): MissionUi => (ui.selected.size === 0 ? ui : { ...ui, selected: EMPTY, anchor: null })
 export const setTool = (ui: MissionUi, tool: Tool): MissionUi => (ui.tool === tool ? ui : { ...ui, tool })
 export const removeSelected = (ui: MissionUi): MissionUi => (ui.selected.size === 0 ? ui : edit(ui, removeItems(ui.history.present, ui.selected)))

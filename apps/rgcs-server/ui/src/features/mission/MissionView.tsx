@@ -15,7 +15,7 @@ import { km, mmss } from './labels'
 import type { ContextMenu as Menu } from './mapEdit'
 import { useMissionIo } from './useMissionIo'
 import { appendWaypoint, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, removeItems, reorder, reverseItems, setAltBulk, setCommand, setMeta, shiftAlts, updateItem, type Draft } from './model'
-import { MissionStore, clearSelection, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
+import { MissionStore, addToSelection, clearSelection, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
 import { localWarnings, stats } from './summary'
 import { BasemapPicker } from '../map/BasemapPicker'
 import { MapModeToggle } from '../map/MapModeToggle'
@@ -101,6 +101,7 @@ export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onP
         onMove={(uid, lat, lon) => change((d) => moveItem(d, uid, lat, lon))}
         onMoveSelected={(dLat, dLon) => change((d) => moveItems(d, ui.selected, dLat, dLon))}
         onShiftAlt={(uids, dAlt) => change((d) => shiftAlts(d, uids, dAlt))}
+        onBoxSelect={(uids) => store.update((u) => addToSelection(u, uids))}
         onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))}
         onBackgroundClick={() => store.update(clearSelection)}
         onContext={setMenu}

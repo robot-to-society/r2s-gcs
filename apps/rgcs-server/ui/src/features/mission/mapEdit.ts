@@ -93,3 +93,17 @@ export function altFromDrag(startAlt: number, dyPx: number, pxPerMetre: number |
   if (pxPerMetre === null || !(Math.abs(pxPerMetre) > 1e-6)) return startAlt
   return Math.round(startAlt - dyPx / pxPerMetre)
 }
+
+export interface ScreenBox {
+  readonly x0: number
+  readonly y0: number
+  readonly x1: number
+  readonly y1: number
+}
+
+/** The items whose on-screen centre lies inside the box (dragged in any direction). */
+export function uidsInBox(at: readonly { uid: number; x: number; y: number }[], b: ScreenBox): number[] {
+  const [l, r] = b.x0 < b.x1 ? [b.x0, b.x1] : [b.x1, b.x0]
+  const [t, d] = b.y0 < b.y1 ? [b.y0, b.y1] : [b.y1, b.y0]
+  return at.filter((p) => p.x >= l && p.x <= r && p.y >= t && p.y <= d).map((p) => p.uid)
+}

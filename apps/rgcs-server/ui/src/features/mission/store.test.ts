@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Mission } from '../../shared/api/types'
 import { appendWaypoint, emptyDraft } from './model'
-import { INITIAL_MISSION_UI, MissionStore, clearSelection, edit, loaded, markSaved, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi } from './store'
+import { INITIAL_MISSION_UI, MissionStore, addToSelection, clearSelection, edit, loaded, markSaved, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi } from './store'
 
 const threePoints = () => appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
 
@@ -57,5 +57,16 @@ describe('mission ui transitions', () => {
     s.update((ui) => setTool(ui, 'select'))
     expect(n).toBe(1)
     expect(s.getState().tool).toBe('select')
+  })
+})
+
+describe('addToSelection (map box)', () => {
+  it('adds the boxed items to the selection, keeps the anchor and ignores unknown uids', () => {
+    const base = edit(INITIAL_MISSION_UI, appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3))
+    const one = selectOne(base, 1, false)
+    const boxed = addToSelection(one, [2, 3, 99])
+    expect(boxed.selected).toEqual(new Set([1, 2, 3]))
+    expect(boxed.anchor).toBe(1)
+    expect(addToSelection(boxed, [])).toBe(boxed)
   })
 })

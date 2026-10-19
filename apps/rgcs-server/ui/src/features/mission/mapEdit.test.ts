@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { altFromDrag, badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl } from './mapEdit'
+import { altFromDrag, badgeEl, uidsInBox, dragDelta, handleEl, midHandles, updateBadgeEl } from './mapEdit'
 import { appendWaypoint, emptyDraft, setCommand } from './model'
 
 describe('map editing helpers', () => {
@@ -48,5 +48,17 @@ describe('altFromDrag', () => {
   it('keeps the altitude when the scale is unknown or degenerate', () => {
     expect(altFromDrag(80, -50, null)).toBe(80)
     expect(altFromDrag(80, -50, 0)).toBe(80)
+  })
+})
+
+describe('uidsInBox', () => {
+  it('keeps the items whose on-screen centre is inside the box, whichever way it was dragged', () => {
+    const at = [
+      { uid: 1, x: 10, y: 10 },
+      { uid: 2, x: 50, y: 60 },
+      { uid: 3, x: 200, y: 20 },
+    ]
+    expect(uidsInBox(at, { x0: 0, y0: 0, x1: 100, y1: 100 })).toEqual([1, 2])
+    expect(uidsInBox(at, { x0: 100, y0: 100, x1: 40, y1: 50 })).toEqual([2])
   })
 })
