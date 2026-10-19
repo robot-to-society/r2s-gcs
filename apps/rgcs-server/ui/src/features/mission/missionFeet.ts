@@ -4,7 +4,7 @@ import maplibregl, { type Map as MlMap, type Marker } from 'maplibre-gl'
 import { useEffect, useRef, type RefObject } from 'react'
 import { dragDelta } from './mapEdit'
 import { hasPosition, type LatLon } from './geo'
-import type { Draft } from './model'
+import { isTakeoff, type Draft } from './model'
 
 export interface FeetCallbacks {
   /** Live position while dragging; `onEnd` follows the drop. */
@@ -71,7 +71,7 @@ export function useMissionFeet({ map, is3d, draft, selected, cb }: Args): void {
   useEffect(() => {
     const m = map.current
     if (!m) return
-    const want = is3d ? draft.items.filter(hasPosition) : []
+    const want = is3d ? draft.items.filter((it) => hasPosition(it) && !isTakeoff(it)) : []
     const seen = new Set(want.map((it) => it.uid))
     for (const [uid, f] of feet.current) {
       if (!seen.has(uid)) {

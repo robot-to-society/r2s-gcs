@@ -79,3 +79,18 @@ describe('shiftAlts floor', () => {
     expect(s.items.map((i) => i.alt)).toEqual([0, 1520])
   })
 })
+
+describe('takeoff at the vehicle', () => {
+  // ArduCopter climbs straight up where it stands: NAV_TAKEOFF's lat / lon are ignored
+  it('the first click of an empty mission adds TAKEOFF at the take-off point and a WAYPOINT at the click', () => {
+    const d = appendWaypoint(emptyDraft(), 36.26, 137.64, { lat: 36.2509, lon: 137.6385 })
+    expect(d.items.map((i) => [i.command, i.lat, i.lon])).toEqual([
+      [22, 36.2509, 137.6385],
+      [16, 36.26, 137.64],
+    ])
+    expect(d.items.map((i) => i.uid)).toEqual([1, 2])
+    expect(d.nextUid).toBe(3)
+    const d2 = appendWaypoint(d, 36.27, 137.65, { lat: 36.2509, lon: 137.6385 })
+    expect(d2.items.map((i) => i.command)).toEqual([22, 16, 16])
+  })
+})

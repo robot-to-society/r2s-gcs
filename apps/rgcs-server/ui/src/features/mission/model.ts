@@ -65,10 +65,17 @@ function newItem(d: Draft, key: string, lat: number, lon: number): DraftItem {
   }
 }
 
-/** The first point of an empty mission is the TAKEOFF; every later click adds a WAYPOINT. */
-export function appendWaypoint(d: Draft, lat: number, lon: number): Draft {
-  const key = d.items.length === 0 ? 'TAKEOFF' : 'WAYPOINT'
-  return { ...d, items: [...d.items, newItem(d, key, lat, lon)], nextUid: d.nextUid + 1 }
+/**
+ * Every click adds a WAYPOINT. On an empty mission a TAKEOFF comes first, at `takeoffAt` (the
+ * vehicle or the home) when known: ArduCopter ignores NAV_TAKEOFF's lat / lon and climbs where
+ * it stands, so a TAKEOFF drawn at the click would show a leg that is never flown.
+ */
+export function appendWaypoint(d: Draft, lat: number, lon: number, takeoffAt: { lat: number; lon: number } | null = null): Draft {
+  if (d.items.length > 0) return { ...d, items: [...d.items, newItem(d, 'WAYPOINT', lat, lon)], nextUid: d.nextUid + 1 }
+  if (!takeoffAt) return { ...d, items: [newItem(d, 'TAKEOFF', lat, lon)], nextUid: d.nextUid + 1 }
+  const t = newItem(d, 'TAKEOFF', takeoffAt.lat, takeoffAt.lon)
+  const w = newItem({ ...d, nextUid: d.nextUid + 1 }, 'WAYPOINT', lat, lon)
+  return { ...d, items: [t, w], nextUid: d.nextUid + 2 }
 }
 
 export function insertAfter(d: Draft, uid: number, lat: number, lon: number): Draft {
@@ -141,6 +148,9 @@ export function setAltBulk(d: Draft, uids: ReadonlySet<number>, alt: number, fra
 export function setMeta(d: Draft, patch: Partial<Omit<Mission, 'items'>>): Draft {
   return { ...d, mission: { ...d.mission, ...patch } }
 }
+
+/** NAV_TAKEOFF: ArduCopter ignores its lat / lon, so the map pins it at the take-off point. */
+export const isTakeoff = (it: MissionItem): boolean => it.command === 22
 
 export function cmdKey(it: MissionItem): string {
   return cmdKeyOf(it.command) ?? `CMD_${it.command}`

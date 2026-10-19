@@ -54,16 +54,25 @@ describe('MissionView', () => {
     expect(panel.textContent).toContain('急上昇ほど赤')
   })
 
-  it('adding_three_points_lists_takeoff_then_two_waypoints', () => {
+  it('the_first_click_puts_the_takeoff_at_the_target_vehicle_and_a_waypoint_at_the_click', () => {
+    const { store } = setup()
+    addPoints(1)
+    expect(rows()).toEqual(['離陸', 'ウェイポイント'])
+    const [t0, w] = store.getState().history.present.items
+    expect([t0!.lat, t0!.lon]).toEqual([36.16, 139.37])
+    expect([w!.lat, w!.lon]).toEqual([36.1, 139.1])
+  })
+
+  it('adding_three_points_lists_takeoff_then_three_waypoints', () => {
     setup()
     addPoints(3)
-    expect(rows()).toEqual(['離陸', 'ウェイポイント', 'ウェイポイント'])
+    expect(rows()).toEqual(['離陸', 'ウェイポイント', 'ウェイポイント', 'ウェイポイント'])
     expect(within(screen.getByTestId('mission-summary')).getByText('最大高度').nextSibling?.textContent).toContain('50')
   })
 
   it('delete_key_removes_the_selection_and_undo_brings_it_back', () => {
     const { container } = setup()
-    addPoints(3)
+    addPoints(2) // takeoff + 2 waypoints
     fireEvent.click(wpRows()[1]!)
     expect(wpRows()[1]!.className).toContain('sel')
     fireEvent.keyDown(container.firstChild as Element, { key: 'Delete' })

@@ -178,7 +178,8 @@ describe('MissionMap', () => {
     expect(handles()).toHaveLength(2)
     expect(badges()[1]!.el.className).toBe('rg-wp sel')
     expect(badges()[0]!.lngLat).toEqual([139.1, 36.1])
-    expect(badges().every((m) => m.draggable)).toBe(true)
+    // the TAKEOFF (badge T) stays put: ArduCopter takes off where it stands
+    expect(badges().map((m) => m.draggable)).toEqual([false, true, true])
     const path = created.maps[0]!.sources.get('mission-path')!
     const last = path.setData.mock.calls.at(-1)![0] as { features: unknown[] }
     expect(last.features).toHaveLength(2)
@@ -303,9 +304,9 @@ describe('MissionMap', () => {
   })
   it('in 3D the ground foot drags to change only the position; 2D has no feet', () => {
     const { props, rerender } = renderMap({ terrainTiles: DEM, mode: '3d' })
-    expect(feet()).toHaveLength(3)
+    expect(feet()).toHaveLength(2) // none under the TAKEOFF
     expect(feet().every((f) => f.draggable)).toBe(true)
-    const f = feet()[1]!
+    const f = feet()[0]!
     act(() => {
       f.fire('dragstart')
       f.setLngLat([139.25, 36.25])
@@ -319,7 +320,7 @@ describe('MissionMap', () => {
     expect(props.onSelect).toHaveBeenCalledWith(2, true, false)
     rerender(<MissionMap {...props} terrainTiles={DEM} mode="2d" />)
     expect(feet()).toHaveLength(0)
-    expect(badges().every((b) => b.draggable)).toBe(true)
+    expect(badges().map((b) => b.draggable)).toEqual([false, true, true])
   })
 
   const uav = { sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'STABILIZE', armed: false, lat: 36.2509, lon: 137.6385, alt_rel: 0, alt_msl: 1505, hdg: 0, ground_speed: 0, climb: 0, battery: { pct: 90, volt: 16, current: null }, link: 'ok', last_rx_ms: 0, gps: { fix: 3, sats: 10, hdop: 1 }, warn: false, unread: 0 } as never
@@ -355,13 +356,13 @@ describe('MissionMap', () => {
         <MissionMap {...props} terrainTiles={DEM} mode="3d" />
       </StrictMode>,
     )
-    expect(feet()).toHaveLength(3)
+    expect(feet()).toHaveLength(2) // every item but the TAKEOFF
   })
 
   // MapLibre fires dragstart only after its first move has already moved the marker.
   it('a multi foot drag moves the selection by the whole pointer travel (MapLibre moves before dragstart)', () => {
     const { props } = renderMap({ terrainTiles: DEM, mode: '3d', selected: new Set([1, 2]) })
-    const f = feet()[1]!
+    const f = feet()[0]!
     act(() => {
       f.setLngLat([139.21, 36.21])
       f.fire('dragstart')
@@ -385,7 +386,7 @@ describe('MissionMap', () => {
   })
   it('a foot drag cut short (item deleted, or 2D) drops its preview', () => {
     const { props, rerender } = renderMap({ terrainTiles: DEM, mode: '3d', selected: new Set([1, 2]) })
-    const f = feet()[1]!
+    const f = feet()[0]!
     act(() => {
       f.fire('dragstart')
       f.setLngLat([139.25, 36.25])

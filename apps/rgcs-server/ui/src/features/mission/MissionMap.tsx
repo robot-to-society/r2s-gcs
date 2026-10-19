@@ -5,7 +5,7 @@ import type { VehicleState } from '../../shared/api/types'
 import { hasPosition as vehicleHasPosition, markerEl, updateMarkerEl } from '../map/markers'
 import { hasPosition, pathGeoJson } from './geo'
 import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl, type ContextMenu } from './mapEdit'
-import { cmdKey, moveItem, moveItems, shiftAlts, type Draft } from './model'
+import { cmdKey, isTakeoff, moveItem, moveItems, shiftAlts, type Draft, type DraftItem } from './model'
 import type { Tool } from './store'
 import { useBasemapSwap } from '../map/basemaps'
 import type { Basemap } from '../../shared/api/types'
@@ -123,18 +123,20 @@ export function MissionMap(props: Props) {
     const m = map.current
     if (!m) return
     const seen = new Set<number>()
+    // 3D moves position with the ground foot; the TAKEOFF never moves (ArduCopter climbs in place)
+    const movable = (it: DraftItem) => !is3d && !isTakeoff(it)
     shown.items.forEach((it, i) => {
       if (!hasPosition(it)) return
       seen.add(it.uid)
       const seq = i + 1
       const existing = badges.current.get(it.uid)
       if (existing) {
-        existing.marker.setLngLat([it.lon, it.lat]).setDraggable(!is3d)
+        existing.marker.setLngLat([it.lon, it.lat]).setDraggable(movable(it))
         updateBadgeEl(existing.el, seq, selected.has(it.uid), cmdKey(it), is3d ? altChip(it) : null)
         return
       }
       const el = updateBadgeEl(badgeEl(seq, selected.has(it.uid), cmdKey(it)), seq, selected.has(it.uid), cmdKey(it), is3d ? altChip(it) : null)
-      const marker = new maplibregl.Marker({ element: el, draggable: !is3d, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m)
+      const marker = new maplibregl.Marker({ element: el, draggable: movable(it), anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m)
       attachBadge(marker, el, it.uid, cb, selectedRef, draftRef)
       attachAltDrag(el, altDeps(it.uid))
       badges.current.set(it.uid, { marker, el })

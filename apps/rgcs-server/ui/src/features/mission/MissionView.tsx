@@ -51,6 +51,7 @@ export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onP
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const sysid = draft.mission.sysid ?? list[0]?.sysid ?? null
   const vehicle = sysid === null ? null : (vehicles.get(sysid) ?? null)
+  const takeoffAt = vehicle && vehicle.gps.fix >= 2 && !(vehicle.lat === 0 && vehicle.lon === 0) ? { lat: vehicle.lat, lon: vehicle.lon } : (draft.mission.home ?? null)
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
   const io = useMissionIo(store, sysid, dict, vehicleStore)
   const selectedItems = draft.items.filter((it) => ui.selected.has(it.uid))
@@ -95,7 +96,7 @@ export function MissionView({ vehicles, dict, style, basemap, basemaps = [], onP
         terrainTiles={terrainTiles}
         vehicle={vehicle}
         fitRequest={io.fitRequest}
-        onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon))}
+        onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, takeoffAt))}
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}
         onMove={(uid, lat, lon) => change((d) => moveItem(d, uid, lat, lon))}
         onMoveSelected={(dLat, dLon) => change((d) => moveItems(d, ui.selected, dLat, dLon))}
