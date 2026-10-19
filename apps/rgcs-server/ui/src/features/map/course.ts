@@ -29,13 +29,20 @@ export function destination(lat: number, lon: number, bearingDeg: number, distM:
 
 const lineFeature = (coords: LngLat[], properties: Record<string, unknown>): Feature => ({ type: 'Feature', properties, geometry: { type: 'LineString', coordinates: coords } })
 
-function vector(v: VehicleState, sel: number, mPerPx: number): Feature[] {
-  if (v.cog === undefined || v.cog === null || v.ground_speed < MIN_SPEED_MS) return []
+/** Where the course vector ends and how many seconds of flight it stands for; `null` when slow / no course. */
+export function vectorEnd(v: VehicleState, mPerPx = 0): { readonly end: LngLat; readonly seconds: number } | null {
+  if (v.cog === undefined || v.cog === null || v.ground_speed < MIN_SPEED_MS) return null
   const len = Math.max(MIN_VECTOR_M, MIN_VECTOR_PX * mPerPx, v.ground_speed * VECTOR_SECONDS)
-  return [lineFeature([[v.lon, v.lat], destination(v.lat, v.lon, v.cog, len)], { kind: 'vector', sysid: v.sysid, sel })]
+  return { end: destination(v.lat, v.lon, v.cog, len), seconds: len / v.ground_speed }
 }
 
-function navTarget(v: VehicleState): LngLat | null {
+function vector(v: VehicleState, sel: number, mPerPx: number): Feature[] {
+  const e = vectorEnd(v, mPerPx)
+  return e ? [lineFeature([[v.lon, v.lat], e.end], { kind: 'vector', sysid: v.sysid, sel })] : []
+}
+
+/** Where the autopilot is heading (NAV_CONTROLLER_OUTPUT, or the reported target when it agrees). */
+export function navTarget(v: VehicleState): LngLat | null {
   if (!v.armed || !v.nav || v.nav.wp_dist <= 0 || !NAVIGATING.has(v.mode)) return null
   const [lon, lat] = destination(v.lat, v.lon, v.nav.target_bearing, v.nav.wp_dist)
   const t = v.target

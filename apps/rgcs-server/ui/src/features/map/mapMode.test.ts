@@ -22,7 +22,7 @@ describe('applyMapMode', () => {
     applyMapMode(m, '3d', { only3d: ['a'], only2d: ['b'] })
     expect(m.calls).toEqual(['stop', 'terrain:on', 'ease:60'])
     expect(m.setTerrain).toHaveBeenCalledWith({ source: 'dem', exaggeration: 1 })
-    expect(m.easeTo).toHaveBeenCalledWith({ pitch: 60, bearing: -25, duration: 900 })
+    expect(m.easeTo).toHaveBeenCalledWith({ pitch: 60, bearing: -25, duration: 900, freezeElevation: true })
     expect(m.vis.get('a')).toBe('visible')
     expect(m.vis.get('b')).toBe('none')
   })
@@ -30,7 +30,7 @@ describe('applyMapMode', () => {
     const m = host()
     applyMapMode(m, '2d', { only3d: ['a'], only2d: ['b'] })
     expect(m.calls).toEqual(['stop', 'terrain:off', 'ease:0'])
-    expect(m.easeTo).toHaveBeenCalledWith({ pitch: 0, bearing: 0, duration: 900 })
+    expect(m.easeTo).toHaveBeenCalledWith({ pitch: 0, bearing: 0, duration: 900, freezeElevation: true })
     expect(m.vis.get('a')).toBe('none')
   })
   it('stays 2D without a terrain source', () => {

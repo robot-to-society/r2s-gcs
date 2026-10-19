@@ -1,4 +1,4 @@
-import type { CameraSnapshot, CommandResult, Deadman, Flight, LogFetchProgress, Mission, MissionProgress, ParamProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CameraSnapshot, CommandResult, Deadman, Flight, LogFetchProgress, Mission, MissionProgress, MissionTransfer, ParamProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { applyDiff } from '../../shared/ws/apply'
 import { EMPTY_LOG, logReduce, toLogEntry, type LogState } from '../log/store'
 
@@ -13,6 +13,8 @@ export interface VehiclesState {
   readonly videoSources: ReadonlyMap<SysId, VideoSourceStatus>
   /** Last `mission_progress` per vehicle. */
   readonly missionProgress: ReadonlyMap<SysId, MissionProgress>
+  /** Last `mission_transfer` per vehicle (a mission write in progress, then done / failed). */
+  readonly missionTransfers: ReadonlyMap<SysId, MissionTransfer>
   /** The mission each vehicle is known to carry (set after a verified upload or a download). */
   readonly vehicleMissions: ReadonlyMap<SysId, Mission>
   /** Last `param_progress` per vehicle. */
@@ -34,6 +36,7 @@ export const initialState: VehiclesState = {
   cameras: new Map(),
   videoSources: new Map(),
   missionProgress: new Map(),
+  missionTransfers: new Map(),
   vehicleMissions: new Map(),
   paramProgress: new Map(),
   flightDrafts: new Map(),
@@ -108,6 +111,14 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
       const missionProgress = new Map(state.missionProgress)
       missionProgress.set(msg.sysid, msg.progress)
       return { ...state, missionProgress }
+    }
+    case 'mission_transfer': {
+      const prev = state.missionTransfers.get(msg.sysid)
+      const t = msg.transfer
+      if (prev && prev.phase === t.phase && prev.done === t.done && prev.total === t.total) return state
+      const missionTransfers = new Map(state.missionTransfers)
+      missionTransfers.set(msg.sysid, t)
+      return { ...state, missionTransfers }
     }
     case 'param_progress': {
       const prev = state.paramProgress.get(msg.sysid)

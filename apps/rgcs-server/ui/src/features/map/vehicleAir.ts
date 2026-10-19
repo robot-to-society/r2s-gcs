@@ -1,28 +1,41 @@
-// 3D vehicles on the operations map (prototype updateVehicleAir): a thin post from the ground
-// to the vehicle, a ground disc, and the DOM marker floated to its altitude.
-import { useEffect, type RefObject } from 'react'
+// 3D on the operations map (prototype updateVehicleAir): a thin post from the ground to each
+// vehicle, a ground disc, the DOM marker floated to its altitude, the flight tracks in the air and
+// the selected vehicle's mission drawn like the planner (display only).
+import { useEffect, useRef, type RefObject } from 'react'
 import type { FeatureCollection, Point } from 'geojson'
 import type { Map as MlMap, Marker } from 'maplibre-gl'
-import type { VehicleState } from '../../shared/api/types'
+import type { Mission, VehicleState } from '../../shared/api/types'
+import { hasPosition as itemHasPosition } from '../mission/geo'
+import { missionAirData } from '../mission/missionAir'
+import { fromMission } from '../mission/model'
 import { mercatorLine, vehicleAmsl, type AirVertex, type ElevAt, type Rgb } from './air'
 import { useAir3d } from './air3d'
+import { navTarget, vectorEnd } from './course'
 import { orderLayers } from './layers'
+import { hasPosition } from './markers'
 import type { MapMode } from './mapMode'
 import type { LatLon } from './store'
 import type { Tracks } from './tracks'
 
 const CYAN: Rgb = [0x9c / 255, 0xc9 / 255, 1]
 const AMBER: Rgb = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
+const WHITE: Rgb = [1, 1, 1]
+/** Mission Planner's track purple (#800080). */
+const TRACK_PURPLE: Rgb = [0x80 / 255, 0, 0x80 / 255]
 const GROUND = 'veh-ground'
 const AIR = 'veh-air3d'
 /** Layers shown only in 3D on the operations map. */
-export const OPS_3D_LAYERS = { only3d: [GROUND], only2d: [] as string[] }
+export const OPS_3D_LAYERS = { only3d: [GROUND], only2d: ['mission-path-line', 'tracks-others', 'tracks-selected', 'course-nav', 'course-vector-casing', 'course-vector'] }
 
 export interface VehicleAir {
+  /** Flight tracks and mission legs. */
+  readonly lines: AirVertex[][]
   readonly posts: AirVertex[][]
   readonly discs: FeatureCollection<Point, { sel: number }>
   /** Altitude AMSL per vehicle; `null` while its ground is unknown (the marker stays on the ground). */
   readonly alts: ReadonlyMap<number, number | null>
+  /** AMSL of each positioned mission item, in item order (the mission badges float to it). */
+  readonly missionAlts: readonly (number | null)[]
 }
 
 function homeOf(sysid: number, homes: ReadonlyMap<number, LatLon>, tracks: Tracks): LatLon | null {
@@ -32,19 +45,67 @@ function homeOf(sysid: number, homes: ReadonlyMap<number, LatLon>, tracks: Track
   return first ? { lon: first[0], lat: first[1] } : null
 }
 
-export function vehicleAirData(vehicles: ReadonlyMap<number, VehicleState>, selected: number | null, homes: ReadonlyMap<number, LatLon>, tracks: Tracks, elevAt: ElevAt): VehicleAir {
+/** Each track at its vehicle's home ground + the recorded relative altitude (like the vehicle), in Mission Planner purple. */
+function trackLines(tracks: Tracks, homes: ReadonlyMap<number, LatLon>, elevAt: ElevAt): AirVertex[][] {
+  return [...tracks].flatMap(([sysid, track]) => {
+    const home = homeOf(sysid, homes, tracks)
+    const ground = home ? elevAt(home.lon, home.lat) : null
+    if (ground === null || track.length < 2) return []
+    return [mercatorLine(track.map((p) => ({ lon: p[0], lat: p[1], amsl: ground + p[2], color: TRACK_PURPLE })))]
+  })
+}
+
+/**
+ * Where the vehicle is going, in the air: the velocity vector from the vehicle along its course,
+ * climbing at its climb rate (white / cyan like 2D), and the line to the navigation target at
+ * flight altitude (amber / cyan) with a post down to the ground disc of the 2D target dot.
+ */
+function courseAir(v: VehicleState, amsl: number, ground: number, sel: boolean): { lines: AirVertex[][]; posts: AirVertex[][] } {
+  if (!hasPosition(v) || v.link === 'lost') return { lines: [], posts: [] }
+  const lines: AirVertex[][] = []
+  const posts: AirVertex[][] = []
+  const vec = vectorEnd(v)
+  if (vec) {
+    const c = sel ? WHITE : CYAN
+    lines.push(mercatorLine([{ lon: v.lon, lat: v.lat, amsl, color: c }, { lon: vec.end[0], lat: vec.end[1], amsl: amsl + v.climb * vec.seconds, color: c }]))
+  }
+  const nav = navTarget(v)
+  if (nav) {
+    const c = sel ? AMBER : CYAN
+    lines.push(mercatorLine([{ lon: v.lon, lat: v.lat, amsl, color: c }, { lon: nav[0], lat: nav[1], amsl, color: c }]))
+    posts.push(mercatorLine([{ lon: nav[0], lat: nav[1], amsl: Math.min(ground, amsl), color: c }, { lon: nav[0], lat: nav[1], amsl: Math.max(ground, amsl), color: c }]))
+  }
+  return { lines, posts }
+}
+
+export function vehicleAirData(vehicles: ReadonlyMap<number, VehicleState>, selected: number | null, homes: ReadonlyMap<number, LatLon>, tracks: Tracks, elevAt: ElevAt, mission: Mission | null = null): VehicleAir {
   const posts: AirVertex[][] = []
   const discs: FeatureCollection<Point, { sel: number }> = { type: 'FeatureCollection', features: [] }
   const alts = new Map<number, number | null>()
+  const course: AirVertex[][] = []
   vehicles.forEach((v) => {
     const a = vehicleAmsl(v, homeOf(v.sysid, homes, tracks), elevAt)
     alts.set(v.sysid, a ? a.amsl : null)
+    if (a) {
+      const air = courseAir(v, a.amsl, a.ground, v.sysid === selected)
+      course.push(...air.lines)
+      posts.push(...air.posts)
+    }
     if (!a || v.alt_rel < 1) return
     const c = v.sysid === selected ? AMBER : CYAN
     posts.push(mercatorLine([{ lon: v.lon, lat: v.lat, amsl: Math.min(a.ground, a.amsl), color: c }, { lon: v.lon, lat: v.lat, amsl: Math.max(a.ground, a.amsl), color: c }]))
     discs.features.push({ type: 'Feature', properties: { sel: v.sysid === selected ? 1 : 0 }, geometry: { type: 'Point', coordinates: [v.lon, v.lat] } })
   })
-  return { posts, discs, alts }
+  const plan = mission ? fromMission(mission) : null
+  const m = plan ? missionAirData(plan, new Set(), elevAt) : null
+  const missionAlts = plan ? plan.items.filter(itemHasPosition).map((it) => m!.alts.get(it.uid) ?? null) : []
+  return {
+    lines: [...trackLines(tracks, homes, elevAt), ...(m?.lines ?? []), ...course],
+    posts: [...posts, ...(m?.posts ?? [])],
+    discs: { ...discs, features: [...discs.features, ...(m?.discs.features ?? [])] },
+    alts,
+    missionAlts,
+  }
 }
 
 interface Args {
@@ -59,6 +120,9 @@ interface Args {
   readonly markers: RefObject<ReadonlyMap<number, { marker: Marker }>>
   /** The markers' 2D offset (the `.vmk` disc correction). */
   readonly base: readonly [number, number]
+  /** The selected vehicle's mission and its badges (one per positioned item, in item order). */
+  readonly mission?: Mission | null
+  readonly missionBadges?: RefObject<readonly Marker[]>
 }
 
 function setupGround(m: MlMap): void {
@@ -72,23 +136,38 @@ function setupGround(m: MlMap): void {
   })
 }
 
-/** Terrain, posts and floated markers; a no-op without terrain tiles. Returns when the last 2D / 3D switch started. */
-export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base }: Args): { readonly current: number } {
+export interface OpsAir {
+  /** When the last 2D / 3D switch started. */
+  readonly modeSwitchAt: { readonly current: number }
+  readonly is3d: boolean
+  /** Each vehicle's AMSL as drawn in 3D (`null` while its ground is unknown); refreshed every frame of data. */
+  readonly alts: { readonly current: ReadonlyMap<number, number | null> }
+}
+
+/** Terrain, posts and floated markers; a no-op without terrain tiles. */
+export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base, mission = null, missionBadges }: Args): OpsAir {
   const air = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup: setupGround, modeLayers: OPS_3D_LAYERS, order: orderLayers })
   const { sampler, ready, is3d, tick, layer, floats, modeSwitchAt } = air
+  const alts = useRef<ReadonlyMap<number, number | null>>(new Map())
 
   useEffect(() => {
     const m = map.current
     // 2D needs no altitudes: no DEM downloads, no per-frame work
     if (!m || !ready || !sampler || !is3d) return
-    const d = vehicleAirData(vehicles, selected, homes, tracks, sampler.elevAt)
-    floats.current = [...markers.current.entries()].flatMap(([sysid, { marker }]) => {
+    const d = vehicleAirData(vehicles, selected, homes, tracks, sampler.elevAt, mission)
+    alts.current = d.alts
+    const vehicleFloats = [...markers.current.entries()].flatMap(([sysid, { marker }]) => {
       const v = vehicles.get(sysid)
       return v ? [{ marker, lon: v.lon, lat: v.lat, amsl: d.alts.get(sysid) ?? null, base }] : []
     })
-    layer.setLines([], d.posts)
+    const badgeFloats = (missionBadges?.current ?? []).map((marker, i) => {
+      const p = marker.getLngLat()
+      return { marker, lon: p.lng, lat: p.lat, amsl: d.missionAlts[i] ?? null, base: [0, 0] as const }
+    })
+    floats.current = [...vehicleFloats, ...badgeFloats]
+    layer.setLines(d.lines, d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, is3d, sampler, vehicles, selected, homes, tracks, markers, base, tick, layer, floats])
-  return modeSwitchAt
+  }, [map, ready, is3d, sampler, vehicles, selected, homes, tracks, markers, base, tick, layer, floats, mission, missionBadges])
+  return { modeSwitchAt, is3d, alts }
 }

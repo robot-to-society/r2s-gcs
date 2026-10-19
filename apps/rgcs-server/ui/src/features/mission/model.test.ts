@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendWaypoint, emptyDraft, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, setCommand, toMission, updateItem } from './model'
+import { appendWaypoint, emptyDraft, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, setArc, shiftAlts, setCommand, toMission, updateItem } from './model'
 
 describe('mission draft model', () => {
   it('first_point_is_takeoff_then_waypoints', () => {
@@ -58,5 +58,58 @@ describe('mission draft model', () => {
     const again = fromMission({ ...m, id: 7 })
     expect(again.items.map((i) => i.uid)).toEqual([1, 2, 3])
     expect(again.mission.id).toBe(7)
+  })
+})
+
+describe('shiftAlts', () => {
+  it('adds the same metres to the given items only, keeping their frames', () => {
+    const d = appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
+    const s = shiftAlts(d, new Set([2, 3]), 25)
+    expect(s.items.map((i) => i.alt)).toEqual([50, 75, 75])
+    expect(s.items[0]).toBe(d.items[0])
+    expect(d.items[1]!.alt).toBe(50)
+  })
+})
+
+describe('shiftAlts floor', () => {
+  it('stops Rel / Ter items at 0 m (never underground) and leaves Abs alone', () => {
+    const d = appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2)
+    const mixed = { ...d, items: [d.items[0]!, { ...d.items[1]!, frame: 'abs' as const, alt: 1600 }] }
+    const s = shiftAlts(mixed, new Set([1, 2]), -80)
+    expect(s.items.map((i) => i.alt)).toEqual([0, 1520])
+  })
+})
+
+describe('takeoff at the vehicle', () => {
+  // ArduCopter climbs straight up where it stands: NAV_TAKEOFF's lat / lon are ignored
+  it('the first click of an empty mission adds TAKEOFF at the take-off point and a WAYPOINT at the click', () => {
+    const d = appendWaypoint(emptyDraft(), 36.26, 137.64, { lat: 36.2509, lon: 137.6385 })
+    expect(d.items.map((i) => [i.command, i.lat, i.lon])).toEqual([
+      [22, 36.2509, 137.6385],
+      [16, 36.26, 137.64],
+    ])
+    expect(d.items.map((i) => i.uid)).toEqual([1, 2])
+    expect(d.nextUid).toBe(3)
+    const d2 = appendWaypoint(d, 36.27, 137.65, { lat: 36.2509, lon: 137.6385 })
+    expect(d2.items.map((i) => i.command)).toEqual([22, 16, 16])
+  })
+})
+
+describe('setArc', () => {
+  const d = appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
+  it('turns a waypoint into an ARC_WAYPOINT with the angle in param1, and back to a waypoint at 0°', () => {
+    const arc = setArc(d, 2, 75)
+    expect(arc.items[1]).toMatchObject({ command: 36, params: [75, 0, 0, 0], lat: 36.2, lon: 139.2 })
+    expect(arc.items[0]).toBe(d.items[0])
+    expect(setArc(arc, 2, -120).items[1]!.params[0]).toBe(-120)
+    expect(setArc(arc, 2, 0).items[1]).toMatchObject({ command: 16, params: [0, 0, 0, 0] })
+  })
+  it('leaves other commands (TAKEOFF, LAND …) alone', () => {
+    expect(setArc(d, 1, 90)).toBe(d)
+  })
+  it('keeps params 2–4 (accept radius, pass radius, yaw) and only rewrites param1', () => {
+    const wp = { ...d, items: d.items.map((it) => (it.uid === 2 ? { ...it, params: [5, 2, 3, 45] as [number, number, number, number] } : it)) }
+    expect(setArc(wp, 2, 60).items[1]!.params).toEqual([60, 2, 3, 45])
+    expect(setArc(setArc(wp, 2, 60), 2, 0).items[1]!.params).toEqual([0, 2, 3, 45])
   })
 })

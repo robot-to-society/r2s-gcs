@@ -1,4 +1,4 @@
-import type { CameraCommand, CameraSnapshot, Mission, MissionProgress, LogEntry, SysId, VehicleCommand, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CameraCommand, CameraSnapshot, Mission, MissionProgress, MissionTransfer, LogEntry, SysId, VehicleCommand, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import type { BtnState } from '../commands'
 import { CameraStatusRow, CameraStrip, VideoThumb } from '../camera'
 import type { Dict } from '../../shared/i18n'
@@ -25,6 +25,7 @@ interface Props {
   readonly onCameraSettings?: () => void
   readonly vehicleMission?: Mission
   readonly missionProgress?: MissionProgress
+  readonly missionTransfer?: MissionTransfer
   readonly onWriteMission?: () => void
   readonly onStartMission?: () => void
   readonly commandsOpen?: boolean
@@ -92,7 +93,7 @@ export function DetailPanel(p: Props) {
         </div>
         {p.onCommand && <EmergencyRow vehicle={v} dict={dict} onCommand={p.onCommand} feedback={p.feedback} />}
         {p.onWriteMission && (
-          <MissionProgressRow progress={p.missionProgress ?? null} mission={p.vehicleMission ?? null} vehicle={v} dict={dict} onWrite={p.onWriteMission} onStart={() => p.onStartMission?.()} />
+          <MissionProgressRow progress={p.missionProgress ?? null} mission={p.vehicleMission ?? null} vehicle={v} dict={dict} onWrite={p.onWriteMission} onStart={() => p.onStartMission?.()} transfer={p.missionTransfer ?? null} />
         )}
         <div className="detail-tiles hair">
           <button type="button" className="tile-btn" disabled title={`${dict.maintenance} (${dict.comingSoon})`} aria-label={dict.maintenance}>

@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { FeatureCollection } from 'geojson'
 import type { Basemap, CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
 import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
-import { followTarget, needsRecenter, type Padding } from './follow'
+import { follow3dCamera, followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
-import type { MapMode } from './mapMode'
+import { KEEP_ELEVATION, type MapMode } from './mapMode'
 import { useVehicleAir } from './vehicleAir'
 import { MODE_EASE_MS } from './air3d'
 import { courseGeoJson, metresPerPixel } from './course'
@@ -52,6 +52,8 @@ const HOME: [number, number] = [139.372, 36.162]
 const TRACKS = 'tracks'
 const GUIDED = 'guided'
 const MISSION = 'mission-path'
+/** Mission Planner draws the flight track in this dark purple. */
+const TRACK_PURPLE = '#800080'
 /** The `.vmk` disc is 34 px wide at the element's left edge; pull it back so its centre sits on the position. */
 const ARROW_OFFSET: [number, number] = [-17, 0]
 const NO_HOMES: ReadonlyMap<number, LatLon> = new Map()
@@ -93,14 +95,15 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         type: 'line',
         source: TRACKS,
         filter: ['!', ['get', 'selected']],
-        paint: { 'line-color': '#9cc9ff', 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.8 },
+        // Mission Planner's track purple (user request 2026-10-19); other vehicles dashed
+        paint: { 'line-color': TRACK_PURPLE, 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.8 },
       })
       m.addLayer({
         id: 'tracks-selected',
         type: 'line',
         source: TRACKS,
         filter: ['get', 'selected'],
-        paint: { 'line-color': '#f2b544', 'line-width': 3 },
+        paint: { 'line-color': TRACK_PURPLE, 'line-width': 3.5 },
       })
       m.addSource(MISSION, { type: 'geojson', data: EMPTY })
       m.addLayer({
@@ -147,7 +150,12 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       m.remove()
       map.current = null
       loaded.current = false
+      // m.remove() takes every marker with it: the next map (StrictMode, remount) starts empty
       markers.current = new Map()
+      homeMarkers.current = new Map()
+      targetMarker.current = null
+      missionBadges.current = []
+      lifted.current = null
     }
     // The style is applied once; a changed tile source is a page reload concern (spec: config.toml).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -217,23 +225,67 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   }, [top, right, bottom, left])
 
   useBasemapSwap(map, loaded, basemap)
-  const modeSwitchAt = useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base: ARROW_OFFSET })
+  // Mission overlay: route line + small numbered badges, the current one highlighted (addendum §5.2).
+  useEffect(() => {
+    const m = map.current
+    if (!m) return
+    if (loaded.current) {
+      const src = m.getSource(MISSION) as { setData: (d: unknown) => void } | undefined
+      src?.setData(mission ? pathGeoJson(mission.items, mission.home) : EMPTY)
+    }
+    missionBadges.current.forEach((b) => b.remove())
+    missionBadges.current = []
+    if (!mission) return
+    mission.items.forEach((it, i) => {
+      if (!itemHasPosition(it)) return
+      const el = document.createElement('div')
+      el.className = `wp-mk small${i + 1 === missionCurrent ? ' current' : ''}`
+      el.textContent = String(i + 1)
+      missionBadges.current.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m))
+    })
+  }, [mission, missionCurrent])
+
+  // After the vehicle markers and the mission badges exist: effects run in declaration order.
+  const opsAir = useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base: ARROW_OFFSET, mission, missionBadges })
   const [zoom, setZoom] = useState(14)
   const followed = useRef<number | null>(null)
+  const lifted = useRef<number | null>(null)
   useEffect(() => {
     const m = map.current
     const center = followTarget(vehicles, follow)
-    if (!m || !center) {
+    const v = follow === null ? undefined : vehicles.get(follow)
+    // 3D follow lifts the camera centre off the ground to the vehicle; anything else puts it back
+    const amsl = v && opsAir.is3d ? (opsAir.alts.current.get(v.sysid) ?? v.alt_msl) : null
+    if (m && amsl === null && lifted.current !== null) {
+      m.setCenterClampedToGround(true)
+      lifted.current = null
+    }
+    if (!m || !center || !v) {
       followed.current = null
       return
     }
     // An ease would cancel the 2D / 3D tilt in progress (MapLibre stops the running animation).
-    if (Date.now() - modeSwitchAt.current < MODE_EASE_MS) return
+    if (Date.now() - opsAir.modeSwitchAt.current < MODE_EASE_MS) return
     // A new follow always centres; after that, sub-pixel GPS noise is ignored (dead band).
     const fresh = followed.current !== follow
     followed.current = follow
-    if (fresh || needsRecenter(m.project(m.getCenter()), m.project(center))) m.easeTo({ center, duration: 200 })
-  }, [vehicles, follow])
+    if (amsl !== null) return follow3d(m, v, amsl, fresh)
+    if (fresh || needsRecenter(m.project(m.getCenter()), m.project(center))) m.easeTo({ center, duration: 200, ...KEEP_ELEVATION })
+    // opsAir.alts / modeSwitchAt are refs (read fresh); is3d switches between the 2D and 3D follow
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicles, follow, opsAir.is3d])
+
+  /** From behind and above: the centre at the vehicle's altitude, the bearing along its heading. */
+  function follow3d(m: MlMap, v: VehicleState, amsl: number, fresh: boolean): void {
+    const c = m.getCenter()
+    const cur = fresh || lifted.current === null ? null : { lng: c.lng, lat: c.lat, bearing: m.getBearing(), elevation: lifted.current }
+    const cam = follow3dCamera(v, amsl, cur)
+    if (!cam) return
+    if (lifted.current === null) m.setCenterClampedToGround(false)
+    if (lifted.current === null || Math.abs(cam.elevation - lifted.current) >= 1) m.jumpTo({ elevation: cam.elevation })
+    lifted.current = cam.elevation
+    m.easeTo({ center: cam.center, bearing: cam.bearing, duration: 250, ...KEEP_ELEVATION })
+  }
 
   const focused = useRef(0)
   useEffect(() => {
@@ -242,7 +294,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     const v = vehicles.get(focus.sysid)
     if (!v || !hasPosition(v)) return
     focused.current = focus.n
-    m.easeTo({ center: [v.lon, v.lat], duration: 600 })
+    m.easeTo({ center: [v.lon, v.lat], duration: 600, ...KEEP_ELEVATION })
   }, [focus, vehicles])
 
   useEffect(() => {
@@ -289,25 +341,6 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     }
   }, [target])
 
-  // Mission overlay: route line + small numbered badges, the current one highlighted (addendum §5.2).
-  useEffect(() => {
-    const m = map.current
-    if (!m) return
-    if (loaded.current) {
-      const src = m.getSource(MISSION) as { setData: (d: unknown) => void } | undefined
-      src?.setData(mission ? pathGeoJson(mission.items, mission.home) : EMPTY)
-    }
-    missionBadges.current.forEach((b) => b.remove())
-    missionBadges.current = []
-    if (!mission) return
-    mission.items.forEach((it, i) => {
-      if (!itemHasPosition(it)) return
-      const el = document.createElement('div')
-      el.className = `wp-mk small${i + 1 === missionCurrent ? ' current' : ''}`
-      el.textContent = String(i + 1)
-      missionBadges.current.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m))
-    })
-  }, [mission, missionCurrent])
 
   return <div ref={container} className="map" data-testid="map" />
 }

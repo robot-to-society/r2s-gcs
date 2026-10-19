@@ -7,4 +7,8 @@ export type MapSettings = {
 /**
  * Draw the gimbal footprint on the ground instead of the direction fan; default off.
  */
-gimbal_ground_projection: boolean, };
+gimbal_ground_projection: boolean, 
+/**
+ * How many minutes of flight track the maps keep (0 = none, at most 120); default 10.
+ */
+track_minutes: number, };

@@ -13,7 +13,7 @@ const registry: VehicleRegistry = {
   initial_flight_minutes: 0, inspection_template_id: null, total_flight_minutes: 0,
 }
 const template: InspectionTemplate = { id: 1, name: '様式2 標準', version: 1, items: [{ label: '機体全般', detail: 'x' }], updated_at: 0 }
-const settings = { lang: 'ja', map_tile_url: 'x', map_attribution: 'y', map: { gimbal_ground_projection: false }, basemaps: [], mavlink: { gcs_sysid: 255 } }
+const settings = { lang: 'ja', map_tile_url: 'x', map_attribution: 'y', map: { gimbal_ground_projection: false, track_minutes: 10 }, basemaps: [], mavlink: { gcs_sysid: 255 } }
 const ok = (data: unknown, status = 200) => new Response(JSON.stringify({ success: true, data }), { status, headers: { 'content-type': 'application/json' } })
 
 function setup(role: Operator['role'] = 'admin') {
@@ -28,7 +28,11 @@ function setup(role: Operator['role'] = 'admin') {
       if (url.endsWith('/users/me/pilot') && init?.method === 'PUT') return ok({ username: 'admin', ...(JSON.parse(String(init.body)) as object) })
       if (url.endsWith('/users/me/pilot')) return ok({ username: 'admin', full_name: '', license_no: '' })
       if (url.endsWith('/inspection/templates')) return ok([template])
-      if (url.endsWith('/settings/app') && init?.method === 'PUT') return ok({ ...settings, ...(JSON.parse(String(init.body)) as object) })
+      if (url.endsWith('/settings/app') && init?.method === 'PUT') {
+        // like the server: the full settings come back, with only the sent values changed
+        const put = JSON.parse(String(init.body)) as { map?: object; mavlink?: object }
+        return ok({ ...settings, map: { ...settings.map, ...put.map }, mavlink: { ...settings.mavlink, ...put.mavlink } })
+      }
       if (url.endsWith('/settings/app')) return ok(settings)
       return ok(null, 404)
     }),
@@ -90,6 +94,21 @@ describe('AppTab', () => {
     await waitFor(() => expect(sw).toHaveAttribute('aria-checked', 'true'))
     const put = calls.find((c) => c.url.endsWith('/settings/app') && c.init?.method === 'PUT')
     expect(JSON.parse(String(put?.init?.body))).toEqual({ map: { gimbal_ground_projection: true } })
+  })
+  it('track_minutes_saves_only_its_own_value_and_rejects_out_of_range', async () => {
+    const { calls } = setup()
+    const input = await screen.findByLabelText('軌跡を残す時間 (分)')
+    await waitFor(() => expect(input).toHaveValue(10))
+    const card = screen.getByTestId('map-display-card')
+    fireEvent.change(input, { target: { value: '121' } })
+    fireEvent.click(within(card).getByRole('button', { name: '保存' }))
+    expect(await within(card).findByText('0〜120 分で入力してください')).toBeInTheDocument()
+    expect(calls.some((c) => String(c.init?.body).includes('track_minutes'))).toBe(false)
+    fireEvent.change(input, { target: { value: '30' } })
+    fireEvent.click(within(card).getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.some((c) => String(c.init?.body).includes('track_minutes'))).toBe(true))
+    const put = calls.find((c) => String(c.init?.body).includes('track_minutes'))
+    expect(JSON.parse(String(put?.init?.body))).toEqual({ map: { track_minutes: 30 } })
   })
   it('mavlink_card_saves_the_sysid', async () => {
     const { calls } = setup()

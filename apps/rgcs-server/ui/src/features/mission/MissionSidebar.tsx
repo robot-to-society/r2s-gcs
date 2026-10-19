@@ -1,16 +1,18 @@
-import type { Finding, MissionFrame, MissionStats, VehicleKind, VehicleState } from '../../shared/api/types'
+import type { Finding, MissionFrame, MissionStats, MissionTransfer, VehicleKind, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { FRAMES } from './cmds'
 import { ItemEditor } from './ItemEditor'
 import { km, mmss } from './labels'
 import type { Draft, DraftItem } from './model'
 import { findingText, type LocalWarning } from './summary'
+import { TransferBar } from './TransferBar'
 
 interface Props {
   readonly draft: Draft
   readonly selectedItems: readonly DraftItem[]
   readonly vehicles: readonly VehicleState[]
   readonly sysid: number | null
+  readonly transfer?: MissionTransfer | null
   readonly kind: VehicleKind | null
   readonly stats: MissionStats
   readonly warnings: readonly LocalWarning[]
@@ -162,6 +164,7 @@ export function MissionSidebar(p: Props) {
         <button type="button" className="btn btn-lg btn-primary" disabled={draft.items.length === 0 || p.sysid === null || p.busy} onClick={p.onUpload}>
           {dict.mWrite}
         </button>
+        <TransferBar transfer={p.transfer} dict={dict} />
         <button type="button" className="btn" disabled={p.busy} onClick={p.onSaveFile}>
           {dict.mFileWaypoints}
         </button>

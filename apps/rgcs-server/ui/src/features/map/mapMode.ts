@@ -13,11 +13,19 @@ export const DEM_SOURCE = 'dem'
 export interface ModeHost {
   stop(): unknown
   setTerrain(t: TerrainSpecification | null): unknown
-  easeTo(o: { pitch: number; bearing: number; duration: number }): unknown
+  easeTo(o: { pitch: number; bearing: number; duration: number; freezeElevation: boolean }): unknown
   getLayer(id: string): unknown
   getSource(id: string): unknown
   setLayoutProperty(id: string, name: 'visibility', value: 'visible' | 'none'): unknown
 }
+
+/**
+ * Pass to every camera animation. MapLibre 5 freezes the centre elevation for any `easeTo` over
+ * terrain but only thaws it at the end when this flag is set — otherwise it stays frozen (at 0 m
+ * after the 3D switch) until the user drags, and in the mountains the camera sits inside the
+ * terrain with every marker off screen.
+ */
+export const KEEP_ELEVATION = { freezeElevation: true } as const
 
 export interface ModeLayers {
   readonly only3d: readonly string[]
@@ -31,7 +39,7 @@ export function applyMapMode(map: ModeHost, mode: MapMode, layers: ModeLayers, a
   const vis = (id: string, on: boolean) => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
   layers.only3d.forEach((id) => vis(id, is3d))
   layers.only2d.forEach((id) => vis(id, !is3d))
-  if (animate) map.easeTo({ pitch: is3d ? 60 : 0, bearing: is3d ? -25 : 0, duration: 900 })
+  if (animate) map.easeTo({ pitch: is3d ? 60 : 0, bearing: is3d ? -25 : 0, duration: 900, ...KEEP_ELEVATION })
 }
 
 const listeners = new Set<() => void>()

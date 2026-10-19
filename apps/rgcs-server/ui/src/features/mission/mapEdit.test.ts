@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl } from './mapEdit'
+import { altFromDrag, badgeEl, uidsInBox, dragDelta, handleEl, midHandles, updateBadgeEl } from './mapEdit'
 import { appendWaypoint, emptyDraft, setCommand } from './model'
 
 describe('map editing helpers', () => {
@@ -26,6 +26,11 @@ describe('map editing helpers', () => {
     const withDo = setCommand(appendWaypoint(d, 36.4, 139.4), 3, 'DO_CHANGE_SPEED')
     expect(midHandles(withDo).map((h) => h.afterUid)).toEqual([1, 3])
     expect(midHandles(emptyDraft())).toEqual([])
+    // each handle knows its leg: from the previous position to the leg's end item
+    expect(hs.map((h) => [h.fromLat, h.toUid])).toEqual([
+      [36.1, 2],
+      [36.2, 3],
+    ])
   })
 
   it('drag_delta_is_the_difference_of_lat_lon', () => {
@@ -37,5 +42,28 @@ describe('map editing helpers', () => {
     expect(el.querySelector('.chips .chip.altc')?.textContent).toBe('▲ 80 m Rel')
     updateBadgeEl(el, 1, false, 'WAYPOINT', null)
     expect(el.querySelector('.chips')).toBeNull()
+  })
+})
+
+describe('altFromDrag', () => {
+  it('turns a vertical drag into whole metres (up is higher)', () => {
+    expect(altFromDrag(80, -50, 2)).toBe(105)
+    expect(altFromDrag(80, 31, 2)).toBe(65)
+  })
+  it('keeps the altitude when the scale is unknown or degenerate', () => {
+    expect(altFromDrag(80, -50, null)).toBe(80)
+    expect(altFromDrag(80, -50, 0)).toBe(80)
+  })
+})
+
+describe('uidsInBox', () => {
+  it('keeps the items whose on-screen centre is inside the box, whichever way it was dragged', () => {
+    const at = [
+      { uid: 1, x: 10, y: 10 },
+      { uid: 2, x: 50, y: 60 },
+      { uid: 3, x: 200, y: 20 },
+    ]
+    expect(uidsInBox(at, { x0: 0, y0: 0, x1: 100, y1: 100 })).toEqual([1, 2])
+    expect(uidsInBox(at, { x0: 100, y0: 100, x1: 40, y1: 50 })).toEqual([2])
   })
 })

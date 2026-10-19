@@ -36,8 +36,8 @@ pub enum ProtocolError {
 }
 
 /// Our frame is for us when it names the GCS (or is broadcast) and is about the mission list.
-fn for_us(gcs: u8, target_system: u8, mission_type: MavMissionType) -> bool {
-    (target_system == gcs || target_system == 0) && mission_type == MISSION
+fn for_us(gcs: u8, target_system: u8, got: MavMissionType, want: MavMissionType) -> bool {
+    (target_system == gcs || target_system == 0) && got == want
 }
 
 /// Commands whose x/y carry a location (ArduPilot `stored_in_location`): only these are scaled by 1e7
@@ -45,7 +45,7 @@ fn for_us(gcs: u8, target_system: u8, mission_type: MavMissionType) -> bool {
 pub fn cmd_has_location(command: u16) -> bool {
     matches!(
         command,
-        16..=22 | 30 | 31 | 82 | 84 | 85 | 92 | 94 | 179 | 189 | 191 | 195 | 201 | 210 | 211
+        16..=22 | 30 | 31 | 36 | 82 | 5000..=5004 | 5100 | 84 | 85 | 92 | 94 | 179 | 189 | 191 | 195 | 201 | 210 | 211
     )
 }
 
@@ -130,6 +130,8 @@ pub fn mission_from_items(home: Option<MissionItem>, items: Vec<MissionItem>) ->
             alt: h.alt,
         }),
         items,
+        fence: Vec::new(),
+        rally: Vec::new(),
     }
 }
 
@@ -175,7 +177,9 @@ pub struct Upload {
     component: u8,
     /// Our SYSID at the start of the transfer (frames to another id are not ours).
     gcs: u8,
-    /// Home at index 0, then the mission items.
+    /// Mission, fence or rally: every frame carries it and only frames of this type are ours.
+    mission_type: MavMissionType,
+    /// The waypoint mission: home at index 0, then the items; fence / rally: the items only.
     frames: Vec<MISSION_ITEM_INT_DATA>,
     step: Step,
 }
@@ -214,22 +218,34 @@ impl Upload {
         mission: &Mission,
         now_ms: u64,
     ) -> Result<(Self, Vec<MavMessage>), ProtocolError> {
-        let mut frames = Vec::with_capacity(mission.items.len() + 1);
-        frames.push(
-            item_to_int(0, sysid, component, &home_item(mission), true)
-                .ok_or(ProtocolError::UnknownCommand(0))?,
-        );
-        for (i, it) in mission.items.iter().enumerate() {
-            let seq = (i + 1) as u16;
-            frames.push(
-                item_to_int(seq, sysid, component, it, false).ok_or(ProtocolError::UnknownCommand(seq))?,
-            );
-        }
+        Self::start_typed(sysid, component, mission, MISSION, now_ms)
+    }
+
+    /// Any list: the waypoint mission gets its home in seq 0; fence and rally lists have no home
+    /// slot, and every frame carries `mission_type` (ArduPilot routes by it).
+    pub fn start_typed(
+        sysid: SysId,
+        component: u8,
+        mission: &Mission,
+        mission_type: MavMissionType,
+        now_ms: u64,
+    ) -> Result<(Self, Vec<MavMessage>), ProtocolError> {
+        let home = (mission_type == MISSION).then(|| home_item(mission));
+        let list = home.iter().chain(mission.items.iter());
+        let frames = list
+            .enumerate()
+            .map(|(seq, it)| {
+                let seq = seq as u16;
+                item_to_int(seq, sysid, component, it, seq == 0 && home.is_some())
+                    .map(|f| MISSION_ITEM_INT_DATA { mission_type, ..f })
+                    .ok_or(ProtocolError::UnknownCommand(seq))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let count = MavMessage::MISSION_COUNT(MISSION_COUNT_DATA {
             count: frames.len() as u16,
             target_system: sysid,
             target_component: component,
-            mission_type: MISSION,
+            mission_type,
             opaque_id: 0,
         });
         Ok((
@@ -237,6 +253,7 @@ impl Upload {
                 sysid,
                 component,
                 gcs: GCS_SYSTEM_ID,
+                mission_type,
                 frames,
                 step: Step::new(count.clone(), now_ms),
             },
@@ -264,13 +281,19 @@ impl Upload {
     #[allow(deprecated)]
     pub fn on_message(self, msg: &MavMessage, now_ms: u64) -> (Self, Vec<MavMessage>, Option<Done>) {
         match msg {
-            MavMessage::MISSION_REQUEST_INT(r) if for_us(self.gcs, r.target_system, r.mission_type) => {
+            MavMessage::MISSION_REQUEST_INT(r)
+                if for_us(self.gcs, r.target_system, r.mission_type, self.mission_type) =>
+            {
                 self.requested(r.seq, now_ms)
             }
-            MavMessage::MISSION_REQUEST(r) if for_us(self.gcs, r.target_system, r.mission_type) => {
+            MavMessage::MISSION_REQUEST(r)
+                if for_us(self.gcs, r.target_system, r.mission_type, self.mission_type) =>
+            {
                 self.requested(r.seq, now_ms)
             }
-            MavMessage::MISSION_ACK(a) if for_us(self.gcs, a.target_system, a.mission_type) => {
+            MavMessage::MISSION_ACK(a)
+                if for_us(self.gcs, a.target_system, a.mission_type, self.mission_type) =>
+            {
                 let done = if a.mavtype == MavMissionResult::MAV_MISSION_ACCEPTED {
                     Done::Ok
                 } else {
@@ -303,6 +326,7 @@ pub struct Download {
     sysid: SysId,
     component: u8,
     gcs: u8,
+    mission_type: MavMissionType,
     expected: Option<u16>,
     received: Vec<MISSION_ITEM_INT_DATA>,
     step: Step,
@@ -314,16 +338,27 @@ impl Download {
     }
 
     pub fn start(sysid: SysId, component: u8, now_ms: u64) -> (Self, Vec<MavMessage>) {
+        Self::start_typed(sysid, component, MISSION, now_ms)
+    }
+
+    /// Reads any list; only the waypoint mission's seq 0 is its home.
+    pub fn start_typed(
+        sysid: SysId,
+        component: u8,
+        mission_type: MavMissionType,
+        now_ms: u64,
+    ) -> (Self, Vec<MavMessage>) {
         let req = MavMessage::MISSION_REQUEST_LIST(MISSION_REQUEST_LIST_DATA {
             target_system: sysid,
             target_component: component,
-            mission_type: MISSION,
+            mission_type,
         });
         (
             Self {
                 sysid,
                 component,
                 gcs: GCS_SYSTEM_ID,
+                mission_type,
                 expected: None,
                 received: Vec::new(),
                 step: Step::new(req.clone(), now_ms),
@@ -337,7 +372,7 @@ impl Download {
             seq,
             target_system: self.sysid,
             target_component: self.component,
-            mission_type: MISSION,
+            mission_type: self.mission_type,
         })
     }
 
@@ -346,14 +381,29 @@ impl Download {
             target_system: self.sysid,
             target_component: self.component,
             mavtype: MavMissionResult::MAV_MISSION_ACCEPTED,
-            mission_type: MISSION,
+            mission_type: self.mission_type,
             opaque_id: 0,
         })
     }
 
     fn finish(&self) -> Mission {
-        let mut items = self.received.iter().filter_map(int_to_item);
-        let home = items.next();
+        let lenient = self.mission_type != MISSION;
+        let mut items = self.received.iter().filter_map(|d| {
+            // fence / rally items carry no meaningful frame: keep them whatever it is
+            int_to_item(d).or_else(|| {
+                lenient
+                    .then(|| MISSION_ITEM_INT_DATA {
+                        frame: MavFrame::MAV_FRAME_GLOBAL_RELATIVE_ALT,
+                        ..d.clone()
+                    })
+                    .and_then(|f| int_to_item(&f))
+            })
+        });
+        let home = if self.mission_type == MISSION {
+            items.next()
+        } else {
+            None
+        };
         mission_from_items(home, items.collect())
     }
 
@@ -365,7 +415,8 @@ impl Download {
     ) -> (Self, Vec<MavMessage>, Option<Result<Mission, Done>>) {
         match msg {
             MavMessage::MISSION_COUNT(c)
-                if for_us(self.gcs, c.target_system, c.mission_type) && self.expected.is_none() =>
+                if for_us(self.gcs, c.target_system, c.mission_type, self.mission_type)
+                    && self.expected.is_none() =>
             {
                 if c.count == 0 {
                     let out = vec![self.ack()];
@@ -382,7 +433,9 @@ impl Download {
                     None,
                 )
             }
-            MavMessage::MISSION_ITEM_INT(d) if for_us(self.gcs, d.target_system, d.mission_type) => {
+            MavMessage::MISSION_ITEM_INT(d)
+                if for_us(self.gcs, d.target_system, d.mission_type, self.mission_type) =>
+            {
                 self.received_item(d, now_ms)
             }
             _ => (self, Vec::new(), None),
@@ -434,6 +487,23 @@ impl Download {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn arc_waypoint_carries_its_location_and_angle() {
+        // MAV_CMD_NAV_ARC_WAYPOINT (36, Copter 4.7+): lat / lon must go out ×1e7 like a waypoint
+        let it = MissionItem {
+            command: 36,
+            frame: rgcs_core::MissionFrame::Rel,
+            params: [90.0, 0.0, 0.0, 0.0],
+            lat: 36.2509,
+            lon: 137.6385,
+            alt: 50.0,
+            autocontinue: true,
+        };
+        let w = item_to_int(1, 1, 1, &it, false).expect("known command");
+        assert_eq!((w.x, w.y, w.param1), (362_509_000, 1_376_385_000, 90.0));
+        assert!((from_wire_xy(36, w.x) - 36.2509).abs() < 1e-9);
+    }
     use mavlink::dialects::ardupilotmega::*;
     use rgcs_core::{demo20, Mission, MissionFrame, MissionItem};
 
@@ -691,5 +761,114 @@ mod tests {
             Upload::start(SYS, COMP, &m, 0).err(),
             Some(ProtocolError::UnknownCommand(2))
         );
+    }
+
+    #[test]
+    fn a_fence_uploads_without_a_home_slot_and_with_its_mission_type() {
+        let fence = rgcs_core::geofence::fence_to_items(&[rgcs_core::FenceZone::Circle {
+            inclusion: true,
+            center: rgcs_core::LatLon {
+                lat: 36.25,
+                lon: 137.63,
+            },
+            radius: 300.0,
+        }]);
+        let m = Mission {
+            items: fence,
+            ..mission3()
+        };
+        let fence_type = MavMissionType::MAV_MISSION_TYPE_FENCE;
+        let (up, out) = Upload::start_typed(SYS, COMP, &m, fence_type, 0).unwrap();
+        let up = up.for_gcs(GCS);
+        assert!(
+            matches!(&out[0], MavMessage::MISSION_COUNT(c) if c.count == 1 && c.mission_type == fence_type)
+        );
+        // a request for the waypoint mission is not ours
+        let (up, out, _) = up.on_message(&request_int(0), 10);
+        assert!(out.is_empty());
+        let req = MavMessage::MISSION_REQUEST_INT(MISSION_REQUEST_INT_DATA {
+            seq: 0,
+            target_system: GCS,
+            target_component: 190,
+            mission_type: fence_type,
+        });
+        let (up, out, _) = up.on_message(&req, 20);
+        let MavMessage::MISSION_ITEM_INT(item) = &out[0] else {
+            panic!("{out:?}")
+        };
+        assert_eq!(
+            (item.command as u16, item.param1, item.x, item.mission_type),
+            (5003, 300.0, 362_500_000, fence_type)
+        );
+        let ack = MavMessage::MISSION_ACK(MISSION_ACK_DATA {
+            target_system: GCS,
+            target_component: 190,
+            mavtype: MavMissionResult::MAV_MISSION_ACCEPTED,
+            mission_type: fence_type,
+            opaque_id: 0,
+        });
+        assert!(matches!(up.on_message(&ack, 30).2, Some(Done::Ok)));
+    }
+
+    #[test]
+    fn a_rally_download_keeps_item_0_as_a_point() {
+        let rally_type = MavMissionType::MAV_MISSION_TYPE_RALLY;
+        let (dl, out) = Download::start_typed(SYS, COMP, rally_type, 0);
+        let dl = dl.for_gcs(GCS);
+        assert!(matches!(&out[0], MavMessage::MISSION_REQUEST_LIST(r) if r.mission_type == rally_type));
+        let count = MavMessage::MISSION_COUNT(MISSION_COUNT_DATA {
+            count: 1,
+            target_system: GCS,
+            target_component: 190,
+            mission_type: rally_type,
+            opaque_id: 0,
+        });
+        let (dl, out, _) = dl.on_message(&count, 10);
+        assert!(matches!(&out[0], MavMessage::MISSION_REQUEST_INT(r) if r.mission_type == rally_type));
+        let point = rgcs_core::geofence::rally_to_items(&[rgcs_core::RallyPoint {
+            lat: 36.25,
+            lon: 137.63,
+            alt: 60.0,
+        }]);
+        let mut wire = item_to_int(0, GCS, 190, &point[0], false).unwrap();
+        wire.mission_type = rally_type;
+        let (_, _, done) = dl.on_message(&MavMessage::MISSION_ITEM_INT(wire), 20);
+        let Some(Ok(got)) = done else { panic!("{done:?}") };
+        assert!(got.home.is_none());
+        assert_eq!(got.items.len(), 1);
+        assert_eq!((got.items[0].command, got.items[0].alt), (5100, 60.0));
+    }
+
+    #[test]
+    #[allow(deprecated)] // GLOBAL_INT is exactly what older firmware sends
+    fn a_fence_read_back_keeps_items_in_frames_we_do_not_model() {
+        // ArduPilot may answer fence / rally items in GLOBAL_INT (5); the frame means nothing there
+        let fence_type = MavMissionType::MAV_MISSION_TYPE_FENCE;
+        let (dl, _) = Download::start_typed(SYS, COMP, fence_type, 0);
+        let dl = dl.for_gcs(GCS);
+        let count = MavMessage::MISSION_COUNT(MISSION_COUNT_DATA {
+            count: 1,
+            target_system: GCS,
+            target_component: 190,
+            mission_type: fence_type,
+            opaque_id: 0,
+        });
+        let (dl, _, _) = dl.on_message(&count, 10);
+        let item = MISSION_ITEM_INT_DATA {
+            seq: 0,
+            command: MavCmd::from_u16(5003).unwrap(),
+            frame: MavFrame::MAV_FRAME_GLOBAL_INT,
+            param1: 120.0,
+            x: 362_500_000,
+            y: 1_376_300_000,
+            target_system: GCS,
+            target_component: 190,
+            mission_type: fence_type,
+            ..Default::default()
+        };
+        let (_, _, done) = dl.on_message(&MavMessage::MISSION_ITEM_INT(item), 20);
+        let Some(Ok(got)) = done else { panic!("{done:?}") };
+        assert_eq!(got.items.len(), 1);
+        assert_eq!((got.items[0].command, got.items[0].params[0]), (5003, 120.0));
     }
 }

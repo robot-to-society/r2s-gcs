@@ -76,7 +76,7 @@ pub fn event_frame(ev: RouterEvent, now_ms: u64) -> Option<ServerMessage> {
 
 /// Forwards discovery / message / link events straight to the clients; caches PARAM_VALUEs.
 /// Parameters the mission validation needs; asked for as soon as a vehicle appears.
-pub const FENCE_PARAMS: [&str; 3] = ["FENCE_ENABLE", "FENCE_ALT_MAX", "FENCE_RADIUS"];
+pub const FENCE_PARAMS: [&str; 4] = ["FENCE_ENABLE", "FENCE_ALT_MAX", "FENCE_RADIUS", "FENCE_TYPE"];
 
 pub async fn pump_events(
     mut events: mpsc::Receiver<RouterEvent>,

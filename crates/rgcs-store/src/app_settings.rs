@@ -6,6 +6,8 @@ use crate::{Result, Store};
 
 /// Key of the 地図表示 › ジンバルを地面に投影 switch (spec 10 §7).
 pub const GIMBAL_GROUND_PROJECTION: &str = "map.gimbal_ground_projection";
+/// Key of 地図表示 › 軌跡を残す時間 (minutes, 0–120).
+pub const TRACK_MINUTES: &str = "map.track_minutes";
 /// Key of the RGCS MAVLink SYSID (1–255).
 pub const GCS_SYSID: &str = "mavlink.gcs_sysid";
 

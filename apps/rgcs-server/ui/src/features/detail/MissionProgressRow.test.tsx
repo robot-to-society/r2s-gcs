@@ -10,7 +10,7 @@ const v = (armed: boolean): VehicleState => ({
 })
 const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
 const mission: Mission = {
-  id: 1, name: 'demo', sysid: 1, default_alt: 60, default_frame: 'rel', speed: 8, home: null,
+  id: 1, name: 'demo', sysid: 1, default_alt: 60, default_frame: 'rel', speed: 8, home: null, fence: [], rally: [],
   items: [item(22, 36.162, 139.372, 30), item(16, 36.162, 139.3831, 60), item(16, 36.162, 139.3942, 60), item(20, 0, 0, 0)],
 }
 
@@ -21,12 +21,13 @@ describe('MissionProgressRow', () => {
     expect(screen.getByTestId('mission-progress')).toHaveTextContent(/残り 1\.[45]\d km/)
   })
 
-  it('write_button_disabled_while_armed_and_start_needs_a_known_mission', () => {
+  it('write_works_in_flight_and_start_needs_a_known_mission', () => {
     const onWrite = vi.fn()
     const onStart = vi.fn()
     const { rerender } = render(<MissionProgressRow progress={null} mission={null} vehicle={v(true)} dict={t('ja')} onWrite={onWrite} onStart={onStart} />)
     expect(screen.getByTestId('mission-progress')).toHaveTextContent('—')
-    expect(screen.getByRole('button', { name: 'ミッション書込' })).toBeDisabled()
+    // ArduPilot takes a new mission while armed
+    expect(screen.getByRole('button', { name: 'ミッション書込' })).toBeEnabled()
     expect(screen.queryByRole('button', { name: '開始' })).not.toBeInTheDocument()
     rerender(<MissionProgressRow progress={null} mission={mission} vehicle={v(false)} dict={t('ja')} onWrite={onWrite} onStart={onStart} />)
     fireEvent.click(screen.getByRole('button', { name: 'ミッション書込' }))
@@ -39,5 +40,10 @@ describe('MissionProgressRow', () => {
   it('falls_back_to_the_wire_total_when_the_mission_is_unknown', () => {
     render(<MissionProgressRow progress={{ seq: 3, total: 20 }} mission={null} vehicle={v(true)} dict={t('ja')} onWrite={() => {}} onStart={() => {}} />)
     expect(screen.getByTestId('mission-progress')).toHaveTextContent('WP 3 / 20')
+  })
+
+  it('shows_the_write_progress_while_a_mission_is_written', () => {
+    render(<MissionProgressRow progress={null} mission={mission} vehicle={v(true)} dict={t('ja')} onWrite={() => {}} onStart={() => {}} transfer={{ phase: 'write', done: 3, total: 5 }} />)
+    expect(screen.getByRole('progressbar', { name: 'ミッション書込' })).toHaveTextContent('書込中 3 / 5')
   })
 })

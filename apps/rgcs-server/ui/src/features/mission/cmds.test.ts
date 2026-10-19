@@ -13,7 +13,7 @@ describe('mission command table', () => {
     expect(cmdKeyOf(9999)).toBeNull()
     expect(PALETTE.pos).toContain('WAYPOINT')
     expect(PALETTE.cond).toContain('DO_JUMP')
-    expect(Object.keys(CMDS)).toHaveLength(27)
+    expect(Object.keys(CMDS)).toHaveLength(28) // + ARC_WAYPOINT (2026-10-19)
   })
 
   it('fields_mark_params_the_vehicle_ignores_as_unused', () => {

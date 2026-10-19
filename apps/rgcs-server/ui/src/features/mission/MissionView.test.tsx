@@ -1,14 +1,17 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { VehicleState } from '../../shared/api/types'
+import type { MissionTransfer, VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 
 let adds = 0
 vi.mock('./MissionMap', () => ({
-  MissionMap: (p: { onAdd: (lat: number, lon: number) => void }) => (
-    <div data-testid="mission-map">
+  MissionMap: (p: { onAdd: (lat: number, lon: number) => void; tab?: string; onPlanClick: (tab: string, lat: number, lon: number) => void }) => (
+    <div data-testid="mission-map" data-tab={p.tab}>
       <button type="button" onClick={() => p.onAdd(36.1 + 0.001 * adds++, 139.1)}>
         map-add
+      </button>
+      <button type="button" onClick={() => p.tab && p.tab !== 'mission' && p.onPlanClick(p.tab, 36.2 + 0.001 * adds, 139.2 + 0.001 * adds++)}>
+        map-plan
       </button>
     </div>
   ),
@@ -25,11 +28,11 @@ const copter: VehicleState = {
 const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
 const envelope = (data: unknown, status = 200) => new Response(JSON.stringify({ success: true, data }), { status, headers: { 'content-type': 'application/json' } })
 
-function setup(fetchImpl?: (url: string, init?: RequestInit) => Response) {
+function setup(fetchImpl?: (url: string, init?: RequestInit) => Response, transfers: ReadonlyMap<number, MissionTransfer> = new Map()) {
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => (fetchImpl ? fetchImpl(String(input), init) : envelope([])))
   vi.stubGlobal('fetch', fetchMock)
   const store = new MissionStore()
-  const utils = render(<MissionView vehicles={new Map([[1, copter]])} dict={t('ja')} style={style} store={store} />)
+  const utils = render(<MissionView vehicles={new Map([[1, copter]])} transfers={transfers} dict={t('ja')} style={style} store={store} />)
   return { ...utils, fetchMock, store }
 }
 
@@ -45,16 +48,34 @@ describe('MissionView', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('adding_three_points_lists_takeoff_then_two_waypoints', () => {
+  it('help_lists_the_3d_altitude_and_position_drags_and_the_path_colours', () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: 'マップ操作ガイド' }))
+    const panel = screen.getByRole('dialog', { name: 'マップ操作ガイド' })
+    expect(panel.textContent).toContain('高度だけを変更')
+    expect(panel.textContent).toContain('位置だけを変更')
+    expect(panel.textContent).toContain('急上昇ほど赤')
+  })
+
+  it('the_first_click_puts_the_takeoff_at_the_target_vehicle_and_a_waypoint_at_the_click', () => {
+    const { store } = setup()
+    addPoints(1)
+    expect(rows()).toEqual(['離陸', 'ウェイポイント'])
+    const [t0, w] = store.getState().history.present.items
+    expect([t0!.lat, t0!.lon]).toEqual([36.16, 139.37])
+    expect([w!.lat, w!.lon]).toEqual([36.1, 139.1])
+  })
+
+  it('adding_three_points_lists_takeoff_then_three_waypoints', () => {
     setup()
     addPoints(3)
-    expect(rows()).toEqual(['離陸', 'ウェイポイント', 'ウェイポイント'])
+    expect(rows()).toEqual(['離陸', 'ウェイポイント', 'ウェイポイント', 'ウェイポイント'])
     expect(within(screen.getByTestId('mission-summary')).getByText('最大高度').nextSibling?.textContent).toContain('50')
   })
 
   it('delete_key_removes_the_selection_and_undo_brings_it_back', () => {
     const { container } = setup()
-    addPoints(3)
+    addPoints(2) // takeoff + 2 waypoints
     fireEvent.click(wpRows()[1]!)
     expect(wpRows()[1]!.className).toContain('sel')
     fireEvent.keyDown(container.firstChild as Element, { key: 'Delete' })
@@ -71,9 +92,114 @@ describe('MissionView', () => {
     expect(screen.queryByTestId('item-editor')).not.toBeInTheDocument()
     fireEvent.click(wpRows()[1]!)
     expect((screen.getByLabelText('コマンド') as HTMLSelectElement).value).toBe('WAYPOINT')
-    fireEvent.click(wpRows()[2]!, { shiftKey: true })
+    fireEvent.click(wpRows()[2]!, { ctrlKey: true })
     expect(screen.getByTestId('bulk-edit')).toHaveTextContent('2')
     expect(screen.getByText('件を選択中')).toBeInTheDocument()
+  })
+
+  it('list_shift_selects_a_range_ctrl_toggles_and_both_combine', () => {
+    setup()
+    addPoints(5) // T + 5 WP = 6 rows
+    const sel = () => wpRows().map((r) => r.className.includes('sel'))
+    fireEvent.click(wpRows()[1]!)
+    fireEvent.click(wpRows()[3]!, { shiftKey: true })
+    expect(sel()).toEqual([false, true, true, true, false, false])
+    fireEvent.click(wpRows()[5]!, { ctrlKey: true })
+    expect(sel()).toEqual([false, true, true, true, false, true])
+    fireEvent.click(wpRows()[2]!, { metaKey: true })
+    expect(sel()).toEqual([false, true, false, true, false, true])
+    // Shift extends from the last Ctrl-clicked row and keeps the rest
+    fireEvent.click(wpRows()[0]!, { shiftKey: true })
+    expect(sel()).toEqual([true, true, true, true, false, true])
+  })
+
+  it('shows_the_write_progress_of_the_target_vehicle', () => {
+    setup(undefined, new Map([[1, { phase: 'verify', done: 5, total: 21 } as MissionTransfer]]))
+    expect(screen.getByRole('progressbar', { name: 'ミッション書込' })).toHaveTextContent('読み戻して照合中 5 / 21')
+  })
+
+  it('the_elevation_profile_opens_from_the_map', () => {
+    setup()
+    addPoints(2)
+    fireEvent.click(screen.getByRole('button', { name: '標高プロファイル' }))
+    expect(screen.getByRole('region', { name: '標高プロファイル' }).querySelectorAll('.rg-elev-pt')).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: '標高プロファイル' }))
+  })
+
+  it('cmd_c_with_nothing_selected_leaves_the_browser_copy_alone', () => {
+    const { container } = setup()
+    expect(fireEvent.keyDown(container.firstChild as Element, { key: 'c', metaKey: true })).toBe(true)
+  })
+
+  it('cmd_c_then_cmd_v_duplicates_the_selection_after_it', () => {
+    const { container } = setup()
+    addPoints(2) // T, 2, 3
+    fireEvent.click(wpRows()[1]!)
+    fireEvent.keyDown(container.firstChild as Element, { key: 'c', metaKey: true })
+    fireEvent.keyDown(container.firstChild as Element, { key: 'v', ctrlKey: true })
+    expect(rows()).toEqual(['離陸', 'ウェイポイント', 'ウェイポイント', 'ウェイポイント'])
+    expect(wpRows()[2]!.className).toContain('sel')
+  })
+
+  it('fence_tab_draws_a_polygon_by_clicks_and_writes_it_to_the_vehicle', async () => {
+    localStorage.removeItem('rgcs.planTab')
+    const { fetchMock, container } = setup((url, init) => (url.endsWith('/fence') && init?.method === 'PUT' ? envelope({ items: 3, verified: true, mismatched: [], findings: [] }) : envelope([])))
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Fence' }))
+    expect(screen.getByTestId('mission-map').dataset.tab).toBe('fence')
+    fireEvent.click(screen.getByRole('button', { name: '包含ポリゴン' }))
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByText('map-plan'))
+    fireEvent.keyDown(container.firstChild as Element, { key: 'Enter' })
+    expect(screen.getByTestId('fence-row').querySelector('.fence-title')?.textContent).toBe('包含ポリゴン · 3 点')
+    expect(screen.queryByRole('button', { name: '完了' })).not.toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'フェンスを機体に書込' }))
+    })
+    const put = fetchMock.mock.calls.find(([u, i]) => String(u).endsWith('/fence') && i?.method === 'PUT')!
+    expect(JSON.parse(String(put[1]!.body)).zones[0].vertices).toHaveLength(3)
+    expect(screen.getByText('書き込みました (読み戻して一致)')).toBeInTheDocument()
+    // the waypoints still count in the plan; a click on the map does not add one here
+    expect(rows()).toEqual([])
+    localStorage.removeItem('rgcs.planTab')
+  })
+
+  it('deleting_or_reading_the_fence_while_drawing_stops_the_drawing_instead_of_growing_another_zone', async () => {
+    localStorage.removeItem('rgcs.planTab')
+    const fromVehicle = [
+      { kind: 'polygon', inclusion: false, vertices: [{ lat: 36, lon: 137 }, { lat: 36, lon: 137.01 }, { lat: 36.01, lon: 137.01 }] },
+      { kind: 'polygon', inclusion: false, vertices: [{ lat: 36, lon: 137 }, { lat: 36, lon: 137.02 }, { lat: 36.02, lon: 137.02 }] },
+    ]
+    setup((url) => (url.endsWith('/fence') ? envelope({ zones: fromVehicle }) : envelope([])))
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Fence' }))
+    fireEvent.click(screen.getByRole('button', { name: '包含ポリゴン' }))
+    fireEvent.click(screen.getByText('map-plan'))
+    fireEvent.click(screen.getByText('map-plan'))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'フェンスを機体から読込' }))
+    })
+    expect(screen.queryByRole('button', { name: '完了' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('map-plan'))
+    const titles = () => screen.getAllByTestId('fence-row').map((r) => r.querySelector('.fence-title')?.textContent)
+    expect(titles()).toEqual(['除外ポリゴン · 3 点', '除外ポリゴン · 3 点'])
+    // deleting the zone being drawn stops the drawing too
+    fireEvent.click(screen.getByRole('button', { name: '包含ポリゴン' }))
+    fireEvent.click(screen.getByText('map-plan'))
+    fireEvent.click(within(screen.getAllByTestId('fence-row')[2]!).getByRole('button', { name: '削除' }))
+    fireEvent.click(screen.getByText('map-plan'))
+    expect(titles()).toEqual(['除外ポリゴン · 3 点', '除外ポリゴン · 3 点'])
+    localStorage.removeItem('rgcs.planTab')
+  })
+
+  it('rally_tab_adds_points_at_the_default_altitude_and_undo_removes_them', () => {
+    localStorage.removeItem('rgcs.planTab')
+    const { container } = setup()
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Rally' }))
+    fireEvent.click(screen.getByText('map-plan'))
+    fireEvent.click(screen.getByText('map-plan'))
+    expect(screen.getAllByTestId('rally-row')).toHaveLength(2)
+    expect((within(screen.getAllByTestId('rally-row')[0]!).getByLabelText('高度') as HTMLInputElement).value).toBe('50')
+    fireEvent.keyDown(container.firstChild as Element, { key: 'z', metaKey: true })
+    expect(screen.getAllByTestId('rally-row')).toHaveLength(1)
+    localStorage.removeItem('rgcs.planTab')
   })
 
   it('save_calls_create_then_update', async () => {
@@ -90,7 +216,8 @@ describe('MissionView', () => {
       fireEvent.click(screen.getByText('map-add'))
       fireEvent.click(screen.getByRole('button', { name: '保存' }))
     })
-    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`)
+    // the planner reads the target vehicle's FENCE_* parameters on its own: not part of this flow
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params'))
     expect(calls).toEqual(['POST /api/missions', 'PUT /api/missions/5'])
     expect(screen.queryByText('未保存')).not.toBeInTheDocument()
   })
@@ -107,7 +234,8 @@ describe('MissionView', () => {
       fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
     })
     expect(screen.getByText('先頭が TAKEOFF ではありません')).toBeInTheDocument()
-    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`)
+    // the planner reads the target vehicle's FENCE_* parameters on its own: not part of this flow
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params'))
     expect(calls).toEqual(['POST /api/missions/validate?sysid=1'])
   })
 
@@ -131,7 +259,8 @@ describe('MissionView', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'ファイルに保存' }))
     })
-    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`)
+    // the planner reads the target vehicle's FENCE_* parameters on its own: not part of this flow
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params'))
     expect(calls).toEqual(['POST /api/missions', 'PUT /api/missions/5', 'GET /api/missions/5/export?format=waypoints'])
     expect(screen.queryByText('未保存')).not.toBeInTheDocument()
     expect(click).toHaveBeenCalledTimes(1)

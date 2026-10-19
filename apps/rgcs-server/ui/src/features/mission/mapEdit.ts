@@ -1,6 +1,7 @@
 // Pure helpers behind MissionMap: DOM elements for the badges / mid-leg handles, the handle
 // positions and the drag arithmetic. Kept out of the component so they are testable without MapLibre.
 import { CMDS } from './cmds'
+import { arcPoints, isArc } from './arc'
 import { hasPosition, midpoint, type LatLon } from './geo'
 import type { Draft } from './model'
 
@@ -8,6 +9,10 @@ export interface MidHandle {
   readonly afterUid: number
   readonly lat: number
   readonly lon: number
+  /** The leg: from the previous position to the item `toUid` (the arc gesture bends it). */
+  readonly fromLat: number
+  readonly fromLon: number
+  readonly toUid: number
 }
 
 export interface ContextMenu {
@@ -76,8 +81,9 @@ export function midHandles(d: Draft): readonly MidHandle[] {
   for (const it of d.items) {
     if (hasPosition(it)) {
       if (prev && lastUid !== null) {
-        const m = midpoint(prev, it)
-        out.push({ afterUid: lastUid, lat: m.lat, lon: m.lon })
+        // on the arc for an ARC_WAYPOINT, so the handle sits on the drawn path
+        const m = isArc(it) ? arcPoints(prev, it, it.params[0], 2)[1]! : midpoint(prev, it)
+        out.push({ afterUid: lastUid, lat: m.lat, lon: m.lon, fromLat: prev.lat, fromLon: prev.lon, toUid: it.uid })
       }
       prev = { uid: it.uid, lat: it.lat, lon: it.lon }
     }
@@ -87,3 +93,23 @@ export function midHandles(d: Draft): readonly MidHandle[] {
 }
 
 export const dragDelta = (start: LatLon, now: LatLon): { dLat: number; dLon: number } => ({ dLat: now.lat - start.lat, dLon: now.lon - start.lon })
+
+/** The altitude after dragging `dyPx` down the screen (negative = up), in whole metres. */
+export function altFromDrag(startAlt: number, dyPx: number, pxPerMetre: number | null): number {
+  if (pxPerMetre === null || !(Math.abs(pxPerMetre) > 1e-6)) return startAlt
+  return Math.round(startAlt - dyPx / pxPerMetre)
+}
+
+export interface ScreenBox {
+  readonly x0: number
+  readonly y0: number
+  readonly x1: number
+  readonly y1: number
+}
+
+/** The items whose on-screen centre lies inside the box (dragged in any direction). */
+export function uidsInBox(at: readonly { uid: number; x: number; y: number }[], b: ScreenBox): number[] {
+  const [l, r] = b.x0 < b.x1 ? [b.x0, b.x1] : [b.x1, b.x0]
+  const [t, d] = b.y0 < b.y1 ? [b.y0, b.y1] : [b.y1, b.y0]
+  return at.filter((p) => p.x >= l && p.x <= r && p.y >= t && p.y <= d).map((p) => p.uid)
+}

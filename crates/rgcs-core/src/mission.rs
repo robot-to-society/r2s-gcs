@@ -14,6 +14,8 @@ pub const MAV_CMD_NAV_RETURN_TO_LAUNCH: u16 = 20;
 pub const MAV_CMD_NAV_LAND: u16 = 21;
 pub const MAV_CMD_NAV_TAKEOFF: u16 = 22;
 pub const MAV_CMD_NAV_SPLINE_WAYPOINT: u16 = 82;
+/// Copter 4.7+: the leg into this item is a circular arc of `param1` degrees (+ clockwise).
+pub const MAV_CMD_NAV_ARC_WAYPOINT: u16 = 36;
 pub const MAV_CMD_NAV_DELAY: u16 = 93;
 pub const MAV_CMD_CONDITION_DELAY: u16 = 112;
 pub const MAV_CMD_DO_JUMP: u16 = 177;
@@ -72,7 +74,7 @@ impl MissionItem {
     pub fn is_positional(&self) -> bool {
         matches!(
             self.command,
-            16..=22 | MAV_CMD_NAV_SPLINE_WAYPOINT | MAV_CMD_DO_SET_ROI
+            16..=22 | MAV_CMD_NAV_ARC_WAYPOINT | MAV_CMD_NAV_SPLINE_WAYPOINT | MAV_CMD_DO_SET_ROI
         )
     }
 
@@ -103,6 +105,12 @@ pub struct Mission {
     pub speed: f32,
     pub home: Option<Home>,
     pub items: Vec<MissionItem>,
+    /// Geofence zones planned with the mission (written separately: `PUT .../fence`).
+    #[serde(default)]
+    pub fence: Vec<crate::geofence::FenceZone>,
+    /// Rally points planned with the mission (written separately: `PUT .../rally`).
+    #[serde(default)]
+    pub rally: Vec<crate::geofence::RallyPoint>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -137,7 +145,7 @@ pub struct Finding {
 }
 
 impl Finding {
-    fn fatal(code: &str, seq: Option<u16>, message: impl Into<String>) -> Self {
+    pub(crate) fn fatal(code: &str, seq: Option<u16>, message: impl Into<String>) -> Self {
         Self {
             level: FindingLevel::Fatal,
             code: code.into(),
@@ -146,7 +154,7 @@ impl Finding {
         }
     }
 
-    fn warn(code: &str, seq: Option<u16>, message: impl Into<String>) -> Self {
+    pub(crate) fn warn(code: &str, seq: Option<u16>, message: impl Into<String>) -> Self {
         Self {
             level: FindingLevel::Warn,
             code: code.into(),
@@ -172,6 +180,26 @@ pub struct MissionProgress {
     pub total: Option<u16>,
 }
 
+/// Stage of a mission write (`mission_transfer` frames): items sent, then read back for the check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum TransferPhase {
+    Write,
+    Verify,
+    Done,
+    Failed,
+}
+
+/// Progress of a mission write: `done` of `total` frames (items + home) in the current phase.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct MissionTransfer {
+    pub phase: TransferPhase,
+    pub done: u16,
+    pub total: u16,
+}
+
 /// Result of `PUT /api/vehicles/{sysid}/mission`: what was written and whether the read-back matched.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -189,6 +217,17 @@ pub struct FenceInfo {
     pub enabled: Option<bool>,
     pub alt_max: Option<f32>,
     pub radius: Option<f32>,
+}
+
+/// Metres flown into `it` from (`lat`, `lon`): along the arc for an ARC_WAYPOINT
+/// (r = chord / (2·|sin(θ/2)|), length r·θ; under 1° it is straight, as ArduPilot flies it).
+pub fn leg_distance_m(lat: f64, lon: f64, it: &MissionItem) -> f64 {
+    let chord = haversine_m(lat, lon, it.lat, it.lon);
+    let theta = f64::from(it.params[0].abs().min(359.0)).to_radians();
+    if it.command != MAV_CMD_NAV_ARC_WAYPOINT || theta < 1f64.to_radians() || chord == 0.0 {
+        return chord;
+    }
+    chord / (2.0 * (theta / 2.0).sin().abs()) * theta
 }
 
 pub fn haversine_m(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
@@ -363,7 +402,7 @@ impl Mission {
         for it in &self.items {
             if it.has_position() {
                 if let Some((plat, plon)) = prev {
-                    distance += haversine_m(plat, plon, it.lat, it.lon);
+                    distance += leg_distance_m(plat, plon, it);
                 }
                 prev = Some((it.lat, it.lon));
                 max_alt = max_alt.max(it.alt);
@@ -421,6 +460,8 @@ pub fn demo20() -> Mission {
             alt: 0.0,
         }),
         items,
+        fence: Vec::new(),
+        rally: Vec::new(),
     }
 }
 
@@ -450,7 +491,24 @@ mod tests {
             speed: 8.0,
             home: None,
             items,
+            fence: Vec::new(),
+            rally: Vec::new(),
         }
+    }
+
+    #[test]
+    fn arc_waypoint_is_positional_and_counts_its_arc_length() {
+        let east = |m: f64| m / (111_320.0 * (36.25f64).to_radians().cos());
+        let mut arc = item(MAV_CMD_NAV_ARC_WAYPOINT, 36.25, 137.6 + east(100.0), 50.0);
+        arc.params[0] = 90.0;
+        assert!(arc.has_position());
+        let m = mission(vec![item(MAV_CMD_NAV_TAKEOFF, 36.25, 137.6, 50.0), arc]);
+        // chord 100 m, 90° → r = 70.71 m, arc = r·π/2 = 111.07 m
+        assert!(
+            (m.stats().distance_m - 111.07).abs() < 0.5,
+            "{}",
+            m.stats().distance_m
+        );
     }
 
     fn codes(f: &[Finding]) -> Vec<&str> {

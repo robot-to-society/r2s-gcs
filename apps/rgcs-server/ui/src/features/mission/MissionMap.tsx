@@ -1,16 +1,21 @@
 import maplibregl, { type ExpressionSpecification, type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
 import type { FeatureCollection } from 'geojson'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { VehicleState } from '../../shared/api/types'
 import { hasPosition as vehicleHasPosition, markerEl, updateMarkerEl } from '../map/markers'
 import { hasPosition, pathGeoJson } from './geo'
 import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl, type ContextMenu } from './mapEdit'
-import { cmdKey, type Draft } from './model'
+import { cmdKey, isTakeoff, moveItem, moveItems, setArc, shiftAlts, type Draft, type DraftItem } from './model'
 import type { Tool } from './store'
 import { useBasemapSwap } from '../map/basemaps'
 import type { Basemap } from '../../shared/api/types'
-import type { MapMode } from '../map/mapMode'
-import { altChip, useMissionAir } from './missionAir'
+import { KEEP_ELEVATION, type MapMode } from '../map/mapMode'
+import { altChip, useMissionAir, type MissionAir3d } from './missionAir'
+import { attachAltDrag } from './altDrag'
+import { useMissionFeet, type FeetCallbacks } from './missionFeet'
+import { useBoxSelect } from './boxSelect'
+import { attachArcDrag } from './arcDrag'
+import { useFenceRally, type FenceEdit, type PlanTab } from './fenceMap'
 
 interface Props {
   readonly draft: Draft
@@ -29,6 +34,20 @@ interface Props {
   readonly onInsertAfter: (uid: number, lat: number, lon: number) => void
   readonly onMove: (uid: number, lat: number, lon: number) => void
   readonly onMoveSelected: (dLat: number, dLon: number) => void
+  /** 3D altitude drag: add `dAlt` metres to these items. */
+  readonly onShiftAlt: (uids: ReadonlySet<number>, dAlt: number) => void
+  /** Shift-drag box on the map: these items join the selection. */
+  readonly onBoxSelect: (uids: number[]) => void
+  /** Long press + drag on a "+": the leg into `uid` becomes an arc of `angle`° (0 = straight). */
+  readonly onArc: (uid: number, angle: number) => void
+  /** Mission / Fence / Rally: only the mission tab edits waypoints. */
+  readonly tab?: PlanTab
+  /** A map click in the fence or rally tab. */
+  readonly onPlanClick: (tab: Exclude<PlanTab, 'mission'>, lat: number, lon: number) => void
+  readonly onFenceEdit: (e: FenceEdit) => void
+  readonly onRallyMove: (index: number, lat: number, lon: number) => void
+  /** FENCE_ALT_MAX (m above home): the 3D fence walls reach it; null = no walls. */
+  readonly ceiling?: number | null
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
   readonly onBackgroundClick: () => void
   readonly onContext: (menu: ContextMenu | null) => void
@@ -45,11 +64,14 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling'>
 
-/** 2D mission editing layer (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
+/** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
   const { draft, selected, tool, style, vehicle, fitRequest } = props
+  const tab = props.tab ?? 'mission'
+  const tabRef = useRef(tab)
+  tabRef.current = tab
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -57,6 +79,7 @@ export function MissionMap(props: Props) {
   const badges = useRef(new Map<number, Badge>())
   const handles = useRef<Marker[]>([])
   const vehicleMarker = useRef<Badge | null>(null)
+  const centred = useRef(false)
   const cb = useRef<Callbacks>(props)
   cb.current = props
   const toolRef = useRef(tool)
@@ -65,6 +88,10 @@ export function MissionMap(props: Props) {
   selectedRef.current = selected
   const draftRef = useRef(draft)
   draftRef.current = draft
+  // A drag in progress shows its result before it is committed to the draft (and the undo history).
+  const [preview, setPreview] = useState<((d: Draft) => Draft) | null>(null)
+  const shown = useMemo(() => (preview ? preview(draft) : draft), [draft, preview])
+  const air = useRef<MissionAir3d>({ is3d: false, pxPerMetre: () => null })
 
   useEffect(() => {
     if (!container.current) return
@@ -81,11 +108,15 @@ export function MissionMap(props: Props) {
       src?.setData(pathGeoJson(draftRef.current.items, draftRef.current.mission.home))
     })
     m.on('click', (e) => {
+      const t = tabRef.current
+      if (t !== 'mission') return cb.current.onPlanClick(t, e.lngLat.lat, e.lngLat.lng)
       if (toolRef.current === 'add') cb.current.onAdd(e.lngLat.lat, e.lngLat.lng)
       else cb.current.onBackgroundClick()
       cb.current.onContext(null)
     })
     map.current = m
+    // Live checks read the camera from the dev build only (like `__rgcsMap` on the operations map).
+    if (import.meta.env.DEV) (window as unknown as { __rgcsMissionMap?: MlMap }).__rgcsMissionMap = m
     return () => {
       m.remove()
       map.current = null
@@ -93,6 +124,7 @@ export function MissionMap(props: Props) {
       badges.current = new Map()
       handles.current = []
       vehicleMarker.current = null
+      centred.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -103,27 +135,30 @@ export function MissionMap(props: Props) {
   useEffect(() => {
     if (!loaded.current) return
     const src = map.current?.getSource(PATH) as { setData: (d: unknown) => void } | undefined
-    src?.setData(pathGeoJson(draft.items, draft.mission.home))
-  }, [draft])
+    src?.setData(pathGeoJson(shown.items, shown.mission.home))
+  }, [shown])
 
   // Badges (one per positioned item), reconciled in place
   useEffect(() => {
     const m = map.current
     if (!m) return
     const seen = new Set<number>()
-    draft.items.forEach((it, i) => {
+    // 3D moves position with the ground foot; the TAKEOFF never moves (ArduCopter climbs in place)
+    const movable = (it: DraftItem) => tab === 'mission' && !is3d && !isTakeoff(it)
+    shown.items.forEach((it, i) => {
       if (!hasPosition(it)) return
       seen.add(it.uid)
       const seq = i + 1
       const existing = badges.current.get(it.uid)
       if (existing) {
-        existing.marker.setLngLat([it.lon, it.lat])
+        existing.marker.setLngLat([it.lon, it.lat]).setDraggable(movable(it))
         updateBadgeEl(existing.el, seq, selected.has(it.uid), cmdKey(it), is3d ? altChip(it) : null)
         return
       }
       const el = updateBadgeEl(badgeEl(seq, selected.has(it.uid), cmdKey(it)), seq, selected.has(it.uid), cmdKey(it), is3d ? altChip(it) : null)
-      const marker = new maplibregl.Marker({ element: el, draggable: true, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m)
-      attachBadge(marker, el, it.uid, cb, selectedRef)
+      const marker = new maplibregl.Marker({ element: el, draggable: movable(it), anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m)
+      attachBadge(marker, el, it.uid, cb, selectedRef, draftRef)
+      attachAltDrag(el, altDeps(it.uid))
       badges.current.set(it.uid, { marker, el })
     })
     for (const [uid, b] of badges.current) {
@@ -132,7 +167,8 @@ export function MissionMap(props: Props) {
         badges.current.delete(uid)
       }
     }
-  }, [draft, selected, is3d])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown, selected, is3d, tab])
 
   // Mid-leg handles are rebuilt on every draft change (cheap: ≤ 700)
   useEffect(() => {
@@ -145,12 +181,34 @@ export function MissionMap(props: Props) {
         e.stopPropagation()
         cb.current.onInsertAfter(h.afterUid, h.lat, h.lon)
       })
+      attachArcDrag(el, h, arcDeps)
       return new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([h.lon, h.lat]).addTo(m)
     })
+    // arcDeps only reads refs and setPreview: the handles need rebuilding for a new draft only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft])
 
   // After the map, the badges and the handles exist: effects run in declaration order.
-  useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft, selected, badges, handles })
+  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle) })
+  const feetCb = useRef<FeetCallbacks>(null!)
+  feetCb.current = {
+    onPreview: (uid, multi, from, to) => setPreview(() => (d: Draft) => (multi ? moveItems(d, selectedRef.current, to.lat - from.lat, to.lon - from.lon) : moveItem(d, uid, to.lat, to.lon))),
+    onEnd: () => setPreview(null),
+    onMove: (uid, lat, lon) => cb.current.onMove(uid, lat, lon),
+    onMoveSelected: (dLat, dLon) => cb.current.onMoveSelected(dLat, dLon),
+    onSelect: (uid, additive, range) => cb.current.onSelect(uid, additive, range),
+    origin: (uid) => itemPos(draftRef.current, uid),
+  }
+  // a drag cut short by the 2D / 3D switch never reports its end
+  useEffect(() => setPreview(null), [is3d])
+  useMissionFeet({ map, is3d, draft: shown, selected: selectedRef, cb: feetCb })
+  const onFenceEdit = useRef((e: FenceEdit) => cb.current.onFenceEdit(e))
+  const onRallyMove = useRef((i: number, lat: number, lon: number) => cb.current.onRallyMove(i, lat, lon))
+  useFenceRally({ map, loaded, draft: shown, tab, onFenceEdit, onRallyMove })
+  const onBox = useRef((uids: number[]) => cb.current.onBoxSelect(uids))
+  const boxActive = useRef(tab === 'mission')
+  boxActive.current = tab === 'mission'
+  useBoxSelect(container, badges, onBox, boxActive)
 
   // The selected vehicle, for context
   useEffect(() => {
@@ -160,6 +218,11 @@ export function MissionMap(props: Props) {
       vehicleMarker.current?.marker.remove()
       vehicleMarker.current = null
       return
+    }
+    // An empty mission opens over the vehicle, once: the default view may be far away.
+    if (!centred.current) {
+      centred.current = true
+      if (!draftRef.current.items.some(hasPosition)) m.jumpTo({ center: [vehicle.lon, vehicle.lat] })
     }
     if (vehicleMarker.current) {
       vehicleMarker.current.marker.setLngLat([vehicle.lon, vehicle.lat])
@@ -177,20 +240,67 @@ export function MissionMap(props: Props) {
     const pts = draft.items.filter(hasPosition)
     if (pts.length === 0) return
     const bounds = pts.reduce((b, it) => b.extend([it.lon, it.lat]), new maplibregl.LngLatBounds([pts[0]!.lon, pts[0]!.lat], [pts[0]!.lon, pts[0]!.lat]))
-    m.fitBounds(bounds, { padding: 80, maxZoom: 17, duration: 300 })
+    m.fitBounds(bounds, { padding: 80, maxZoom: 17, duration: 300, ...KEEP_ELEVATION })
     // Only the request counter triggers a fit; the draft is read at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitRequest])
 
-  return <div ref={container} className={`map mission-map tool-${tool}`} data-testid="mission-map" />
+  const arcDeps = {
+    toLatLon: (x: number, y: number) => {
+      const m = map.current
+      const box = container.current?.getBoundingClientRect()
+      if (!m || !box) return null
+      const p = m.unproject([x - box.left, y - box.top])
+      return { lat: p.lat, lon: p.lng }
+    },
+    end: (uid: number) => {
+      const it = draftRef.current.items.find((x) => x.uid === uid)
+      return it ? { lat: it.lat, lon: it.lon } : null
+    },
+    onPreview: (uid: number, angle: number) => setPreview(() => (d: Draft) => setArc(d, uid, angle)),
+    onCommit: (uid: number, angle: number) => {
+      setPreview(null)
+      cb.current.onArc(uid, angle)
+    },
+    onCancel: () => setPreview(null),
+  }
+
+  function altDeps(uid: number) {
+    return {
+      active: () => air.current.is3d,
+      targets: () => (selectedRef.current.has(uid) && selectedRef.current.size > 1 ? selectedRef.current : new Set([uid])),
+      alt: () => draftRef.current.items.find((x) => x.uid === uid)?.alt ?? 0,
+      pxPerMetre: () => air.current.pxPerMetre(uid),
+      onPreview: (uids: ReadonlySet<number>, dAlt: number) => setPreview(() => (d: Draft) => shiftAlts(d, uids, dAlt)),
+      onCommit: (uids: ReadonlySet<number>, dAlt: number) => {
+        setPreview(null)
+        if (dAlt !== 0) cb.current.onShiftAlt(uids, dAlt)
+      },
+    }
+  }
+
+  return <div ref={container} className={`map mission-map tool-${tool} tab-${tab}${is3d ? ' is-3d' : ''}`} data-testid="mission-map" />
 }
 
-function attachBadge(marker: Marker, el: HTMLDivElement, uid: number, cb: React.RefObject<Callbacks>, selected: React.RefObject<ReadonlySet<number>>): void {
+/** The vehicle's home (else its position): where FENCE_ALT_MAX is measured from. */
+function vehicleHomeOf(v: VehicleState | null): { lat: number; lon: number } | null {
+  if (!v) return null
+  if (v.home && !(v.home.lat === 0 && v.home.lon === 0)) return { lat: v.home.lat, lon: v.home.lon }
+  return v.lat === 0 && v.lon === 0 ? null : { lat: v.lat, lon: v.lon }
+}
+
+function itemPos(d: Draft, uid: number): { lat: number; lon: number } | null {
+  const it = d.items.find((x) => x.uid === uid)
+  return it ? { lat: it.lat, lon: it.lon } : null
+}
+
+function attachBadge(marker: Marker, el: HTMLDivElement, uid: number, cb: React.RefObject<Callbacks>, selected: React.RefObject<ReadonlySet<number>>, draft: React.RefObject<Draft>): void {
   let start: { lat: number; lon: number } | null = null
   let multi = false
   marker.on('dragstart', () => {
+    // MapLibre has already moved the marker by the first step: count from the item itself
     const p = marker.getLngLat()
-    start = { lat: p.lat, lon: p.lng }
+    start = itemPos(draft.current, uid) ?? { lat: p.lat, lon: p.lng }
     multi = selected.current.has(uid) && selected.current.size > 1
   })
   marker.on('dragend', () => {
@@ -205,7 +315,7 @@ function attachBadge(marker: Marker, el: HTMLDivElement, uid: number, cb: React.
   })
   el.addEventListener('click', (e) => {
     e.stopPropagation()
-    cb.current.onSelect(uid, e.shiftKey, e.metaKey || e.ctrlKey)
+    cb.current.onSelect(uid, e.metaKey || e.ctrlKey, e.shiftKey)
   })
   el.addEventListener('contextmenu', (e) => {
     e.preventDefault()

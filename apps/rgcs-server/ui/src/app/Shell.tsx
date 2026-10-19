@@ -44,7 +44,7 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, log, cameras, videoSources, deadman, missionProgress, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
+  const { vehicles, link, log, cameras, videoSources, deadman, missionProgress, missionTransfers, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -78,6 +78,10 @@ export function Shell({ me, lang }: Props) {
   const basemap = settings && settings.basemaps.length > 0 ? chooseBasemap(settings.basemaps, basemapId) : null
   const clock = useClock(lang)
   useEffect(() => vehicleStore.subscribe(() => tracksStore.ingest(vehicleStore.getState().vehicles)), [])
+  const trackMinutes = settings?.map.track_minutes
+  useEffect(() => {
+    if (trackMinutes !== undefined) tracksStore.setKeepMinutes(trackMinutes)
+  }, [trackMinutes])
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const names = new Map(list.map((v) => [v.sysid, v.name]))
   const homes = useMemo(() => vehicleHomes(vehicles, vehicleMissions), [vehicles, vehicleMissions])
@@ -203,6 +207,7 @@ export function Shell({ me, lang }: Props) {
           <main className="stage mission" style={{ position: 'absolute', inset: 0 }}>
             <MissionView
               vehicles={vehicles}
+              transfers={missionTransfers}
               dict={dict}
               style={basemap ? basemapStyle(basemap) : rasterStyle(settings.map_tile_url, settings.map_attribution)}
               basemap={basemap ?? undefined}
@@ -275,6 +280,7 @@ export function Shell({ me, lang }: Props) {
               onCameraSettings={() => setModal({ kind: 'camera-settings', sysid: detail.sysid })}
               vehicleMission={vehicleMissions.get(detail.sysid)}
               missionProgress={missionProgress.get(detail.sysid)}
+              missionTransfer={missionTransfers.get(detail.sysid)}
               onWriteMission={() => setModal({ kind: 'mission-pick', sysid: detail.sysid })}
               onStartMission={() => setModal({ kind: 'confirm', sysid: detail.sysid, command: { cmd: 'mission_start' } })}
               commandsOpen={commandsOpen}
@@ -328,7 +334,6 @@ export function Shell({ me, lang }: Props) {
                 mapUiStore.update(cancelPick)
                 setModal(NO_MODAL)
               }}
-              onSwitchToGuided={() => setModal({ kind: 'confirm', sysid: currentVehicle.sysid, command: { cmd: 'set_mode', args: { mode: 'GUIDED' } } })}
               onDone={(outcome) => {
                 if (outcome.kind === 'error') {
                   vehicleStore.pushLocalResult({ id: -Date.now(), sysid: currentVehicle.sysid, cmd: 'guided', ok: false, reason: outcome.message, ts: Date.now() })

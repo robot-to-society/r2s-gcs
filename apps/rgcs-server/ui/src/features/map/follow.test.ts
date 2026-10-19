@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
-import { FOLLOW_DEADBAND_PX, followTarget, needsRecenter, padding } from './follow'
+import { FOLLOW_DEADBAND_PX, follow3dCamera, followTarget, needsRecenter, padding } from './follow'
 
 describe('map padding (spec 20 §4)', () => {
   it('matches the panel widths', () => {
@@ -34,3 +34,22 @@ describe('needsRecenter', () => {
   })
 })
 
+describe('follow3dCamera (3D: from behind and above, the vehicle in the air at the centre)', () => {
+  const veh = (over: Partial<VehicleState> = {}) => ({ sysid: 1, lat: 36.25, lon: 137.64, hdg: 90, cog: 80, gps: { fix: 3 }, ...over }) as unknown as VehicleState
+  const cam = { lng: 137.64, lat: 36.25, bearing: 90, elevation: 1600 }
+  it('centres on the vehicle at its altitude, looking along its heading', () => {
+    expect(follow3dCamera(veh(), 1650, null)).toEqual({ center: [137.64, 36.25], bearing: 90, elevation: 1650 })
+  })
+  it('falls back to the course when there is no heading', () => {
+    expect(follow3dCamera(veh({ hdg: null }), 1650, null)?.bearing).toBe(80)
+  })
+  it('ignores GPS / yaw / altitude noise inside the dead bands, and moves past them', () => {
+    expect(follow3dCamera(veh({ lon: 137.640001, hdg: 91 }), 1600.5, cam)).toBeNull()
+    expect(follow3dCamera(veh({ lon: 137.6402 }), 1600, cam)?.center).toEqual([137.6402, 36.25])
+    expect(follow3dCamera(veh({ hdg: 100 }), 1600, cam)?.bearing).toBe(100)
+    expect(follow3dCamera(veh(), 1605, cam)?.elevation).toBe(1605)
+  })
+  it('treats 359° and 1° as 2° apart', () => {
+    expect(follow3dCamera(veh({ hdg: 1 }), 1600, { ...cam, bearing: -1 })).toBeNull()
+  })
+})

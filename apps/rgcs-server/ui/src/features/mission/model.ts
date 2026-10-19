@@ -19,7 +19,7 @@ export const NEW_MISSION_NAME = '新しいミッション'
 
 export function emptyDraft(): Draft {
   return {
-    mission: { id: null, name: NEW_MISSION_NAME, sysid: null, default_alt: DEFAULT_ALT, default_frame: 'rel', speed: DEFAULT_SPEED, home: null },
+    mission: { id: null, name: NEW_MISSION_NAME, sysid: null, default_alt: DEFAULT_ALT, default_frame: 'rel', speed: DEFAULT_SPEED, home: null, fence: [], rally: [] },
     items: [],
     nextUid: 1,
   }
@@ -65,10 +65,17 @@ function newItem(d: Draft, key: string, lat: number, lon: number): DraftItem {
   }
 }
 
-/** The first point of an empty mission is the TAKEOFF; every later click adds a WAYPOINT. */
-export function appendWaypoint(d: Draft, lat: number, lon: number): Draft {
-  const key = d.items.length === 0 ? 'TAKEOFF' : 'WAYPOINT'
-  return { ...d, items: [...d.items, newItem(d, key, lat, lon)], nextUid: d.nextUid + 1 }
+/**
+ * Every click adds a WAYPOINT. On an empty mission a TAKEOFF comes first, at `takeoffAt` (the
+ * vehicle or the home) when known: ArduCopter ignores NAV_TAKEOFF's lat / lon and climbs where
+ * it stands, so a TAKEOFF drawn at the click would show a leg that is never flown.
+ */
+export function appendWaypoint(d: Draft, lat: number, lon: number, takeoffAt: { lat: number; lon: number } | null = null): Draft {
+  if (d.items.length > 0) return { ...d, items: [...d.items, newItem(d, 'WAYPOINT', lat, lon)], nextUid: d.nextUid + 1 }
+  if (!takeoffAt) return { ...d, items: [newItem(d, 'TAKEOFF', lat, lon)], nextUid: d.nextUid + 1 }
+  const t = newItem(d, 'TAKEOFF', takeoffAt.lat, takeoffAt.lon)
+  const w = newItem({ ...d, nextUid: d.nextUid + 1 }, 'WAYPOINT', lat, lon)
+  return { ...d, items: [t, w], nextUid: d.nextUid + 2 }
 }
 
 export function insertAfter(d: Draft, uid: number, lat: number, lon: number): Draft {
@@ -93,6 +100,32 @@ export function moveItem(d: Draft, uid: number, lat: number, lon: number): Draft
 
 export function moveItems(d: Draft, uids: ReadonlySet<number>, dLat: number, dLon: number): Draft {
   return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, lat: it.lat + dLat, lon: it.lon + dLon } : it)) }
+}
+
+/** Inserts copies of `items` (new uids) after `afterUid`, or at the end when it is null / gone. */
+export function insertItemsAfter(d: Draft, afterUid: number | null, items: readonly MissionItem[]): { draft: Draft; uids: number[] } {
+  const copies = items.map((it, i) => ({ ...it, uid: d.nextUid + i }))
+  const idx = afterUid === null ? -1 : d.items.findIndex((it) => it.uid === afterUid)
+  const at = idx < 0 ? d.items.length : idx + 1
+  const draft = { ...d, items: [...d.items.slice(0, at), ...copies, ...d.items.slice(at)], nextUid: d.nextUid + copies.length }
+  return { draft, uids: copies.map((c) => c.uid) }
+}
+
+const WAYPOINT_CMD = 16
+const ARC_CMD = 36
+
+/** A WAYPOINT / ARC_WAYPOINT becomes an arc of `angle`° (+ clockwise); 0 makes it a plain waypoint again. */
+export function setArc(d: Draft, uid: number, angle: number): Draft {
+  const it = d.items.find((x) => x.uid === uid)
+  if (!it || (it.command !== WAYPOINT_CMD && it.command !== ARC_CMD)) return d
+  const command = angle === 0 ? WAYPOINT_CMD : ARC_CMD
+  return updateItem(d, uid, { command, params: [angle, it.params[1], it.params[2], it.params[3]] })
+}
+
+/** Adds `dAlt` metres; Rel / Ter items stop at 0 m so a quick drag never puts a waypoint underground. */
+export function shiftAlts(d: Draft, uids: ReadonlySet<number>, dAlt: number): Draft {
+  const alt = (it: DraftItem) => (it.frame === 'abs' ? it.alt + dAlt : Math.max(0, it.alt + dAlt))
+  return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt: alt(it) } : it)) }
 }
 
 export function reorder(d: Draft, uid: number, dir: -1 | 1): Draft {
@@ -135,6 +168,9 @@ export function setAltBulk(d: Draft, uids: ReadonlySet<number>, alt: number, fra
 export function setMeta(d: Draft, patch: Partial<Omit<Mission, 'items'>>): Draft {
   return { ...d, mission: { ...d.mission, ...patch } }
 }
+
+/** NAV_TAKEOFF: ArduCopter ignores its lat / lon, so the map pins it at the take-off point. */
+export const isTakeoff = (it: MissionItem): boolean => it.command === 22
 
 export function cmdKey(it: MissionItem): string {
   return cmdKeyOf(it.command) ?? `CMD_${it.command}`

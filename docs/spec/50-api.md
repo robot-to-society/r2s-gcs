@@ -47,7 +47,10 @@
 ### 2.2.1 ミッション(P3、2026-10-17 追補 §5.2 / §5.9)
 | メソッド | パス | 本文 / 応答 |
 |---|---|---|
-| PUT | `/api/vehicles/{sysid}/mission` | `Mission` → `UploadReport{items, verified, mismatched[], findings[]}`。書込 → 読込 → 一致検証。`409 vehicle_armed` / `409 mission_busy` / `409 mission_invalid`(`data.findings` に致命) / `409 mission_rejected`(MISSION_ACK) / `503 link_lost` / `504 mission_timeout`(1.5 s × 3 回)。監査 target `mission` |
+| PUT | `/api/vehicles/{sysid}/mission` | `Mission` → `UploadReport{items, verified, mismatched[], findings[]}`。書込 → 読込 → 一致検証。`409 mission_busy` / `409 mission_invalid`(`data.findings` に致命) / `409 mission_rejected`(MISSION_ACK) / `503 link_lost` / `504 mission_timeout`(1.5 s × 3 回)。監査 target `mission` |
+| GET / PUT | `/api/vehicles/{sysid}/fence` | PUT `{zones: FenceZone[]}` → `UploadReport`。`FenceZone` = `{kind: "polygon", inclusion, vertices: [{lat, lon}]}` / `{kind: "circle", inclusion, center, radius}`。`MAV_MISSION_TYPE_FENCE` で書込(ホームなし、ポリゴンは頂点を連続で 5001 / 5002 + param1 = 頂点数、円は 5003 / 5004 + param1 = 半径 m)→ 読込 → 一致検証。`409 fence_invalid`(頂点 3〜255、半径 > 0、緯度経度の範囲。`data.findings`)。GET `{zones}`(リターンポイント 5000 は Copter が使わないので読み飛ばす)。監査 target `fence` |
+| GET | `/api/vehicles/{sysid}/fence/params` | `FenceParams{enabled, alt_max, alt_max_on, zones_on}`(キャッシュから。未取得の項目は機体に問い合わせて最大 ~1 s 待つ。`alt_max_on` = FENCE_TYPE bit 0、`zones_on` = bit 2) |
+| GET / PUT | `/api/vehicles/{sysid}/rally` | PUT `{points: [{lat, lon, alt}]}`(alt はホーム相対 m。整数 m に丸める = ArduPilot int16)→ `UploadReport`。`MAV_MISSION_TYPE_RALLY`、5100。`409 rally_invalid`(緯度経度の範囲、±10000 m)。GET `{points}`。監査 target `rally` |
 | POST | `/api/vehicles/{sysid}/mission/upload` | `{mission_id}` → 保存済みミッションを同じ手順で書込 |
 | GET | `/api/vehicles/{sysid}/mission` | 機体から読込 → `Mission`(`sysid` 入り) |
 | GET | `/api/vehicles/{sysid}/mission/progress` | → `MissionProgress{seq, total}` または `null`(`total` = 項目数) |
@@ -153,6 +156,7 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | `network_status` | `{diff: Partial<NetworkTopology>}` | 1 Hz(M5、80 §4) |
 | `vehicle_discovered` / `vehicle_lost` | `{sysid}` | 発生時 |
 | `mission_progress` | `{sysid, progress: {seq, total}}` | `MISSION_CURRENT` の変化時 + 1 Hz(サーバーが再送)。`total` はサーバーが書込 / 読込したミッションの項目数(未知なら機体の `MISSION_CURRENT.total`) |
+| `mission_transfer` | `{sysid, transfer: {phase: write\|verify\|done\|failed, done, total}}` | ミッション書込中(`PUT .../mission`)。write は機体が要求した項目数、verify は読み戻した項目数(`total` = 項目数 + ホーム)、最後に done か failed |
 | `flight_draft_created` | `{sysid, flight: Flight}` | DISARM 時(初回 ARM から最後の DISARM までが 1 飛行。10 分以内の再 ARM は同じ飛行、リンク喪失 10 分で最終受信時刻に着陸扱い) |
 | `log_fetch_progress` | `{sysid, progress: {fc_log_id, received, total, done, error?}}` | 64 KB ごとと完了時 |
 | `input_state` | `{deadman: ok\|lost}` | 変化時(`input_hb` 1.5 s 途絶で `lost`、サーバーは速度 0 を 1 回送る) |

@@ -1,6 +1,8 @@
 import { logbookEn, logbookJa } from './logbook'
 import { opsToolsEn, opsToolsJa } from './opsTools'
 import { p9En, p9Ja } from './p9'
+import { edit3dEn, edit3dJa } from './edit3d'
+import { planEn, planJa } from './plan'
 
 export type Lang = 'ja' | 'en'
 
@@ -219,6 +221,7 @@ const baseJa = {
   wp_TAKEOFF: '離陸',
   wp_WAYPOINT: 'ウェイポイント',
   wp_SPLINE_WAYPOINT: 'スプラインWP',
+  wp_ARC_WAYPOINT: 'アークWP',
   wp_LOITER_TIME: '待機 (時間)',
   wp_LOITER_TURNS: '周回待機',
   wp_LOITER_UNLIM: '無期限待機',
@@ -281,6 +284,7 @@ const baseJa = {
   fld_gimbalId: 'ジンバル ID',
   fld_mountMode: 'マウントモード',
   fld_angle: '方位角',
+  fld_arcAngle: 'アーク角度 (+ 時計回り)',
   fld_rate: '回頭速度',
   fld_dir: '回転方向',
   fld_relative: '基準',
@@ -294,7 +298,7 @@ const baseJa = {
   mReverse: '逆順',
   mClearAll: '全削除',
   mNoWp: 'ウェイポイントがありません。地図をクリックして追加してください。',
-  mShortcuts: 'Del 削除 · ⌘Z 取消 · ⇧⌘Z やり直し · ⌘A 全選択 · 矢印 移動 · Esc 解除',
+  mShortcuts: 'Del 削除 · ⌘Z 取消 · ⇧⌘Z やり直し · ⌘A 全選択 · ⌘C / ⌘V 複製 (選択の後ろへ) · 矢印 移動 · Esc 解除 (⌘ は Windows では Ctrl)',
   mWpEdit: 'ウェイポイント編集',
   mMavId: 'ID',
   mSummary: 'サマリ',
@@ -322,10 +326,10 @@ const baseJa = {
   optOn: 'On',
   mHelp1k: 'クリック',
   mHelp1v: '項目を選択',
-  mHelp2k: 'Shift + クリック',
-  mHelp2v: '選択に追加 / 解除',
-  mHelp3k: '⌘ / Ctrl + クリック',
-  mHelp3v: 'リスト順で範囲選択',
+  mHelp2k: '⌘ / Ctrl + クリック',
+  mHelp2v: '選択に追加 / 解除 (個別)',
+  mHelp3k: 'Shift + クリック',
+  mHelp3v: '前回クリックした項目からリスト順で範囲選択 (選択中の項目は残す)',
   mHelp4k: 'ドラッグ',
   mHelp4v: 'WP を移動 (複数選択中は一括移動)',
   mHelp5k: '線上の +',
@@ -386,7 +390,7 @@ const baseJa = {
   cmd_param_write: 'パラメータ書込',
 } as const
 
-const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja } as const
+const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa } as const
 
 const baseEn: Record<keyof typeof baseJa, string> = {
   vehicles: 'Vehicles',
@@ -603,6 +607,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   wp_TAKEOFF: 'Takeoff',
   wp_WAYPOINT: 'Waypoint',
   wp_SPLINE_WAYPOINT: 'Spline waypoint',
+  wp_ARC_WAYPOINT: 'Arc waypoint',
   wp_LOITER_TIME: 'Loiter (time)',
   wp_LOITER_TURNS: 'Loiter turns',
   wp_LOITER_UNLIM: 'Loiter unlimited',
@@ -665,6 +670,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   fld_gimbalId: 'Gimbal ID',
   fld_mountMode: 'Mount mode',
   fld_angle: 'Heading',
+  fld_arcAngle: 'Arc angle (+ clockwise)',
   fld_rate: 'Turn rate',
   fld_dir: 'Direction',
   fld_relative: 'Relative',
@@ -678,7 +684,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   mReverse: 'Reverse',
   mClearAll: 'Clear all',
   mNoWp: 'No waypoints. Click the map to add one.',
-  mShortcuts: 'Del delete · ⌘Z undo · ⇧⌘Z redo · ⌘A select all · arrows nudge · Esc deselect',
+  mShortcuts: 'Del delete · ⌘Z undo · ⇧⌘Z redo · ⌘A select all · ⌘C / ⌘V duplicate (after the selection) · arrows nudge · Esc deselect (⌘ = Ctrl on Windows)',
   mWpEdit: 'Edit waypoint',
   mMavId: 'ID',
   mSummary: 'Summary',
@@ -706,10 +712,10 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   optOn: 'On',
   mHelp1k: 'Click',
   mHelp1v: 'Select an item',
-  mHelp2k: 'Shift + click',
-  mHelp2v: 'Add to / remove from selection',
-  mHelp3k: '⌘ / Ctrl + click',
-  mHelp3v: 'Select a range in list order',
+  mHelp2k: '⌘ / Ctrl + click',
+  mHelp2v: 'Add to / remove from selection (one item)',
+  mHelp3k: 'Shift + click',
+  mHelp3v: 'Select the range from the last clicked item in list order (keeps the rest)',
   mHelp4k: 'Drag',
   mHelp4v: 'Move a WP (moves all when multi-selected)',
   mHelp5k: '+ on a leg',
@@ -770,7 +776,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   cmd_param_write: 'Parameter write',
 }
 
-const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En }
+const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn }
 
 export type Dict = Record<keyof typeof ja, string>
 

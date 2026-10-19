@@ -1,8 +1,8 @@
 // Editor UI state: the draft history, selection, tool and I/O status. Pure transitions + one store.
 import { useSyncExternalStore } from 'react'
-import type { Finding, Mission, UploadReport } from '../../shared/api/types'
+import type { Finding, Mission, MissionItem, UploadReport } from '../../shared/api/types'
 import { canRedo, canUndo, initHistory, push, redo, undo, type History } from './history'
-import { emptyDraft, fromMission, removeItems, type Draft } from './model'
+import { emptyDraft, fromMission, insertItemsAfter, removeItems, type Draft } from './model'
 
 export type Tool = 'select' | 'add'
 export type Busy = 'idle' | 'saving' | 'uploading' | 'downloading'
@@ -10,7 +10,7 @@ export type Busy = 'idle' | 'saving' | 'uploading' | 'downloading'
 export interface MissionUi {
   readonly history: History<Draft>
   readonly selected: ReadonlySet<number>
-  /** The uid the last plain click landed on: the anchor for ⌘/Ctrl range selection. */
+  /** The uid the last plain or ⌘/Ctrl click landed on: the anchor for Shift range selection. */
   readonly anchor: number | null
   readonly tool: Tool
   readonly savedId: number | null
@@ -18,6 +18,8 @@ export interface MissionUi {
   readonly busy: Busy
   readonly findings: readonly Finding[]
   readonly lastReport: UploadReport | null
+  /** ⌘/Ctrl+C: copies of the selected items in list order (kept across missions). */
+  readonly clipboard: readonly MissionItem[]
 }
 
 export const INITIAL_MISSION_UI: MissionUi = {
@@ -30,6 +32,7 @@ export const INITIAL_MISSION_UI: MissionUi = {
   busy: 'idle',
   findings: [],
   lastReport: null,
+  clipboard: [],
 }
 
 const EMPTY: ReadonlySet<number> = new Set()
@@ -56,7 +59,7 @@ export const redoUi = (ui: MissionUi): MissionUi => {
   return { ...ui, history, dirty: true, selected: prune(ui.selected, history.present) }
 }
 
-/** Plain click = only this one; Shift (additive) toggles it. */
+/** Plain click = only this one; ⌘/Ctrl (additive) toggles it. Both move the anchor. */
 export function selectOne(ui: MissionUi, uid: number, additive: boolean): MissionUi {
   if (!additive) return { ...ui, selected: new Set([uid]), anchor: uid }
   const next = new Set(ui.selected)
@@ -65,7 +68,7 @@ export function selectOne(ui: MissionUi, uid: number, additive: boolean): Missio
   return { ...ui, selected: next, anchor: uid }
 }
 
-/** ⌘/Ctrl click: every item between the anchor and `uid` in list order. */
+/** Shift click: adds every item between the anchor and `uid` in list order (the rest stays selected). */
 export function selectRange(ui: MissionUi, uid: number): MissionUi {
   const items = ui.history.present.items
   const to = items.findIndex((it) => it.uid === uid)
@@ -74,6 +77,28 @@ export function selectRange(ui: MissionUi, uid: number): MissionUi {
   const [a, b] = from < to ? [from, to] : [to, from]
   const range = items.slice(a, b + 1).map((it) => it.uid)
   return { ...ui, selected: new Set([...ui.selected, ...range]) }
+}
+
+/** Map Shift-drag box: adds the boxed items (existing ones only); the anchor stays. */
+export function addToSelection(ui: MissionUi, uids: readonly number[]): MissionUi {
+  const alive = new Set(ui.history.present.items.map((it) => it.uid))
+  const next = new Set([...ui.selected, ...uids.filter((u) => alive.has(u))])
+  return next.size === ui.selected.size ? ui : { ...ui, selected: next }
+}
+
+export function copySelected(ui: MissionUi): MissionUi {
+  if (ui.selected.size === 0) return ui
+  const clipboard = ui.history.present.items.filter((it) => ui.selected.has(it.uid)).map(({ uid: _uid, ...it }) => it)
+  return { ...ui, clipboard }
+}
+
+/** ⌘/Ctrl+V: the clipboard after the last selected item (or at the end), one undo step, the copies selected. */
+export function pasteClipboard(ui: MissionUi): MissionUi {
+  if (ui.clipboard.length === 0) return ui
+  const d = ui.history.present
+  const last = [...d.items].reverse().find((it) => ui.selected.has(it.uid))
+  const { draft, uids } = insertItemsAfter(d, last?.uid ?? null, ui.clipboard)
+  return { ...edit(ui, draft), selected: new Set(uids), anchor: uids.at(-1) ?? ui.anchor }
 }
 
 export const clearSelection = (ui: MissionUi): MissionUi => (ui.selected.size === 0 ? ui : { ...ui, selected: EMPTY, anchor: null })

@@ -7,7 +7,7 @@ use crate::camera::{CameraCaps, CameraSnapshot, CameraState, Deadman, VideoSourc
 use crate::command::CommandResult;
 use crate::log::{ackable, severity_of_statustext, LogEntry, MessageSource, Severity};
 use crate::logbook::{Flight, LogFetchProgress};
-use crate::mission::MissionProgress;
+use crate::mission::{MissionProgress, MissionTransfer};
 use crate::params::ParamProgress;
 use crate::vehicle::{SysId, VehicleState, VehicleStateDiff};
 
@@ -106,6 +106,11 @@ pub enum ServerMessage {
     MissionProgress {
         sysid: SysId,
         progress: MissionProgress,
+    },
+    /// A mission write in progress (`PUT .../mission`): per item sent, then per item read back.
+    MissionTransfer {
+        sysid: SysId,
+        transfer: MissionTransfer,
     },
     /// Full parameter download progress (every 25 values, on completion, on refresh).
     ParamProgress {

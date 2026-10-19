@@ -89,7 +89,7 @@ pub async fn get_known(
     ok(app.missions.known(sysid))
 }
 
-async fn vehicle_for_write(app: &AppState, sysid: SysId) -> Result<VehicleState, Box<Response>> {
+pub(crate) async fn vehicle_for_write(app: &AppState, sysid: SysId) -> Result<VehicleState, Box<Response>> {
     let Some(vehicle) = app.router.lock().await.state(sysid).cloned() else {
         return Err(Box::new(err(
             StatusCode::NOT_FOUND,
@@ -107,7 +107,7 @@ async fn vehicle_for_write(app: &AppState, sysid: SysId) -> Result<VehicleState,
     Ok(vehicle)
 }
 
-fn mission_error(e: MissionError) -> Response {
+pub(crate) fn mission_error(e: MissionError) -> Response {
     match e {
         MissionError::Busy => err(StatusCode::CONFLICT, "mission_busy", e.to_string()),
         MissionError::Timeout => err(StatusCode::GATEWAY_TIMEOUT, "mission_timeout", e.to_string()),
@@ -122,26 +122,10 @@ async fn component_of(app: &AppState, sysid: SysId) -> u8 {
 }
 
 async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) -> Response {
-    let vehicle = match vehicle_for_write(app, sysid).await {
-        Ok(v) => v,
-        Err(r) => return *r,
-    };
-    if vehicle.armed {
-        audit(
-            app,
-            op,
-            sysid,
-            "upload",
-            mission,
-            "rejected",
-            Some("vehicle_armed"),
-        )
-        .await;
-        return err(
-            StatusCode::CONFLICT,
-            "vehicle_armed",
-            "disarm before writing a mission",
-        );
+    // ArduPilot accepts a mission while armed (a flying vehicle picks up the new one); only the
+    // link and the transfer lock gate a write.
+    if let Err(r) = vehicle_for_write(app, sysid).await {
+        return *r;
     }
     // Structural problems are refused before anything goes to the link (Review Focus 4); the
     // fence check then waits briefly for parameters that may still be in flight.

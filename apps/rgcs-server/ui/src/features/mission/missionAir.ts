@@ -1,12 +1,16 @@
 // 3D mission path (prototype updateMissionAir): one altitude polyline per leg coloured by
-// altitude, a post per positioned item (amber when selected), ground discs, and the altitude of
+// its climb angle (steep climbs turn red), a post per positioned item (amber when selected), ground discs, and the altitude of
 // every badge and mid-leg handle so the DOM markers can float to it.
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import type { FeatureCollection, Point } from 'geojson'
 import type { Map as MlMap, Marker } from 'maplibre-gl'
-import { altColor, itemAmsl, mercatorLine, type AirPoint, type AirVertex, type ElevAt, type Rgb } from '../map/air'
+import { climbColor, itemAmsl, mercatorLine, type AirPoint, type AirVertex, type ElevAt, type Rgb } from '../map/air'
 import { useAir3d } from '../map/air3d'
+import { pixelsPerMetre } from '../map/float'
 import type { MapMode } from '../map/mapMode'
+import { arcPoints, isArc } from './arc'
+import { circleRing } from './geofenceModel'
+import type { FenceZone } from '../../shared/api/types'
 import { haversineM, hasPosition, type LatLon } from './geo'
 import type { Draft, DraftItem } from './model'
 
@@ -29,6 +33,8 @@ export interface MissionAir {
   readonly mids: readonly (number | null)[]
 }
 
+type Pt = { lat: number; lon: number; amsl: number }
+
 interface Stop {
   readonly lat: number
   readonly lon: number
@@ -39,21 +45,63 @@ interface Stop {
 /** "▲ 80 m Rel" (prototype 3D badge chip). */
 export const altChip = (it: DraftItem): string => `▲ ${Math.round(it.alt)} m ${FRAME_LABEL[it.frame]}`
 
-function legPoints(a: Stop, b: Stop, elevAt: ElevAt): { lat: number; lon: number; amsl: number }[] {
+function legPoints(a: Stop, b: Stop, elevAt: ElevAt): Pt[] {
   const len = haversineM(a.lat, a.lon, b.lat, b.lon)
   const ter = a.item?.frame === 'ter' && b.item?.frame === 'ter'
-  const n = ter ? Math.min(200, Math.max(2, Math.ceil(len / 20))) : Math.max(2, Math.min(8, Math.ceil(len / 400)))
+  const arc = b.item && isArc(b.item) ? b.item.params[0] : 0
+  const n0 = ter ? Math.min(200, Math.max(2, Math.ceil(len / 20))) : Math.max(2, Math.min(8, Math.ceil(len / 400)))
+  const n = arc ? Math.max(n0, 16) : n0
+  // an ARC_WAYPOINT leg follows its arc; the altitude still changes linearly along it
+  const bent = arc ? arcPoints(a, b, arc, n) : null
+  // a sub-degree arc or a zero chord comes back as [a, b]: draw it straight
+  const along = bent && bent.length === n + 1 ? bent : null
   return Array.from({ length: n + 1 }, (_, k) => {
     const t = k / n
-    const lat = a.lat + (b.lat - a.lat) * t
-    const lon = a.lon + (b.lon - a.lon) * t
+    const lat = along ? along[k]!.lat : a.lat + (b.lat - a.lat) * t
+    const lon = along ? along[k]!.lon : a.lon + (b.lon - a.lon) * t
     const g = ter ? elevAt(lon, lat) : null
     const amsl = ter && g !== null ? g + a.item!.alt + (b.item!.alt - a.item!.alt) * t : a.amsl + (b.amsl - a.amsl) * t
     return { lat, lon, amsl }
   })
 }
 
-export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elevAt: ElevAt): MissionAir {
+/** Each vertex takes the climb of the segment that leaves it (the last one, the segment into it). */
+function coloured(pts: readonly Pt[]): AirPoint[] {
+  return pts.map((p, i) => {
+    const [a, b] = i < pts.length - 1 ? [p, pts[i + 1]!] : [pts[i - 1] ?? p, p]
+    return { ...p, color: climbColor(b.amsl - a.amsl, haversineM(a.lat, a.lon, b.lat, b.lon)) }
+  })
+}
+
+const FENCE_OK: Rgb = [0x5f / 255, 0xd3 / 255, 0x9b / 255]
+const FENCE_DANGER: Rgb = [1, 0x69 / 255, 0x61 / 255]
+
+/**
+ * The fence in 3D: each zone's outline at the FENCE_ALT_MAX ceiling (home ground + `ceiling`), and
+ * posts from the ground up to it at the polygon vertices / four points of a circle.
+ */
+function fenceWalls(zones: readonly FenceZone[], ceilingAmsl: number, ground: (lon: number, lat: number) => number): { lines: AirVertex[][]; posts: AirVertex[][] } {
+  const lines: AirVertex[][] = []
+  const posts: AirVertex[][] = []
+  for (const z of zones) {
+    const color = z.inclusion ? FENCE_OK : FENCE_DANGER
+    const ring = z.kind === 'circle' ? circleRing(z.center, z.radius, 32) : z.vertices.length >= 3 ? [...z.vertices, z.vertices[0]!] : []
+    if (ring.length < 2) continue
+    lines.push(mercatorLine(ring.map((p) => ({ lon: p.lon, lat: p.lat, amsl: ceilingAmsl, color }))))
+    const corners = z.kind === 'circle' ? [0, 8, 16, 24].map((i) => ring[i]!) : z.vertices
+    for (const p of corners) {
+      const g = ground(p.lon, p.lat)
+      posts.push(mercatorLine([{ lon: p.lon, lat: p.lat, amsl: Math.min(g, ceilingAmsl), color }, { lon: p.lon, lat: p.lat, amsl: Math.max(g, ceilingAmsl), color }]))
+    }
+  }
+  return { lines, posts }
+}
+
+/**
+ * `ceiling`: FENCE_ALT_MAX (m above home) to raise the fence zones to, `null` = no walls.
+ * `vehicleHome`: the target vehicle's home, the ceiling's base when the plan has neither home nor items.
+ */
+export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elevAt: ElevAt, ceiling: number | null = null, vehicleHome: LatLon | null = null): MissionAir {
   const items = draft.items.filter(hasPosition)
   const home: LatLon | null = draft.mission.home ?? items[0] ?? null
   const alts = new Map(items.map((it) => [it.uid, itemAmsl(it, home, elevAt)] as const))
@@ -63,11 +111,7 @@ export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elev
     return amsl === null || amsl === undefined ? [] : [{ lat: it.lat, lon: it.lon, amsl, item: it }]
   })
   const route = draft.mission.home && homeGround !== null && stops.length > 0 ? [{ ...draft.mission.home, amsl: homeGround, item: null }, ...stops] : stops
-  const zs = route.map((s) => s.amsl)
-  const lo = Math.min(...zs)
-  const hi = Math.max(...zs)
-  const colour = (z: number): Rgb => altColor(hi > lo ? (z - lo) / (hi - lo) : 0)
-  const lines = route.slice(1).map((b, i) => mercatorLine(legPoints(route[i]!, b, elevAt).map((p): AirPoint => ({ ...p, color: colour(p.amsl) }))))
+  const lines = route.slice(1).map((b, i) => mercatorLine(coloured(legPoints(route[i]!, b, elevAt))))
   const discs: FeatureCollection<Point, { sel: number }> = { type: 'FeatureCollection', features: [] }
   const posts = stops.flatMap((s) => {
     const g = elevAt(s.lon, s.lat) ?? homeGround
@@ -82,7 +126,9 @@ export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elev
     const zb = alts.get(b.uid)
     return za == null || zb == null ? null : (za + zb) / 2
   })
-  return { lines, posts, discs, alts, mids }
+  const base = home ? homeGround : vehicleHome ? elevAt(vehicleHome.lon, vehicleHome.lat) : null
+  const walls = ceiling !== null && base !== null ? fenceWalls(draft.mission.fence, base + ceiling, (lon, lat) => elevAt(lon, lat) ?? base) : { lines: [], posts: [] }
+  return { lines: [...lines, ...walls.lines], posts: [...posts, ...walls.posts], discs, alts, mids }
 }
 
 interface Args {
@@ -94,6 +140,9 @@ interface Args {
   readonly selected: ReadonlySet<number>
   readonly badges: RefObject<ReadonlyMap<number, { marker: Marker }>>
   readonly handles: RefObject<readonly Marker[]>
+  /** FENCE_ALT_MAX: the fence zones rise to it in 3D (above `vehicleHome` when the plan has no home). */
+  readonly ceiling?: number | null
+  readonly vehicleHome?: LatLon | null
 }
 
 function setup(m: MlMap): void {
@@ -108,13 +157,20 @@ function setup(m: MlMap): void {
   })
 }
 
-/** Returns whether 3D is on (the badges show their altitude chip). */
-export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles }: Args): boolean {
-  const { sampler, ready, is3d, tick, layer, floats } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
+export interface MissionAir3d {
+  readonly is3d: boolean
+  /** Screen pixels per metre of altitude at an item in the last 3D frame, `null` before one. */
+  readonly pxPerMetre: (uid: number) => number | null
+}
+
+export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles, ceiling = null, vehicleHome = null }: Args): MissionAir3d {
+  const { sampler, ready, is3d, tick, layer, floats, matrix } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
+  const latest = useRef({ draft, alts: new Map<number, number | null>() as ReadonlyMap<number, number | null> })
   useEffect(() => {
     const m = map.current
     if (!m || !ready || !sampler || !is3d) return
-    const d = missionAirData(draft, selected, sampler.elevAt)
+    const d = missionAirData(draft, selected, sampler.elevAt, ceiling, vehicleHome)
+    latest.current = { draft, alts: d.alts }
     const byUid = new Map(draft.items.map((it) => [it.uid, it]))
     const badgeFloats = [...badges.current.entries()].flatMap(([uid, { marker }]) => {
       const it = byUid.get(uid)
@@ -128,6 +184,15 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     layer.setLines(d.lines, d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats])
-  return is3d
+  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats, ceiling, vehicleHome?.lat, vehicleHome?.lon])
+
+  const pxPerMetre = (uid: number): number | null => {
+    const m = map.current
+    const it = latest.current.draft.items.find((x) => x.uid === uid)
+    if (!m || !matrix.current || !it) return null
+    const el = m.getContainer()
+    // before its ground is known an item floats at 0 m: the scale barely depends on it
+    return pixelsPerMetre(matrix.current, { w: el.clientWidth, h: el.clientHeight }, it.lon, it.lat, latest.current.alts.get(uid) ?? 0)
+  }
+  return { is3d, pxPerMetre }
 }
