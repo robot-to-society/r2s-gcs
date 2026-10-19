@@ -23,19 +23,21 @@ export function FleetConfirm({ command, targets, dict, onClose, onResult, deps }
   const [status, setStatus] = useState<ReadonlyMap<number, Status> | null>(null)
   const box = useRef<HTMLDivElement>(null)
   const title = `${dict.fleet} ${cmdLabel(command.cmd, dict)}`
-  const execute = async () => {
+  const execute = () => {
     if (status) return
     setStatus(new Map(targets.map((v) => [v.sysid, 'sending'])))
-    const results = await runFleet(
+    void runFleet(
       command,
       targets.map((v) => v.sysid),
       deps ?? { confirm: requestConfirm, send: sendCommand },
+      (r) => {
+        onResult(r.sysid, r.ok, r.message)
+        setStatus((m) => new Map(m ?? []).set(r.sysid, r.ok ? 'ok' : 'fail'))
+      },
     )
-    results.forEach((r) => onResult(r.sysid, r.ok, r.message))
-    setStatus(new Map(results.map((r) => [r.sysid, r.ok ? 'ok' : 'fail'])))
   }
-  const running = status !== null && [...status.values()].includes('sending')
-  useConfirmKeys(box, status ? null : () => void execute(), () => !running && onClose())
+  // The commands are in flight once sent: closing only hides the progress (results reach the log).
+  useConfirmKeys(box, status ? null : execute, onClose)
   return (
     <div className="modal-backdrop">
       <div ref={box} className="g-strong confirm" role="dialog" aria-label={title}>
@@ -50,7 +52,7 @@ export function FleetConfirm({ command, targets, dict, onClose, onResult, deps }
         </ul>
         <div className="confirm-actions">
           {status ? (
-            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={running}>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>
               {dict.close}
             </button>
           ) : (
@@ -58,7 +60,7 @@ export function FleetConfirm({ command, targets, dict, onClose, onResult, deps }
               <button type="button" className="btn btn-ghost" onClick={onClose}>
                 {dict.cancel}
               </button>
-              <button type="button" className={`btn ${DESTRUCTIVE.has(command.cmd) ? 'btn-danger' : 'btn-primary'}`} onClick={() => void execute()}>
+              <button type="button" className={`btn ${DESTRUCTIVE.has(command.cmd) ? 'btn-danger' : 'btn-primary'}`} onClick={execute}>
                 {dict.execute}
               </button>
             </>

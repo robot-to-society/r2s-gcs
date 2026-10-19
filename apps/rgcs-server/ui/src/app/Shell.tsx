@@ -318,6 +318,8 @@ export function Shell({ me, lang }: Props) {
           )}
           {modal.kind === 'guided' && currentVehicle && (
             <GuidedModal
+              // a new target vehicle starts a fresh flow (no altitude / step carried over)
+              key={currentVehicle.sysid}
               vehicle={currentVehicle}
               target={mapUi.target}
               dict={dict}

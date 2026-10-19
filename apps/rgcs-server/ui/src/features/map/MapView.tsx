@@ -7,6 +7,7 @@ import { followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
 import type { MapMode } from './mapMode'
 import { useVehicleAir } from './vehicleAir'
+import { MODE_EASE_MS } from './air3d'
 import { courseGeoJson, metresPerPixel } from './course'
 import { footprintsGeoJson, projectedIds } from './footprints'
 import { orderLayers } from './layers'
@@ -216,7 +217,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   }, [top, right, bottom, left])
 
   useBasemapSwap(map, loaded, basemap)
-  useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base: ARROW_OFFSET })
+  const modeSwitchAt = useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base: ARROW_OFFSET })
   const [zoom, setZoom] = useState(14)
   const followed = useRef<number | null>(null)
   useEffect(() => {
@@ -226,6 +227,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       followed.current = null
       return
     }
+    // An ease would cancel the 2D / 3D tilt in progress (MapLibre stops the running animation).
+    if (Date.now() - modeSwitchAt.current < MODE_EASE_MS) return
     // A new follow always centres; after that, sub-pixel GPS noise is ignored (dead band).
     const fresh = followed.current !== follow
     followed.current = follow

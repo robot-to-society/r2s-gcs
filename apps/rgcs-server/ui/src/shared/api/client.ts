@@ -6,6 +6,8 @@ export type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 export interface ApiInit {
   readonly method?: ApiMethod
   readonly body?: unknown
+  /** Give up after this many ms (`ApiError` code `timeout`); no limit by default. */
+  readonly timeoutMs?: number
 }
 
 export const CSRF_HEADER = 'X-Requested-With'
@@ -36,15 +38,21 @@ export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> 
   const headers: Record<string, string> = { [CSRF_HEADER]: CSRF_VALUE }
   if (hasBody) headers['content-type'] = 'application/json'
   let res: Response
+  const abort = init.timeoutMs === undefined ? null : new AbortController()
+  const timer = abort ? setTimeout(() => abort.abort(), init.timeoutMs) : null
   try {
     res = await fetch(path, {
       method: init.method ?? 'GET',
       credentials: 'same-origin',
       headers,
       body: hasBody ? JSON.stringify(init.body) : undefined,
+      signal: abort?.signal,
     })
   } catch (e) {
+    if (abort?.signal.aborted) throw new ApiError(0, 'timeout', `no answer within ${init.timeoutMs} ms`)
     throw new ApiError(0, 'network', e instanceof Error ? e.message : 'network error')
+  } finally {
+    if (timer) clearTimeout(timer)
   }
   const envelope = await parseEnvelope<T>(res)
   if (envelope.success) return envelope.data

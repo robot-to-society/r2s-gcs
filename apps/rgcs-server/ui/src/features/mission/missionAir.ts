@@ -113,7 +113,7 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
   const { sampler, ready, is3d, tick, layer, floats } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
   useEffect(() => {
     const m = map.current
-    if (!m || !ready || !sampler) return
+    if (!m || !ready || !sampler || !is3d) return
     const d = missionAirData(draft, selected, sampler.elevAt)
     const byUid = new Map(draft.items.map((it) => [it.uid, it]))
     const badgeFloats = [...badges.current.entries()].flatMap(([uid, { marker }]) => {
@@ -128,6 +128,6 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     layer.setLines(d.lines, d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, sampler, draft, selected, badges, handles, tick, layer, floats])
+  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats])
   return is3d
 }

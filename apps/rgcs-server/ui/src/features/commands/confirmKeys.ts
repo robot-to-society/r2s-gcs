@@ -13,7 +13,8 @@ export function useConfirmKeys(box: React.RefObject<HTMLDivElement | null>, onEn
         handlers.current.onEscape()
         return
       }
-      if (e.key !== 'Enter' || !handlers.current.onEnter) return
+      // A held key auto-repeats: the Enter that opened the dialog must not also run it.
+      if (e.key !== 'Enter' || e.repeat || !handlers.current.onEnter) return
       if (el && !inside && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return
       if (inside && el?.tagName === 'BUTTON') return // the focused button's own activation
       e.preventDefault()

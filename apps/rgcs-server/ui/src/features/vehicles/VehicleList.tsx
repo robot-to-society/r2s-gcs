@@ -80,7 +80,7 @@ export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, foll
       <div className="vlist-search">
         <input className="in" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={dict.filterVehicles} aria-label={dict.filterVehicles} />
       </div>
-      {onFleet && vehicles.filter((v) => v.link !== 'lost').length >= 2 && <FleetRow dict={dict} onFleet={onFleet} />}
+      {onFleet && vehicles.filter((v) => v.link !== 'lost').length >= 2 && vehicles.some((v) => v.armed && v.link !== 'lost') && <FleetRow dict={dict} onFleet={onFleet} />}
       <div className="vlist-body" role="listbox">
         {shown.length === 0 && <div className="empty">{dict.noVehicles}</div>}
         {shown.map((v) => (

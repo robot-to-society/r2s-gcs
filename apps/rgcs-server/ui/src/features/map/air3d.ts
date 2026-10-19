@@ -30,7 +30,12 @@ export interface Air3d {
   readonly layer: AirPathLayer
   /** The markers to float; set by the caller whenever its data changes. */
   readonly floats: { current: readonly Floating[] }
+  /** When the last 2D / 3D camera animation started (ms); camera moves should not cut it short. */
+  readonly modeSwitchAt: { readonly current: number }
 }
+
+/** The 2D / 3D camera animation (applyMapMode) plus a margin. */
+export const MODE_EASE_MS = 950
 
 export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, modeLayers, order }: Args): Air3d {
   const [tick, setTick] = useState(0)
@@ -38,6 +43,7 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
   const sampler = useMemo(() => (terrainTiles ? new TerrainSampler(terrainTiles, () => setTick((n) => n + 1)) : null), [terrainTiles])
   const layer = useRef(new AirPathLayer(layerId)).current
   const floats = useRef<readonly Floating[]>([])
+  const modeSwitchAt = useRef(0)
   const setupRef = useRef({ setup, order })
   setupRef.current = { setup, order }
   const modeRef = useRef(modeLayers)
@@ -63,9 +69,10 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
     const m = map.current
     if (!m || !ready) return
     layer.visible = is3d
+    modeSwitchAt.current = Date.now()
     applyMapMode(m, is3d ? '3d' : '2d', modeRef.current)
     if (!is3d) floatMarkers(m, null, floats.current)
   }, [map, ready, is3d, layer])
 
-  return { sampler, ready, is3d, tick, layer, floats }
+  return { sampler, ready, is3d, tick, layer, floats, modeSwitchAt }
 }

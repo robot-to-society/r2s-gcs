@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { countLogRows, login, waitForLogRow } from './helpers'
+import { countLogRows, holdToRun, login, waitForLogRow } from './helpers'
 
 async function openMaint(page: Page) {
   await login(page)
@@ -64,7 +64,7 @@ test('arm, hover, disarm → a flight draft appears; edit and confirm it; export
   // the command panel stays open across commands (2026-10-19)
   await expect(page.getByRole('complementary', { name: '全コマンド' })).toBeVisible()
   await page.getByRole('button', { name: 'ディスアーム', exact: true }).click()
-  await page.getByRole('button', { name: '実行' }).click()
+  await holdToRun(page)
   await waitForLogRow(page, DISARM, disarms)
 
   await page.getByRole('button', { name: 'メンテナンス・設定' }).click()

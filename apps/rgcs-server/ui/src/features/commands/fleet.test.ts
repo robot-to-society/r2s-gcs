@@ -3,11 +3,14 @@ import { ApiError } from '../../shared/api/client'
 import type { VehicleState } from '../../shared/api/types'
 import { fleetTargets, runFleet } from './fleet'
 
-const v = (sysid: number, link: VehicleState['link'] = 'ok') => ({ sysid, name: `UAV-0${sysid}`, link }) as VehicleState
+const v = (sysid: number, link: VehicleState['link'] = 'ok', armed = true) => ({ sysid, name: `UAV-0${sysid}`, link, armed }) as VehicleState
 
 describe('fleetTargets', () => {
-  it('is every vehicle with a link, by sysid', () => {
+  it('is every armed vehicle with a link, by sysid', () => {
     expect(fleetTargets([v(3), v(1, 'delay'), v(2, 'lost')]).map((x) => x.sysid)).toEqual([1, 3])
+  })
+  it('leaves vehicles on the pad alone (pause = BRAKE, which then refuses to arm)', () => {
+    expect(fleetTargets([v(1), v(2, 'ok', false)]).map((x) => x.sysid)).toEqual([1])
   })
 })
 

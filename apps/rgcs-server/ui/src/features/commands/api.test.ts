@@ -29,4 +29,16 @@ describe('commands api', () => {
     await sendCommand(2, { cmd: 'pause' })
     expect(JSON.parse(String(fetchMock.mock.calls[1]![1]?.body))).toEqual({ cmd: 'pause' })
   })
+  it('command requests give up after 10 s instead of hanging on a degraded link', async () => {
+    fetchMock.mockImplementation((_url, init) => new Promise((_, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason))))
+    vi.useFakeTimers()
+    try {
+      const p = sendCommand(1, { cmd: 'pause' }).catch((e: unknown) => e)
+      await vi.advanceTimersByTimeAsync(10_001)
+      expect(await p).toMatchObject({ code: 'timeout' })
+      expect(fetchMock.mock.calls[0]![1]?.signal).toBeInstanceOf(AbortSignal)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

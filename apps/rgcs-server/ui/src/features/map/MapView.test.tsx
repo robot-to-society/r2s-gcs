@@ -96,9 +96,9 @@ class FakeMap {
     this.paddingCalls += 1
   }
   center: [number, number] = [139.372, 36.162]
-  easeTo(o: { center: [number, number] }) {
+  easeTo(o: { center?: [number, number] }) {
     this.eased.push(o)
-    this.center = o.center
+    if (o.center) this.center = o.center
   }
   getCenter() {
     return { lng: this.center[0], lat: this.center[1] }
@@ -336,5 +336,38 @@ describe('MapView', () => {
     expect(m.eased.at(-1)).toMatchObject({ center: [139.39, 36.17] })
     rerender(<MapView {...props} focus={{ sysid: 2, n: 1 }} vehicles={new Map([[2, v(2, 3, 139.4, 36.2)]])} />)
     expect(m.eased.length).toBe(before + 1)
+  })
+  it('following does not cancel the 2D → 3D camera tilt; it resumes once the tilt is done', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(1_000_000)
+      const at = (lon: number) => new Map([[1, v(1, 3, lon, 36.16)]])
+      const props = { tracks: new Map(), follow: 1, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {}, terrainTiles: 'https://dem/{z}/{x}/{y}.png' }
+      const { rerender } = render(<MapView {...props} vehicles={at(139.37)} mode="2d" />)
+      const m = created.maps.at(-1)!
+      rerender(<MapView {...props} vehicles={at(139.37)} mode="3d" />)
+      expect(m.eased.at(-1)).toMatchObject({ pitch: 60 })
+      vi.setSystemTime(1_000_300)
+      rerender(<MapView {...props} vehicles={at(139.3701)} mode="3d" />) // 100 px away
+      expect(m.eased.at(-1)).toMatchObject({ pitch: 60 })
+      vi.setSystemTime(1_001_000)
+      rerender(<MapView {...props} vehicles={at(139.3702)} mode="3d" />)
+      expect(m.eased.at(-1)).toMatchObject({ center: [139.3702, 36.16] })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+  it('2D never downloads DEM tiles', () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 404 }))
+    try {
+      const props = { vehicles: new Map([[1, { ...v(1, 3), alt_rel: 40 }]]), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+      const { rerender } = render(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="2d" homes={new Map([[1, { lat: 36.16, lon: 139.37 }]])} />)
+      rerender(<MapView {...props} vehicles={new Map([[1, { ...v(1, 3, 139.371), alt_rel: 41 }]])} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="2d" homes={new Map([[1, { lat: 36.16, lon: 139.37 }]])} />)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      rerender(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" homes={new Map([[1, { lat: 36.16, lon: 139.37 }]])} />)
+      expect(fetchSpy).toHaveBeenCalled()
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 })

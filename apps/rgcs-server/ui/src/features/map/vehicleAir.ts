@@ -72,14 +72,15 @@ function setupGround(m: MlMap): void {
   })
 }
 
-/** Terrain, posts and floated markers; a no-op without terrain tiles. */
-export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base }: Args): void {
+/** Terrain, posts and floated markers; a no-op without terrain tiles. Returns when the last 2D / 3D switch started. */
+export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base }: Args): { readonly current: number } {
   const air = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup: setupGround, modeLayers: OPS_3D_LAYERS, order: orderLayers })
-  const { sampler, ready, tick, layer, floats } = air
+  const { sampler, ready, is3d, tick, layer, floats, modeSwitchAt } = air
 
   useEffect(() => {
     const m = map.current
-    if (!m || !ready || !sampler) return
+    // 2D needs no altitudes: no DEM downloads, no per-frame work
+    if (!m || !ready || !sampler || !is3d) return
     const d = vehicleAirData(vehicles, selected, homes, tracks, sampler.elevAt)
     floats.current = [...markers.current.entries()].flatMap(([sysid, { marker }]) => {
       const v = vehicles.get(sysid)
@@ -88,5 +89,6 @@ export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selec
     layer.setLines([], d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, sampler, vehicles, selected, homes, tracks, markers, base, tick, layer, floats])
+  }, [map, ready, is3d, sampler, vehicles, selected, homes, tracks, markers, base, tick, layer, floats])
+  return modeSwitchAt
 }

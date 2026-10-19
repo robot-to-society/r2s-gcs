@@ -16,8 +16,10 @@ export interface FleetResult {
   readonly message?: string
 }
 
+/** Armed vehicles with a link, by sysid. */
 export function fleetTargets(vehicles: readonly VehicleState[]): VehicleState[] {
-  return vehicles.filter((v) => v.link !== 'lost').sort((a, b) => a.sysid - b.sysid)
+  // Disarmed vehicles are left alone: a pause (BRAKE) on the pad would then refuse to arm.
+  return vehicles.filter((v) => v.link !== 'lost' && v.armed).sort((a, b) => a.sysid - b.sysid)
 }
 
 async function one(command: VehicleCommand, sysid: number, deps: FleetDeps): Promise<FleetResult> {
@@ -31,6 +33,7 @@ async function one(command: VehicleCommand, sysid: number, deps: FleetDeps): Pro
   }
 }
 
-export function runFleet(command: VehicleCommand, sysids: readonly number[], deps: FleetDeps): Promise<FleetResult[]> {
-  return Promise.all(sysids.map((s) => one(command, s, deps)))
+/** `onEach` reports every vehicle as soon as it settles; a slow one never holds the others. */
+export function runFleet(command: VehicleCommand, sysids: readonly number[], deps: FleetDeps, onEach?: (r: FleetResult) => void): Promise<FleetResult[]> {
+  return Promise.all(sysids.map((s) => one(command, s, deps).then((r) => (onEach?.(r), r))))
 }

@@ -42,12 +42,17 @@ describe('TerrainSampler', () => {
     expect(e!).toBeGreaterThanOrEqual(0)
     expect(e!).toBeLessThanOrEqual(255)
   })
-  it('retries a tile that failed', async () => {
+  it('waits 30 s before retrying a tile that failed (offline sites must not hammer the network)', async () => {
+    let now = 0
     const load = vi.fn(async () => null)
-    const s = new TerrainSampler('u/{z}/{x}/{y}', () => {}, load)
+    const s = new TerrainSampler('u/{z}/{x}/{y}', () => {}, load, () => now)
     s.elevAt(at.lon, at.lat)
     await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1))
     await new Promise((r) => setTimeout(r, 0))
+    now = 29_000
+    s.elevAt(at.lon, at.lat)
+    expect(load).toHaveBeenCalledTimes(1)
+    now = 31_000
     s.elevAt(at.lon, at.lat)
     expect(load).toHaveBeenCalledTimes(2)
   })

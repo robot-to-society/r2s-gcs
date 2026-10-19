@@ -36,8 +36,11 @@ function describe(command: VehicleCommand, dict: Dict): string {
   return label
 }
 
-/** Disarming a vehicle in the air stops the motors: it needs a deliberate hold (operator proposal 4). */
-export const needsHold = (command: VehicleCommand, v: VehicleState | undefined): boolean => command.cmd === 'disarm' && v !== undefined && v.armed && v.alt_rel > 1
+/**
+ * Disarming stops the motors: an armed vehicle always needs a deliberate hold (operator proposal 4).
+ * Not gated on `alt_rel` — it reads ≤ 1 m in the air below the home altitude or with baro drift.
+ */
+export const needsHold = (command: VehicleCommand, v: VehicleState | undefined): boolean => command.cmd === 'disarm' && v !== undefined && v.armed
 
 /** What the operator needs to judge the command: mode, altitude, battery, distance from home. */
 function ContextRow({ v, dict }: { v: VehicleState; dict: Dict }) {
@@ -59,8 +62,8 @@ function HoldButton({ busy, dict, onFire }: { busy: boolean; dict: Dict; onFire:
     setHolding(false)
   }
   useEffect(() => stop, [])
-  const start = () => {
-    if (busy) return
+  const start = (e: React.PointerEvent) => {
+    if (busy || e.button !== 0) return
     setHolding(true)
     timer.current = setTimeout(() => {
       timer.current = null

@@ -61,15 +61,24 @@ function bilinear(t: Float32Array, px: number, py: number): number {
 }
 
 /** Ground elevation from z13 Terrarium tiles; `onTile` fires when a tile arrives (redraw). */
+const RETRY_MS = 30_000
+
+/** A tile that failed: retried no sooner than `RETRY_MS` later (offline sites, LTE). */
+interface Failed {
+  readonly failedAt: number
+}
+
 export class TerrainSampler {
-  private readonly tiles = new Map<string, Float32Array | 'loading'>()
+  private readonly tiles = new Map<string, Float32Array | 'loading' | Failed>()
   private readonly url: string
   private readonly onTile: () => void
   private readonly load: TileLoader
-  constructor(url: string, onTile: () => void, load: TileLoader = loadTile) {
+  private readonly now: () => number
+  constructor(url: string, onTile: () => void, load: TileLoader = loadTile, now: () => number = Date.now) {
     this.url = url
     this.onTile = onTile
     this.load = load
+    this.now = now
   }
 
   readonly elevAt: ElevAt = (lon, lat) => {
@@ -77,7 +86,7 @@ export class TerrainSampler {
     const key = `${x}/${y}`
     const t = this.tiles.get(key)
     if (t instanceof Float32Array) return bilinear(t, px, py)
-    if (t === undefined) this.fetch(key, x, y)
+    if (t === undefined || (t !== 'loading' && this.now() - t.failedAt >= RETRY_MS)) this.fetch(key, x, y)
     return null
   }
 
@@ -86,7 +95,7 @@ export class TerrainSampler {
     const url = this.url.replace('{z}', String(Z)).replace('{x}', String(x)).replace('{y}', String(y))
     void this.load(url).then((t) => {
       if (!t) {
-        this.tiles.delete(key)
+        this.tiles.set(key, { failedAt: this.now() })
         return
       }
       this.tiles.set(key, t)

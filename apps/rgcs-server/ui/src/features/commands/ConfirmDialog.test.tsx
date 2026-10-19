@@ -109,8 +109,15 @@ describe('ConfirmDialog', () => {
     }
   })
 
-  it('disarming on the ground is a normal click', () => {
-    show('disarm', deps(), vi.fn(), veh({ alt_rel: 0.2 }))
-    expect(screen.getByRole('button', { name: '実行' })).toBeInTheDocument()
+  it('any disarm of an armed vehicle needs the hold (alt_rel can read ≤ 1 m in the air)', () => {
+    show('disarm', deps(), vi.fn(), veh({ alt_rel: -3 }))
+    expect(screen.getByRole('button', { name: /長押しで実行/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '実行' })).toBeNull()
+  })
+
+  it('an auto-repeated Enter (the key that opened the dialog, still held) does not execute', () => {
+    const { d } = show('rtl')
+    fireEvent.keyDown(document.body, { key: 'Enter', repeat: true })
+    expect(d.confirm).not.toHaveBeenCalled()
   })
 })

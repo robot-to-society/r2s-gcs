@@ -34,3 +34,14 @@ export async function waitForLogRow(page: Page, text: RegExp, before: number, ti
   await setLogOpen(page, false)
   return newest
 }
+
+/** Disarming an armed vehicle needs a 1.5 s press on the confirm's execute button (P9). */
+export async function holdToRun(page: Page): Promise<void> {
+  const button = page.getByRole('dialog', { name: '確認' }).getByRole('button', { name: /長押しで実行/ })
+  const box = (await button.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.waitForTimeout(1_700)
+  await page.mouse.up()
+  await expect(page.getByRole('dialog', { name: '確認' })).toHaveCount(0)
+}
