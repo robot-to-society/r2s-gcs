@@ -10,17 +10,20 @@ import { missionAirData } from '../mission/missionAir'
 import { fromMission } from '../mission/model'
 import { mercatorLine, vehicleAmsl, type AirVertex, type ElevAt, type Rgb } from './air'
 import { useAir3d } from './air3d'
+import { navTarget, vectorEnd } from './course'
 import { orderLayers } from './layers'
+import { hasPosition } from './markers'
 import type { MapMode } from './mapMode'
 import type { LatLon } from './store'
 import type { Tracks } from './tracks'
 
 const CYAN: Rgb = [0x9c / 255, 0xc9 / 255, 1]
 const AMBER: Rgb = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
+const WHITE: Rgb = [1, 1, 1]
 const GROUND = 'veh-ground'
 const AIR = 'veh-air3d'
 /** Layers shown only in 3D on the operations map. */
-export const OPS_3D_LAYERS = { only3d: [GROUND], only2d: ['mission-path-line', 'tracks-others', 'tracks-selected'] }
+export const OPS_3D_LAYERS = { only3d: [GROUND], only2d: ['mission-path-line', 'tracks-others', 'tracks-selected', 'course-nav', 'course-vector-casing', 'course-vector'] }
 
 export interface VehicleAir {
   /** Flight tracks and mission legs. */
@@ -51,13 +54,42 @@ function trackLines(tracks: Tracks, selected: number | null, homes: ReadonlyMap<
   })
 }
 
+/**
+ * Where the vehicle is going, in the air: the velocity vector from the vehicle along its course,
+ * climbing at its climb rate (white / cyan like 2D), and the line to the navigation target at
+ * flight altitude (amber / cyan) with a post down to the ground disc of the 2D target dot.
+ */
+function courseAir(v: VehicleState, amsl: number, ground: number, sel: boolean): { lines: AirVertex[][]; posts: AirVertex[][] } {
+  if (!hasPosition(v) || v.link === 'lost') return { lines: [], posts: [] }
+  const lines: AirVertex[][] = []
+  const posts: AirVertex[][] = []
+  const vec = vectorEnd(v)
+  if (vec) {
+    const c = sel ? WHITE : CYAN
+    lines.push(mercatorLine([{ lon: v.lon, lat: v.lat, amsl, color: c }, { lon: vec.end[0], lat: vec.end[1], amsl: amsl + v.climb * vec.seconds, color: c }]))
+  }
+  const nav = navTarget(v)
+  if (nav) {
+    const c = sel ? AMBER : CYAN
+    lines.push(mercatorLine([{ lon: v.lon, lat: v.lat, amsl, color: c }, { lon: nav[0], lat: nav[1], amsl, color: c }]))
+    posts.push(mercatorLine([{ lon: nav[0], lat: nav[1], amsl: Math.min(ground, amsl), color: c }, { lon: nav[0], lat: nav[1], amsl: Math.max(ground, amsl), color: c }]))
+  }
+  return { lines, posts }
+}
+
 export function vehicleAirData(vehicles: ReadonlyMap<number, VehicleState>, selected: number | null, homes: ReadonlyMap<number, LatLon>, tracks: Tracks, elevAt: ElevAt, mission: Mission | null = null): VehicleAir {
   const posts: AirVertex[][] = []
   const discs: FeatureCollection<Point, { sel: number }> = { type: 'FeatureCollection', features: [] }
   const alts = new Map<number, number | null>()
+  const course: AirVertex[][] = []
   vehicles.forEach((v) => {
     const a = vehicleAmsl(v, homeOf(v.sysid, homes, tracks), elevAt)
     alts.set(v.sysid, a ? a.amsl : null)
+    if (a) {
+      const air = courseAir(v, a.amsl, a.ground, v.sysid === selected)
+      course.push(...air.lines)
+      posts.push(...air.posts)
+    }
     if (!a || v.alt_rel < 1) return
     const c = v.sysid === selected ? AMBER : CYAN
     posts.push(mercatorLine([{ lon: v.lon, lat: v.lat, amsl: Math.min(a.ground, a.amsl), color: c }, { lon: v.lon, lat: v.lat, amsl: Math.max(a.ground, a.amsl), color: c }]))
@@ -67,7 +99,7 @@ export function vehicleAirData(vehicles: ReadonlyMap<number, VehicleState>, sele
   const m = plan ? missionAirData(plan, new Set(), elevAt) : null
   const missionAlts = plan ? plan.items.filter(itemHasPosition).map((it) => m!.alts.get(it.uid) ?? null) : []
   return {
-    lines: [...trackLines(tracks, selected, homes, elevAt), ...(m?.lines ?? [])],
+    lines: [...trackLines(tracks, selected, homes, elevAt), ...(m?.lines ?? []), ...course],
     posts: [...posts, ...(m?.posts ?? [])],
     discs: { ...discs, features: [...discs.features, ...(m?.discs.features ?? [])] },
     alts,

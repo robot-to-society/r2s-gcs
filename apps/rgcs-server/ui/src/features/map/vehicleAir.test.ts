@@ -4,7 +4,7 @@ import { toMercator } from './air'
 import { vehicleAirData } from './vehicleAir'
 import type { Mission } from '../../shared/api/types'
 
-const v = (sysid: number, alt_rel: number, lon = 139.37, lat = 36.16) => ({ sysid, lat, lon, alt_rel }) as unknown as VehicleState
+const v = (sysid: number, alt_rel: number, lon = 139.37, lat = 36.16) => ({ sysid, lat, lon, alt_rel, gps: { fix: 3 }, link: 'ok', armed: false, mode: 'LOITER', ground_speed: 0, climb: 0 }) as unknown as VehicleState
 
 describe('vehicleAirData', () => {
   const homes = new Map([[1, { lat: 36.16, lon: 139.37 }]])
@@ -46,5 +46,25 @@ describe('vehicleAirData', () => {
     expect(d.lines[0]![0]!.c).toEqual([0x9c / 255, 0xc9 / 255, 1])
     expect(d.posts).toHaveLength(2)
     expect(d.missionAlts).toEqual([150, 150])
+  })
+
+  it('starts the velocity vector at the vehicle in the air and climbs with it (10 s ahead)', () => {
+    const flying = { ...v(1, 30), armed: true, mode: 'LOITER', link: 'ok', gps: { fix: 3 }, cog: 90, ground_speed: 5, climb: 2 } as unknown as VehicleState
+    const d = vehicleAirData(new Map([[1, flying]]), 1, homes, new Map(), () => 100)
+    expect(d.lines).toHaveLength(1)
+    const [a, b] = d.lines[0]!
+    expect(a!.z).toBeCloseTo(toMercator(139.37, 36.16, 130).z, 12)
+    expect(b!.z).toBeCloseTo(toMercator(139.37, 36.16, 150).z, 12) // +2 m/s for 10 s
+    expect(b!.x).toBeGreaterThan(a!.x) // east
+    expect(a!.c).toEqual([1, 1, 1]) // white for the selected vehicle, like 2D
+  })
+  it('draws the line to the navigation target at flight altitude with a post down to the ground', () => {
+    const nav = { ...v(1, 30), armed: true, mode: 'AUTO', link: 'ok', gps: { fix: 3 }, ground_speed: 0, climb: 0, nav: { target_bearing: 0, wp_dist: 100 } } as unknown as VehicleState
+    const d = vehicleAirData(new Map([[1, nav]]), null, homes, new Map(), () => 100)
+    expect(d.lines).toHaveLength(1)
+    const [a, b] = d.lines[0]!
+    expect(b!.z).toBeCloseTo(a!.z, 9) // same altitude (z scales a little with latitude)
+    expect(b!.y).toBeLessThan(a!.y) // north
+    expect(d.posts).toHaveLength(2) // the vehicle and the target
   })
 })
