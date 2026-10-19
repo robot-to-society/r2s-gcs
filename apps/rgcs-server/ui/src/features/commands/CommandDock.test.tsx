@@ -1,8 +1,30 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { LogEntry, VehicleState } from '../../shared/api/types'
+import type { LogEntry, VehicleCommand, VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 import { CommandDock } from './CommandDock'
+import { useCommandRunner, type RunnerDeps } from './useCommandRunner'
+
+interface HarnessProps {
+  readonly vehicle: VehicleState
+  readonly entries: LogEntry[]
+  readonly dict: ReturnType<typeof t>
+  readonly onClose: () => void
+  readonly onOpenGuided: (sysid: number) => void
+  readonly onError: (sysid: number, command: VehicleCommand, message: string) => void
+  readonly deps: RunnerDeps
+}
+
+/** The Shell's wiring: one runner, the dock and the runner's confirm modal. */
+function Harness({ vehicle, entries, dict, onClose, onOpenGuided, onError, deps }: HarnessProps) {
+  const runner = useCommandRunner({ entries, dict, vehicleOf: (s) => (s === vehicle.sysid ? vehicle : undefined), onError, deps })
+  return (
+    <>
+      <CommandDock vehicle={vehicle} entries={entries} dict={dict} onClose={onClose} onOpenGuided={onOpenGuided} runner={runner} />
+      {runner.confirm}
+    </>
+  )
+}
 
 const v = (sysid: number, armed = false): VehicleState => ({
   sysid, name: `UAV-0${sysid}`, kind: 'copter', mode: 'LOITER', armed, lat: 0, lon: 0, alt_rel: 0, alt_msl: 0, hdg: null,
@@ -16,8 +38,8 @@ function setup(vehicle: VehicleState, entries: LogEntry[] = []) {
   const onClose = vi.fn()
   const onOpenGuided = vi.fn()
   const props = { dict: t('ja'), entries, onClose, onOpenGuided, deps: { send, confirm }, onError: vi.fn() }
-  const view = render(<CommandDock vehicle={vehicle} {...props} />)
-  return { send, confirm, onClose, onOpenGuided, rerender: (next: VehicleState) => view.rerender(<CommandDock vehicle={next} {...props} />) }
+  const view = render(<Harness vehicle={vehicle} {...props} />)
+  return { send, confirm, onClose, onOpenGuided, rerender: (next: VehicleState) => view.rerender(<Harness vehicle={next} {...props} />) }
 }
 
 const panel = () => screen.getByRole('complementary', { name: '全コマンド' })
@@ -65,5 +87,29 @@ describe('CommandDock', () => {
     const e = (id: number, sysid: number, text: string, severity: LogEntry['severity'], source: LogEntry['source'] = 'command'): LogEntry => ({ id, ts: new Date(2026, 9, 19, 10, 0, id).getTime(), sysid, source, severity, text, ackable: false, acked_by: null, acked_at: null })
     setup(v(1, true), [e(9, 1, 'PreArm: GPS', 'error', 'vehicle'), e(8, 2, 'rtl timeout', 'error'), e(5, 1, 'pause', 'ok')])
     expect(within(panel()).getByTestId('cmd-last')).toHaveTextContent('10:00:05 一時停止 成功')
+  })
+  it('the_pressed_button_shows_sending_then_the_result', async () => {
+    const send = vi.fn(async () => ({ id: 7 }))
+    const props = { dict: t('ja'), onClose: vi.fn(), onOpenGuided: vi.fn(), deps: { send, confirm: vi.fn() } as unknown as RunnerDeps, onError: vi.fn() }
+    const view = render(<Harness vehicle={v(1, true)} entries={[]} {...props} />)
+    const button = () => within(panel()).getByRole('button', { name: /一時停止/ })
+    fireEvent.click(button())
+    await waitFor(() => expect(send).toHaveBeenCalled())
+    expect(button().className).toContain('sending')
+    const ok: LogEntry = { id: 9, ts: Date.now(), sysid: 1, source: 'command', severity: 'ok', text: 'pause', ackable: false, acked_by: null, acked_at: null }
+    view.rerender(<Harness vehicle={v(1, true)} entries={[ok]} {...props} />)
+    await waitFor(() => expect(button().className).toContain('ok'))
+    view.rerender(<Harness vehicle={v(2, true)} entries={[ok]} {...props} />)
+    expect(button().className).not.toContain('ok')
+  })
+
+  it('the_vehicle_name_flashes_when_the_target_changes', () => {
+    const { rerender } = setup(v(1, true))
+    const before = within(panel()).getByText('UAV-01')
+    expect(before.className).toContain('target-flash')
+    rerender(v(2, true))
+    const after = within(panel()).getByText('UAV-02')
+    expect(after.className).toContain('target-flash')
+    expect(after).not.toBe(before)
   })
 })

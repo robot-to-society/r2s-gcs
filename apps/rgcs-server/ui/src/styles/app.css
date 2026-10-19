@@ -68,7 +68,7 @@
 
 /* ---- sheets (commands / camera settings / present): prototype `float map-r top2` ---- */
 .sheet { position: absolute; right: var(--gap); top: calc(var(--top) + 54px); bottom: var(--gap); width: 380px; z-index: 6; display: flex; flex-direction: column; min-height: 0; }
-.sheet.beside { right: calc(var(--right-w) + 2 * var(--gap)); }
+.sheet.beside { right: calc(var(--right-w) + 2 * var(--gap)); bottom: calc(var(--gap) + 52px); } /* stays open beside the detail panel: keep the footer log pill (bottom 12 + 40 px) clickable */
 .sheet-search { padding: 0 14px 10px; }
 .sheet-search .in { display: flex; align-items: center; gap: 8px; color: var(--text-4); }
 .sheet-search .in input { flex: 1; }
@@ -168,3 +168,46 @@
 
 /* maintenance has seven tabs since the MAVLink inspector (the prototype defines n3–n6) */
 .seg.n7 .lens { width: calc((100% - 6px) / 7); }
+
+/* ---- P9 operator feedback: pressed command button, target flash ---- */
+.cmd-btn { position: relative; }
+.cmd-btn .cmd-fb { position: absolute; top: 4px; right: 6px; font-size: 12px; font-weight: 600; line-height: 1; }
+.cmd-btn.sending { border-color: var(--accent-line); }
+.cmd-btn.sending .cmd-fb { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--accent); border-right-color: transparent; animation: cmd-spin 0.8s linear infinite; }
+.cmd-btn.ok { border-color: var(--ok); }
+.cmd-btn.ok .cmd-fb { color: var(--ok); }
+.cmd-btn.fail { border-color: var(--danger); }
+.cmd-btn.fail .cmd-fb { color: var(--danger); }
+@keyframes cmd-spin { to { transform: rotate(360deg); } }
+.target-flash { animation: target-flash 0.9s ease-out; border-radius: 6px; }
+@keyframes target-flash { 0% { background: rgba(242, 181, 68, 0.55); box-shadow: 0 0 0 4px rgba(242, 181, 68, 0.35); } 100% { background: transparent; box-shadow: 0 0 0 0 transparent; } }
+.confirm-ctx { font-size: 12px; margin-top: 6px; }
+.btn.hold { position: relative; overflow: hidden; touch-action: none; user-select: none; }
+.btn.hold .hold-fill { position: absolute; inset: 0; transform: scaleX(0); transform-origin: left; background: rgba(255, 255, 255, 0.28); }
+.btn.hold.holding .hold-fill { transform: scaleX(1); transition: transform 1.5s linear; }
+.btn.hold .hold-label { position: relative; }
+.quick-modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 10px; }
+.quick-modes .chip { height: 32px; border-radius: var(--r-ctl); border: 1px solid var(--line-hi); background: transparent; color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; }
+.quick-modes .chip.on { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent); }
+.cmd-param .step { min-width: 40px; padding: 0 6px; }
+.cmd-prearm { grid-column: 1 / -1; margin: 0; padding: 6px 10px; list-style: none; border-radius: var(--r-ctl); border: 1px solid var(--caution-line); color: var(--caution); font-size: 12px; line-height: 1.5; }
+.emerg-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 0; }
+.emerg-btn { display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border-radius: var(--r-ctl); border: 1px solid var(--line-hi); background: rgba(255, 255, 255, 0.04); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; }
+.emerg-btn.primary { border-color: var(--caution-line); color: var(--caution); }
+.emerg-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.emerg-btn.stale { opacity: 0.6; border-style: dashed; }
+.emerg-btn.sending { border-color: var(--accent-line); }
+.emerg-btn.ok { border-color: var(--ok); }
+.emerg-btn.fail { border-color: var(--danger); }
+.fleet-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 14px 8px; }
+.fleet-row .btn.caution { color: var(--caution); border-color: var(--caution-line); }
+.fleet-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow: auto; }
+.fleet-list li { display: flex; justify-content: space-between; padding: 6px 10px; border-radius: var(--r-ctl); border: 1px solid var(--line); }
+.fleet-list li.sending { border-color: var(--accent-line); }
+.fleet-list li.ok { border-color: var(--ok); }
+.fleet-list li.fail { border-color: var(--danger); color: var(--danger); }
+.ctx-menu .ctx-head { padding: 4px 10px 2px; font-size: 11px; }
+.ctx-menu button:disabled { opacity: 0.4; cursor: not-allowed; }
+.warn-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--caution); color: var(--on-caution); font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
+.logrow .src.link { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.logrow .src.link:hover { color: var(--accent); }

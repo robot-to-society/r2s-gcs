@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import type { Dict } from '../../shared/i18n'
-import type { VehicleState } from '../../shared/api/types'
-import { IconCollapse, IconCopter, IconMenu, IconPin, IconRover } from '../../shared/ui/icons'
+import type { VehicleCommand, VehicleState } from '../../shared/api/types'
+import { cmdLabel } from '../../shared/i18n'
+import { IconCollapse, IconCopter, IconMenu, IconPin, IconRover, IconSortAlerts } from '../../shared/ui/icons'
+import { saveVehicleSort, sortVehicles, useVehicleSort } from './sort'
 import { matches } from './format'
 import { VehicleRow } from './VehicleRow'
 import { dotClass } from './format'
@@ -16,11 +18,28 @@ interface Props {
   /** `rail` collapses the panel to a 60 px column of icons (spec 20 §4). */
   readonly aside?: 'full' | 'rail'
   readonly onToggleAside?: () => void
+  /** Fleet pause / RTL (shown with two or more vehicles that have a link). */
+  readonly onFleet?: (command: VehicleCommand) => void
 }
 
-export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, following = null, aside = 'full', onToggleAside }: Props) {
+const FLEET: readonly VehicleCommand[] = [{ cmd: 'pause' }, { cmd: 'rtl' }]
+
+function FleetRow({ dict, onFleet }: { dict: Dict; onFleet: (c: VehicleCommand) => void }) {
+  return (
+    <div className="fleet-row">
+      {FLEET.map((c) => (
+        <button key={c.cmd} type="button" className={`btn btn-ghost btn-sm${c.cmd === 'pause' ? ' caution' : ''}`} onClick={() => onFleet(c)}>
+          {`${dict.fleet} ${cmdLabel(c.cmd, dict)}`}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, following = null, aside = 'full', onToggleAside, onFleet }: Props) {
   const [query, setQuery] = useState('')
-  const shown = vehicles.filter((v) => matches(v, query, dict))
+  const sort = useVehicleSort()
+  const shown = sortVehicles(vehicles.filter((v) => matches(v, query, dict)), sort)
   if (aside === 'rail') {
     return (
       <aside className="g panel float float-l" aria-label={dict.vehicles}>
@@ -46,6 +65,9 @@ export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, foll
           {vehicles.length}
         </span>
         <div className="grow" />
+        <button type="button" className={`btn-icon${sort === 'alerts' ? ' on' : ''}`} title={dict.sortAlerts} aria-label={dict.sortAlerts} aria-pressed={sort === 'alerts'} onClick={() => saveVehicleSort(sort === 'alerts' ? 'id' : 'alerts')}>
+          <IconSortAlerts />
+        </button>
         <button type="button" className="btn-icon" title={dict.pinned} aria-label={dict.pinned} disabled>
           <IconPin />
         </button>
@@ -58,6 +80,7 @@ export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, foll
       <div className="vlist-search">
         <input className="in" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={dict.filterVehicles} aria-label={dict.filterVehicles} />
       </div>
+      {onFleet && vehicles.filter((v) => v.link !== 'lost').length >= 2 && vehicles.some((v) => v.armed && v.link !== 'lost') && <FleetRow dict={dict} onFleet={onFleet} />}
       <div className="vlist-body" role="listbox">
         {shown.length === 0 && <div className="empty">{dict.noVehicles}</div>}
         {shown.map((v) => (

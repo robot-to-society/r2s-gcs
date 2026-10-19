@@ -9,6 +9,8 @@ import { cmdKey, type Draft } from './model'
 import type { Tool } from './store'
 import { useBasemapSwap } from '../map/basemaps'
 import type { Basemap } from '../../shared/api/types'
+import type { MapMode } from '../map/mapMode'
+import { altChip, useMissionAir } from './missionAir'
 
 interface Props {
   readonly draft: Draft
@@ -17,6 +19,9 @@ interface Props {
   readonly style: StyleSpecification
   /** The picked base map; a change swaps the base tiles in place. */
   readonly basemap?: Basemap
+  /** 2D / 3D; 3D needs `terrainTiles`. */
+  readonly mode?: MapMode
+  readonly terrainTiles?: string | null
   readonly vehicle: VehicleState | null
   /** Bump to fit the view to the mission (after loading / importing). */
   readonly fitRequest: number
@@ -40,7 +45,7 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles'>
 
 /** 2D mission editing layer (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
@@ -92,6 +97,8 @@ export function MissionMap(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const is3d = props.mode === '3d' && (props.terrainTiles ?? null) !== null
+
   // Path
   useEffect(() => {
     if (!loaded.current) return
@@ -111,10 +118,10 @@ export function MissionMap(props: Props) {
       const existing = badges.current.get(it.uid)
       if (existing) {
         existing.marker.setLngLat([it.lon, it.lat])
-        updateBadgeEl(existing.el, seq, selected.has(it.uid), cmdKey(it))
+        updateBadgeEl(existing.el, seq, selected.has(it.uid), cmdKey(it), is3d ? altChip(it) : null)
         return
       }
-      const el = badgeEl(seq, selected.has(it.uid), cmdKey(it))
+      const el = updateBadgeEl(badgeEl(seq, selected.has(it.uid), cmdKey(it)), seq, selected.has(it.uid), cmdKey(it), is3d ? altChip(it) : null)
       const marker = new maplibregl.Marker({ element: el, draggable: true, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m)
       attachBadge(marker, el, it.uid, cb, selectedRef)
       badges.current.set(it.uid, { marker, el })
@@ -125,7 +132,7 @@ export function MissionMap(props: Props) {
         badges.current.delete(uid)
       }
     }
-  }, [draft, selected])
+  }, [draft, selected, is3d])
 
   // Mid-leg handles are rebuilt on every draft change (cheap: ≤ 700)
   useEffect(() => {
@@ -141,6 +148,9 @@ export function MissionMap(props: Props) {
       return new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([h.lon, h.lat]).addTo(m)
     })
   }, [draft])
+
+  // After the map, the badges and the handles exist: effects run in declaration order.
+  useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft, selected, badges, handles })
 
   // The selected vehicle, for context
   useEffect(() => {

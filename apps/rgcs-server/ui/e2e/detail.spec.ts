@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { countLogRows, login, waitForLogRow } from './helpers'
+import { countLogRows, holdToRun, login, waitForLogRow } from './helpers'
 
 // Needs scripts/e2e.sh --with-sitl (ArduCopter SITL on tcp:5760).
 test.skip(!process.env.RGCS_E2E_SITL, 'needs SITL')
@@ -25,7 +25,7 @@ test('vehicle marker, detail panel and a confirmed ARM / DISARM', async ({ page 
     // the command panel stays open across commands (2026-10-19)
     await expect(page.getByRole('complementary', { name: '全コマンド' })).toBeVisible()
     await page.getByRole('button', { name: 'ディスアーム', exact: true }).click()
-    await page.getByRole('button', { name: '実行' }).click()
+    await holdToRun(page)
     await waitForLogRow(page, DISARM, disarms)
   } else {
     // PreArm failures arrive as STATUSTEXT and must show in the panel.

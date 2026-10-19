@@ -255,3 +255,15 @@ async fn gcs_sysid_persists() {
         "invalid stored values fall back to 255"
     );
 }
+
+#[tokio::test]
+async fn app_settings_include_the_terrain_tiles() {
+    let (app, _state) = spawn_app().await;
+    let cookie = login(&app).await;
+    let (status, body, _) = call(&app, req(Method::GET, "/api/settings/app", Some(&cookie), None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["data"]["terrain_tiles"],
+        "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+    );
+}

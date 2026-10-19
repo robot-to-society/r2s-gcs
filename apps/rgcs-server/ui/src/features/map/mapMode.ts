@@ -1,0 +1,66 @@
+// 2D / 3D (prototype applyMapMode). The pick is per browser and shared by the operations and
+// mission maps. MapLibre gotcha (memory): stop the camera and set the terrain BEFORE easing —
+// enabling terrain mid-animation crashes the render loop and the map freezes silently.
+import { useSyncExternalStore } from 'react'
+import type { TerrainSpecification } from 'maplibre-gl'
+
+export type MapMode = '2d' | '3d'
+
+const KEY = 'rgcs.mapMode'
+export const DEM_SOURCE = 'dem'
+
+/** The parts of a MapLibre map the switch uses (a fake in tests). */
+export interface ModeHost {
+  stop(): unknown
+  setTerrain(t: TerrainSpecification | null): unknown
+  easeTo(o: { pitch: number; bearing: number; duration: number }): unknown
+  getLayer(id: string): unknown
+  getSource(id: string): unknown
+  setLayoutProperty(id: string, name: 'visibility', value: 'visible' | 'none'): unknown
+}
+
+export interface ModeLayers {
+  readonly only3d: readonly string[]
+  readonly only2d: readonly string[]
+}
+
+export function applyMapMode(map: ModeHost, mode: MapMode, layers: ModeLayers, animate = true): void {
+  const is3d = mode === '3d' && map.getSource(DEM_SOURCE) !== undefined
+  map.stop()
+  map.setTerrain(is3d ? { source: DEM_SOURCE, exaggeration: 1 } : null)
+  const vis = (id: string, on: boolean) => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
+  layers.only3d.forEach((id) => vis(id, is3d))
+  layers.only2d.forEach((id) => vis(id, !is3d))
+  if (animate) map.easeTo({ pitch: is3d ? 60 : 0, bearing: is3d ? -25 : 0, duration: 900 })
+}
+
+const listeners = new Set<() => void>()
+let memo: MapMode | undefined
+
+export function readMapMode(): MapMode {
+  try {
+    return localStorage.getItem(KEY) === '3d' ? '3d' : '2d'
+  } catch {
+    return '2d'
+  }
+}
+
+export function saveMapMode(mode: MapMode): void {
+  try {
+    localStorage.setItem(KEY, mode)
+  } catch {
+    // blocked storage: the pick lasts the session
+  }
+  memo = mode
+  listeners.forEach((l) => l())
+}
+
+export function useMapMode(): MapMode {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l)
+      return () => listeners.delete(l)
+    },
+    () => (memo ??= readMapMode()),
+  )
+}

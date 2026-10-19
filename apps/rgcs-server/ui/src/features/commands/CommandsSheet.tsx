@@ -1,9 +1,10 @@
-import { useState, type ReactElement, type ReactNode } from 'react'
+import { Fragment, useState, type ReactElement, type ReactNode } from 'react'
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import { cmdLabel, type Dict } from '../../shared/i18n'
 import {
   IconAltitude,
   IconCamera,
+  IconCheck,
   IconClose,
   IconCrosshair,
   IconEllipsis,
@@ -18,7 +19,8 @@ import {
   IconSpeed,
   IconStepForward,
 } from '../../shared/ui/icons'
-import { CATALOG, COPTER_MODES, catalogGroups, type CatalogItem, type CommandGroup, type ModalTarget } from './catalog'
+import { CATALOG, COPTER_MODES, QUICK_MODES, catalogGroups, type CatalogItem, type CommandGroup, type ModalTarget } from './catalog'
+import type { BtnState } from './feedback'
 
 interface Props {
   readonly vehicle: VehicleState
@@ -30,7 +32,13 @@ interface Props {
   readonly beside?: boolean
   /** Shown under the commands (the dock's sending / last-result line). */
   readonly footer?: ReactNode
+  /** Per-button sending / done / failed for the shown vehicle. */
+  readonly feedback?: (cmd: string) => BtnState | null
+  /** The vehicle's recent PreArm refusals, shown under ARM while disarmed. */
+  readonly prearm?: readonly string[]
 }
+
+const FB_ICON: Record<BtnState, () => ReactElement | null> = { sending: () => null, ok: () => <IconCheck size={12} />, fail: () => <IconClose size={12} /> }
 
 const GROUP_LABEL: Record<CommandGroup, keyof Dict> = { flight: 'groupFlight', move: 'groupMove', mode: 'groupMode', payload: 'groupPayload' }
 /** Lucide icon per command name (spec 20 §9). */
@@ -55,8 +63,37 @@ function label(item: CatalogItem, dict: Dict): string {
   return item.name === 'camera' ? dict.cmd_camera : cmdLabel(item.name, dict)
 }
 
+/** One-click mode chips (operator proposal 5); still confirm-gated like 「モード変更」. */
+function QuickModes({ current, dict, onPick }: { current: string; dict: Dict; onPick: (c: VehicleCommand) => void }) {
+  return (
+    <div className="quick-modes" role="group" aria-label={dict.quickModes}>
+      {QUICK_MODES.map((m) => (
+        <button key={m} type="button" className={`chip${m === current ? ' on' : ''}`} aria-pressed={m === current} onClick={() => onPick({ cmd: 'set_mode', args: { mode: m } })}>
+          {m}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** A numeric input with -5 / +5 steps. */
+function StepInput({ label, placeholder, value, onChange }: { label: string; placeholder: string; value: string; onChange: (v: string) => void }) {
+  const step = (d: number) => onChange(String((Number(value) || 0) + d))
+  return (
+    <>
+      <button type="button" className="btn btn-ghost btn-sm step" onClick={() => step(-5)}>
+        -5
+      </button>
+      <input className="rg-num" aria-label={label} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+      <button type="button" className="btn btn-ghost btn-sm step" onClick={() => step(5)}>
+        +5
+      </button>
+    </>
+  )
+}
+
 /** Right-aligned 380 px sheet listing every command by group in a 2-column grid (spec 10 §3.5). */
-export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside = false, footer }: Props) {
+export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside = false, footer, feedback, prearm = [] }: Props) {
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState(vehicle.mode || COPTER_MODES[0]!)
   const [alt, setAlt] = useState('')
@@ -67,7 +104,12 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
 
   const pick = (item: CatalogItem) => {
     if (item.opens) return onOpen(item.opens)
-    if (item.param && open !== item.name) return setOpen(item.name)
+    if (item.param && open !== item.name) {
+      // start from where the vehicle is now
+      if (item.param === 'alt') setAlt(String(Math.round(vehicle.alt_rel)))
+      if (item.param === 'speed') setSpeed(String(Math.round(vehicle.ground_speed)))
+      return setOpen(item.name)
+    }
     const raw = item.param === 'alt' ? alt : item.param === 'speed' ? speed : ''
     const value = raw === '' ? undefined : Number(raw)
     const command = item.build?.({ mode, value }) ?? null
@@ -86,8 +128,8 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
           ))}
         </select>
       )}
-      {item.param === 'alt' && <input className="rg-num" aria-label={label(item, dict)} placeholder={dict.altInput} value={alt} onChange={(e) => setAlt(e.target.value)} />}
-      {item.param === 'speed' && <input className="rg-num" aria-label={label(item, dict)} placeholder={dict.speedInput} value={speed} onChange={(e) => setSpeed(e.target.value)} />}
+      {item.param === 'alt' && <StepInput label={label(item, dict)} placeholder={dict.altInput} value={alt} onChange={setAlt} />}
+      {item.param === 'speed' && <StepInput label={label(item, dict)} placeholder={dict.speedInput} value={speed} onChange={setSpeed} />}
       <button type="button" className="btn btn-primary btn-sm" onClick={() => pick(item)}>
         {dict.run}
       </button>
@@ -97,7 +139,10 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
   return (
     <aside className={`g-strong panel sheet${beside ? ' beside' : ''}`} aria-label={dict.allCommands}>
       <div className="panel-h">
-        <span className="h1">{vehicle.name}</span>
+        {/* keyed: a new target remounts the name and replays the flash (operator proposal 3) */}
+        <span key={vehicle.sysid} className="h1 target-flash">
+          {vehicle.name}
+        </span>
         <span className="h1 t2" style={{ fontWeight: 300 }}>
           {dict.allCommands}
         </span>
@@ -113,27 +158,38 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
         </div>
       </div>
       <div className="sheet-body">
+        {q === '' && <QuickModes current={vehicle.mode} dict={dict} onPick={onPick} />}
         {catalogGroups(shown).map(({ group, items }) => (
           <div key={group}>
             <div className="cmd-group-title">{dict[GROUP_LABEL[group]]}</div>
             <div className="cmd-grid">
-              {items.map((item) => (
-                <>
-                  <button
-                    key={item.name}
-                    type="button"
-                    className={`cmd-btn${item.name === 'guided' ? ' full' : ''}${open === item.name ? ' on' : ''}`}
-                    disabled={!item.enabled(vehicle)}
-                    onClick={() => pick(item)}
-                  >
-                    <span className="glyph" aria-hidden="true">
-                      {(ICON[item.name] ?? ICON.other)()}
-                    </span>
-                    <span className="ell">{label(item, dict)}</span>
-                  </button>
-                  {open === item.name && item.param && paramRow(item)}
-                </>
-              ))}
+              {items.map((item) => {
+                const fb = item.build ? (feedback?.(item.name) ?? null) : null
+                return (
+                  <Fragment key={item.name}>
+                    <button
+                      type="button"
+                      className={`cmd-btn${item.name === 'guided' ? ' full' : ''}${open === item.name ? ' on' : ''}${fb ? ` ${fb}` : ''}`}
+                      disabled={!item.enabled(vehicle)}
+                      onClick={() => pick(item)}
+                    >
+                      <span className="glyph" aria-hidden="true">
+                        {(ICON[item.name] ?? ICON.other)()}
+                      </span>
+                      <span className="ell">{label(item, dict)}</span>
+                      {fb && <span className="cmd-fb" aria-hidden="true">{FB_ICON[fb]()}</span>}
+                    </button>
+                    {open === item.name && item.param && paramRow(item)}
+                    {item.name === 'arm' && !vehicle.armed && prearm.length > 0 && (
+                      <ul className="cmd-prearm" data-testid="prearm">
+                        {prearm.map((r) => (
+                          <li key={r}>{r}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </Fragment>
+                )
+              })}
             </div>
           </div>
         ))}

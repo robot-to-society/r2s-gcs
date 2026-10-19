@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
-import { CommandDock, ConfirmDialog, type RunResult } from '../features/commands'
+import { CommandDock, ConfirmDialog, FleetConfirm, fleetTargets, useCommandRunner, type RunResult } from '../features/commands'
 import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
@@ -9,11 +9,11 @@ import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } 
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { MaintView } from '../features/params'
-import { BasemapPicker, FollowChip, MapView, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
+import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
-import type { CameraCommand, CameraProfile, GimbalInputProfile, Me, VehicleCommand } from '../shared/api/types'
+import type { CameraCommand, CameraProfile, GimbalInputProfile, Me, VehicleCommand, VehicleState } from '../shared/api/types'
 import { t, type Lang } from '../shared/i18n'
 import { LogDock } from './LogDock'
 import { useLogHistory } from '../features/log/useLogHistory'
@@ -61,10 +61,20 @@ export function Shell({ me, lang }: Props) {
   const [modal, setModal] = useState<Modal>(NO_MODAL)
   // The command panel is a tool, not a dialog: open until closed, across commands and selections.
   const [commandsOpen, setCommandsOpen] = useState(false)
+  // Fleet command being confirmed, with its targets fixed when the dialog opened.
+  const [mapMenu, setMapMenu] = useState<MapPoint | null>(null)
+  const [fleet, setFleet] = useState<{ command: VehicleCommand; targets: VehicleState[] } | null>(null)
+  const runner = useCommandRunner({
+    entries: log.entries,
+    dict,
+    vehicleOf: (sysid) => vehicles.get(sysid),
+    onError: (sysid, command, message) => vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: command.cmd, ok: false, reason: message, ts: Date.now() }),
+  })
   const tracks = useTracks()
   const mapUi = useMapUi()
   const settings = useAppSettings()
   const basemapId = useBasemapChoice()
+  const mapMode = useMapMode()
   const basemap = settings && settings.basemaps.length > 0 ? chooseBasemap(settings.basemaps, basemapId) : null
   const clock = useClock(lang)
   useEffect(() => vehicleStore.subscribe(() => tracksStore.ingest(vehicleStore.getState().vehicles)), [])
@@ -84,7 +94,12 @@ export function Shell({ me, lang }: Props) {
       vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: `camera:${cmd.cmd}`, ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
     })
   }
-  const logDock = <LogDock log={log} names={names} dict={dict} clock={clock.slice(-5)} lead={view !== 'maint'} deadmanLost={deadman === 'lost'} />
+  const focusVehicle = (sysid: number) => {
+    setSelected(sysid)
+    setView('ops')
+    mapUiStore.update((s) => requestFocus(s, sysid))
+  }
+  const logDock = <LogDock log={log} names={names} dict={dict} clock={clock.slice(-5)} lead={view !== 'maint'} deadmanLost={deadman === 'lost'} onFocusVehicle={focusVehicle} />
   const ackAlert = (sysid: number, id: number) => {
     ackMessage(sysid, id)
       .then((e) => vehicleStore.markAcked(e.id, e.acked_by ?? me.username, e.acked_at ?? Date.now()))
@@ -193,6 +208,7 @@ export function Shell({ me, lang }: Props) {
               basemap={basemap ?? undefined}
               basemaps={settings.basemaps}
               onPickBasemap={saveBasemapChoice}
+              terrainTiles={settings.terrain_tiles}
             />
             {logDock}
           </main>
@@ -207,7 +223,10 @@ export function Shell({ me, lang }: Props) {
               padding={padding(mapUi.aside, detail !== undefined)}
               style={basemap ? basemapStyle(basemap) : rasterStyle(settings.map_tile_url, settings.map_attribution)}
               basemap={basemap ?? undefined}
+              mode={mapMode}
+              terrainTiles={settings.terrain_tiles}
               target={mapUi.target}
+              focus={mapUi.focus}
               mission={current === null ? null : (vehicleMissions.get(current) ?? null)}
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}
               homes={homes}
@@ -215,9 +234,11 @@ export function Shell({ me, lang }: Props) {
               groundProjection={settings.map.gimbal_ground_projection}
               onDragStart={() => mapUiStore.update(clearFollow)}
               onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
+              onContext={view === 'ops' ? setMapMenu : undefined}
             />
           )}
-          {view === 'ops' && settings && basemap && settings.basemaps.length > 1 && <BasemapPicker basemaps={settings.basemaps} current={basemap.id} dict={dict} onPick={saveBasemapChoice} />}
+          {view === 'ops' && settings && <MapModeToggle mode={mapMode} available={settings.terrain_tiles !== null} dict={dict} onChange={saveMapMode} />}
+          {view === 'ops' && settings && basemap && settings.basemaps.length > 1 && <BasemapPicker basemaps={settings.basemaps} current={basemap.id} dict={dict} onPick={saveBasemapChoice} className="float map-r top2" />}
           {view === 'maint' && (
             <>
               <div className="maint-backdrop" />
@@ -233,6 +254,7 @@ export function Shell({ me, lang }: Props) {
             onSelect={setSelected}
             onFollow={(sysid) => mapUiStore.update((s) => (s.follow === sysid ? clearFollow(s) : setFollow(s, sysid)))}
             following={mapUi.follow}
+            onFleet={view === 'ops' ? (command) => setFleet({ command, targets: fleetTargets(list) }) : undefined}
           />
           {mapUi.follow !== null && view !== 'maint' && (
             <FollowChip name={vehicles.get(mapUi.follow)?.name ?? `#${mapUi.follow}`} dict={dict} onClear={() => mapUiStore.update(clearFollow)} />
@@ -256,6 +278,8 @@ export function Shell({ me, lang }: Props) {
               onWriteMission={() => setModal({ kind: 'mission-pick', sysid: detail.sysid })}
               onStartMission={() => setModal({ kind: 'confirm', sysid: detail.sysid, command: { cmd: 'mission_start' } })}
               commandsOpen={commandsOpen}
+              onCommand={(command) => runner.pick(detail.sysid, command)}
+              feedback={(cmd) => runner.feedback(detail.sysid, cmd)}
             />
           )}
           {commandsOpen && view === 'ops' && currentVehicle && (
@@ -266,11 +290,36 @@ export function Shell({ me, lang }: Props) {
               beside={detail !== undefined}
               onClose={() => setCommandsOpen(false)}
               onOpenGuided={(sysid) => setModal({ kind: 'guided', sysid })}
-              onError={(sysid, command, message) => vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: command.cmd, ok: false, reason: message, ts: Date.now() })}
+              runner={runner}
+            />
+          )}
+          {runner.confirm}
+          {mapMenu && view === 'ops' && (
+            <MapContextMenu
+              at={mapMenu}
+              vehicleName={currentVehicle?.name ?? null}
+              dict={dict}
+              onClose={() => setMapMenu(null)}
+              onGuided={(p) => {
+                if (!currentVehicle) return
+                mapUiStore.update((s) => setTarget(s, p))
+                setModal({ kind: 'guided', sysid: currentVehicle.sysid })
+              }}
+            />
+          )}
+          {fleet && (
+            <FleetConfirm
+              command={fleet.command}
+              targets={fleet.targets}
+              dict={dict}
+              onClose={() => setFleet(null)}
+              onResult={(sysid, ok, reason) => !ok && vehicleStore.pushLocalResult({ id: -Date.now() - sysid, sysid, cmd: fleet.command.cmd, ok, reason: reason ?? null, ts: Date.now() })}
             />
           )}
           {modal.kind === 'guided' && currentVehicle && (
             <GuidedModal
+              // a new target vehicle starts a fresh flow (no altitude / step carried over)
+              key={currentVehicle.sysid}
               vehicle={currentVehicle}
               target={mapUi.target}
               dict={dict}
@@ -313,6 +362,7 @@ export function Shell({ me, lang }: Props) {
               command={modal.command}
               message={modal.message}
               vehicleName={vehicles.get(modal.sysid)?.name ?? `#${modal.sysid}`}
+              vehicle={vehicles.get(modal.sysid)}
               dict={dict}
               onCancel={() => setModal(NO_MODAL)}
               onDone={(r) => settle(modal.sysid, r, modal.command)}

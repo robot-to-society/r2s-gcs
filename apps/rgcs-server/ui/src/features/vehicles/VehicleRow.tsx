@@ -46,6 +46,11 @@ export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, fol
             <IconFollow />
           </span>
         )}
+        {v.unread > 0 && (
+          <span className="warn-count num" aria-label={`${dict.unreadAlerts} ${v.unread}`} title={dict.unreadAlerts}>
+            {v.unread}
+          </span>
+        )}
         <div className="grow" />
         <span className={battLow(v) ? 'batt low' : 'batt'}>
           <span style={{ width: battWidth(v) }} />

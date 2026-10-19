@@ -71,6 +71,9 @@ const CARTO_LABELS: &[&str] = &[
     "https://b.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
 ];
 
+/// Terrarium-encoded DEM tiles for the 3D map (AWS Terrain Tiles).
+pub const DEFAULT_TERRAIN_TILES: &str = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -92,6 +95,8 @@ pub struct Config {
     pub log_fetch: LogFetch,
     /// Base maps offered in the map picker; empty → the defaults of [`Config::basemaps`].
     pub basemaps: Vec<Basemap>,
+    /// Terrarium DEM tile template for the 3D map; `""` turns 3D off (offline sites).
+    pub terrain_tiles: String,
 }
 
 impl Default for Config {
@@ -109,6 +114,7 @@ impl Default for Config {
             video_probe_timeout_ms: 2000,
             log_fetch: LogFetch::Auto,
             basemaps: Vec::new(),
+            terrain_tiles: DEFAULT_TERRAIN_TILES.into(),
         }
     }
 }
@@ -151,6 +157,12 @@ impl Config {
         ]
     }
 
+    /// The DEM tile template, `None` when 3D is turned off.
+    pub fn terrain(&self) -> Option<String> {
+        let url = self.terrain_tiles.trim();
+        (!url.is_empty()).then(|| url.to_string())
+    }
+
     /// Missing file → defaults; unreadable or invalid file → error.
     pub fn load(path: &Path) -> anyhow::Result<Self> {
         match std::fs::read_to_string(path) {
@@ -164,6 +176,14 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn terrain_tiles_default_and_disable() {
+        assert_eq!(Config::default().terrain().as_deref(), Some(DEFAULT_TERRAIN_TILES));
+        assert_eq!(Config::parse("terrain_tiles = ''").unwrap().terrain(), None);
+        let c = Config::parse("terrain_tiles = 'https://dem.local/{z}/{x}/{y}.png'").unwrap();
+        assert_eq!(c.terrain().as_deref(), Some("https://dem.local/{z}/{x}/{y}.png"));
+    }
 
     #[test]
     fn empty_file_gives_defaults() {

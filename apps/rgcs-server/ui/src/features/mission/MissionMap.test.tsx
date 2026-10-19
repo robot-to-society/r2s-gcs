@@ -28,6 +28,11 @@ class FakeMarker {
   remove() {
     this.removed = true
   }
+  offset: [number, number] | null = null
+  setOffset(o: [number, number]) {
+    this.offset = o
+    return this
+  }
   on(ev: string, cb: Handler) {
     this.handlers.set(ev, [...(this.handlers.get(ev) ?? []), cb])
     return this
@@ -57,7 +62,36 @@ class FakeMap {
   addSource(id: string) {
     this.sources.set(id, { setData: vi.fn() })
   }
-  addLayer() {}
+  layers: string[] = []
+  terrain: unknown = 'unset'
+  visibility = new Map<string, string>()
+  layerObjs = new Map<string, unknown>()
+  addLayer(l: { id: string }) {
+    this.layers.push(l.id)
+    this.layerObjs.set(l.id, l)
+  }
+  once(ev: string, cb: Handler) {
+    this.on(ev, cb)
+  }
+  getLayer(id: string) {
+    return this.layers.includes(id) ? { id } : undefined
+  }
+  moveLayer() {}
+  stop() {}
+  easeTo() {}
+  setTerrain(t: unknown) {
+    this.terrain = t
+  }
+  setLayoutProperty(id: string, _k: string, v: string) {
+    this.visibility.set(id, v)
+  }
+  triggerRepaint() {}
+  getContainer() {
+    return { clientWidth: 800, clientHeight: 600 }
+  }
+  project() {
+    return { x: 0, y: 0 }
+  }
   getSource(id: string) {
     return this.sources.get(id)
   }
@@ -184,5 +218,25 @@ describe('MissionMap', () => {
     expect(created.maps[0]!.fitted).toHaveLength(0)
     rerender(<MissionMap {...props} fitRequest={1} />)
     expect(created.maps[0]!.fitted).toHaveLength(1)
+  })
+  it('3D adds the terrain, the altitude path layer and shows the ground footprint instead of the 2D path', () => {
+    const { rerender, props } = renderMap({ terrainTiles: 'https://dem/{z}/{x}/{y}.png', mode: '2d' })
+    const m = created.maps[0]!
+    expect(m.sources.has('dem')).toBe(true)
+    expect(m.layers).toContain('mission-air3d')
+    rerender(<MissionMap {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" />)
+    expect(m.terrain).toEqual({ source: 'dem', exaggeration: 1 })
+    expect(m.visibility.get('mission-path-line')).toBe('none')
+    expect(m.visibility.get('mission-foot')).toBe('visible')
+  })
+  it('floats the badges and the mid-leg handles rebuilt by an edit', () => {
+    const { rerender, props } = renderMap({ terrainTiles: 'https://dem/{z}/{x}/{y}.png', mode: '3d' })
+    const m = created.maps[0]!
+    rerender(<MissionMap {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" draft={appendWaypoint(props.draft, 36.4, 139.4)} />)
+    const layer = m.layerObjs.get('mission-air3d') as { onFrame: (m: number[]) => void }
+    layer.onFrame([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
+    expect(handles()).toHaveLength(3)
+    expect(handles().every((h) => h.offset !== null)).toBe(true)
+    expect(badges().every((b) => b.offset !== null)).toBe(true)
   })
 })

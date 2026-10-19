@@ -19,5 +19,8 @@ role = "standalone"
 # map_tile_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 # map_attribution = "© OpenStreetMap contributors"
 
+# 3D 地図の標高タイル (Terrarium 形式)。"" で 3D を無効化 (オフライン現場)
+# terrain_tiles = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+
 # ログ取り出し: auto = tcp/udp と 921600 bps 以上のシリアルで有効
 # log_fetch = "auto"
