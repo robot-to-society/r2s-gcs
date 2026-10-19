@@ -189,6 +189,22 @@ describe('MissionView', () => {
     localStorage.removeItem('rgcs.planTab')
   })
 
+  it('a_failed_rally_write_warns_that_the_vehicle_may_hold_part_of_the_list', async () => {
+    localStorage.removeItem('rgcs.planTab')
+    setup((url, init) =>
+      url.endsWith('/rally') && init?.method === 'PUT'
+        ? new Response(JSON.stringify({ success: false, error: { code: 'mission_timeout', message: 'the vehicle did not answer in time' } }), { status: 504, headers: { 'content-type': 'application/json' } })
+        : envelope([]),
+    )
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Rally' }))
+    fireEvent.click(screen.getByText('map-plan'))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'ラリーを機体に書込' }))
+    })
+    expect(screen.getByText(/途中までの可能性/)).toBeInTheDocument()
+    localStorage.removeItem('rgcs.planTab')
+  })
+
   it('rally_tab_adds_points_at_the_default_altitude_and_undo_removes_them', () => {
     localStorage.removeItem('rgcs.planTab')
     const { container } = setup()

@@ -91,7 +91,7 @@ export function usePlanEditor({ draft, sysid, dict, change }: Args) {
     try {
       setStatus({ ok: true, text: await fn() })
     } catch (e) {
-      setStatus({ ok: false, text: e instanceof ApiError ? e.message : String(e) })
+      setStatus({ ok: false, text: e instanceof ApiError || e instanceof Error ? e.message : String(e) })
     } finally {
       setBusy(false)
     }
@@ -99,7 +99,15 @@ export function usePlanEditor({ draft, sysid, dict, change }: Args) {
   const report = (verified: boolean) => (verified ? dict.planWritten : dict.planMismatch)
   const write = () => {
     if (sysid === null) return
-    void run(async () => report((tab === 'rally' ? await writeRally(sysid, draft.mission.rally) : await writeFence(sysid, fence)).verified))
+    if (tab !== 'rally') return void run(async () => report((await writeFence(sysid, fence)).verified))
+    // a rally upload is not atomic on ArduPilot: a failure half-way leaves part of the list
+    void run(async () => {
+      try {
+        return report((await writeRally(sysid, draft.mission.rally)).verified)
+      } catch (e) {
+        throw new Error(`${e instanceof ApiError ? e.message : String(e)} — ${dict.rallyPartial}`)
+      }
+    })
   }
   const read = () => {
     if (sysid === null) return

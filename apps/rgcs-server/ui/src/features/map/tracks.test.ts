@@ -22,10 +22,13 @@ describe('tracks', () => {
   })
 
   it('caps each track at MAX_TRACK_POINTS keeping the newest', () => {
-    let t: Tracks = new Map()
-    for (let i = 0; i <= MAX_TRACK_POINTS + 5; i++) t = appendPoint(t, 1, at(139 + i * 0.0001, 36, 0, i))
+    // start from a full track (appending 20 000 points one by one would copy O(n²))
+    const full = Array.from({ length: MAX_TRACK_POINTS }, (_, i) => [139 + i * 0.0001, 36, 0, i] as const)
+    let t: Tracks = new Map([[1, full]])
+    for (let i = MAX_TRACK_POINTS; i <= MAX_TRACK_POINTS + 5; i++) t = appendPoint(t, 1, at(139 + i * 0.0001, 36, 0, i))
     expect(t.get(1)).toHaveLength(MAX_TRACK_POINTS)
     expect(t.get(1)?.at(-1)?.[0]).toBeCloseTo(139 + (MAX_TRACK_POINTS + 5) * 0.0001)
+    expect(t.get(1)?.[0]?.[3]).toBe(6) // the six oldest dropped
   })
 
   it('trims points older than the kept minutes; 0 minutes keeps nothing; unchanged tracks keep identity', () => {

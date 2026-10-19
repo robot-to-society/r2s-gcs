@@ -48,3 +48,11 @@ csv = "1.4"
 opt-level = 3
 lto = "thin"
 strip = true
+
+# Password hashing is deliberately expensive; unoptimised it takes seconds per login in debug
+# builds (dev stack, E2E). Optimise just the hashing crates.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3

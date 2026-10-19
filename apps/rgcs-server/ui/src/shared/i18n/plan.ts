@@ -42,6 +42,7 @@ export const planJa = {
   fenceAltMaxUnknown: '機体から未取得',
   fenceAltMaxSaved: 'FENCE_ALT_MAX を設定しました',
   elevCeiling: '高度上限',
+  rallyPartial: '機体側のラリーは途中までの可能性があります。もう一度書き込むか、機体から読み込んで確認してください',
 } as const
 
 export const planEn: Record<keyof typeof planJa, string> = {
@@ -86,4 +87,5 @@ export const planEn: Record<keyof typeof planJa, string> = {
   fenceAltMaxUnknown: 'Not reported by the vehicle yet',
   fenceAltMaxSaved: 'FENCE_ALT_MAX set',
   elevCeiling: 'Ceiling',
+  rallyPartial: 'The vehicle may hold part of the rally list. Write again, or read it back to check',
 }

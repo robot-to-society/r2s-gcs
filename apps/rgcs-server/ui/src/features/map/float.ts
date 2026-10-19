@@ -45,16 +45,29 @@ export interface Floating {
   readonly base: readonly [number, number]
 }
 
+/** Below this a float offset counts as unchanged. */
+const STILL_PX = 0.25
+
+/**
+ * Moves a marker only when its offset changed: every setOffset makes MapLibre re-test the marker
+ * against the terrain with gl.readPixels (opacityWhenCovered), which stalls the GPU each frame.
+ */
+function offsetTo(marker: Marker, x: number, y: number): void {
+  const cur = marker.getOffset?.()
+  if (cur && Math.abs(cur.x - x) < STILL_PX && Math.abs(cur.y - y) < STILL_PX) return
+  marker.setOffset([x, y])
+}
+
 /** Applies the float offsets; `matrix: null` (2D) restores the base offsets. */
 export function floatMarkers(map: MlMap, matrix: Mat | null, entries: readonly Floating[]): void {
   const el = map.getContainer()
   const size = { w: el.clientWidth, h: el.clientHeight }
   for (const f of entries) {
     if (!matrix || f.amsl === null) {
-      f.marker.setOffset([f.base[0], f.base[1]])
+      offsetTo(f.marker, f.base[0], f.base[1])
       continue
     }
     const [dx, dy] = floatOffset(matrix, size, toMercator(f.lon, f.lat, f.amsl), map.project([f.lon, f.lat]))
-    f.marker.setOffset([f.base[0] + dx, f.base[1] + dy])
+    offsetTo(f.marker, f.base[0] + dx, f.base[1] + dy)
   }
 }

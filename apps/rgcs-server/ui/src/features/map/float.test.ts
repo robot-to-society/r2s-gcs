@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { toMercator } from './air'
-import { floatOffset, pixelsPerMetre, projectToScreen } from './float'
+import { floatMarkers, floatOffset, pixelsPerMetre, projectToScreen } from './float'
 
 // Column-major 4x4: x' = x, y' = y, z' = 0, w = 1 — plus z lifts y by one clip unit per mercator unit.
 const M = [1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1]
@@ -33,5 +33,29 @@ describe('pixelsPerMetre', () => {
   })
   it('is null behind the camera', () => {
     expect(pixelsPerMetre([...M.slice(0, 15), -1], SIZE, 139, 36, 1000)).toBeNull()
+  })
+})
+
+describe('floatMarkers', () => {
+  it('moves a marker only when its float offset changes (each setOffset makes MapLibre re-test terrain occlusion with readPixels)', () => {
+    let offset: [number, number] = [0, 0]
+    let sets = 0
+    const marker = {
+      getOffset: () => ({ x: offset[0], y: offset[1] }),
+      setOffset: (o: [number, number]) => {
+        offset = o
+        sets++
+        return marker
+      },
+    }
+    const map = { getContainer: () => ({ clientWidth: 200, clientHeight: 100 }), project: () => ({ x: 100, y: 50 }) }
+    const entry = { marker, lon: 0, lat: 0, amsl: 1_000_000, base: [0, 0] as const }
+    floatMarkers(map as never, M, [entry as never])
+    floatMarkers(map as never, M, [entry as never])
+    floatMarkers(map as never, M, [entry as never])
+    expect(sets).toBe(1)
+    floatMarkers(map as never, null, [entry as never])
+    expect(offset).toEqual([0, 0])
+    expect(sets).toBe(2)
   })
 })
