@@ -72,7 +72,8 @@ const CARTO_LABELS: &[&str] = &[
 ];
 
 /// Terrarium-encoded DEM tiles for the 3D map (AWS Terrain Tiles).
-pub const DEFAULT_TERRAIN_TILES: &str = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+pub const DEFAULT_TERRAIN_TILES: &str =
+    "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -179,7 +180,10 @@ mod tests {
 
     #[test]
     fn terrain_tiles_default_and_disable() {
-        assert_eq!(Config::default().terrain().as_deref(), Some(DEFAULT_TERRAIN_TILES));
+        assert_eq!(
+            Config::default().terrain().as_deref(),
+            Some(DEFAULT_TERRAIN_TILES)
+        );
         assert_eq!(Config::parse("terrain_tiles = ''").unwrap().terrain(), None);
         let c = Config::parse("terrain_tiles = 'https://dem.local/{z}/{x}/{y}.png'").unwrap();
         assert_eq!(c.terrain().as_deref(), Some("https://dem.local/{z}/{x}/{y}.png"));

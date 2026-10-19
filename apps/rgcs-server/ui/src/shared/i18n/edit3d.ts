@@ -10,6 +10,10 @@ export const edit3dJa = {
   mHelp10v: '上昇角: 水平は水色、急上昇ほど赤 (45° で赤)、下降は紫',
   guidedSwitching: 'GUIDED に切り替えています…',
   guidedModeTimeout: 'GUIDED モードに切り替わらなかったため、移動を送信しませんでした',
+  trackMinutes: '軌跡を残す時間 (分)',
+  trackMinutesNote: '運用画面の飛行軌跡 (2D・3D) を直近この時間だけ残します。0 で残しません',
+  trackMinutesRange: '0〜120 分で入力してください',
+  trackMinutesSaved: '保存しました',
 } as const
 
 export const edit3dEn: Record<keyof typeof edit3dJa, string> = {
@@ -21,4 +25,8 @@ export const edit3dEn: Record<keyof typeof edit3dJa, string> = {
   mHelp10v: 'Climb angle: level cyan, steeper climbs redder (red at 45°), descents violet',
   guidedSwitching: 'Switching to GUIDED…',
   guidedModeTimeout: 'The vehicle did not switch to GUIDED, so the move was not sent',
+  trackMinutes: 'Track length (min)',
+  trackMinutesNote: 'Keep this many recent minutes of flight track on the operations map (2D and 3D); 0 keeps none',
+  trackMinutesRange: 'Enter 0–120 minutes',
+  trackMinutesSaved: 'Saved',
 }

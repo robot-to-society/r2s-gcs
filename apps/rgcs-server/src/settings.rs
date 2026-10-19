@@ -5,7 +5,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
 use axum::Json;
-use rgcs_store::app_settings::{GCS_SYSID, GIMBAL_GROUND_PROJECTION};
+use rgcs_store::app_settings::{GCS_SYSID, GIMBAL_GROUND_PROJECTION, TRACK_MINUTES};
 use rgcs_store::audit::AuditInput;
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,13 @@ use crate::auth::AuthUser;
 pub struct MapSettings {
     /// Draw the gimbal footprint on the ground instead of the direction fan; default off.
     pub gimbal_ground_projection: bool,
+    /// How many minutes of flight track the maps keep (0 = none, at most 120); default 10.
+    pub track_minutes: u32,
 }
+
+/// Default and upper bound of `track_minutes`.
+pub const DEFAULT_TRACK_MINUTES: u32 = 10;
+pub const MAX_TRACK_MINUTES: i64 = 120;
 
 /// MAVLink identity (spec 30; user request 2026-10-19).
 #[derive(Debug, Clone, Serialize, ts_rs::TS)]
@@ -70,16 +76,23 @@ pub async fn load_gcs_sysid(store: &rgcs_store::Store) -> u8 {
 #[serde(deny_unknown_fields)]
 pub struct MapSettingsPut {
     pub gimbal_ground_projection: Option<bool>,
+    /// Wider than u32 so a negative value is a validation error, not a parse error.
+    pub track_minutes: Option<i64>,
 }
 
 async fn current(app: &AppState) -> rgcs_store::Result<AppSettings> {
     let projection = app.store.app_setting(GIMBAL_GROUND_PROJECTION).await?;
+    let minutes = app.store.app_setting(TRACK_MINUTES).await?;
     Ok(AppSettings {
         lang: "ja".into(),
         map_tile_url: app.map_tile_url.clone(),
         map_attribution: app.map_attribution.clone(),
         map: MapSettings {
             gimbal_ground_projection: projection.as_deref() == Some("true"),
+            track_minutes: minutes
+                .and_then(|v| v.parse::<u32>().ok())
+                .filter(|v| i64::from(*v) <= MAX_TRACK_MINUTES)
+                .unwrap_or(DEFAULT_TRACK_MINUTES),
         },
         basemaps: app.basemaps.clone(),
         terrain_tiles: app.terrain_tiles.clone(),
@@ -108,17 +121,25 @@ fn audit_put<'a>(op: &'a str, args: serde_json::Value) -> AuditInput<'a> {
     }
 }
 
-async fn put_map(app: &AppState, op: &str, flag: bool) -> Result<(), Box<Response>> {
+/// Stores one 地図表示 value and audits it as `{"map": {name: value}}`.
+async fn put_map(
+    app: &AppState,
+    op: &str,
+    key: &str,
+    name: &str,
+    value: serde_json::Value,
+) -> Result<(), Box<Response>> {
+    let stored = match &value {
+        serde_json::Value::String(s) => s.clone(),
+        v => v.to_string(),
+    };
     app.store
-        .put_app_setting(GIMBAL_GROUND_PROJECTION, if flag { "true" } else { "false" })
+        .put_app_setting(key, &stored)
         .await
         .map_err(|e| Box::new(err(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())))?;
     if let Err(e) = app
         .store
-        .record_audit(audit_put(
-            op,
-            serde_json::json!({ "map": { "gimbal_ground_projection": flag } }),
-        ))
+        .record_audit(audit_put(op, serde_json::json!({ "map": { name: value } })))
         .await
     {
         tracing::error!(error = %e, "audit write failed");
@@ -192,8 +213,34 @@ pub async fn put_app_settings(
             return *r;
         }
     }
-    if let Some(flag) = body.map.and_then(|m| m.gimbal_ground_projection) {
-        if let Err(r) = put_map(&app, &op.username, flag).await {
+    let map = body.map.unwrap_or(MapSettingsPut {
+        gimbal_ground_projection: None,
+        track_minutes: None,
+    });
+    if let Some(minutes) = map.track_minutes {
+        if !(0..=MAX_TRACK_MINUTES).contains(&minutes) {
+            return err(
+                StatusCode::BAD_REQUEST,
+                "validation",
+                format!("track_minutes must be 0–{MAX_TRACK_MINUTES}"),
+            );
+        }
+        let value = serde_json::json!(minutes);
+        if let Err(r) = put_map(&app, &op.username, TRACK_MINUTES, "track_minutes", value).await {
+            return *r;
+        }
+    }
+    if let Some(flag) = map.gimbal_ground_projection {
+        let value = serde_json::json!(flag);
+        if let Err(r) = put_map(
+            &app,
+            &op.username,
+            GIMBAL_GROUND_PROJECTION,
+            "gimbal_ground_projection",
+            value,
+        )
+        .await
+        {
             return *r;
         }
     }

@@ -267,3 +267,47 @@ async fn app_settings_include_the_terrain_tiles() {
         "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
     );
 }
+
+#[tokio::test]
+async fn track_minutes_default_validation_and_round_trip() {
+    let (app, _) = spawn_app().await;
+    let cookie = login(&app).await;
+    let (_, body, _) = call(&app, req(Method::GET, "/api/settings/app", Some(&cookie), None)).await;
+    assert_eq!(body["data"]["map"]["track_minutes"], 10, "default 10 minutes");
+
+    for bad in [
+        serde_json::json!(-1),
+        serde_json::json!(121),
+        serde_json::json!("5"),
+    ] {
+        let put = serde_json::json!({ "map": { "track_minutes": bad } });
+        let (status, _, _) = call(
+            &app,
+            req(Method::PUT, "/api/settings/app", Some(&cookie), Some(put)),
+        )
+        .await;
+        assert!(status.is_client_error(), "{bad} → {status}");
+    }
+
+    let put = serde_json::json!({ "map": { "track_minutes": 45 } });
+    let (status, body, _) = call(
+        &app,
+        req(Method::PUT, "/api/settings/app", Some(&cookie), Some(put)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["map"]["track_minutes"], 45);
+    // the other map switch is untouched by a PUT that leaves it out
+    assert_eq!(body["data"]["map"]["gimbal_ground_projection"], false);
+    let (_, body, _) = call(&app, req(Method::GET, "/api/settings/app", Some(&cookie), None)).await;
+    assert_eq!(body["data"]["map"]["track_minutes"], 45);
+
+    let put = serde_json::json!({ "map": { "track_minutes": 0 } });
+    let (status, body, _) = call(
+        &app,
+        req(Method::PUT, "/api/settings/app", Some(&cookie), Some(put)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["map"]["track_minutes"], 0, "0 = no track");
+}

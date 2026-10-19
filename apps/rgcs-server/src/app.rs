@@ -193,7 +193,10 @@ impl AppState {
     }
 
     pub fn with_terrain(self, terrain_tiles: Option<String>) -> Self {
-        Self { terrain_tiles, ..self }
+        Self {
+            terrain_tiles,
+            ..self
+        }
     }
 
     pub fn with_map(self, tile_url: String, attribution: String) -> Self {

@@ -6,7 +6,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lang: 'ja',
   map_tile_url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   map_attribution: '© OpenStreetMap contributors',
-  map: { gimbal_ground_projection: false },
+  map: { gimbal_ground_projection: false, track_minutes: 10 },
   mavlink: { gcs_sysid: 255 },
   terrain_tiles: null,
   basemaps: [{ id: 'map', label: '地図', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], attribution: '© OpenStreetMap contributors', max_zoom: 19, overlay: null }],
@@ -30,8 +30,8 @@ export function loadAppSettings(): Promise<AppSettings> {
   return cached
 }
 
-/** `PUT /api/settings/app` (spec 50 §2.4): every component using the settings sees the saved value. */
-export async function saveMapSettings(map: MapSettings): Promise<AppSettings> {
+/** `PUT /api/settings/app` (spec 50 §2.4) with only the changed map values; every component using the settings sees the result. */
+export async function saveMapSettings(map: Partial<MapSettings>): Promise<AppSettings> {
   const saved = await apiFetch<AppSettings>('/api/settings/app', { method: 'PUT', body: { map } })
   cached = Promise.resolve(saved)
   return publish(saved)
