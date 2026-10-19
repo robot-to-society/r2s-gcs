@@ -34,6 +34,23 @@ class FakeMap {
   constructor() {
     created.maps.push(this)
   }
+  terrain: unknown = 'unset'
+  layerObjs = new Map<string, unknown>()
+  visibility = new Map<string, string>()
+  once(ev: string, cb: () => void) {
+    this.on(ev, cb)
+  }
+  stop() {}
+  setTerrain(t: unknown) {
+    this.terrain = t
+  }
+  setLayoutProperty(id: string, _k: string, v: string) {
+    this.visibility.set(id, v)
+  }
+  triggerRepaint() {}
+  getContainer() {
+    return { clientWidth: 800, clientHeight: 600 }
+  }
   on(ev: string, cb: () => void) {
     this.handlers.set(ev, [...(this.handlers.get(ev) ?? []), cb])
     if (ev === 'load' && !created.deferLoad) cb()
@@ -47,6 +64,7 @@ class FakeMap {
   }
   layers: string[] = []
   addLayer(l: { id: string }, before?: string) {
+    this.layerObjs.set(l.id, l)
     if (before && this.layers.includes(before)) this.layers.splice(this.layers.indexOf(before), 0, l.id)
     else this.layers.push(l.id)
   }
@@ -281,5 +299,24 @@ describe('MapView', () => {
     expect(created.markers.filter((m) => m.el.className === 'rg-home')).toHaveLength(1)
     rerender(<MapView {...props} homes={new Map([[1, { lat: 36.2, lon: 139.3 }]])} />)
     expect(home.lngLat).toEqual([139.3, 36.2])
+  })
+  it('3D adds the terrain, the vehicle posts layer and tilts the camera', () => {
+    const props = { vehicles: new Map([[1, { ...v(1, 3), alt_rel: 40 }]]), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="2d" />)
+    const m = created.maps.at(-1)!
+    expect(m.sources.has('dem')).toBe(true)
+    expect(m.layers).toContain('veh-air3d')
+    expect(m.terrain).toBeNull()
+    rerender(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" />)
+    expect(m.terrain).toEqual({ source: 'dem', exaggeration: 1 })
+    expect(m.eased.at(-1)).toMatchObject({ pitch: 60, bearing: -25 })
+    expect(m.visibility.get('veh-ground')).toBe('visible')
+    expect((m.layerObjs.get('veh-air3d') as { visible: boolean }).visible).toBe(true)
+  })
+  it('without terrain tiles there is no 3D', () => {
+    render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} mode="3d" terrainTiles={null} />)
+    const m = created.maps.at(-1)!
+    expect(m.sources.has('dem')).toBe(false)
+    expect(m.layers).not.toContain('veh-air3d')
   })
 })

@@ -5,6 +5,8 @@ import type { Basemap, CameraSnapshot, Mission, VehicleState } from '../../share
 import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
 import { followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
+import type { MapMode } from './mapMode'
+import { useVehicleAir } from './vehicleAir'
 import { courseGeoJson, metresPerPixel } from './course'
 import { footprintsGeoJson, projectedIds } from './footprints'
 import { orderLayers } from './layers'
@@ -35,6 +37,10 @@ interface Props {
   readonly groundProjection?: boolean
   /** The picked base map; a change swaps the base tiles in place. */
   readonly basemap?: Basemap
+  /** 2D / 3D; 3D needs `terrainTiles`. */
+  readonly mode?: MapMode
+  /** Terrarium DEM tile template (`/api/settings/app`), `null` → 2D only. */
+  readonly terrainTiles?: string | null
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -51,7 +57,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -123,6 +129,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     m.on('zoomend', () => setZoom(m.getZoom()))
     m.on('click', (e) => clickRef.current({ lat: e.lngLat.lat, lon: e.lngLat.lng }))
     map.current = m
+    // E2E / live checks read the camera (pitch, layers) from the dev build only.
+    if (import.meta.env.DEV && interactive) (window as unknown as { __rgcsMap?: MlMap }).__rgcsMap = m
     return () => {
       m.remove()
       map.current = null
@@ -197,6 +205,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   }, [top, right, bottom, left])
 
   useBasemapSwap(map, loaded, basemap)
+  useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base: ARROW_OFFSET })
   const [zoom, setZoom] = useState(14)
   const followed = useRef<number | null>(null)
   useEffect(() => {
