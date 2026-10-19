@@ -8,6 +8,7 @@ export const p9Ja = {
   holdToRun: '長押しで実行',
   quickModes: 'クイックモード',
   emergency: '緊急操作',
+  fleet: '全機',
 } as const
 
 export const p9En: Record<keyof typeof p9Ja, string> = {
@@ -18,4 +19,5 @@ export const p9En: Record<keyof typeof p9Ja, string> = {
   holdToRun: 'Hold to run',
   quickModes: 'Quick modes',
   emergency: 'Emergency',
+  fleet: 'All vehicles:',
 }

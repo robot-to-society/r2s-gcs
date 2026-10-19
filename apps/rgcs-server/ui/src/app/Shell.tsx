@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
-import { CommandDock, ConfirmDialog, useCommandRunner, type RunResult } from '../features/commands'
+import { CommandDock, ConfirmDialog, FleetConfirm, fleetTargets, useCommandRunner, type RunResult } from '../features/commands'
 import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
@@ -13,7 +13,7 @@ import { BasemapPicker, FollowChip, MapModeToggle, MapView, saveMapMode, useMapM
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
-import type { CameraCommand, CameraProfile, GimbalInputProfile, Me, VehicleCommand } from '../shared/api/types'
+import type { CameraCommand, CameraProfile, GimbalInputProfile, Me, VehicleCommand, VehicleState } from '../shared/api/types'
 import { t, type Lang } from '../shared/i18n'
 import { LogDock } from './LogDock'
 import { useLogHistory } from '../features/log/useLogHistory'
@@ -61,6 +61,8 @@ export function Shell({ me, lang }: Props) {
   const [modal, setModal] = useState<Modal>(NO_MODAL)
   // The command panel is a tool, not a dialog: open until closed, across commands and selections.
   const [commandsOpen, setCommandsOpen] = useState(false)
+  // Fleet command being confirmed, with its targets fixed when the dialog opened.
+  const [fleet, setFleet] = useState<{ command: VehicleCommand; targets: VehicleState[] } | null>(null)
   const runner = useCommandRunner({
     entries: log.entries,
     dict,
@@ -244,6 +246,7 @@ export function Shell({ me, lang }: Props) {
             onSelect={setSelected}
             onFollow={(sysid) => mapUiStore.update((s) => (s.follow === sysid ? clearFollow(s) : setFollow(s, sysid)))}
             following={mapUi.follow}
+            onFleet={view === 'ops' ? (command) => setFleet({ command, targets: fleetTargets(list) }) : undefined}
           />
           {mapUi.follow !== null && view !== 'maint' && (
             <FollowChip name={vehicles.get(mapUi.follow)?.name ?? `#${mapUi.follow}`} dict={dict} onClear={() => mapUiStore.update(clearFollow)} />
@@ -283,6 +286,15 @@ export function Shell({ me, lang }: Props) {
             />
           )}
           {runner.confirm}
+          {fleet && (
+            <FleetConfirm
+              command={fleet.command}
+              targets={fleet.targets}
+              dict={dict}
+              onClose={() => setFleet(null)}
+              onResult={(sysid, ok, reason) => !ok && vehicleStore.pushLocalResult({ id: -Date.now() - sysid, sysid, cmd: fleet.command.cmd, ok, reason: reason ?? null, ts: Date.now() })}
+            />
+          )}
           {modal.kind === 'guided' && currentVehicle && (
             <GuidedModal
               vehicle={currentVehicle}

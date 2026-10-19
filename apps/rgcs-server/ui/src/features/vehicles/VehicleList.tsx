@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Dict } from '../../shared/i18n'
-import type { VehicleState } from '../../shared/api/types'
+import type { VehicleCommand, VehicleState } from '../../shared/api/types'
+import { cmdLabel } from '../../shared/i18n'
 import { IconCollapse, IconCopter, IconMenu, IconPin, IconRover } from '../../shared/ui/icons'
 import { matches } from './format'
 import { VehicleRow } from './VehicleRow'
@@ -16,9 +17,25 @@ interface Props {
   /** `rail` collapses the panel to a 60 px column of icons (spec 20 §4). */
   readonly aside?: 'full' | 'rail'
   readonly onToggleAside?: () => void
+  /** Fleet pause / RTL (shown with two or more vehicles that have a link). */
+  readonly onFleet?: (command: VehicleCommand) => void
 }
 
-export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, following = null, aside = 'full', onToggleAside }: Props) {
+const FLEET: readonly VehicleCommand[] = [{ cmd: 'pause' }, { cmd: 'rtl' }]
+
+function FleetRow({ dict, onFleet }: { dict: Dict; onFleet: (c: VehicleCommand) => void }) {
+  return (
+    <div className="fleet-row">
+      {FLEET.map((c) => (
+        <button key={c.cmd} type="button" className={`btn btn-ghost btn-sm${c.cmd === 'pause' ? ' caution' : ''}`} onClick={() => onFleet(c)}>
+          {`${dict.fleet} ${cmdLabel(c.cmd, dict)}`}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, following = null, aside = 'full', onToggleAside, onFleet }: Props) {
   const [query, setQuery] = useState('')
   const shown = vehicles.filter((v) => matches(v, query, dict))
   if (aside === 'rail') {
@@ -58,6 +75,7 @@ export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, foll
       <div className="vlist-search">
         <input className="in" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={dict.filterVehicles} aria-label={dict.filterVehicles} />
       </div>
+      {onFleet && vehicles.filter((v) => v.link !== 'lost').length >= 2 && <FleetRow dict={dict} onFleet={onFleet} />}
       <div className="vlist-body" role="listbox">
         {shown.length === 0 && <div className="empty">{dict.noVehicles}</div>}
         {shown.map((v) => (
