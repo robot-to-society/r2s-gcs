@@ -102,7 +102,6 @@ export function moveItems(d: Draft, uids: ReadonlySet<number>, dLat: number, dLo
   return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, lat: it.lat + dLat, lon: it.lon + dLon } : it)) }
 }
 
-/** Adds `dAlt` metres; Rel / Ter items stop at 0 m so a quick drag never puts a waypoint underground. */
 /** Inserts copies of `items` (new uids) after `afterUid`, or at the end when it is null / gone. */
 export function insertItemsAfter(d: Draft, afterUid: number | null, items: readonly MissionItem[]): { draft: Draft; uids: number[] } {
   const copies = items.map((it, i) => ({ ...it, uid: d.nextUid + i }))
@@ -120,9 +119,10 @@ export function setArc(d: Draft, uid: number, angle: number): Draft {
   const it = d.items.find((x) => x.uid === uid)
   if (!it || (it.command !== WAYPOINT_CMD && it.command !== ARC_CMD)) return d
   const command = angle === 0 ? WAYPOINT_CMD : ARC_CMD
-  return updateItem(d, uid, { command, params: [angle, 0, 0, 0] })
+  return updateItem(d, uid, { command, params: [angle, it.params[1], it.params[2], it.params[3]] })
 }
 
+/** Adds `dAlt` metres; Rel / Ter items stop at 0 m so a quick drag never puts a waypoint underground. */
 export function shiftAlts(d: Draft, uids: ReadonlySet<number>, dAlt: number): Draft {
   const alt = (it: DraftItem) => (it.frame === 'abs' ? it.alt + dAlt : Math.max(0, it.alt + dAlt))
   return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt: alt(it) } : it)) }

@@ -94,7 +94,9 @@ function sample(stops: readonly Stop[], ground: (lon: number, lat: number) => nu
     const a = stops[i]!
     const n = Math.max(1, Math.ceil((b.d - a.d) / step))
     const ter = a.item.frame === 'ter' && b.item.frame === 'ter'
-    const along = isArc(b.item) ? arcPoints(a.item, b.item, b.item.params[0], n) : null
+    const bent = isArc(b.item) ? arcPoints(a.item, b.item, b.item.params[0], n) : null
+    // a sub-degree arc or a zero chord comes back as [a, b]: sample it straight
+    const along = bent && bent.length === n + 1 ? bent : null
     return Array.from({ length: i === 0 ? n + 1 : n }, (_, j) => {
       const k = i === 0 ? j : j + 1
       const t = k / n

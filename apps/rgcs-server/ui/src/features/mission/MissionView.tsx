@@ -78,7 +78,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
     }
     if (e.key === 'Delete' || e.key === 'Backspace') store.update(removeSelected)
     else if (meta && e.key.toLowerCase() === 'z') store.update(e.shiftKey ? redoUi : undoUi)
-    else if (meta && e.key.toLowerCase() === 'c') store.update(copySelected)
+    else if (meta && e.key.toLowerCase() === 'c' && ui.selected.size > 0) store.update(copySelected)
     else if (meta && e.key.toLowerCase() === 'v') store.update(pasteClipboard)
     else if (meta && e.key.toLowerCase() === 'a') store.update((u) => ({ ...u, selected: new Set(u.history.present.items.map((it) => it.uid)) }))
     else if (e.key === 'Escape') {

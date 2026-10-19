@@ -479,6 +479,16 @@ describe('MissionMap', () => {
     expect(mapEl.querySelector('.box-select')).toBeNull()
     expect(onMapClick).not.toHaveBeenCalled()
   })
+  it('box select is a mission-tab tool (fence / rally leave the waypoints alone)', () => {
+    const { props, container } = renderMap({ tab: 'fence' })
+    const mapEl = container.querySelector('[data-testid="mission-map"]') as HTMLElement
+    const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true, shiftKey: true, button: 0, clientX: 50, clientY: 50 })
+    mapEl.dispatchEvent(down)
+    expect(down.defaultPrevented).toBe(false)
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 150 }))
+    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 250, clientY: 150 }))
+    expect(props.onBoxSelect).not.toHaveBeenCalled()
+  })
   it('a plain drag (no Shift) is left to the map', () => {
     const { props, container } = renderMap()
     const mapEl = container.querySelector('[data-testid="mission-map"]') as HTMLElement
@@ -493,6 +503,12 @@ describe('MissionMap', () => {
     const pdown = (el: HTMLElement, x: number, y: number) => el.dispatchEvent(Object.assign(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y }), { pointerId: 1 }))
     const pmove = (x: number, y: number) => window.dispatchEvent(Object.assign(new MouseEvent('pointermove', { clientX: x, clientY: y }), { pointerId: 1 }))
     const pup = (x: number, y: number) => window.dispatchEvent(Object.assign(new MouseEvent('pointerup', { clientX: x, clientY: y }), { pointerId: 1 }))
+    it('a touch on the + does not pan the map', () => {
+      renderMap()
+      const t = new Event('touchstart', { bubbles: true, cancelable: true })
+      handles()[0]!.el.dispatchEvent(t)
+      expect(t.defaultPrevented).toBe(true)
+    })
     it('a short click still inserts a waypoint', () => {
       const { props } = renderMap()
       const h = handles()[0]!.el
@@ -503,6 +519,21 @@ describe('MissionMap', () => {
       })
       expect(props.onInsertAfter).toHaveBeenCalledTimes(1)
       expect(props.onArc).not.toHaveBeenCalled()
+    })
+    it('a long press released without moving changes nothing (no arc, no insert)', () => {
+      vi.useFakeTimers()
+      const { props } = renderMap()
+      const h = handles()[0]!.el
+      document.body.append(h)
+      act(() => pdown(h, 10, 10))
+      act(() => vi.advanceTimersByTime(600))
+      act(() => {
+        pup(10, 10)
+        h.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+      vi.useRealTimers()
+      expect(props.onArc).not.toHaveBeenCalled()
+      expect(props.onInsertAfter).not.toHaveBeenCalled()
     })
     it('a long press then drag bends the leg into an arc through the pointer (no insert)', () => {
       vi.useFakeTimers()

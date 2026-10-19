@@ -27,12 +27,13 @@ function boxEl(host: HTMLElement): HTMLDivElement {
   return el
 }
 
-export function useBoxSelect(container: RefObject<HTMLDivElement | null>, badges: RefObject<ReadonlyMap<number, Badge>>, onBox: RefObject<(uids: number[]) => void>): void {
+/** `active`: only in the mission tab (elsewhere the waypoints are inert). */
+export function useBoxSelect(container: RefObject<HTMLDivElement | null>, badges: RefObject<ReadonlyMap<number, Badge>>, onBox: RefObject<(uids: number[]) => void>, active: RefObject<boolean>): void {
   useEffect(() => {
     const host = container.current
     if (!host) return
     const down = (e: MouseEvent) => {
-      if (!e.shiftKey || e.button !== 0 || (e.target as HTMLElement).closest('.maplibregl-marker')) return
+      if (!active.current || !e.shiftKey || e.button !== 0 || (e.target as HTMLElement).closest('.maplibregl-marker')) return
       e.preventDefault()
       e.stopPropagation()
       const origin = host.getBoundingClientRect()
@@ -62,5 +63,5 @@ export function useBoxSelect(container: RefObject<HTMLDivElement | null>, badges
     }
     host.addEventListener('mousedown', down, true)
     return () => host.removeEventListener('mousedown', down, true)
-  }, [container, badges, onBox])
+  }, [container, badges, onBox, active])
 }

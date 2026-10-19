@@ -126,6 +126,11 @@ describe('MissionView', () => {
     fireEvent.click(screen.getByRole('button', { name: '標高プロファイル' }))
   })
 
+  it('cmd_c_with_nothing_selected_leaves_the_browser_copy_alone', () => {
+    const { container } = setup()
+    expect(fireEvent.keyDown(container.firstChild as Element, { key: 'c', metaKey: true })).toBe(true)
+  })
+
   it('cmd_c_then_cmd_v_duplicates_the_selection_after_it', () => {
     const { container } = setup()
     addPoints(2) // T, 2, 3
@@ -154,6 +159,33 @@ describe('MissionView', () => {
     expect(screen.getByText('書き込みました (読み戻して一致)')).toBeInTheDocument()
     // the waypoints still count in the plan; a click on the map does not add one here
     expect(rows()).toEqual([])
+    localStorage.removeItem('rgcs.planTab')
+  })
+
+  it('deleting_or_reading_the_fence_while_drawing_stops_the_drawing_instead_of_growing_another_zone', async () => {
+    localStorage.removeItem('rgcs.planTab')
+    const fromVehicle = [
+      { kind: 'polygon', inclusion: false, vertices: [{ lat: 36, lon: 137 }, { lat: 36, lon: 137.01 }, { lat: 36.01, lon: 137.01 }] },
+      { kind: 'polygon', inclusion: false, vertices: [{ lat: 36, lon: 137 }, { lat: 36, lon: 137.02 }, { lat: 36.02, lon: 137.02 }] },
+    ]
+    setup((url) => (url.endsWith('/fence') ? envelope({ zones: fromVehicle }) : envelope([])))
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Fence' }))
+    fireEvent.click(screen.getByRole('button', { name: '包含ポリゴン' }))
+    fireEvent.click(screen.getByText('map-plan'))
+    fireEvent.click(screen.getByText('map-plan'))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'フェンスを機体から読込' }))
+    })
+    expect(screen.queryByRole('button', { name: '完了' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('map-plan'))
+    const titles = () => screen.getAllByTestId('fence-row').map((r) => r.querySelector('.fence-title')?.textContent)
+    expect(titles()).toEqual(['除外ポリゴン · 3 点', '除外ポリゴン · 3 点'])
+    // deleting the zone being drawn stops the drawing too
+    fireEvent.click(screen.getByRole('button', { name: '包含ポリゴン' }))
+    fireEvent.click(screen.getByText('map-plan'))
+    fireEvent.click(within(screen.getAllByTestId('fence-row')[2]!).getByRole('button', { name: '削除' }))
+    fireEvent.click(screen.getByText('map-plan'))
+    expect(titles()).toEqual(['除外ポリゴン · 3 点', '除外ポリゴン · 3 点'])
     localStorage.removeItem('rgcs.planTab')
   })
 

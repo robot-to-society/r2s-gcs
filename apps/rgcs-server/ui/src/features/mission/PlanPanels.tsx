@@ -142,7 +142,7 @@ export function FencePanel(p: FenceProps) {
             {z.kind === 'circle' && (
               <label className="row t3" style={{ gap: 8, marginTop: 6 }}>
                 {dict.fenceRadius}
-                <input className="in num" type="number" min={1} step={1} aria-label={dict.fenceRadius} style={{ width: 90 }} value={Math.round(z.radius)} onChange={(e) => p.onRadius(i, Number(e.target.value))} />
+                <input className="in num" type="number" min={1} step={1} aria-label={dict.fenceRadius} style={{ width: 90 }} value={Math.round(z.radius)} onChange={(e) => e.target.value !== '' && Number.isFinite(Number(e.target.value)) && p.onRadius(i, Number(e.target.value))} />
                 m
               </label>
             )}
@@ -189,7 +189,7 @@ export function RallyPanel(p: RallyProps) {
             </div>
             <label className="row t3" style={{ gap: 8, marginTop: 6 }}>
               {dict.altitude}
-              <input className="in num" type="number" step={1} aria-label={dict.altitude} style={{ width: 90 }} value={r.alt} onChange={(e) => p.onAlt(i, Number(e.target.value))} />
+              <input className="in num" type="number" step={1} aria-label={dict.altitude} style={{ width: 90 }} value={r.alt} onChange={(e) => e.target.value !== '' && Number.isFinite(Number(e.target.value)) && p.onAlt(i, Number(e.target.value))} />
               m Rel
             </label>
           </div>

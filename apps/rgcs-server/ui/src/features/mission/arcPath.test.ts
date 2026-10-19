@@ -40,3 +40,14 @@ describe('ARC_WAYPOINT across the planner', () => {
     expect(elevProfile(draft, () => 100)!.total).toBeCloseTo(ARC, 0)
   })
 })
+
+describe('degenerate arcs (review 2026-10-19)', () => {
+  const at = (command: number, lonM: number, p1: number) => ({ ...it_(command, lonM, p1), uid: 0 })
+  const plan = (list: MissionItem[]) => ({ ...draft, items: list.map((x, i) => ({ ...x, uid: i + 1 })) })
+  it('a pasted arc on top of its original (zero chord) or a sub-degree arc draws straight, without throwing', () => {
+    for (const d of [plan([it_(22, 0), at(36, 100, 90), at(36, 100, 90)]), plan([it_(22, 0), at(36, 2000, 0.5)])]) {
+      expect(() => missionAirData(d, new Set(), () => 100)).not.toThrow()
+      expect(() => elevProfile(d, () => 100)).not.toThrow()
+    }
+  })
+})

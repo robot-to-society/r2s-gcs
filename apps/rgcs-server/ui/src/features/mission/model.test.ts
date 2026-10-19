@@ -107,4 +107,9 @@ describe('setArc', () => {
   it('leaves other commands (TAKEOFF, LAND …) alone', () => {
     expect(setArc(d, 1, 90)).toBe(d)
   })
+  it('keeps params 2–4 (accept radius, pass radius, yaw) and only rewrites param1', () => {
+    const wp = { ...d, items: d.items.map((it) => (it.uid === 2 ? { ...it, params: [5, 2, 3, 45] as [number, number, number, number] } : it)) }
+    expect(setArc(wp, 2, 60).items[1]!.params).toEqual([60, 2, 3, 45])
+    expect(setArc(setArc(wp, 2, 60), 2, 0).items[1]!.params).toEqual([0, 2, 3, 45])
+  })
 })

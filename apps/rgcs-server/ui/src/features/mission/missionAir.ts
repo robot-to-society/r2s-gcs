@@ -50,7 +50,9 @@ function legPoints(a: Stop, b: Stop, elevAt: ElevAt): Pt[] {
   const n0 = ter ? Math.min(200, Math.max(2, Math.ceil(len / 20))) : Math.max(2, Math.min(8, Math.ceil(len / 400)))
   const n = arc ? Math.max(n0, 16) : n0
   // an ARC_WAYPOINT leg follows its arc; the altitude still changes linearly along it
-  const along = arc ? arcPoints(a, b, arc, n) : null
+  const bent = arc ? arcPoints(a, b, arc, n) : null
+  // a sub-degree arc or a zero chord comes back as [a, b]: draw it straight
+  const along = bent && bent.length === n + 1 ? bent : null
   return Array.from({ length: n + 1 }, (_, k) => {
     const t = k / n
     const lat = along ? along[k]!.lat : a.lat + (b.lat - a.lat) * t

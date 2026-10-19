@@ -204,7 +204,9 @@ export function MissionMap(props: Props) {
   const onRallyMove = useRef((i: number, lat: number, lon: number) => cb.current.onRallyMove(i, lat, lon))
   useFenceRally({ map, loaded, draft: shown, tab, onFenceEdit, onRallyMove })
   const onBox = useRef((uids: number[]) => cb.current.onBoxSelect(uids))
-  useBoxSelect(container, badges, onBox)
+  const boxActive = useRef(tab === 'mission')
+  boxActive.current = tab === 'mission'
+  useBoxSelect(container, badges, onBox, boxActive)
 
   // The selected vehicle, for context
   useEffect(() => {

@@ -22,6 +22,8 @@ export interface ArcDragDeps {
 }
 
 export function attachArcDrag(el: HTMLElement, h: MidHandle, deps: ArcDragDeps): void {
+  // preventDefault on pointerdown does not stop touchstart: MapLibre would pan during the hold
+  el.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false })
   el.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return
     e.preventDefault()
@@ -30,6 +32,7 @@ export function attachArcDrag(el: HTMLElement, h: MidHandle, deps: ArcDragDeps):
     const x0 = e.clientX
     const y0 = e.clientY
     let armed = false
+    let bent = false
     let angle = 0
     const timer = setTimeout(() => {
       armed = true
@@ -46,6 +49,7 @@ export function attachArcDrag(el: HTMLElement, h: MidHandle, deps: ArcDragDeps):
       const end = deps.end(h.toUid)
       if (!p || !end) return
       angle = arcAngleThrough({ lat: h.fromLat, lon: h.fromLon }, p, end)
+      bent = true
       deps.onPreview(h.toUid, angle)
     }
     const finish = (ev: Event) => {
@@ -57,7 +61,8 @@ export function attachArcDrag(el: HTMLElement, h: MidHandle, deps: ArcDragDeps):
       el.classList.remove('arc-armed')
       if (!armed) return
       swallowNextClick()
-      if (ev.type === 'pointercancel') deps.onCancel()
+      // a hold released without bending (or cancelled) leaves the leg as it was
+      if (ev.type === 'pointercancel' || !bent) deps.onCancel()
       else deps.onCommit(h.toUid, angle)
     }
     window.addEventListener('pointermove', move)

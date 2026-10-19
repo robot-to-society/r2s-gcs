@@ -7,9 +7,9 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 
 use mavlink::dialects::ardupilotmega::MavMissionType;
-use rgcs_core::{
-    Mission, MissionProgress, MissionTransfer, ServerMessage, SysId, TransferPhase, UploadReport,
-};
+use rgcs_core::{Mission, MissionProgress, ServerMessage, SysId, TransferPhase, UploadReport};
+
+use crate::transfer::Reporter;
 use rgcs_mavlink::{MissionFrame, Outgoing};
 use rgcs_mission::{Done, Download, ProtocolError, Upload};
 use tokio::sync::{broadcast, mpsc};
@@ -312,61 +312,6 @@ impl MissionHub {
                     ..mission.clone()
                 },
             );
-        }
-    }
-}
-
-/// Sends `mission_transfer` frames for one upload; `done` never goes backwards within a phase.
-struct Reporter {
-    tx: broadcast::Sender<ServerMessage>,
-    sysid: SysId,
-    total: u16,
-    last: StdMutex<(Option<TransferPhase>, u16)>,
-}
-
-impl Reporter {
-    fn new(tx: broadcast::Sender<ServerMessage>, sysid: SysId, total: u16) -> Self {
-        Self {
-            tx,
-            sysid,
-            total,
-            last: StdMutex::new((None, 0)),
-        }
-    }
-
-    fn send(&self, phase: TransferPhase, done: u16) {
-        let done = done.min(self.total);
-        if let Ok(mut last) = self.last.lock() {
-            if last.0 == Some(phase) && done <= last.1 {
-                return;
-            }
-            *last = (Some(phase), done);
-        }
-        let _ = self.tx.send(ServerMessage::MissionTransfer {
-            sysid: self.sysid,
-            transfer: MissionTransfer {
-                phase,
-                done,
-                total: self.total,
-            },
-        });
-    }
-
-    /// Write phase: a request for seq `n` means `n` frames were taken; the final ACK, all of them.
-    #[allow(deprecated)]
-    fn on_write_frame(&self, frame: &MissionFrame) {
-        match frame {
-            MissionFrame::RequestInt(r) => self.send(TransferPhase::Write, r.seq),
-            MissionFrame::Request(r) => self.send(TransferPhase::Write, r.seq),
-            MissionFrame::Ack(_) => self.send(TransferPhase::Write, self.total),
-            _ => {}
-        }
-    }
-
-    /// Verify phase: each item read back.
-    fn on_read_frame(&self, frame: &MissionFrame) {
-        if let MissionFrame::ItemInt(d) = frame {
-            self.send(TransferPhase::Verify, d.seq + 1);
         }
     }
 }

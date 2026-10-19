@@ -387,7 +387,18 @@ impl Download {
     }
 
     fn finish(&self) -> Mission {
-        let mut items = self.received.iter().filter_map(int_to_item);
+        let lenient = self.mission_type != MISSION;
+        let mut items = self.received.iter().filter_map(|d| {
+            // fence / rally items carry no meaningful frame: keep them whatever it is
+            int_to_item(d).or_else(|| {
+                lenient
+                    .then(|| MISSION_ITEM_INT_DATA {
+                        frame: MavFrame::MAV_FRAME_GLOBAL_RELATIVE_ALT,
+                        ..d.clone()
+                    })
+                    .and_then(|f| int_to_item(&f))
+            })
+        });
         let home = if self.mission_type == MISSION {
             items.next()
         } else {
@@ -826,5 +837,38 @@ mod tests {
         assert!(got.home.is_none());
         assert_eq!(got.items.len(), 1);
         assert_eq!((got.items[0].command, got.items[0].alt), (5100, 60.0));
+    }
+
+    #[test]
+    #[allow(deprecated)] // GLOBAL_INT is exactly what older firmware sends
+    fn a_fence_read_back_keeps_items_in_frames_we_do_not_model() {
+        // ArduPilot may answer fence / rally items in GLOBAL_INT (5); the frame means nothing there
+        let fence_type = MavMissionType::MAV_MISSION_TYPE_FENCE;
+        let (dl, _) = Download::start_typed(SYS, COMP, fence_type, 0);
+        let dl = dl.for_gcs(GCS);
+        let count = MavMessage::MISSION_COUNT(MISSION_COUNT_DATA {
+            count: 1,
+            target_system: GCS,
+            target_component: 190,
+            mission_type: fence_type,
+            opaque_id: 0,
+        });
+        let (dl, _, _) = dl.on_message(&count, 10);
+        let item = MISSION_ITEM_INT_DATA {
+            seq: 0,
+            command: MavCmd::from_u16(5003).unwrap(),
+            frame: MavFrame::MAV_FRAME_GLOBAL_INT,
+            param1: 120.0,
+            x: 362_500_000,
+            y: 1_376_300_000,
+            target_system: GCS,
+            target_component: 190,
+            mission_type: fence_type,
+            ..Default::default()
+        };
+        let (_, _, done) = dl.on_message(&MavMessage::MISSION_ITEM_INT(item), 20);
+        let Some(Ok(got)) = done else { panic!("{done:?}") };
+        assert_eq!(got.items.len(), 1);
+        assert_eq!((got.items[0].command, got.items[0].params[0]), (5003, 120.0));
     }
 }

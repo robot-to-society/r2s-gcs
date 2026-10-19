@@ -19,6 +19,11 @@ export function addZone(d: Draft, zone: FenceZone): Draft {
   return withFence(d, [...d.mission.fence, zone])
 }
 
+/** Puts `zone` (this very object) at `zi`. */
+export function replaceZone(d: Draft, zi: number, zone: FenceZone): Draft {
+  return zi < 0 || zi >= d.mission.fence.length ? d : withFence(d, d.mission.fence.map((z, i) => (i === zi ? zone : z)))
+}
+
 export function removeZone(d: Draft, zi: number): Draft {
   return withFence(d, d.mission.fence.filter((_, i) => i !== zi))
 }
@@ -76,6 +81,10 @@ export function circleRing(center: LatLon, radius: number, n = 64): LatLon[] {
     }
   })
 }
+
+/** Rally altitudes are above home: the mission default only fits when its frame is Rel. */
+const RALLY_FALLBACK_ALT = 50
+export const rallyDefaultAlt = (m: Draft['mission']): number => (m.default_frame === 'rel' ? m.default_alt : RALLY_FALLBACK_ALT)
 
 export const addRally = (d: Draft, p: LatLon, alt: number): Draft => withRally(d, [...d.mission.rally, { lat: p.lat, lon: p.lon, alt: Math.round(alt) }])
 export const removeRally = (d: Draft, i: number): Draft => withRally(d, d.mission.rally.filter((_, j) => j !== i))

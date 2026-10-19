@@ -82,7 +82,9 @@ export function arcLengthM(a: LatLon, b: LatLon, angleDeg: number): number {
   const B = toLocal(a, b)
   const chord = Math.hypot(B.x, B.y)
   if (straight(angleDeg) || chord === 0) return chord
-  return circleOf(B, angleDeg).r * Math.abs(angleDeg) * RAD
+  // as flown (and as the server counts it): at most ±359°
+  const clamped = Math.max(-MAX_ARC_DEG, Math.min(MAX_ARC_DEG, angleDeg))
+  return circleOf(B, clamped).r * Math.abs(clamped) * RAD
 }
 
 export const isArc = (it: MissionItem): boolean => it.command === MAV_CMD_NAV_ARC_WAYPOINT

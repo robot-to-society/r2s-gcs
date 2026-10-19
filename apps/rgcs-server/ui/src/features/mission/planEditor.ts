@@ -5,7 +5,8 @@ import { ApiError } from '../../shared/api/client'
 import type { Dict } from '../../shared/i18n'
 import { readFence, readRally, writeFence, writeRally } from './api'
 import type { FenceEdit, PlanTab } from './fenceMap'
-import { addRally, addZone, appendVertex, moveCircle, moveRally, moveVertex, setFence, setRadius, setRally } from './geofenceModel'
+import { addRally, addZone, rallyDefaultAlt, moveCircle, moveRally, moveVertex, replaceZone, setFence, setRadius, setRally } from './geofenceModel'
+import type { FenceZone } from '../../shared/api/types'
 import type { Draft } from './model'
 import type { ArmedZone, PlanStatus } from './PlanPanels'
 import { readPlanTab } from './planTab'
@@ -23,15 +24,21 @@ interface Args {
 
 export function usePlanEditor({ draft, sysid, dict, change }: Args) {
   const [tab, setTabState] = useState<PlanTab>(readPlanTab)
-  const [armed, setArmed] = useState<ArmedZone | null>(null)
-  const [drawing, setDrawing] = useState<number | null>(null)
+  const [armedState, setArmed] = useState<ArmedZone | null>(null)
+  // The polygon being drawn, by identity: a read, delete, load or undo that replaces it ends the
+  // drawing instead of letting clicks grow whatever zone now sits at its index.
+  const [drawingZone, setDrawingZone] = useState<FenceZone | null>(null)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<PlanStatus | null>(null)
   const fence = draft.mission.fence
+  const at = drawingZone ? fence.indexOf(drawingZone) : -1
+  const lost = drawingZone !== null && at < 0
+  const armed = lost ? null : armedState
+  const drawing = at < 0 ? null : at
 
   const finish = () => {
     setArmed(null)
-    setDrawing(null)
+    setDrawingZone(null)
   }
   const setTab = (t: PlanTab) => {
     finish()
@@ -39,22 +46,27 @@ export function usePlanEditor({ draft, sysid, dict, change }: Args) {
     setTabState(t)
   }
   const arm = (z: ArmedZone) => {
-    setDrawing(null)
+    setDrawingZone(null)
     setArmed(z)
   }
 
   const onPlanClick = (t: Exclude<PlanTab, 'mission'>, lat: number, lon: number) => {
     const p = { lat, lon }
-    if (t === 'rally') return change((d) => addRally(d, p, d.mission.default_alt))
-    // an undo may have taken the polygon away
-    if (drawing !== null && drawing < fence.length) return change((d) => appendVertex(d, drawing, p))
+    if (t === 'rally') return change((d) => addRally(d, p, rallyDefaultAlt(d.mission)))
+    if (lost) return finish()
+    if (drawing !== null && drawingZone?.kind === 'polygon') {
+      const next: FenceZone = { ...drawingZone, vertices: [...drawingZone.vertices, p] }
+      change((d) => replaceZone(d, drawing, next))
+      return setDrawingZone(next)
+    }
     if (!armed) return
     if (armed.kind === 'circle') {
       change((d) => addZone(d, { kind: 'circle', inclusion: armed.inclusion, center: p, radius: NEW_CIRCLE_M }))
       return setArmed(null)
     }
-    change((d) => addZone(d, { kind: 'polygon', inclusion: armed.inclusion, vertices: [p] }))
-    setDrawing(fence.length)
+    const zone: FenceZone = { kind: 'polygon', inclusion: armed.inclusion, vertices: [p] }
+    change((d) => addZone(d, zone))
+    setDrawingZone(zone)
   }
 
   const onFenceEdit = (e: FenceEdit) =>

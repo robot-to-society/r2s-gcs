@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { emptyDraft } from './model'
-import { addRally, addZone, appendVertex, circleRing, fenceFindings, moveCircle, moveRally, moveVertex, removeRally, removeVertex, removeZone, setRadius, setRallyAlt } from './geofenceModel'
+import { rallyDefaultAlt, addRally, addZone, appendVertex, circleRing, fenceFindings, moveCircle, moveRally, moveVertex, removeRally, removeVertex, removeZone, setRadius, setRallyAlt } from './geofenceModel'
 
 const ll = (lat: number, lon: number) => ({ lat, lon })
 
@@ -44,5 +44,14 @@ describe('rally editing', () => {
     expect(d2.mission.rally[0]).toEqual({ lat: 36.26, lon: 137.64, alt: 60 })
     expect(setRallyAlt(d2, 0, 75.6).mission.rally[0]!.alt).toBe(76) // whole metres, like ArduPilot
     expect(removeRally(d2, 0).mission.rally).toEqual([])
+  })
+})
+
+describe('rallyDefaultAlt', () => {
+  it('uses the mission default only when it is relative to home (rally altitudes are)', () => {
+    const m = emptyDraft().mission
+    expect(rallyDefaultAlt({ ...m, default_alt: 80, default_frame: 'rel' })).toBe(80)
+    expect(rallyDefaultAlt({ ...m, default_alt: 720, default_frame: 'abs' })).toBe(50)
+    expect(rallyDefaultAlt({ ...m, default_alt: 30, default_frame: 'ter' })).toBe(50)
   })
 })
