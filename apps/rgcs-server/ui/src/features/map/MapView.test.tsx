@@ -27,7 +27,7 @@ class FakeMarker {
 }
 
 class FakeMap {
-  handlers = new Map<string, (() => void)[]>()
+  handlers = new Map<string, ((e?: unknown) => void)[]>()
   padding: unknown = null
   eased: unknown[] = []
   sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>()
@@ -37,7 +37,7 @@ class FakeMap {
   terrain: unknown = 'unset'
   layerObjs = new Map<string, unknown>()
   visibility = new Map<string, string>()
-  once(ev: string, cb: () => void) {
+  once(ev: string, cb: (e?: unknown) => void) {
     this.on(ev, cb)
   }
   stop() {}
@@ -51,12 +51,12 @@ class FakeMap {
   getContainer() {
     return { clientWidth: 800, clientHeight: 600 }
   }
-  on(ev: string, cb: () => void) {
+  on(ev: string, cb: (e?: unknown) => void) {
     this.handlers.set(ev, [...(this.handlers.get(ev) ?? []), cb])
     if (ev === 'load' && !created.deferLoad) cb()
   }
-  fire(ev: string) {
-    this.handlers.get(ev)?.forEach((cb) => cb())
+  fire(ev: string, e?: unknown) {
+    this.handlers.get(ev)?.forEach((cb) => cb(e))
   }
   addControl() {}
   addSource(id: string) {
@@ -318,5 +318,12 @@ describe('MapView', () => {
     const m = created.maps.at(-1)!
     expect(m.sources.has('dem')).toBe(false)
     expect(m.layers).not.toContain('veh-air3d')
+  })
+  it('right-click reports the point and the screen position', () => {
+    const onContext = vi.fn()
+    render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} onContext={onContext} />)
+    const preventDefault = vi.fn()
+    act(() => created.maps.at(-1)!.fire('contextmenu', { lngLat: { lat: 36.1, lng: 139.3 }, originalEvent: { clientX: 40, clientY: 50, preventDefault } }))
+    expect(onContext).toHaveBeenCalledWith({ lat: 36.1, lon: 139.3, x: 40, y: 50 })
   })
 })

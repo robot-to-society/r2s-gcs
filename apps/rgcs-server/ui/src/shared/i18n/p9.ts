@@ -9,6 +9,7 @@ export const p9Ja = {
   quickModes: 'クイックモード',
   emergency: '緊急操作',
   fleet: '全機',
+  guidedHere: 'ここへ Guided 移動',
 } as const
 
 export const p9En: Record<keyof typeof p9Ja, string> = {
@@ -20,4 +21,5 @@ export const p9En: Record<keyof typeof p9Ja, string> = {
   quickModes: 'Quick modes',
   emergency: 'Emergency',
   fleet: 'All vehicles:',
+  guidedHere: 'Guided to here',
 }

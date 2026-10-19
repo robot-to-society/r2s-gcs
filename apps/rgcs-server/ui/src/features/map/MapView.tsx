@@ -41,6 +41,8 @@ interface Props {
   readonly mode?: MapMode
   /** Terrarium DEM tile template (`/api/settings/app`), `null` → 2D only. */
   readonly terrainTiles?: string | null
+  /** Right-click: the map point and the viewport position for a menu. */
+  readonly onContext?: (p: { lat: number; lon: number; x: number; y: number }) => void
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -57,7 +59,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -69,6 +71,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   missionRef.current = mission
   const dragRef = useRef(onDragStart)
   const clickRef = useRef(onClick)
+  const contextRef = useRef(onContext)
+  contextRef.current = onContext
   dragRef.current = onDragStart
   clickRef.current = onClick
 
@@ -128,6 +132,11 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     m.on('dragstart', () => dragRef.current())
     m.on('zoomend', () => setZoom(m.getZoom()))
     m.on('click', (e) => clickRef.current({ lat: e.lngLat.lat, lon: e.lngLat.lng }))
+    m.on('contextmenu', (e) => {
+      if (!contextRef.current) return
+      e.originalEvent.preventDefault()
+      contextRef.current({ lat: e.lngLat.lat, lon: e.lngLat.lng, x: e.originalEvent.clientX, y: e.originalEvent.clientY })
+    })
     map.current = m
     // E2E / live checks read the camera (pitch, layers) from the dev build only.
     if (import.meta.env.DEV && interactive) (window as unknown as { __rgcsMap?: MlMap }).__rgcsMap = m

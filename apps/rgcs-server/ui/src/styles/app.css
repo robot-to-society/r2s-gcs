@@ -206,3 +206,5 @@
 .fleet-list li.sending { border-color: var(--accent-line); }
 .fleet-list li.ok { border-color: var(--ok); }
 .fleet-list li.fail { border-color: var(--danger); color: var(--danger); }
+.ctx-menu .ctx-head { padding: 4px 10px 2px; font-size: 11px; }
+.ctx-menu button:disabled { opacity: 0.4; cursor: not-allowed; }

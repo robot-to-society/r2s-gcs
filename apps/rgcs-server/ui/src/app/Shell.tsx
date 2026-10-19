@@ -9,7 +9,7 @@ import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } 
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { MaintView } from '../features/params'
-import { BasemapPicker, FollowChip, MapModeToggle, MapView, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
+import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
@@ -62,6 +62,7 @@ export function Shell({ me, lang }: Props) {
   // The command panel is a tool, not a dialog: open until closed, across commands and selections.
   const [commandsOpen, setCommandsOpen] = useState(false)
   // Fleet command being confirmed, with its targets fixed when the dialog opened.
+  const [mapMenu, setMapMenu] = useState<MapPoint | null>(null)
   const [fleet, setFleet] = useState<{ command: VehicleCommand; targets: VehicleState[] } | null>(null)
   const runner = useCommandRunner({
     entries: log.entries,
@@ -227,6 +228,7 @@ export function Shell({ me, lang }: Props) {
               groundProjection={settings.map.gimbal_ground_projection}
               onDragStart={() => mapUiStore.update(clearFollow)}
               onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
+              onContext={view === 'ops' ? setMapMenu : undefined}
             />
           )}
           {view === 'ops' && settings && <MapModeToggle mode={mapMode} available={settings.terrain_tiles !== null} dict={dict} onChange={saveMapMode} />}
@@ -286,6 +288,19 @@ export function Shell({ me, lang }: Props) {
             />
           )}
           {runner.confirm}
+          {mapMenu && view === 'ops' && (
+            <MapContextMenu
+              at={mapMenu}
+              vehicleName={currentVehicle?.name ?? null}
+              dict={dict}
+              onClose={() => setMapMenu(null)}
+              onGuided={(p) => {
+                if (!currentVehicle) return
+                mapUiStore.update((s) => setTarget(s, p))
+                setModal({ kind: 'guided', sysid: currentVehicle.sysid })
+              }}
+            />
+          )}
           {fleet && (
             <FleetConfirm
               command={fleet.command}
