@@ -83,4 +83,12 @@ describe('briefing workspace model', () => {
     expect(shown.active).toBe(first.key)
     expect(shown.rows[0].hidden).toBe(false)
   })
+
+  it('removing_the_active_row_shows_the_hidden_neighbour_that_takes_over', () => {
+    const ws = addRow(addRow(emptyWorkspace(), saved(1)), saved(2))
+    const hid = setHidden(activate(ws, ws.rows[0].key), ws.rows[1].key, true)
+    const after = removeRow(hid, hid.active)
+    expect(after.active).toBe(ws.rows[1].key)
+    expect(activeRow(after).hidden).toBe(false)
+  })
 })

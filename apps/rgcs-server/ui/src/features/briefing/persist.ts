@@ -2,7 +2,7 @@
 import type { Mission } from '../../shared/api/types'
 import { toMission } from '../mission/model'
 import { INITIAL_MISSION_UI, loaded, type MissionStore, type MissionUi } from '../mission/store'
-import { parkActive, reseedKeys, type Row, type Workspace } from './model'
+import { parkActive, reseedKeys, showActive, type Row, type Workspace } from './model'
 import { replaceWorkspace, type BriefingStore } from './store'
 
 export const STORAGE_KEY = 'rgcs.briefing.v1'
@@ -52,7 +52,7 @@ export function restore(text: string | null): Workspace | null {
     const ok = rows as Row[]
     reseedKeys(ok)
     const active = typeof p.active === 'string' && ok.some((r) => r.key === p.active) ? p.active : ok[0].key
-    return { id: typeof p.id === 'number' ? p.id : null, name: typeof p.name === 'string' ? p.name : '', rows: ok, active }
+    return showActive({ id: typeof p.id === 'number' ? p.id : null, name: typeof p.name === 'string' ? p.name : '', rows: ok, active })
   } catch {
     return null
   }

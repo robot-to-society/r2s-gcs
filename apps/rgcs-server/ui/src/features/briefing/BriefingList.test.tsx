@@ -109,13 +109,24 @@ describe('BriefingList', () => {
   })
 
   it('the_eye_toggle_hides_a_parked_row_and_is_disabled_on_the_active_one', () => {
-    const { on, rows } = setup()
-    const eye = (i: number) => within(rows()[i]!).getByRole('button', { name: /^(表示|非表示)$/ })
+    const base = twoRows()
+    const { on, rows } = setup(base)
+    const eye = (i: number) => within(rows()[i]!).getByRole('button', { name: '表示' })
+    const beta = base.rows[1]!.key
     expect(eye(0)).toBeDisabled()
-    expect(eye(1)).not.toBeDisabled()
     expect(eye(1).getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(eye(1))
-    expect(on.onHidden).toHaveBeenCalledWith(expect.any(String), true)
+    expect(on.onHidden).toHaveBeenCalledWith(beta, true)
     expect(on.onSwitch).not.toHaveBeenCalled()
+  })
+
+  it('a_hidden_row_is_unpressed_and_the_toggle_shows_it_again', () => {
+    const base = twoRows()
+    const ws = { ...base, rows: base.rows.map((r, i) => (i === 1 ? { ...r, hidden: true } : r)) }
+    const { on, rows } = setup(ws)
+    const eye = within(rows()[1]!).getByRole('button', { name: '表示' })
+    expect(eye.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(eye)
+    expect(on.onHidden).toHaveBeenCalledWith(ws.rows[1]!.key, false)
   })
 })

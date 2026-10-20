@@ -11,7 +11,6 @@ export const briefingJa = {
   bfDown: '下へ',
   bfRemove: '一覧から外す',
   bfShow: '表示',
-  bfHide: '非表示',
 }
 
 export const briefingEn: Record<keyof typeof briefingJa, string> = {
@@ -24,6 +23,5 @@ export const briefingEn: Record<keyof typeof briefingJa, string> = {
   bfUp: 'Move up',
   bfDown: 'Move down',
   bfRemove: 'Remove from list',
-  bfShow: 'Show',
-  bfHide: 'Hide',
+  bfShow: 'Show on map',
 }

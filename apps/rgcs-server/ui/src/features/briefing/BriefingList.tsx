@@ -73,7 +73,7 @@ function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onS
         {!known && <option value={row.sysid ?? ''}>{`#${row.sysid}`}</option>}
       </select>
       <span className="brief-ctl" onClick={stop}>
-        <button type="button" className="btn-icon sm" aria-label={shown ? dict.bfHide : dict.bfShow} title={shown ? dict.bfHide : dict.bfShow} aria-pressed={shown} disabled={active} onClick={() => onHidden(row.key, shown)}>
+        <button type="button" className="btn-icon sm" aria-label={dict.bfShow} title={dict.bfShow} aria-pressed={shown} disabled={active} onClick={() => onHidden(row.key, shown)}>
           {shown ? <IconEye /> : <IconEyeOff />}
         </button>
         <button type="button" className="btn-icon sm" aria-label={dict.bfUp} title={dict.bfUp} disabled={first} onClick={() => onMove(row.key, -1)}>

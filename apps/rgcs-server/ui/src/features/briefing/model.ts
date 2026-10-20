@@ -54,8 +54,11 @@ export function removeRow(ws: Workspace, key: string): Workspace {
   const rows = ws.rows.filter((r) => r.key !== key)
   if (rows.length === 0) return withFreshRow(ws)
   const active = ws.active === key ? rows[Math.min(i, rows.length - 1)].key : ws.active
-  return { ...ws, rows, active }
+  return showActive({ ...ws, rows, active })
 }
+
+/** The active row is always shown: applied wherever `active` is set other than through `activate`. */
+export const showActive = (ws: Workspace): Workspace => (activeRow(ws).hidden ? mapRow(ws, activeRow(ws).key, (r) => ({ ...r, hidden: false })) : ws)
 
 function withFreshRow(ws: Workspace): Workspace {
   const e = emptyWorkspace()

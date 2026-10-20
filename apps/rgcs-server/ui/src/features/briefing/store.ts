@@ -1,7 +1,7 @@
 // The briefing workspace: rows of missions. The live editor (MissionStore) always holds the active row.
 import { useSyncExternalStore } from 'react'
 import type { MissionStore, MissionUi } from '../mission/store'
-import { activate, activeRow, addRow, emptyWorkspace, parkActive, reseedKeys, type Workspace } from './model'
+import { activate, activeRow, addRow, emptyWorkspace, parkActive, reseedKeys, showActive, type Workspace } from './model'
 
 export class BriefingStore {
   private state: Workspace = emptyWorkspace()
@@ -55,6 +55,6 @@ export function openInNewRow(b: BriefingStore, m: MissionStore, ui: MissionUi): 
 /** Replaces the whole workspace (opened briefing) and loads its active row into the editor. */
 export function replaceWorkspace(b: BriefingStore, m: MissionStore, ws: Workspace): void {
   reseedKeys(ws.rows)
-  b.update(() => ws)
+  b.update(() => showActive(ws))
   loadActive(b, m)
 }

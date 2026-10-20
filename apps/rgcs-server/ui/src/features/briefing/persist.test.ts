@@ -44,6 +44,14 @@ describe('briefing persistence', () => {
     expect(restore(JSON.stringify(old))!.rows.every((r) => r.hidden === false)).toBe(true)
   })
 
+  it('restore_shows_an_active_row_stored_as_hidden', () => {
+    const { b, m } = build()
+    const p = JSON.parse(serialize(b.getState(), m.getState()))
+    p.rows.forEach((r: { key: string; hidden?: boolean }) => (r.hidden = r.key === p.active))
+    const ws = restore(JSON.stringify(p))
+    expect(ws!.rows.find((r) => r.key === ws!.active)!.hidden).toBe(false)
+  })
+
   it('restore_ignores_corrupt_or_old_payloads', () => {
     for (const t of ['{', '{"v":0}', null, '{"v":1,"rows":[]}', '[]', '{"v":1,"rows":[{}]}']) expect(restore(t)).toBeNull()
   })
