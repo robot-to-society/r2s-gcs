@@ -125,6 +125,9 @@ export const loaded = (ui: MissionUi, m: Mission, savedId: number | null): Missi
 
 export const fresh = (ui: MissionUi): MissionUi => ({ ...ui, history: initHistory(emptyDraft()), selected: EMPTY, anchor: null, savedId: null, dirty: false, findings: [], lastReport: null })
 export const markSaved = (ui: MissionUi, id: number): MissionUi => ({ ...ui, savedId: id, dirty: false })
+/** `ui` still edits the mission `draft` was a state of (it is its present, or in its undo / redo history). */
+export const holdsDraft = (ui: MissionUi, draft: Draft): boolean =>
+  ui.history.present === draft || ui.history.past.includes(draft) || ui.history.future.includes(draft)
 export const setBusy = (ui: MissionUi, busy: Busy): MissionUi => (ui.busy === busy ? ui : { ...ui, busy })
 export const setFindings = (ui: MissionUi, findings: readonly Finding[]): MissionUi => ({ ...ui, findings })
 export const setReport = (ui: MissionUi, lastReport: UploadReport | null): MissionUi => ({ ...ui, lastReport })

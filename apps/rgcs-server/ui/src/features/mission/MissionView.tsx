@@ -99,7 +99,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const io = useMissionIo(store, briefing, sysid, dict, vehicleStore)
   const batch = useBriefingWrite(brief.list.workspace, vehicles, ui.busy !== 'idle', dict)
   const fileHome = draft.mission.home ?? (vehicle?.home ? { lat: vehicle.home.lat, lon: vehicle.home.lon, alt: vehicle.home.alt } : null)
-  const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit })
+  const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit, store })
   const briefIo = useBriefingIo(briefing, store, brief.list.workspace, dict, { onFit })
   const planIo = { sysid, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f), onCollapse: panel.collapse }
   const selectedItems = draft.items.filter((it) => ui.selected.has(it.uid))

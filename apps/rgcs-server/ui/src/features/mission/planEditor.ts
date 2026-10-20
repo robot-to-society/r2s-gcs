@@ -8,11 +8,17 @@ import type { FenceEdit, PlanTab } from './fenceMap'
 import { addRally, addZone, rallyDefaultAlt, moveCircle, moveRally, moveVertex, replaceZone, setFence, setRadius, setRally } from './geofenceModel'
 import type { FenceParams, FenceZone, Home } from '../../shared/api/types'
 import type { Draft } from './model'
+import { holdsDraft, type MissionStore } from './store'
+import { localResultId } from '../vehicles/localResultId'
+import { vehicleStore } from '../vehicles/store'
 import type { ArmedZone } from './PlanPanels'
 import type { PlanStatus } from './PlanSidebar'
 import { readPlanTab } from './planTab'
 import { downloadText, readFileText, safeFileStem } from './files'
 import { fencePoints, fenceToWpl, parseFenceFile, parseRallyFile, rallyToWpl } from './planFiles'
+
+/** `set` bound to a list read from the vehicle. */
+const withList = <T,>(set: (d: Draft, l: T[]) => Draft, list: T[]) => (d: Draft): Draft => set(d, list)
 
 /** A new circle starts with this radius; the handle then sets it. */
 const NEW_CIRCLE_M = 100
@@ -27,9 +33,11 @@ interface Args {
   readonly home: Home | null
   /** Frame these points on the map (after a file loaded). */
   readonly onFit: (points: readonly { lat: number; lon: number }[]) => void
+  /** The live editor: a vehicle read applies only while it still holds the mission that asked. */
+  readonly store: MissionStore
 }
 
-export function usePlanEditor({ draft, sysid, dict, change, home, onFit }: Args) {
+export function usePlanEditor({ draft, sysid, dict, change, home, onFit, store }: Args) {
   const [tab, setTabState] = useState<PlanTab>(readPlanTab)
   const [armedState, setArmed] = useState<ArmedZone | null>(null)
   // The polygon being drawn, by identity: a read, delete, load or undo that replaces it ends the
@@ -116,16 +124,17 @@ export function usePlanEditor({ draft, sysid, dict, change, home, onFit }: Args)
       }
     })
   }
+  /** Applies a read to the mission that started it; a row switch / open meanwhile drops it (pill + status). */
   const read = () => {
     if (sysid === null) return
+    const started = store.getState().history.present
     void run(async () => {
-      if (tab === 'rally') {
-        const { points } = await readRally(sysid)
-        change((d) => setRally(d, points))
-      } else {
-        const { zones } = await readFence(sysid)
-        change((d) => setFence(d, zones))
+      const apply = tab === 'rally' ? withList(setRally, (await readRally(sysid)).points) : withList(setFence, (await readFence(sysid)).zones)
+      if (!holdsDraft(store.getState(), started)) {
+        vehicleStore.pushLocalResult({ id: localResultId(), sysid, cmd: tab === 'rally' ? 'rally_read' : 'fence_read', ok: false, reason: dict.planReadDropped, ts: Date.now() })
+        throw new Error(dict.planReadDropped)
       }
+      change(apply)
       return dict.planReadDone
     })
   }

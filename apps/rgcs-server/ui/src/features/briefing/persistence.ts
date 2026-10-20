@@ -4,7 +4,7 @@ import { ApiError } from '../../shared/api/client'
 import type { Briefing, BriefingFull, BriefingRow } from '../../shared/api/types'
 import type { createMission, updateMission } from '../mission/api'
 import { emptyDraft, toMission } from '../mission/model'
-import { INITIAL_MISSION_UI, loaded, markSaved, type MissionStore, type MissionUi } from '../mission/store'
+import { INITIAL_MISSION_UI, holdsDraft, loaded, markSaved, type MissionStore, type MissionUi } from '../mission/store'
 import type { createBriefing, updateBriefing } from './api'
 import type { BriefingStore } from './store'
 import { isPristine } from './useBriefing'
@@ -117,9 +117,6 @@ export function workspaceFrom(full: BriefingFull): Workspace {
   return { id: full.briefing.id, name: full.briefing.name, rows, active: active.key }
 }
 
-/** The editor still shows the mission that was sent (possibly edited further since). */
-const sameMission = (u: MissionUi, sent: MissionUi): boolean =>
-  u.history.present === sent.history.present || u.history.past.includes(sent.history.present) || u.history.future.includes(sent.history.present)
 
 /**
  * Writes a (possibly partial) save back: the rows' saved ids / clean flags into the briefing store,
@@ -135,6 +132,7 @@ export function commitSaved(b: BriefingStore, m: MissionStore, sent: MissionUi, 
   const id = row.ui.savedId
   m.update((u) => {
     if (u.history.present === sent.history.present) return markSaved(u, id)
-    return sameMission(u, sent) ? { ...u, savedId: id } : u
+    // the editor still shows the mission that was sent (possibly edited further since)
+    return holdsDraft(u, sent.history.present) ? { ...u, savedId: id } : u
   })
 }
