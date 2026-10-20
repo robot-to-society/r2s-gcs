@@ -9,7 +9,7 @@ describe('Nav', () => {
     expect(container.querySelector('nav.seg.n6')).not.toBeNull()
     const buttons = screen.getAllByRole('button')
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['運用マップ', '全機体映像', 'ミッション', 'ネットワーク', 'AIチャット', 'メンテナンス・設定'])
-    for (const name of ['全機体映像', 'ネットワーク', 'AIチャット']) expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true')
+    for (const name of ['ネットワーク', 'AIチャット']) expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true')
     for (const b of buttons) expect(b.querySelector('svg.lucide, svg.ic')).not.toBeNull()
     expect(buttons[0]).toHaveAttribute('aria-current', 'page')
     expect(screen.getByTestId('lens')).toHaveStyle({ transform: 'translateX(0%)' })
@@ -18,21 +18,23 @@ describe('Nav', () => {
   it('does not switch to a view that is not implemented yet', () => {
     const onView = vi.fn()
     render(<Nav view="ops" onView={onView} dict={t('ja')} />)
-    const video = screen.getByRole('button', { name: '全機体映像' })
-    expect(video).toHaveAttribute('aria-disabled', 'true')
-    expect(video).toHaveAttribute('title', '全機体映像 (準備中)')
-    fireEvent.click(video)
+    const net = screen.getByRole('button', { name: 'ネットワーク' })
+    expect(net).toHaveAttribute('aria-disabled', 'true')
+    expect(net).toHaveAttribute('title', 'ネットワーク (準備中)')
+    fireEvent.click(net)
     expect(onView).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '運用マップ' }))
     expect(onView).toHaveBeenCalledWith('ops')
   })
 
-  it('mission_tab_is_enabled', () => {
+  it('mission and video tabs are enabled', () => {
     const onView = vi.fn()
     render(<Nav view="ops" onView={onView} dict={t('ja')} />)
-    const mission = screen.getByRole('button', { name: 'ミッション' })
-    expect(mission).not.toHaveAttribute('aria-disabled')
-    fireEvent.click(mission)
-    expect(onView).toHaveBeenCalledWith('mission')
+    for (const [name, view] of [['ミッション', 'mission'], ['全機体映像', 'video']] as const) {
+      const b = screen.getByRole('button', { name })
+      expect(b).not.toHaveAttribute('aria-disabled')
+      fireEvent.click(b)
+      expect(onView).toHaveBeenCalledWith(view)
+    }
   })
 })

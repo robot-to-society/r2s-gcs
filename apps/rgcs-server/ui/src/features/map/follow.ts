@@ -10,6 +10,9 @@ export interface Padding {
   readonly bottom: number
 }
 
+/** A map with nothing floating over it (the cockpit's mini map). */
+export const NO_PADDING: Padding = { top: 0, left: 0, right: 0, bottom: 0 }
+
 const GAP = 12
 const ASIDE_W = 296
 const RAIL_W = 60

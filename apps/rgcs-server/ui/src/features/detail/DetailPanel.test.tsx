@@ -109,3 +109,12 @@ describe('DetailPanel', () => {
     expect(b.className).toContain('stale')
   })
 })
+
+describe('DetailPanel video maximize', () => {
+  it('the thumbnail maximize button opens the cockpit for this vehicle', () => {
+    const onMaximize = vi.fn()
+    render(<DetailPanel {...base} onMaximize={onMaximize} />)
+    fireEvent.click(screen.getByRole('button', { name: '最大化' }))
+    expect(onMaximize).toHaveBeenCalledWith(1)
+  })
+})

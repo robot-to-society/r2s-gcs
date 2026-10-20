@@ -23,6 +23,8 @@ interface Props {
   readonly cameraPending?: boolean
   readonly onCameraCommand?: (cmd: CameraCommand) => void
   readonly onCameraSettings?: () => void
+  /** Opens this vehicle's camera cockpit (全機体映像, spec 10 §4.2). */
+  readonly onMaximize?: (sysid: SysId) => void
   readonly vehicleMission?: Mission
   readonly missionProgress?: MissionProgress
   readonly missionTransfer?: MissionTransfer
@@ -66,6 +68,7 @@ export function DetailPanel(p: Props) {
           modes={caps.video_modes}
           mode={camState.video_mode}
           onMode={(mode) => onCameraCommand?.({ cmd: 'video_mode', args: { mode } })}
+          {...(p.onMaximize ? { onMaximize: () => p.onMaximize?.(v.sysid) } : {})}
         />
         <CameraStrip caps={caps} state={camState} pending={cameraPending} onCommand={(c) => onCameraCommand?.(c)} onSettings={() => onCameraSettings?.()} dict={dict} />
         <CameraStatusRow caps={caps} state={camState} onSetup={() => onCameraSettings?.()} dict={dict} />

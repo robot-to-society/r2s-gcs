@@ -9,7 +9,7 @@ import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } 
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { MaintView } from '../features/params'
-import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks } from '../features/map'
+import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks, NO_PADDING } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
@@ -18,6 +18,7 @@ import { t, type Lang } from '../shared/i18n'
 import { LogDock } from './LogDock'
 import { useLogHistory } from '../features/log/useLogHistory'
 import { usePredicted } from '../features/flightpath/usePredicted'
+import { VideoStage } from '../features/video'
 import { Header } from './Header'
 import { NO_MODAL, type Modal } from './modal'
 import type { View } from './view'
@@ -59,6 +60,8 @@ export function Shell({ me, lang }: Props) {
   }, [])
   const [selected, setSelected] = useState<number | null>(null)
   const [view, setView] = useState<View>('ops')
+  // 全機体映像: the vehicle in the camera cockpit (null = the grid)
+  const [maxVideo, setMaxVideo] = useState<number | null>(null)
   const [modal, setModal] = useState<Modal>(NO_MODAL)
   // The command panel is a tool, not a dialog: open until closed, across commands and selections.
   const [commandsOpen, setCommandsOpen] = useState(false)
@@ -92,8 +95,13 @@ export function Shell({ me, lang }: Props) {
   const predicted = usePredicted(currentMission, current === null ? null : (vehicles.get(current) ?? null))
   const currentVehicle = current === null ? undefined : vehicles.get(current)
   const detail = selected === null ? undefined : vehicles.get(selected)
-  // The maintenance view takes the map's place; the right panel belongs to the operations map.
-  const showDetail = detail !== undefined && view !== 'maint'
+  // The maintenance and video views take the map's place; the right panel belongs to the operations map.
+  const showDetail = detail !== undefined && view !== 'maint' && view !== 'video'
+  const openCockpit = (sysid: number) => {
+    setSelected(sysid)
+    setMaxVideo(sysid)
+    setView('video')
+  }
   const cameraCommand = (sysid: number, cmd: CameraCommand) => {
     setPending((p) => markPending(p, sysid, cmd.cmd, Date.now()))
     sendCameraCommand(sysid, cmd).catch((e: unknown) => {
@@ -221,7 +229,7 @@ export function Shell({ me, lang }: Props) {
             {logDock}
           </main>
         )}
-        <main className={`stage${showDetail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}${view === 'maint' ? ' maint-on' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' ? 'none' : undefined }}>
+        <main className={`stage${showDetail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}${view === 'maint' ? ' maint-on' : ''}${view === 'video' ? ' video-on' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' ? 'none' : undefined }}>
           {settings && (
             <MapView
               vehicles={vehicles}
@@ -254,6 +262,28 @@ export function Shell({ me, lang }: Props) {
               <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} selected={current} onSelect={setSelected} me={me} flightDrafts={flightDrafts} logFetch={logFetch} onOpenPresent={() => setModal({ kind: 'present-settings' })} />
             </>
           )}
+          {view === 'video' && settings && (
+            <VideoStage
+              vehicles={list}
+              cameras={cameras}
+              videoSources={videoSources}
+              pending={new Set(pending.bySysid.keys())}
+              selected={current}
+              maximized={maxVideo}
+              dict={dict}
+              onSelect={setSelected}
+              onMaximize={openCockpit}
+              onRestore={() => setMaxVideo(null)}
+              onCommand={cameraCommand}
+              onSettings={(sysid) => setModal({ kind: 'camera-settings', sysid })}
+              miniMap={
+                maxVideo !== null && (
+                  <MapView vehicles={vehicles} tracks={tracks} follow={maxVideo} selected={maxVideo} padding={NO_PADDING} style={basemap ? basemapStyle(basemap) : rasterStyle(settings.map_tile_url, settings.map_attribution)} basemap={basemap ?? undefined} homes={homes} cameras={cameras} target={null} onDragStart={() => {}} onClick={() => {}} />
+                )
+              }
+            />
+          )}
+          {view !== 'video' && (
           <VehicleList
             vehicles={list}
             selected={current}
@@ -265,7 +295,8 @@ export function Shell({ me, lang }: Props) {
             following={mapUi.follow}
             onFleet={view === 'ops' ? (command) => setFleet({ command, targets: fleetTargets(list) }) : undefined}
           />
-          {mapUi.follow !== null && view !== 'maint' && (
+          )}
+          {mapUi.follow !== null && view === 'ops' && (
             <FollowChip name={vehicles.get(mapUi.follow)?.name ?? `#${mapUi.follow}`} dict={dict} onClear={() => mapUiStore.update(clearFollow)} />
           )}
           {detail && showDetail && (
@@ -282,6 +313,7 @@ export function Shell({ me, lang }: Props) {
               cameraPending={pending.bySysid.has(detail.sysid)}
               onCameraCommand={(cmd) => cameraCommand(detail.sysid, cmd)}
               onCameraSettings={() => setModal({ kind: 'camera-settings', sysid: detail.sysid })}
+              onMaximize={openCockpit}
               vehicleMission={vehicleMissions.get(detail.sysid)}
               missionProgress={missionProgress.get(detail.sysid)}
               missionTransfer={missionTransfers.get(detail.sysid)}
