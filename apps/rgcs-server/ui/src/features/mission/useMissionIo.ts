@@ -3,31 +3,32 @@
 import { useState } from 'react'
 import type { Mission } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
+import { openMission } from '../briefing/useBriefing'
+import type { BriefingStore } from '../briefing/store'
 import type { VehicleStore } from '../vehicles/store'
 import { createMission, downloadMission, exportWaypoints, getMission, importWaypoints, updateMission, uploadMission, validateMission } from './api'
 import { downloadText, parseRgcsMission, readFileText, safeFileStem, serializeRgcsMission } from './files'
 import { toMission } from './model'
-import { fresh as freshUi, loaded, markSaved, setBusy, setFindings, setReport, type MissionStore } from './store'
+import { INITIAL_MISSION_UI, fresh as freshUi, loaded, markSaved, setBusy, setFindings, setReport, type MissionStore, type MissionUi } from './store'
 
 const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
-export function useMissionIo(store: MissionStore, sysid: number | null, dict: Dict, vehicles: VehicleStore) {
+/**
+ * File / saved / vehicle missions and 新規 open in the briefing (a new row, or the untouched one),
+ * so nothing in the editor is lost and no discard question is asked.
+ */
+export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid: number | null, dict: Dict, vehicles: VehicleStore) {
   const [fitRequest, setFitRequest] = useState(0)
   const [picker, setPicker] = useState(false)
-  const [discard, setDiscard] = useState<(() => void) | null>(null)
   const fit = () => setFitRequest((n) => n + 1)
   const result = (cmd: string, ok: boolean, reason: string | null, to: number | null = sysid) =>
     vehicles.pushLocalResult({ id: -Date.now(), sysid: to ?? 0, cmd, ok, reason, ts: Date.now() })
 
-  /** Runs `fn` now, or after the operator confirms discarding unsaved edits. */
-  const guard = (fn: () => void) => {
-    if (store.getState().dirty) setDiscard(() => fn)
-    else fn()
-  }
-  const load = (m: Mission, id: number | null) => {
-    store.update((u) => loaded(u, m, id))
+  const open = (ui: MissionUi) => {
+    openMission(briefing, store, ui)
     fit()
   }
+  const load = (m: Mission, id: number | null) => open(loaded(INITIAL_MISSION_UI, m, id))
 
   const save = async (): Promise<number | null> => {
     const ui = store.getState()
@@ -88,7 +89,9 @@ export function useMissionIo(store: MissionStore, sysid: number | null, dict: Di
     try {
       const m = await downloadMission(sysid)
       vehicles.setVehicleMission(sysid, m)
-      guard(() => load({ ...m, name: m.name || `${dict.mDownloaded} ${new Date().toLocaleTimeString()}` }, null))
+      // the editor being parked must not keep the 'downloading' state
+      store.update((u) => setBusy(u, 'idle'))
+      load({ ...m, name: m.name || `${dict.mDownloaded} ${new Date().toLocaleTimeString()}` }, null)
       result('mission_download', true, `${m.items.length} ${dict.mItems}`)
     } catch (e) {
       result('mission_download', false, errText(e))
@@ -119,7 +122,7 @@ export function useMissionIo(store: MissionStore, sysid: number | null, dict: Di
       const text = await readFileText(file)
       const stem = file.name.replace(/\.[^.]+$/, '')
       const m = file.name.endsWith('.rgcsmission') ? parseRgcsMission(text) : await importWaypoints(text, stem)
-      guard(() => load({ ...m, name: m.name || stem }, null))
+      load({ ...m, name: m.name || stem }, null)
     } catch (e) {
       result('mission_import', false, errText(e))
     }
@@ -129,7 +132,7 @@ export function useMissionIo(store: MissionStore, sysid: number | null, dict: Di
     setPicker(false)
     try {
       const m = await getMission(id)
-      guard(() => load(m, id))
+      load(m, id)
     } catch (e) {
       result('mission_open', false, errText(e))
     }
@@ -138,15 +141,9 @@ export function useMissionIo(store: MissionStore, sysid: number | null, dict: Di
   return {
     fitRequest,
     picker,
-    discard: discard !== null,
     openPicker: () => setPicker(true),
     closePicker: () => setPicker(false),
-    confirmDiscard: () => {
-      discard?.()
-      setDiscard(null)
-    },
-    cancelDiscard: () => setDiscard(null),
-    fresh: () => guard(() => store.update(freshUi)),
+    fresh: () => open(freshUi(INITIAL_MISSION_UI)),
     save,
     upload,
     download,

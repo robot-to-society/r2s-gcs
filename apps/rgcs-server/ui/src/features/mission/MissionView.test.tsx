@@ -19,6 +19,9 @@ vi.mock('./MissionMap', () => ({
 
 const { MissionView } = await import('./MissionView')
 const { MissionStore } = await import('./store')
+const { BriefingStore } = await import('../briefing/store')
+const { appendWaypoint, emptyDraft, toMission } = await import('./model')
+const { serializeRgcsMission } = await import('./files')
 const { rasterStyle } = await import('../map/style')
 
 const copter: VehicleState = {
@@ -32,8 +35,9 @@ function setup(fetchImpl?: (url: string, init?: RequestInit) => Response, transf
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => (fetchImpl ? fetchImpl(String(input), init) : envelope([])))
   vi.stubGlobal('fetch', fetchMock)
   const store = new MissionStore()
-  const utils = render(<MissionView vehicles={vehicles} transfers={transfers} dict={t('ja')} style={style} store={store} />)
-  return { ...utils, fetchMock, store }
+  const briefing = new BriefingStore()
+  const utils = render(<MissionView vehicles={vehicles} transfers={transfers} dict={t('ja')} style={style} store={store} briefing={briefing} />)
+  return { ...utils, fetchMock, store, briefing }
 }
 
 const addPoints = (n: number) => {
@@ -41,6 +45,16 @@ const addPoints = (n: number) => {
 }
 const wpRows = () => [...document.querySelectorAll<HTMLElement>('.wrow')]
 const rows = () => wpRows().map((li) => li.querySelector('.cmd-label')?.textContent)
+const briefRows = () => [...document.querySelectorAll<HTMLElement>('.brief-row')]
+const missionFile = (name: string, points: number): File => {
+  const draft = Array.from({ length: points }).reduce<ReturnType<typeof emptyDraft>>((d, _, i) => appendWaypoint(d, 36 + i * 0.001, 139), emptyDraft())
+  return new File([serializeRgcsMission({ ...toMission(draft), name })], `${name}.rgcsmission`)
+}
+const loadFile = async (f: File) => {
+  await act(async () => {
+    fireEvent.change(screen.getByTestId('mission-file'), { target: { files: [f] } })
+  })
+}
 
 describe('MissionView', () => {
   beforeEach(() => {
@@ -348,5 +362,42 @@ describe('MissionView', () => {
     expect(screen.queryByText('未保存')).not.toBeInTheDocument()
     expect(click).toHaveBeenCalledTimes(1)
     click.mockRestore()
+  })
+
+  it('loading_a_file_adds_a_row_instead_of_replacing', async () => {
+    const { store, briefing } = setup()
+    expect(briefRows()).toHaveLength(1)
+    // the untouched starting row takes the first file
+    await loadFile(missionFile('Alpha', 2))
+    expect(briefRows()).toHaveLength(1)
+    const alphaItems = store.getState().history.present.items.length
+    expect(alphaItems).toBeGreaterThan(0)
+    await loadFile(missionFile('Beta', 1))
+    expect(briefRows().map((r) => r.querySelector('.brief-name')?.textContent)).toEqual(['Alpha', 'Beta'])
+    expect(briefRows()[1]!.getAttribute('aria-current')).toBe('true')
+    expect(store.getState().history.present.mission.name).toBe('Beta')
+    fireEvent.click(within(briefRows()[0]!).getByText('Alpha'))
+    expect(store.getState().history.present.mission.name).toBe('Alpha')
+    expect(store.getState().history.present.items).toHaveLength(alphaItems)
+    expect(briefing.getState().rows).toHaveLength(2)
+    // no discard question any more: nothing is lost
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
+  it('the_write_button_defaults_to_the_rows_vehicle', async () => {
+    const two = new Map([[1, copter], [2, { ...copter, sysid: 2, name: 'UAV-02', link: 'lost' as const }]])
+    const ok = { findings: [], stats: { distance_m: 0, duration_s: 0, max_alt: 0 } }
+    const { fetchMock } = setup((url) => {
+      if (url.startsWith('/api/missions/validate')) return envelope(ok)
+      if (/\/api\/vehicles\/\d\/mission$/.test(url)) return envelope({ verified: true, items: 3, mismatched: [], findings: [] })
+      return envelope([])
+    }, new Map(), two)
+    addPoints(2)
+    fireEvent.change(within(briefRows()[0]!).getByLabelText('割当機体'), { target: { value: '2' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
+    })
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => c.includes('/mission'))
+    expect(calls).toEqual(['POST /api/missions/validate?sysid=2', 'PUT /api/vehicles/2/mission'])
   })
 })
