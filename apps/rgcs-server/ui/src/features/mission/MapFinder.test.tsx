@@ -38,6 +38,27 @@ describe('MapFinder', () => {
     expect(onGo).toHaveBeenCalledWith({ lat: 35.0145, lon: 138.5302 })
   })
 
+  it('a newer search wins over a slower earlier one', async () => {
+    const answers: ((r: Response) => void)[] = []
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((_u, init) => new Promise<Response>((resolve, reject) => {
+      answers.push(resolve)
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+    })))
+    render(<MapFinder vehicles={vehicles} dict={dict} onGo={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: '場所を検索' }))
+    const box = screen.getByRole('searchbox')
+    fireEvent.change(box, { target: { value: '東京' } })
+    fireEvent.submit(box)
+    fireEvent.change(box, { target: { value: '大阪' } })
+    fireEvent.submit(box)
+    await act(async () => {
+      answers[1]!(new Response(JSON.stringify([{ lat: '34.7', lon: '135.5', name: '大阪', display_name: '大阪, 日本' }])))
+      answers[0]!(new Response(JSON.stringify([{ lat: '35.6', lon: '139.7', name: '東京', display_name: '東京, 日本' }])))
+    })
+    expect(screen.getByRole('button', { name: '大阪, 日本' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '東京, 日本' })).not.toBeInTheDocument()
+  })
+
   it('nothing found says so', async () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => new Response('[]')))
     render(<MapFinder vehicles={vehicles} dict={dict} onGo={vi.fn()} />)

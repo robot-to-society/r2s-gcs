@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Dict } from '../../shared/i18n'
 import { IconFollow, IconSearch } from '../../shared/ui/icons'
 import type { LatLon } from './geo'
@@ -24,6 +24,9 @@ export function MapFinder({ vehicles, dict, onGo }: Props) {
   const [panel, setPanel] = useState<Panel>(null)
   const [text, setText] = useState('')
   const [found, setFound] = useState<Found>({ kind: 'idle' })
+  // only the latest lookup may answer; closing the view drops it
+  const pending = useRef<AbortController | null>(null)
+  useEffect(() => () => pending.current?.abort(), [])
   const go = (to: LatLon) => {
     setPanel(null)
     onGo({ lat: to.lat, lon: to.lon })
@@ -33,12 +36,15 @@ export function MapFinder({ vehicles, dict, onGo }: Props) {
     const at = parseLatLon(text)
     if (at) return go(at)
     if (!text.trim()) return
+    pending.current?.abort()
+    const ctl = new AbortController()
+    pending.current = ctl
     setFound({ kind: 'busy' })
     try {
-      const hits = await searchPlaces(text.trim())
-      setFound(hits.length ? { kind: 'hits', hits } : { kind: 'error', text: dict.plSearchNone })
+      const hits = await searchPlaces(text.trim(), ctl.signal)
+      if (!ctl.signal.aborted) setFound(hits.length ? { kind: 'hits', hits } : { kind: 'error', text: dict.plSearchNone })
     } catch {
-      setFound({ kind: 'error', text: dict.plSearchFail })
+      if (!ctl.signal.aborted) setFound({ kind: 'error', text: dict.plSearchFail })
     }
   }
   const locate = () => {

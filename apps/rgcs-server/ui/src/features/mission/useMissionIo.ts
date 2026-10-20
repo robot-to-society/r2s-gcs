@@ -46,14 +46,21 @@ export function useMissionIo(store: MissionStore, sysid: number | null, dict: Di
     }
   }
 
-  /** Validates and writes the plan to one vehicle; false when the validation stopped it. */
-  const uploadOne = async (to: number, mission: Mission): Promise<boolean> => {
+  /**
+   * Validates and writes the plan to one vehicle; false when the validation stopped it. `keep`:
+   * an earlier vehicle's fatal findings stay on screen instead of this one's.
+   */
+  const uploadOne = async (to: number, mission: Mission, keep: boolean): Promise<boolean> => {
     try {
       const { findings } = await validateMission(mission, to)
-      store.update((u) => setFindings(u, findings))
-      if (findings.some((f) => f.level === 'fatal')) return false
+      const fatal = findings.some((f) => f.level === 'fatal')
+      if (fatal || !keep) store.update((u) => setFindings(u, findings))
+      if (fatal) {
+        result('mission_upload', false, dict.upFatal, to)
+        return false
+      }
       const report = await uploadMission(to, mission)
-      store.update((u) => setReport(setFindings(u, report.findings), report))
+      store.update((u) => setReport(keep ? u : setFindings(u, report.findings), report))
       if (report.verified) vehicles.setVehicleMission(to, { ...mission, sysid: to })
       result('mission_upload', report.verified, report.verified ? `${report.items} ${dict.mItems}, ${dict.mVerified}` : `${dict.mMismatch}: ${report.mismatched.join(', ')}`, to)
     } catch (e) {
@@ -68,7 +75,8 @@ export function useMissionIo(store: MissionStore, sysid: number | null, dict: Di
     const mission = toMission(store.getState().history.present)
     store.update((u) => setBusy(u, 'uploading'))
     try {
-      for (const to of targets) await uploadOne(to, mission)
+      let stopped = false
+      for (const to of targets) stopped = !(await uploadOne(to, mission, stopped)) || stopped
     } finally {
       store.update((u) => setBusy(u, 'idle'))
     }

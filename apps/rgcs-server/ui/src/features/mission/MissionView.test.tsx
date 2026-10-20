@@ -277,6 +277,26 @@ describe('MissionView', () => {
     expect(calls).toEqual(['POST /api/missions/validate?sysid=1', 'PUT /api/vehicles/1/mission', 'POST /api/missions/validate?sysid=2', 'PUT /api/vehicles/2/mission'])
   })
 
+  it('a vehicle stopped by a fatal finding keeps the finding on screen while the others are written', async () => {
+    const two = new Map([[1, copter], [2, { ...copter, sysid: 2, name: 'UAV-02' }]])
+    const fatal = { findings: [{ level: 'fatal', code: 'first_not_takeoff', seq: 1, message: 'x' }], stats: { distance_m: 0, duration_s: 0, max_alt: 0 } }
+    const ok = { findings: [], stats: { distance_m: 0, duration_s: 0, max_alt: 0 } }
+    const { fetchMock } = setup((url) => {
+      if (url.startsWith('/api/missions/validate')) return envelope(url.endsWith('sysid=1') ? fatal : ok)
+      if (/\/api\/vehicles\/\d\/mission$/.test(url)) return envelope({ verified: true, items: 3, mismatched: [], findings: [] })
+      return envelope([])
+    }, new Map(), two)
+    addPoints(2)
+    fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
+    fireEvent.click(screen.getByRole('button', { name: 'すべて選択' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '2 機に書き込む' }))
+    })
+    expect(screen.getByText('先頭が TAKEOFF ではありません')).toBeInTheDocument()
+    const puts = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => c.startsWith('PUT /api/vehicles'))
+    expect(puts).toEqual(['PUT /api/vehicles/2/mission'])
+  })
+
   it('export_saves_a_dirty_mission_first', async () => {
     const { fetchMock } = setup((url, init) => {
       if (url === '/api/missions' && init?.method === 'POST') return envelope({ ...JSON.parse(String(init.body)), id: 5 })
