@@ -446,6 +446,37 @@
 - [ ] **Step 2–4:** FAIL → implement → PASS.
 - [ ] **Step 5:** Commit as `feat(ui): save and open briefings`.
 
+### Task 12b: User feedback round (2026-10-21)
+
+**Files:** these are decided by the implementer around `features/briefing/*`, `features/mission/MissionView.tsx`, `MissionMap.tsx`, `MissionSidebar.tsx`, `PlanSidebar.tsx`/`PlanPanels.tsx`, `styles/briefing.css`. Remove the labels code: `crossings.ts`, the label parts of the overlay, `.brief-label` styles and the related tests.
+
+**Requirements** (the spec §9 is binding):
+1. **Double-click to frame a mission.** Double-clicking a row in `BriefingList` fits the map to that mission (route items with a position, fence vertices / circles, rally points) inside the visible area, clear of the panels.
+   - Use the planner's existing `fitTo` mechanism with the current padding.
+   - A double-click on the active row frames it too.
+   - The double-click's first click switches rows as today.
+2. **Multiple files.** The planner's file input accepts multiple files (`multiple`). Each file opens its own row, in selection order. A bad file reports its error and the rest continue.
+3. **Colours.**
+   - Replace `PALETTE` with 8 vivid, hue-separated colours that read on dark satellite and OSM maps.
+   - `addRow` picks the unused colour whose hue is farthest from the existing rows' colours.
+   - The active mission's planned path (2D line, 3D line, and the waypoint badge accent if it is colour-coded today) uses its row colour instead of the fixed accent. The selection highlight stays amber.
+4. **No crossing / approach labels.** Remove the labels from 2D (the 3D view already hid them) and delete the now-unused code and tests.
+5. **Collapsible right panel** on every planner tab (Mission / Fence / Rally).
+   - A collapse button in the panel header.
+   - Collapsed, it becomes a narrow rail with an expand button.
+   - The state is kept in `localStorage` (`rgcs.planPanel`) and across tab switches.
+   - The map's right padding (used by fits and follow) follows the collapsed state.
+
+**Tests:**
+- `double_clicking_a_row_frames_that_mission`
+- `several_files_open_several_rows_and_a_bad_one_does_not_stop_the_rest`
+- `palette_colours_are_distinct_and_the_next_colour_is_the_farthest_hue`
+- `the_active_path_uses_its_row_colour`
+- `no_crossing_labels_are_drawn`
+- `the_right_panel_collapses_on_every_tab_and_remembers_it`
+
+Each test fails first and then passes. Then run the full suites and commit.
+
 ### Task 13: End-to-end check, spec and docs
 
 **Files:**
