@@ -114,6 +114,12 @@
 - 実装: 左の一覧(番号・コマンド名・`MAV_CMD_*`・高度チップ、▲▼ 並べ替え、Shift / ⌘ 複数選択)、地図(追加 / 選択ツール、クリック追加、ドラッグ移動、中点 `+` 挿入、右クリック 挿入 / 削除 / 高度一括)、右のコマンド編集(`CMDS` の項目、機種が無視する項目は「未使用」で無効)、サマリー(距離・時間・最大高度・警告 + サーバー検証結果)、Undo / Redo 60 段、保存 / 開く(DB)、`.waypoints` 保存(サーバー書き出し)/ `.rgcsmission` 保存 / 読込、機体へ書込(検証 → 書込 → 読込一致)/ 機体から読込。運用マップに経路 + 現在 WP バッジ、右パネルに進捗行(現在 WP / 残り距離、書込 / 開始)。
 - 後送り(追補 §5.2): 3D、地形・標高プロファイル、Shift + ドラッグ矩形選択、一覧のドラッグ並べ替え、ポリゴンフェンス判定(円形のみ)、バッテリ余裕(推定 20 分超の警告で代替)。
 
+### 6.2 予測飛行経路(2026-10-20、Plane / QuadPlane。Copter は次段)
+- 対象機体が Plane のとき、計画の上に「実際に飛ぶと予想される経路」を重ねる: 2D は細い破線(半透明)、3D は細い半透明線(上昇率で着色)。計画の直線は主線のまま。風は考慮しない推定。
+- 元データは機体のパラメータ(`GET /api/vehicles/{sysid}/params/pick?names=…`: キャッシュ値 + 無いものは PARAM_REQUEST_READ で取りに行き最大約 1 秒待つ)。AIRSPEED_CRUISE、WP_LOITER_RAD、ROLL_LIMIT_DEG、TECS_CLMB_MAX / SINK_MAX、ALT_SLOPE_MIN、FLIGHT_OPTIONS、NAVL1_PERIOD / DAMPING、Q_ENABLE、Q_OPTIONS、Q_WP_SPD*。最後に読めた値はブラウザに機体ごとに保存し、未接続でも使う(無ければ ArduPilot 既定値)。
+- 挙動(ArduPilot master 2026-10-20 のソースと SITL QuadPlane 飛行で確認): 速度は EAS→TAS(ISA)、旋回半径 v²/(g·tan ROLL_LIMIT)、ロイター半径は R·EAS2TAS²、ロイターへは中心に向かい手前側から合流、高度変化は中心までの勾配(ALT_SLOPE_MIN 以上)+ TECS の上昇・降下率で円上は螺旋、LOITER_TO_ALT は 5 m 以内まで周回して次 WP への接線で離脱、xtrack 0 は中心→次 WP の線へ L1 で収束、LOITER_TIME の半径は常に WP_LOITER_RAD(param3 は向きのみ)、QuadPlane の NAV_TAKEOFF / NAV_LAND は Q_OPTIONS が許さない限り垂直、DO_VTOL_TRANSITION(3) 後のロイターはホバー。
+- 追加コマンド: LOITER_TO_ALT(31)、VTOL_TAKEOFF(84)、VTOL_LAND(85)、DO_VTOL_TRANSITION(3000)。VTOL 離着陸で始まり終わるミッションを検証で受け付ける。
+
 ## 7. メンテナンス(`view:'maint'`)
 
 - 上部: 接続機体セレクト、種別、モード、ARM 状態。タブ 6 つ(レンズ): パラメータ / 点検・校正 / 日常点検 / 飛行日誌 / 変更履歴 / アプリ設定(2026-10-17 追補 §5.7。「ログ・AI 解析」は飛行日誌内の「ログ」に縮退)。
