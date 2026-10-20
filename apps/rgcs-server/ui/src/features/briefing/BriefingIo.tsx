@@ -10,8 +10,8 @@ import { vehicleStore } from '../vehicles/store'
 import { createBriefing, getBriefing, listBriefings, updateBriefing } from './api'
 import { BriefingPicker, DiscardSheet } from './BriefingPicker'
 import type { BriefingHeader } from './BriefingList'
-import type { Workspace } from './model'
-import { BriefingSaveError, commitSaved, saveWorkspace, validName, workspaceFrom, type SaveDeps } from './persistence'
+import { parkActive, type Workspace } from './model'
+import { BriefingSaveError, commitSaved, hasMissions, saveWorkspace, validName, workspaceFrom, type SaveDeps } from './persistence'
 import { replaceWorkspace, type BriefingStore } from './store'
 import { isPristine } from './useBriefing'
 
@@ -32,16 +32,17 @@ interface Options {
 const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
 /** Something opening a briefing would lose: a changed mission, or one never saved. */
-const hasUnsaved = (ws: Workspace): boolean => ws.rows.some((r) => !r.missing && (r.ui.dirty || (r.ui.savedId === null && !isPristine(r.ui))))
+const hasUnsaved = (ws: Workspace): boolean => ws.rows.some((r) => r.ui.dirty || (r.ui.savedId === null && !isPristine(r.ui)))
 
 const pointsOf = (ws: Workspace) => ws.rows.flatMap((r) => r.ui.history.present.items.filter((it) => it.lat !== 0 || it.lon !== 0).map((it) => ({ lat: it.lat, lon: it.lon })))
 
 type Report = (cmd: string, ok: boolean, reason: string | null) => void
 
 /** Saves the missions and the briefing with the editor marked busy (so its row cannot switch meanwhile). */
-async function saveBriefing(b: BriefingStore, m: MissionStore, api: BriefingApi, report: Report): Promise<void> {
+async function saveBriefing(b: BriefingStore, m: MissionStore, api: BriefingApi, report: Report, nothing: string): Promise<void> {
   const sent = m.getState()
   if (sent.busy !== 'idle' || !validName(b.getState().name)) return
+  if (!hasMissions(parkActive(b.getState(), sent))) return report('briefing_save', false, nothing)
   m.update((u) => setBusy(u, 'saving'))
   try {
     const out = await saveWorkspace(b.getState(), sent, api)
@@ -75,7 +76,7 @@ export function useBriefingIo(b: BriefingStore, m: MissionStore, ws: Workspace, 
 
   const save = async () => {
     setWorking(true)
-    await saveBriefing(b, m, api, result).finally(() => setWorking(false))
+    await saveBriefing(b, m, api, result, dict.bfNothing).finally(() => setWorking(false))
   }
   const open = async (id: number) => {
     setPending(null)
@@ -91,7 +92,8 @@ export function useBriefingIo(b: BriefingStore, m: MissionStore, ws: Workspace, 
 
   const header: BriefingHeader = {
     name: ws.name,
-    canSave: idle && validName(ws.name),
+    canSave: idle && validName(ws.name) && hasMissions(ws),
+    saveHint: hasMissions(ws) ? dict.bfNameHint : dict.bfNothing,
     busy: !idle,
     onName: (name) => b.update((w) => ({ ...w, name })),
     onSave: () => void save(),

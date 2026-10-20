@@ -3,7 +3,7 @@ import type { Briefing, BriefingFull, Mission } from '../../shared/api/types'
 import { appendWaypoint, emptyDraft, toMission } from '../mission/model'
 import { INITIAL_MISSION_UI, MissionStore, edit, loaded } from '../mission/store'
 import { activeRow, addRow, assign, emptyWorkspace, type Workspace } from './model'
-import { commitSaved, saveWorkspace, validName, workspaceFrom } from './persistence'
+import { BriefingSaveError, commitSaved, saveWorkspace, validName, workspaceFrom } from './persistence'
 import { BriefingStore, replaceWorkspace } from './store'
 
 const mission = (name: string, id: number | null = null): Mission => ({ ...toMission(appendWaypoint(emptyDraft(), 36, 139)), name, id })
@@ -20,19 +20,27 @@ function fourRows(): Workspace {
   return assign(withLost, gamma.active, 2)
 }
 
-function fakeDeps() {
+type Failing = 'create' | 'update' | 'createB' | null
+
+function fakeDeps(fail: Failing = null) {
   const calls: string[] = []
   let next = 10
+  const boom = (what: Failing) => {
+    if (what === fail) throw new Error(`${what} refused`)
+  }
   const deps = {
     create: vi.fn(async (m: Mission) => {
+      boom('create')
       calls.push(`create ${m.name}`)
       return { ...m, id: next++ }
     }),
     update: vi.fn(async (id: number, m: Mission) => {
+      boom('update')
       calls.push(`update ${id} ${m.name}`)
       return { ...m, id }
     }),
     createB: vi.fn(async (b: Briefing) => {
+      boom('createB')
       calls.push('createB')
       return { ...b, id: 5 }
     }),
@@ -129,12 +137,61 @@ describe('briefing persistence', () => {
     expect(m.getState().history.present.items).toHaveLength(2)
   })
 
-  it('an_untouched_new_row_is_not_saved_and_names_are_1_to_80_characters', async () => {
+  it('an_empty_briefing_is_refused_before_any_call_and_names_are_1_to_80_characters', async () => {
     const ws = emptyWorkspace()
     const { deps } = fakeDeps()
-    await saveWorkspace({ ...ws, name: 'x' }, activeRow(ws).ui, deps)
-    expect(deps.create).not.toHaveBeenCalled()
-    expect(deps.createB.mock.calls[0]![0].rows).toEqual([])
+    await expect(saveWorkspace({ ...ws, name: 'x' }, activeRow(ws).ui, deps)).rejects.toThrow()
+    const lost = fourRows()
+    const onlyMissing: Workspace = { ...lost, rows: [{ ...lost.rows[3]!, key: lost.active }] }
+    await expect(saveWorkspace(onlyMissing, activeRow(onlyMissing).ui, deps)).rejects.toThrow()
+    expect([deps.create, deps.update, deps.createB, deps.updateB].map((f) => f.mock.calls.length)).toEqual([0, 0, 0, 0])
     expect([validName(''), validName('  '), validName('a'), validName('あ'.repeat(80)), validName('a'.repeat(81))]).toEqual([false, false, true, true, false])
+  })
+
+  it('a_failed_active_mission_stays_unsaved_and_a_retry_does_not_duplicate', async () => {
+    const b = new BriefingStore()
+    const m = new MissionStore()
+    replaceWorkspace(b, m, fourRows())
+    m.update((u) => edit(u, appendWaypoint(u.history.present, 35, 139)))
+    const sent = m.getState()
+    const err = await saveWorkspace(b.getState(), sent, fakeDeps('update').deps).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(BriefingSaveError)
+    const part = (err as BriefingSaveError).workspace
+    expect(part.rows.map((r) => r.ui.savedId)).toEqual([1, 10, 3, null])
+    expect(part.rows.map((r) => r.ui.dirty)).toEqual([false, false, true, false])
+    commitSaved(b, m, sent, part)
+    expect(m.getState().dirty).toBe(true)
+    expect(b.getState().rows.map((r) => r.ui.savedId)).toEqual([1, 10, 3, null])
+    expect(activeRow(b.getState()).ui.dirty).toBe(true)
+    const { deps, calls } = fakeDeps()
+    await saveWorkspace(b.getState(), m.getState(), deps)
+    expect(calls).toEqual(['update 3 Gamma', 'createB'])
+  })
+
+  it('a_failed_create_keeps_earlier_rows_and_a_failed_briefing_keeps_all_missions', async () => {
+    const ws = fourRows()
+    const created = (await saveWorkspace(ws, activeRow(ws).ui, fakeDeps('create').deps).catch((e: unknown) => e)) as BriefingSaveError
+    expect(created).toBeInstanceOf(BriefingSaveError)
+    expect(created.workspace.rows.map((r) => r.ui.savedId)).toEqual([1, null, 3, null])
+    const briefed = (await saveWorkspace(ws, activeRow(ws).ui, fakeDeps('createB').deps).catch((e: unknown) => e)) as BriefingSaveError
+    expect(briefed).toBeInstanceOf(BriefingSaveError)
+    expect(briefed.workspace.id).toBeNull()
+    expect(briefed.workspace.rows.map((r) => r.ui.savedId)).toEqual([1, 10, 3, null])
+    const { deps, calls } = fakeDeps()
+    await saveWorkspace(briefed.workspace, activeRow(briefed.workspace).ui, deps)
+    expect(calls).toEqual(['createB'])
+  })
+
+  it('an_edit_during_the_save_keeps_the_editor_unsaved_with_the_new_id', async () => {
+    const b = new BriefingStore()
+    const m = new MissionStore()
+    const ws = fourRows()
+    replaceWorkspace(b, m, { ...ws, active: ws.rows[1]!.key })
+    const sent = m.getState()
+    const out = await saveWorkspace(b.getState(), sent, fakeDeps().deps)
+    m.update((u) => edit(u, appendWaypoint(u.history.present, 35, 139)))
+    commitSaved(b, m, sent, out)
+    expect(m.getState().savedId).toBe(10)
+    expect(m.getState().dirty).toBe(true)
   })
 })

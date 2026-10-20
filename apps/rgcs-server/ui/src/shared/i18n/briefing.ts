@@ -42,6 +42,7 @@ export const briefingJa = {
   bfOpenTitle: '保存済みブリーフィング',
   bfMissions: 'ミッション',
   bfNoSaved: '保存済みのブリーフィングはありません',
+  bfNothing: '保存するミッションがありません',
 }
 
 export const briefingEn: Record<keyof typeof briefingJa, string> = {
@@ -86,4 +87,5 @@ export const briefingEn: Record<keyof typeof briefingJa, string> = {
   bfOpenTitle: 'Saved briefings',
   bfMissions: 'missions',
   bfNoSaved: 'No saved briefings',
+  bfNothing: 'No missions to save',
 }

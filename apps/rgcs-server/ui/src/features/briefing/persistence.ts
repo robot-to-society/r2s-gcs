@@ -69,9 +69,17 @@ export function toBriefing(ws: Workspace): Briefing {
   return { id: ws.id, name: ws.name.trim(), active_mission_id: active.missing ? null : active.ui.savedId, rows }
 }
 
-/** Parks `live`, saves new / changed missions, then creates or updates the briefing. */
+/** Something the briefing would refer to: a saved or non-empty mission (missing / untouched rows do not count). */
+export const hasMissions = (ws: Workspace): boolean => ws.rows.some((r) => !r.missing && (r.ui.savedId !== null || !isPristine(r.ui)))
+
+/**
+ * Parks `live`, saves new / changed missions, then creates or updates the briefing. Refuses (before
+ * any call) a briefing with no missions: it would overwrite a saved one's references with nothing.
+ */
 export async function saveWorkspace(ws: Workspace, live: MissionUi, deps: SaveDeps): Promise<Workspace> {
-  const saved = await saveRows(parkActive(ws, live), deps)
+  const parked = parkActive(ws, live)
+  if (!hasMissions(parked)) throw new Error('no missions to save')
+  const saved = await saveRows(parked, deps)
   const b = toBriefing(saved)
   try {
     const out = b.id === null ? await deps.createB(b) : await deps.updateB(b.id, b)
@@ -109,8 +117,10 @@ const sameMission = (u: MissionUi, sent: MissionUi): boolean =>
 export function commitSaved(b: BriefingStore, m: MissionStore, sent: MissionUi, out: Workspace): void {
   const byKey = new Map(out.rows.map((r) => [r.key, r]))
   b.update((w) => ({ ...w, id: out.id, rows: w.rows.map((r) => ({ ...r, ui: byKey.get(r.key)?.ui ?? r.ui })) }))
-  const id = byKey.get(b.getState().active)?.ui.savedId ?? null
-  if (id === null) return
+  const row = byKey.get(b.getState().active)
+  // a failed save leaves the row dirty: the editor must keep showing it unsaved
+  if (!row || row.ui.dirty || row.ui.savedId === null) return
+  const id = row.ui.savedId
   m.update((u) => {
     if (u.history.present === sent.history.present) return markSaved(u, id)
     return sameMission(u, sent) ? { ...u, savedId: id } : u

@@ -26,8 +26,10 @@ interface Props {
 
 export interface BriefingHeader {
   readonly name: string
-  /** A valid name and nothing running. */
+  /** A valid name, missions to refer to and nothing running. */
   readonly canSave: boolean
+  /** Why 保存 is disabled (shown as its title then). */
+  readonly saveHint?: string
   /** A save / open is running. */
   readonly busy: boolean
   readonly onName: (name: string) => void
@@ -61,12 +63,12 @@ export function BriefingList({ workspace, liveDirty, busy = false, header, ...re
   )
 }
 
-function Header({ name, canSave, busy, onName, onSave, onOpen, dict }: BriefingHeader & { readonly dict: Dict }) {
+function Header({ name, canSave, saveHint, busy, onName, onSave, onOpen, dict }: BriefingHeader & { readonly dict: Dict }) {
   return (
     <div className="brief-head">
       <input className="in brief-head-name" aria-label={dict.bfName} placeholder={dict.bfName} maxLength={NAME_MAX} value={name} onChange={(e) => onName(e.target.value)} />
       <div className="brief-head-btns">
-        <button type="button" className="btn sm" title={canSave ? dict.bfSave : dict.bfNameHint} disabled={!canSave} onClick={onSave}>
+        <button type="button" className="btn sm" title={canSave ? dict.bfSave : (saveHint ?? dict.bfNameHint)} disabled={!canSave} onClick={onSave}>
           {dict.bfSave}
         </button>
         <button type="button" className="btn sm" disabled={busy} onClick={onOpen}>
