@@ -142,6 +142,9 @@ pub async fn start(
 
 /// `POST …/calibration/next`: the vehicle sits in the requested accelerometer position.
 pub async fn next(State(app): State<AppState>, AuthUser(op): AuthUser, Path(sysid): Path<SysId>) -> Response {
+    if let Some(r) = refused(&app, sysid).await {
+        return r;
+    }
     let session = app.calib.get(sysid);
     let Some((s, pos)) = session.and_then(|s| {
         s.position
@@ -208,6 +211,9 @@ pub async fn finish(
     AuthUser(op): AuthUser,
     Path(sysid): Path<SysId>,
 ) -> Response {
+    if let Some(r) = refused(&app, sysid).await {
+        return r;
+    }
     let Some(s) = app
         .calib
         .get(sysid)
@@ -342,10 +348,15 @@ async fn esc(app: &AppState, operator: &str, sysid: SysId) -> Option<(CalibPhase
     }
 }
 
-/// Writes and verifies each change, recording it in the parameter history.
+/// Writes and verifies each change, recording it in the parameter history; stops (false) as soon
+/// as the vehicle arms or its link is lost.
 async fn write_all(app: &AppState, operator: &str, sysid: SysId, changes: &[ParamChange]) -> bool {
     let mut all = true;
     for change in changes {
+        // a write can take seconds: the vehicle must still be connected and disarmed for each one
+        if refused(app, sysid).await.is_some() {
+            return false;
+        }
         let old_value = app.params.get(sysid, &change.name);
         let result = write_one(&app.params, sysid, change, &app.outgoing).await;
         let row = ParamHistoryInput {

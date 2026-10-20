@@ -236,3 +236,25 @@ async fn esc_needs_a_confirm_token_and_arms_the_next_boot() {
     assert_eq!(body["data"]["phase"], "done");
     assert_eq!(state.params.get(1, "ESC_CALIBRATION"), Some(3.0));
 }
+
+#[tokio::test]
+async fn a_vehicle_armed_mid_session_cannot_take_the_next_step_or_the_rc_write() {
+    let (app, state, _sent, _out) = spawn_app_recording().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    post(&app, &cookie, BASE, json!({ "kind": "rc" })).await;
+    state.calib.on_frame(1, &CalibFrame::RcChannels(vec![1000]));
+    state.calib.on_frame(1, &CalibFrame::RcChannels(vec![2000]));
+    seed_vehicle(&state, 1, true, false).await;
+    let (status, body) = post(&app, &cookie, &format!("{BASE}/finish"), json!({})).await;
+    assert_eq!(
+        (status, error_code(&body)),
+        (StatusCode::CONFLICT, "vehicle_armed")
+    );
+    assert_eq!(state.params.get(1, "RC1_MIN"), None);
+    let (status, body) = post(&app, &cookie, &format!("{BASE}/next"), json!({})).await;
+    assert_eq!(
+        (status, error_code(&body)),
+        (StatusCode::CONFLICT, "vehicle_armed")
+    );
+}
