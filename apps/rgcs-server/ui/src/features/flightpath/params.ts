@@ -19,6 +19,9 @@ export interface PlaneParams {
   readonly quadplane: boolean
   /** Q_OPTIONS bit 1 / 2: NAV_TAKEOFF / NAV_LAND flown as fixed wing. */
   readonly qOptions: number
+  /** NAVL1_PERIOD / NAVL1_DAMPING: the L1 look-ahead is period·damping/π·speed. */
+  readonly navL1Period: number
+  readonly navL1Damping: number
   /** Q_WP_SPD / _UP / _DN (m/s) while in VTOL. */
   readonly qWpSpeed: number
   readonly qWpUp: number
@@ -35,6 +38,8 @@ export const PLANE_DEFAULTS: PlaneParams = {
   flightOptions: 0,
   quadplane: false,
   qOptions: 0,
+  navL1Period: 17,
+  navL1Damping: 0.75,
   qWpSpeed: 5,
   qWpUp: 2.5,
   qWpDn: 1.5,
@@ -50,6 +55,8 @@ const NAMES: Readonly<Record<keyof PlaneParams, string>> = {
   flightOptions: 'FLIGHT_OPTIONS',
   quadplane: 'Q_ENABLE',
   qOptions: 'Q_OPTIONS',
+  navL1Period: 'NAVL1_PERIOD',
+  navL1Damping: 'NAVL1_DAMPING',
   qWpSpeed: 'Q_WP_SPD',
   qWpUp: 'Q_WP_SPD_UP',
   qWpDn: 'Q_WP_SPD_DN',
@@ -72,6 +79,8 @@ export function planeParams(values: ReadonlyMap<string, number>): { readonly par
     flightOptions: num('flightOptions'),
     quadplane: values.has(NAMES.quadplane) ? (values.get(NAMES.quadplane) ?? 0) >= 1 : PLANE_DEFAULTS.quadplane,
     qOptions: num('qOptions'),
+    navL1Period: num('navL1Period') > 0 ? num('navL1Period') : PLANE_DEFAULTS.navL1Period,
+    navL1Damping: num('navL1Damping') > 0 ? num('navL1Damping') : PLANE_DEFAULTS.navL1Damping,
     qWpSpeed: num('qWpSpeed') > 0 ? num('qWpSpeed') : PLANE_DEFAULTS.qWpSpeed,
     qWpUp: num('qWpUp') > 0 ? num('qWpUp') : PLANE_DEFAULTS.qWpUp,
     qWpDn: num('qWpDn') > 0 ? num('qWpDn') : PLANE_DEFAULTS.qWpDn,

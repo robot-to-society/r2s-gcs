@@ -29,7 +29,7 @@ export const onCircle = (c: Xy, r: number, phi: number): Xy => ({ x: c.x + r * M
 export const polar = (c: Xy, p: Xy): number => Math.atan2(p.y - c.y, p.x - c.x)
 
 /** Unit direction of travel at polar angle `phi` on a circle flown clockwise / counter-clockwise. */
-const travelDir = (phi: number, cw: boolean): Xy => (cw ? { x: Math.sin(phi), y: -Math.cos(phi) } : { x: -Math.sin(phi), y: Math.cos(phi) })
+export const travelDir = (phi: number, cw: boolean): Xy => (cw ? { x: Math.sin(phi), y: -Math.cos(phi) } : { x: -Math.sin(phi), y: Math.cos(phi) })
 
 /** The two tangent points seen from `p`, or null from inside the circle. */
 function tangentAngles(p: Xy, c: Xy, r: number): [number, number] | null {
