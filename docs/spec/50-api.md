@@ -68,6 +68,18 @@
 
 `Finding.code`: 致命 `empty` / `first_not_takeoff` / `fence_alt` / `fence_radius` / `jump_target`、警告 `fence_unknown` / `fence_frame_unchecked` / `mixed_frames` / `terrain_frame` / `zero_position` / `no_land_or_rtl` / `long_flight`。
 
+### 2.2.2 ブリーフィング(2026-10-20)
+保存済みミッションを複数まとめて開く名前付きの組。セッション認証は `/api/missions` と同じ。
+| メソッド | パス | 本文 / 応答 |
+|---|---|---|
+| GET | `/api/briefings` | `[BriefingSummary{id, name, mission_count, updated_at}]` |
+| POST | `/api/briefings` | `Briefing{id: null, name, active_mission_id, rows: [BriefingRow{mission_id, color, sysid}]}` → `201 Briefing`(id 付き) |
+| GET | `/api/briefings/{id}` | `BriefingFull{briefing, missions}`。`missions[i]` は `rows[i]` のミッション(削除済みなら `null`) |
+| PUT | `/api/briefings/{id}` | `Briefing` → `Briefing`(最後の保存が勝つ。競合検出なし) |
+| DELETE | `/api/briefings/{id}` | → `{deleted: true}` |
+
+エラー: `400 invalid`(名前 1〜80 文字、行 ≤ 20、色 `#rrggbb`、同じミッションの重複なし、同じ機体を 2 行に割り当てない。メッセージ入り)、`400 unknown_mission`(作成 / 更新時に行の `mission_id` が存在しない)、`404 not_found`。書込みは監査 target `briefing`(command `create` / `update` / `delete`)。
+
 ### 2.3 カメラ
 | メソッド | パス | 本文 / 応答 |
 |---|---|---|

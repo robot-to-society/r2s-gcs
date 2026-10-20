@@ -22,6 +22,7 @@ pub mod geofence_api;
 pub mod guided;
 pub mod input_api;
 pub mod inspector_api;
+pub mod briefing_api;
 pub mod logbook_api;
 pub mod logs;
 pub mod logs_api;

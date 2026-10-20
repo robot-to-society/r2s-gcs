@@ -22,9 +22,9 @@ use crate::params::ParamCache;
 use crate::settings;
 use crate::video::VideoHub;
 use crate::{
-    api, auth, branding, calib_api, camera_api, commands, export_api, flight_api, geofence_api, guided,
-    input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api, param_api, param_pick,
-    present_api, video_api, ws,
+    api, auth, branding, briefing_api, calib_api, camera_api, commands, export_api, flight_api, geofence_api,
+    guided, input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api, param_api,
+    param_pick, present_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -426,6 +426,16 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
             post(mission_api::import_mission).layer(DefaultBodyLimit::max(mission_api::MAX_IMPORT_BYTES)),
         )
         .route("/missions/validate", post(mission_api::validate_mission))
+        .route(
+            "/briefings",
+            get(briefing_api::list_briefings).post(briefing_api::create_briefing),
+        )
+        .route(
+            "/briefings/{id}",
+            get(briefing_api::get_briefing)
+                .put(briefing_api::update_briefing)
+                .delete(briefing_api::delete_briefing),
+        )
         .route("/vehicles/{sysid}/camera", get(camera_api::get_camera))
         .route("/vehicles/{sysid}/camera/command", post(camera_api::command))
         .route(
