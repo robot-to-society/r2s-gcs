@@ -26,8 +26,8 @@ describe('VehicleModelLayer', () => {
     const layer = new VehicleModelLayer('veh-models')
     layer.onAdd(fakeMap(16) as never, gl)
     layer.setModels([
-      { sysid: 1, kind: 'plane', at: { lon: 137.6, lat: 36.2, amsl: 1600 }, hdg: 90, accent: [1, 0.7, 0.3] },
-      { sysid: 2, kind: 'copter', at: { lon: 137.61, lat: 36.2, amsl: 1550 }, hdg: 0, accent: [0.6, 0.8, 1] },
+      { sysid: 1, kind: 'plane', at: { lon: 137.6, lat: 36.2, amsl: 1600 }, hdg: 90, accent: [1, 0.7, 0.3], attitude: { roll: 30, pitch: 5 } },
+      { sysid: 2, kind: 'copter', at: { lon: 137.61, lat: 36.2, amsl: 1550 }, hdg: 0, accent: [0.6, 0.8, 1], attitude: null },
     ])
     layer.render(gl, frame)
     expect(draws).toEqual([])

@@ -4,7 +4,7 @@ import type { CustomLayerInterface, CustomRenderMethodInput, Map as MlMap } from
 import type { VehicleKind } from '../../../shared/api/types'
 import type { Rgb } from '../air'
 import { FLOATS, meshFor } from './meshes'
-import { modelMatrix, mul4, screenSizeMerc, type ModelAt } from './placement'
+import { bodyBasis, modelMatrix, mul4, screenSizeMerc, type ModelAt } from './placement'
 
 export interface VehicleModel {
   readonly sysid: number
@@ -14,6 +14,8 @@ export interface VehicleModel {
   readonly hdg: number
   /** Wing / rotor / top colour (selection amber, else the accent). */
   readonly accent: Rgb
+  /** ATTITUDE roll / pitch (degrees); null flies level. */
+  readonly attitude: { readonly roll: number; readonly pitch: number } | null
 }
 
 /** On-screen length (px) at the model's own depth; real airframes are far smaller. */
@@ -21,14 +23,14 @@ const MODEL_PX = 46
 /** Real length (m) never drawn smaller than this, for close-up views. */
 const REAL_M = 2
 const EARTH_CIRCUMFERENCE = 40075016.686
-/** Light from the south-west, above (model space is rotated per vehicle in the shader maths). */
+/** Light from the south-west, above, in (east, north, up). */
 const LIGHT: readonly [number, number, number] = [-0.45, -0.55, 0.7]
 
 const VS = `#version 300 es
 in vec3 a_pos;in vec3 a_nrm;in vec3 a_col;
-uniform mat4 u_matrix;uniform vec3 u_light;uniform vec3 u_accent;out vec3 v_col;
+uniform mat4 u_matrix;uniform mat3 u_basis;uniform vec3 u_light;uniform vec3 u_accent;out vec3 v_col;
 void main(){gl_Position=u_matrix*vec4(a_pos,1.0);
-vec3 c=a_col.r<0.0?u_accent:a_col;float d=abs(dot(normalize(a_nrm),normalize(u_light)));
+vec3 c=a_col.r<0.0?u_accent:a_col;float d=abs(dot(normalize(u_basis*a_nrm),normalize(u_light)));
 v_col=c*(0.42+0.58*d);}`
 const FS = `#version 300 es
 precision mediump float;in vec3 v_col;out vec4 o;void main(){o=vec4(v_col,1.0);}`
@@ -46,14 +48,6 @@ function compile(gl: WebGL2RenderingContext): WebGLProgram | null {
   gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS))
   gl.linkProgram(prog)
   return gl.getProgramParameter(prog, gl.LINK_STATUS) ? prog : null
-}
-
-/** The light direction seen from a model turned to `hdg` (so the sun stays put as it turns). */
-function lightFor(hdg: number): [number, number, number] {
-  const h = (hdg * Math.PI) / 180
-  const [s, c] = [Math.sin(h), Math.cos(h)]
-  // world (east, north, up) → model (right, nose, up): the transpose of the heading turn
-  return [LIGHT[0] * c - LIGHT[1] * s, LIGHT[0] * s + LIGHT[1] * c, LIGHT[2]]
 }
 
 export class VehicleModelLayer implements CustomLayerInterface {
@@ -127,8 +121,10 @@ export class VehicleModelLayer implements CustomLayerInterface {
     for (const v of this.models) {
       const real = (REAL_M / (EARTH_CIRCUMFERENCE * Math.cos((v.at.lat * Math.PI) / 180)))
       const size = screenSizeMerc(MODEL_PX, zoom, real)
-      gl.uniformMatrix4fv(u('u_matrix'), false, new Float32Array(mul4(frame, modelMatrix(v.at, v.hdg, size))))
-      gl.uniform3f(u('u_light'), ...lightFor(v.hdg))
+      gl.uniformMatrix4fv(u('u_matrix'), false, new Float32Array(mul4(frame, modelMatrix(v.at, v.hdg, size, v.attitude))))
+      const b = bodyBasis(v.hdg, v.attitude?.roll ?? 0, v.attitude?.pitch ?? 0)
+      gl.uniformMatrix3fv(u('u_basis'), false, new Float32Array([...b.right, ...b.nose, ...b.up]))
+      gl.uniform3f(u('u_light'), LIGHT[0], LIGHT[1], LIGHT[2])
       gl.uniform3f(u('u_accent'), v.accent[0], v.accent[1], v.accent[2])
       const m = this.mesh(gl, prog, v.kind)
       gl.bindVertexArray(m.vao)

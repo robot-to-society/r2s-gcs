@@ -142,7 +142,7 @@ function setupGround(m: MlMap): void {
 export function vehicleModels(vehicles: ReadonlyMap<number, VehicleState>, selected: number | null, alts: ReadonlyMap<number, number | null>): VehicleModel[] {
   return [...vehicles.values()]
     .filter(hasPosition)
-    .map((v) => ({ sysid: v.sysid, kind: v.kind, at: { lon: v.lon, lat: v.lat, amsl: alts.get(v.sysid) ?? v.alt_msl }, hdg: v.hdg ?? 0, accent: v.sysid === selected ? AMBER : CYAN }))
+    .map((v) => ({ sysid: v.sysid, kind: v.kind, at: { lon: v.lon, lat: v.lat, amsl: alts.get(v.sysid) ?? v.alt_msl }, hdg: v.hdg ?? 0, accent: v.sysid === selected ? AMBER : CYAN, attitude: v.attitude ?? null }))
 }
 
 export interface OpsAir {

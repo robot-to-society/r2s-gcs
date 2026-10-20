@@ -376,12 +376,14 @@ describe('MapView', () => {
     expect((m.layerObjs.get('veh-air3d') as { visible: boolean }).visible).toBe(true)
   })
   it('3D draws each vehicle as a low-poly model (amber when selected) and hides its 2D disc; 2D brings the disc back', () => {
-    const props = { vehicles: new Map([[1, { ...v(1, 3), kind: 'plane' as const, hdg: 90, alt_msl: 1600 }], [2, v(2, 3, 139.371)]]), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const props = { vehicles: new Map([[1, { ...v(1, 3), kind: 'plane' as const, hdg: 90, alt_msl: 1600, attitude: { roll: 25, pitch: 4 } }], [2, v(2, 3, 139.371)]]), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
     const { rerender } = render(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" />)
     const m = created.maps.at(-1)!
     const layer = m.layerObjs.get('veh-air3d-models') as { visible: boolean; models: { sysid: number; kind: string; hdg: number; at: { amsl: number }; accent: number[] }[] }
     expect(layer.visible).toBe(true)
     expect(layer.models.map((x) => [x.sysid, x.kind, x.hdg])).toEqual([[1, 'plane', 90], [2, 'copter', 10]])
+    // ATTITUDE tilts the model; without one it flies level
+    expect((layer.models as unknown as { attitude: unknown }[]).map((x) => x.attitude)).toEqual([{ roll: 25, pitch: 4 }, null])
     // before the DEM is in, the vehicle's own AMSL
     expect(layer.models[0]!.at.amsl).toBe(1600)
     expect(layer.models[0]!.accent).not.toEqual(layer.models[1]!.accent)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { toMercator } from '../air'
-import { modelMatrix, screenSizeMerc } from './placement'
+import { bodyBasis, modelMatrix, screenSizeMerc } from './placement'
 
 const apply = (m: Float64Array, v: [number, number, number]) => [0, 1, 2].map((r) => m[r]! * v[0] + m[4 + r]! * v[1] + m[8 + r]! * v[2] + m[12 + r]!)
 
@@ -31,5 +31,23 @@ describe('model placement', () => {
     expect(screenSizeMerc(40, 15, 0)).toBeCloseTo(40 / (512 * 2 ** 15), 15)
     const real = toMercator(0, 36, 2).z
     expect(screenSizeMerc(40, 22, real)).toBe(real)
+  })
+
+  it('roll puts the right wing down and pitch the nose up, before the heading turn', () => {
+    const close = (a: readonly number[], b: readonly number[]) => a.forEach((x, k) => expect(x).toBeCloseTo(b[k]!, 9))
+    // body basis in (east, north, up): right, nose, up
+    const level = bodyBasis(0, 0, 0)
+    close(level.right, [1, 0, 0])
+    close(level.nose, [0, 1, 0])
+    const rolled = bodyBasis(0, 30, 0)
+    close(rolled.right, [Math.cos(Math.PI / 6), 0, -0.5])
+    close(rolled.nose, [0, 1, 0])
+    const pitched = bodyBasis(90, 0, 10)
+    close(pitched.nose, [Math.cos(Math.PI / 18), 0, Math.sin(Math.PI / 18)])
+    // the matrix follows the basis: nose up in mercator z, east in x
+    const o = apply(modelMatrix(at, 90, 1e-6, { roll: 0, pitch: 10 }), [0, 0, 0])
+    const n = apply(modelMatrix(at, 90, 1e-6, { roll: 0, pitch: 10 }), [0, 1, 0])
+    expect(n[0]! - o[0]!).toBeCloseTo(1e-6 * Math.cos(Math.PI / 18), 12)
+    expect(n[2]! - o[2]!).toBeCloseTo(1e-6 * Math.sin(Math.PI / 18), 12)
   })
 })

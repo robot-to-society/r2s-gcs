@@ -230,7 +230,7 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     compose()
     // in 3D the model stands for the vehicle; the marker keeps its name pill
     marker?.getElement().classList.toggle('model3d', is3d && ready)
-    models.setModels(v && amsl !== null ? [{ sysid: v.sysid, kind: v.kind, at: { lon: v.lon, lat: v.lat, amsl }, hdg: v.hdg ?? 0, accent: VEHICLE_ACCENT }] : [])
+    models.setModels(v && amsl !== null ? [{ sysid: v.sysid, kind: v.kind, at: { lon: v.lon, lat: v.lat, amsl }, hdg: v.hdg ?? 0, accent: VEHICLE_ACCENT, attitude: v.attitude ?? null }] : [])
     const m = map.current
     if (m && matrix.current && is3d) floatMarkers(m, matrix.current, floats.current)
   }
