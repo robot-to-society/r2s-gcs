@@ -39,6 +39,8 @@ interface Props {
   readonly compare?: React.ReactNode
   /** Folds the panel to its rail. */
   readonly onCollapse?: () => void
+  /** Several missions open: the vehicle is the row's assignment, which may be none (未割当). */
+  readonly multi?: boolean
 }
 
 /** Right panel after the prototype: ミッション settings, selection editor, サマリ, write / save buttons. */
@@ -71,7 +73,8 @@ export function MissionSidebar(p: Props) {
             <input className="in" aria-label={dict.mName} value={m.name} onChange={(e) => p.onMeta({ name: e.target.value })} />
             <span>{dict.mVehicle}</span>
             <select className="in" aria-label={dict.mVehicle} value={p.sysid ?? ''} onChange={(e) => p.onMeta({ sysid: e.target.value === '' ? null : Number(e.target.value) })}>
-              {p.vehicles.length === 0 && <option value="">{dict.mNoVehicle}</option>}
+              {p.vehicles.length === 0 && !p.multi && <option value="">{dict.mNoVehicle}</option>}
+              {p.multi && <option value="">{dict.bfUnassigned}</option>}
               {p.vehicles.map((v) => (
                 <option key={v.sysid} value={v.sysid}>
                   {v.name}
@@ -171,6 +174,7 @@ export function MissionSidebar(p: Props) {
         <button type="button" className="btn btn-lg btn-primary" disabled={draft.items.length === 0 || p.sysid === null || p.busy} onClick={p.onUpload}>
           {dict.mWrite}
         </button>
+        {p.multi && p.sysid === null && <div className="t3" style={{ fontSize: 11 }}>{dict.bfAssignToWrite}</div>}
         <TransferBar transfer={p.transfer} dict={dict} />
         <button type="button" className="btn" disabled={p.busy} onClick={p.onSaveFile}>
           {dict.mFileWaypoints}

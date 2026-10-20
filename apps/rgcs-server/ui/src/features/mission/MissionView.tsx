@@ -78,8 +78,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const [bulk, setBulk] = useState<{ alt: string; frame: MissionFrame }>({ alt: String(draft.mission.default_alt), frame: draft.mission.default_frame })
   const file = useRef<HTMLInputElement>(null)
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
-  // the row's assigned vehicle first, then the mission's own, then the first connected one
-  const sysid = brief.row.sysid ?? draft.mission.sysid ?? list[0]?.sysid ?? null
+  const sysid = brief.target(draft.mission.sysid, list[0]?.sysid ?? null)
   const online = list.filter((v) => v.link !== 'lost')
   const located = list.filter((v) => v.gps.fix >= 2 && !(v.lat === 0 && v.lon === 0))
   const vehicle = sysid === null ? null : (vehicles.get(sysid) ?? null)
@@ -344,16 +343,17 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onApplyBulk={applyBulk}
         onDeselect={() => store.update(clearSelection)}
         onDeleteSelected={() => store.update(removeSelected)}
+        multi={brief.multi}
         onMeta={(patch) => {
-          if (patch.sysid !== undefined) brief.assignActive(patch.sysid)
-          change((d) => setMeta(d, patch))
+          const own = brief.metaPatch(patch)
+          change((d) => setMeta(d, own))
         }}
         onItemChange={(uid, patch) => change((d) => updateItem(d, uid, patch))}
         onItemCommand={(uid, key) => change((d) => setCommand(d, uid, key))}
         onNew={io.fresh}
         onOpen={io.openPicker}
         onSave={() => void io.save()}
-        onUpload={() => (online.length > 1 ? setTargets(true) : void io.upload())}
+        onUpload={() => (online.length > 1 && !brief.multi ? setTargets(true) : void io.upload())}
         onSaveFile={() => void io.saveWaypointsFile()}
         onSaveRgcs={io.saveRgcsFile}
         compare={batch.compare}

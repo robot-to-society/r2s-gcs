@@ -98,3 +98,16 @@ export function activate(ws: Workspace, key: string): Workspace {
 }
 
 export const activeRow = (ws: Workspace): Row => ws.rows.find((r) => r.key === ws.active) ?? ws.rows[0]
+
+/** Two or more missions open (missing rows do not count): rows are told apart by colour and assignment. */
+export const isMulti = (ws: Workspace): boolean => ws.rows.filter((r) => !r.missing).length > 1
+
+/**
+ * Where 機体に書き込む writes (spec 2026-10-20 §8). With several missions open: exactly the active
+ * row's assignment, null when it is unassigned. A single mission keeps today's fallbacks: its own
+ * vehicle, then the first connected one.
+ */
+export function writeTarget(ws: Workspace, missionSysid: number | null, firstSysid: number | null): number | null {
+  const own = activeRow(ws).sysid
+  return isMulti(ws) ? own : (own ?? missionSysid ?? firstSysid)
+}

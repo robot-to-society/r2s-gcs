@@ -46,6 +46,7 @@ export const briefingJa = {
   bfFrameHint: 'ダブルクリックで地図に全体を表示',
   bfPanelCollapse: 'パネルをたたむ',
   bfPanelExpand: 'パネルを開く',
+  bfAssignToWrite: '一覧で機体を割り当てると書き込めます',
 }
 
 export const briefingEn: Record<keyof typeof briefingJa, string> = {
@@ -94,4 +95,5 @@ export const briefingEn: Record<keyof typeof briefingJa, string> = {
   bfFrameHint: 'Double-click to frame it on the map',
   bfPanelCollapse: 'Collapse panel',
   bfPanelExpand: 'Expand panel',
+  bfAssignToWrite: 'Assign a vehicle in the list to write',
 }

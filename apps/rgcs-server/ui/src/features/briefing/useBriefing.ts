@@ -5,7 +5,7 @@ import { canUndo } from '../mission/history'
 import { missionStore, type MissionStore, type MissionUi } from '../mission/store'
 import type { LatLon } from '../mission/geo'
 import { framePoints } from './frame'
-import { activeRow, assign, moveRow, parkActive, removeRow, setColor, setHidden, type Row, type Workspace } from './model'
+import { activeRow, assign, isMulti, moveRow, writeTarget, parkActive, removeRow, setColor, setHidden, type Row, type Workspace } from './model'
 import { restoreInto, startPersistence } from './persist'
 import { briefingStore, carryClipboard, loadActive, openInNewRow, switchRow, useWorkspace, type BriefingStore } from './store'
 
@@ -69,9 +69,20 @@ export interface BriefingHandlers {
   readonly row: Row
   /** The active path's colour: its row colour once two missions are open; alone it keeps the altitude colours. */
   readonly pathColor: string | undefined
-  /** The editor's vehicle choice: always the active row's assignment (one vehicle per row). */
-  readonly assignActive: (sysid: number | null) => void
+  /** Two or more missions open: the write target is the row's assignment only (no fallback). */
+  readonly multi: boolean
+  /** 機体に書き込む's vehicle (§8): see writeTarget. */
+  readonly target: (missionSysid: number | null, firstSysid: number | null) => number | null
+  /**
+   * The right panel's mission settings: a vehicle choice assigns the active row; returns what the
+   * mission itself takes (with several missions open, never the vehicle).
+   */
+  readonly metaPatch: <P extends { readonly sysid?: number | null }>(patch: P) => P
 }
+
+/** `patch` without its vehicle. */
+const withoutSysid = <P extends { readonly sysid?: number | null }>(patch: P): P =>
+  Object.fromEntries(Object.entries(patch).filter(([k]) => k !== 'sysid')) as P
 
 /** `workspace` shows the live editor in the active row (its current name / items). */
 /** `onFit`: frames points on the planner map (the row double-click). */
@@ -100,6 +111,14 @@ export function useBriefing(b: BriefingStore, m: MissionStore, live: MissionUi, 
     },
   }
   const row = activeRow(workspace)
-  const pathColor = workspace.rows.filter((r) => !r.missing).length > 1 ? row.color : undefined
-  return { list, row, pathColor, assignActive: (sysid) => b.update((w) => assign(w, w.active, sysid)) }
+  const multi = isMulti(workspace)
+  const pathColor = multi ? row.color : undefined
+  const metaPatch = <P extends { readonly sysid?: number | null }>(patch: P): P => {
+    if (patch.sysid === undefined) return patch
+    const sysid = patch.sysid
+    b.update((w) => assign(w, w.active, sysid))
+    return multi ? withoutSysid(patch) : patch
+  }
+  const target = (missionSysid: number | null, firstSysid: number | null) => writeTarget(workspace, missionSysid, firstSysid)
+  return { list, row, pathColor, multi, target, metaPatch }
 }
