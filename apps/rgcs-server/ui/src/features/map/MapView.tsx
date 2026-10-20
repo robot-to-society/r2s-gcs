@@ -7,7 +7,7 @@ import { badgeText } from '../mission/mapEdit'
 import type { Predicted } from '../mission/missionAir'
 import { addPredictedLayer, setPredicted } from './predictedLayer'
 import { cmdKeyOf } from '../mission/cmds'
-import { follow3dCamera, followTarget, needsRecenter, type Padding } from './follow'
+import { firstView, follow3dCamera, followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
 import { KEEP_ELEVATION, type MapMode } from './mapMode'
 import { useVehicleAir } from './vehicleAir'
@@ -314,6 +314,20 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     lifted.current = cam.elevation
     m.easeTo({ center: cam.center, bearing: cam.bearing, duration: 250, ...KEEP_ELEVATION })
   }
+
+  // The map opens on the vehicles (not the built-in default spot) the first time any has a position.
+  const opened = useRef(false)
+  useEffect(() => {
+    const m = map.current
+    if (!m || opened.current || follow !== null) return
+    const view = firstView(vehicles)
+    if (!view) return
+    opened.current = true
+    if ('center' in view) m.jumpTo({ center: view.center })
+    else m.fitBounds(view.bounds, { padding, maxZoom: 16, duration: 0 })
+    // padding is read when the view is first set; later changes are applied by their own effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicles, follow])
 
   const focused = useRef(0)
   useEffect(() => {

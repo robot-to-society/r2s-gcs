@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
-import { FOLLOW_DEADBAND_PX, follow3dCamera, followTarget, needsRecenter, padding } from './follow'
+import { FOLLOW_DEADBAND_PX, firstView, follow3dCamera, followTarget, needsRecenter, padding } from './follow'
 
 describe('map padding (spec 20 §4)', () => {
   it('matches the panel widths', () => {
@@ -51,5 +51,25 @@ describe('follow3dCamera (3D: from behind and above, the vehicle in the air at t
   })
   it('treats 359° and 1° as 2° apart', () => {
     expect(follow3dCamera(veh({ hdg: 1 }), 1600, { ...cam, bearing: -1 })).toBeNull()
+  })
+})
+
+describe('firstView', () => {
+  const at = (sysid: number, lat: number, lon: number, fix = 3): VehicleState => ({
+    sysid, name: 'x', kind: 'copter', mode: '', armed: false, lat, lon, alt_rel: 0, alt_msl: 0, hdg: null,
+    ground_speed: 0, climb: 0, battery: { pct: null, volt: 0, current: null }, link: 'ok', last_rx_ms: 0,
+    gps: { fix, sats: 0, hdop: null }, warn: false, unread: 0,
+  })
+  const map = (...vs: VehicleState[]) => new Map(vs.map((x) => [x.sysid, x]))
+  it('is nothing until a vehicle has a position', () => {
+    expect(firstView(map())).toBeNull()
+    expect(firstView(map(at(1, 0, 0, 0)))).toBeNull()
+  })
+  it('centres on a single vehicle and frames several (vehicles without a fix are left out)', () => {
+    expect(firstView(map(at(1, 36.25, 137.63)))).toEqual({ center: [137.63, 36.25] })
+    expect(firstView(map(at(1, 36.25, 137.63), at(2, 36.2, 137.7), at(3, 0, 0, 0)))).toEqual({ bounds: [[137.63, 36.2], [137.7, 36.25]] })
+  })
+  it('several vehicles at one spot centre like one', () => {
+    expect(firstView(map(at(1, 36.25, 137.63), at(2, 36.25, 137.63)))).toEqual({ center: [137.63, 36.25] })
   })
 })

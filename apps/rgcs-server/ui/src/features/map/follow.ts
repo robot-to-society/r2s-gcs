@@ -24,6 +24,19 @@ export function padding(aside: Aside, right: boolean): Padding {
   return { top: 72, left, right: right ? RIGHT_W + 2 * GAP : 0, bottom: 60 }
 }
 
+export type FirstView = { readonly center: [number, number] } | { readonly bounds: [[number, number], [number, number]] }
+
+/** Where the map opens once positions arrive: on the one vehicle, or framing them all (null = none yet). */
+export function firstView(vehicles: ReadonlyMap<number, VehicleState>): FirstView | null {
+  const at = [...vehicles.values()].filter(hasPosition)
+  if (at.length === 0) return null
+  const lons = at.map((v) => v.lon)
+  const lats = at.map((v) => v.lat)
+  const [w, e, s, n] = [Math.min(...lons), Math.max(...lons), Math.min(...lats), Math.max(...lats)]
+  if (w === e && s === n) return { center: [w, s] }
+  return { bounds: [[w, s], [e, n]] }
+}
+
 /** `[lon, lat]` of the followed vehicle, or null when nothing to centre on. */
 export function followTarget(vehicles: ReadonlyMap<number, VehicleState>, follow: number | null): [number, number] | null {
   if (follow === null) return null
