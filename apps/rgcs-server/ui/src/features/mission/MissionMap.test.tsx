@@ -679,6 +679,9 @@ describe('MissionMap', () => {
     expect(line.paint['line-color']).toBe('#ff4d79')
     rerender(<MissionMap {...props} pathColor="#31d848" />)
     expect(map.paint.get('mission-path-line.line-color')).toBe('#31d848')
+    // back to one mission: the altitude gradient again
+    rerender(<MissionMap {...props} pathColor={undefined} />)
+    expect(map.paint.get('mission-path-line.line-color')).toEqual(expect.arrayContaining(['interpolate']))
     // 3D: the level legs take the row colour (steep climbs still turn red)
     const level = appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2)
     const air = missionAirData(level, new Set(), () => 100, null, null, null, '#31d848')

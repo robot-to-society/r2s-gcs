@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react'
 import type { BriefingFull, BriefingSummary, CommandResult } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { createMission, updateMission } from '../mission/api'
+import { localResultId } from '../vehicles/localResultId'
 import { setBusy, type MissionStore } from '../mission/store'
 import { vehicleStore } from '../vehicles/store'
 import { createBriefing, getBriefing, listBriefings, updateBriefing } from './api'
@@ -71,7 +72,7 @@ export function useBriefingIo(b: BriefingStore, m: MissionStore, ws: Workspace, 
   const [picker, setPicker] = useState(false)
   const [pending, setPending] = useState<number | null>(null)
   const [working, setWorking] = useState(false)
-  const result: Report = (cmd, ok, reason) => vehicles.pushLocalResult({ id: -Date.now(), sysid: 0, cmd, ok, reason, ts: Date.now() })
+  const result: Report = (cmd, ok, reason) => vehicles.pushLocalResult({ id: localResultId(), sysid: 0, cmd, ok, reason, ts: Date.now() })
   const idle = !working && m.getState().busy === 'idle'
 
   const save = async () => {

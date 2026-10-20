@@ -5,6 +5,7 @@ import type { Mission } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { openMission } from '../briefing/useBriefing'
 import type { BriefingStore } from '../briefing/store'
+import { localResultId } from '../vehicles/localResultId'
 import type { VehicleStore } from '../vehicles/store'
 import { createMission, downloadMission, exportWaypoints, getMission, importWaypoints, updateMission, uploadMission, validateMission } from './api'
 import { downloadText, parseRgcsMission, readFileText, safeFileStem, serializeRgcsMission } from './files'
@@ -22,7 +23,7 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
   const [picker, setPicker] = useState(false)
   const fit = () => setFitRequest((n) => n + 1)
   const result = (cmd: string, ok: boolean, reason: string | null, to: number | null = sysid) =>
-    vehicles.pushLocalResult({ id: -Date.now(), sysid: to ?? 0, cmd, ok, reason, ts: Date.now() })
+    vehicles.pushLocalResult({ id: localResultId(), sysid: to ?? 0, cmd, ok, reason, ts: Date.now() })
 
   const open = (ui: MissionUi) => {
     openMission(briefing, store, ui)
@@ -124,7 +125,7 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
       const m = file.name.endsWith('.rgcsmission') ? parseRgcsMission(text) : await importWaypoints(text, stem)
       load({ ...m, name: m.name || stem }, null)
     } catch (e) {
-      result('mission_import', false, errText(e))
+      result('mission_import', false, `${file.name}: ${errText(e)}`)
     }
   }
 

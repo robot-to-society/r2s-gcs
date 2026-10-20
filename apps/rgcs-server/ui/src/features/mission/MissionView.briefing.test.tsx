@@ -6,8 +6,8 @@ import type { VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 
 vi.mock('./MissionMap', () => ({
-  MissionMap: (p: { fitTo?: { seq: number; points: readonly { lat: number; lon: number }[] } | null; panelCollapsed?: boolean }) => (
-    <div data-testid="mission-map" data-fit={JSON.stringify(p.fitTo?.points ?? [])} data-seq={p.fitTo?.seq ?? 0} data-collapsed={String(p.panelCollapsed ?? false)} />
+  MissionMap: (p: { fitTo?: { seq: number; points: readonly { lat: number; lon: number }[] } | null; panelCollapsed?: boolean; pathColor?: string }) => (
+    <div data-testid="mission-map" data-fit={JSON.stringify(p.fitTo?.points ?? [])} data-seq={p.fitTo?.seq ?? 0} data-collapsed={String(p.panelCollapsed ?? false)} data-pathcolor={p.pathColor ?? 'none'} />
   ),
 }))
 
@@ -17,6 +17,7 @@ const { BriefingStore } = await import('../briefing/store')
 const { appendWaypoint, emptyDraft, toMission } = await import('./model')
 const { serializeRgcsMission } = await import('./files')
 const { rasterStyle } = await import('../map/style')
+const { vehicleStore } = await import('../vehicles/store')
 
 const copter: VehicleState = {
   sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'STABILIZE', armed: false, lat: 36.16, lon: 139.37, alt_rel: 0, alt_msl: 0, hdg: 0,
@@ -57,9 +58,32 @@ describe('MissionView briefing feedback (§9)', () => {
   it('several_files_open_several_rows_and_a_bad_one_does_not_stop_the_rest', async () => {
     const { store } = setup()
     expect((screen.getByTestId('mission-file') as HTMLInputElement).multiple).toBe(true)
-    await pick([missionFile('Alpha', 36, 2), new File(['{ nonsense'], 'Broken.rgcsmission'), missionFile('Gamma', 35, 1)])
+    const imports = () => vehicleStore.getState().results.filter((r) => r.cmd === 'mission_import')
+    const before = imports().length
+    // two bad files failing within the same millisecond: both errors are kept, each naming its file
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_800_000_000_000)
+    try {
+      await pick([missionFile('Alpha', 36, 2), new File(['{ nonsense'], 'Broken.rgcsmission'), new File(['{ worse'], 'Worse.rgcsmission'), missionFile('Gamma', 35, 1)])
+    } finally {
+      now.mockRestore()
+    }
     expect(names()).toEqual(['Alpha', 'Gamma'])
     expect(store.getState().history.present.mission.name).toBe('Gamma')
+    const failed = imports().slice(0, imports().length - before)
+    expect(failed).toHaveLength(2)
+    expect(failed.every((r) => !r.ok && r.id < 0)).toBe(true)
+    expect(failed.map((r) => r.reason).join(' ')).toContain('Broken.rgcsmission')
+    expect(failed.map((r) => r.reason).join(' ')).toContain('Worse.rgcsmission')
+  })
+
+  it('a_single_mission_keeps_the_altitude_colours_and_two_use_the_row_colour', async () => {
+    const { briefing } = setup()
+    const color = () => screen.getByTestId('mission-map').dataset.pathcolor
+    expect(color()).toBe('none')
+    await pick([missionFile('Alpha', 36, 2)])
+    expect(color()).toBe('none')
+    await pick([missionFile('Beta', 35, 2)])
+    expect(color()).toBe(briefing.getState().rows[1]!.color)
   })
 
   it('double_clicking_a_row_frames_that_mission', async () => {
@@ -83,9 +107,14 @@ describe('MissionView briefing feedback (§9)', () => {
     fireEvent.doubleClick(briefRows()[1]!.querySelector('.brief-name')!)
     expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 1)
     expect(fitted().map((p) => p.lat).sort()).toEqual([35, 35.01, 35.02])
+    // anywhere on the row frames it (here the row itself, beside the name)
+    fireEvent.doubleClick(briefRows()[1]!)
+    expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 2)
     // a double-click on the row's controls frames nothing
     fireEvent.doubleClick(within(briefRows()[1]!).getByLabelText('割当機体'))
-    expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 1)
+    fireEvent.doubleClick(within(briefRows()[1]!).getByLabelText('色'))
+    fireEvent.doubleClick(within(briefRows()[1]!).getByLabelText('上へ'))
+    expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 2)
   })
 
   it('the_right_panel_collapses_on_every_tab_and_remembers_it', () => {

@@ -20,7 +20,7 @@ interface Props {
   readonly onMove: (key: string, delta: -1 | 1) => void
   readonly onColor: (key: string, color: string) => void
   readonly onHidden: (key: string, hidden: boolean) => void
-  /** Double-click on the name: frame that row's mission on the map. */
+  /** Double-click on the row (not its controls): frame that row's mission on the map. */
   readonly onFrame?: (key: string) => void
   /** The briefing's name and its save / open buttons (absent: the list alone). */
   readonly header?: BriefingHeader
@@ -86,12 +86,12 @@ function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onS
   const shown = !row.hidden
   const known = row.sysid === null || vehicles.some((v) => v.sysid === row.sysid)
   return (
-    <div className={`brief-row${active ? ' on' : ''}`} role="listitem" aria-current={active ? 'true' : undefined} onClick={() => !active && onSwitch(row.key)}>
-      <span className="brief-chip-wrap" onClick={stop}>
+    <div className={`brief-row${active ? ' on' : ''}`} role="listitem" aria-current={active ? 'true' : undefined} onClick={() => !active && onSwitch(row.key)} onDoubleClick={() => onFrame?.(row.key)}>
+      <span className="brief-chip-wrap" onClick={stop} onDoubleClick={stop}>
         <button type="button" className="brief-chip" aria-label={dict.bfColor} style={{ background: row.color }} onClick={() => setPalette((p) => !p)} />
         {palette && <ColorPopover current={row.color} dict={dict} onPick={(c) => onColor(row.key, c)} onClose={() => setPalette(false)} />}
       </span>
-      <span className="brief-name" title={`${row.ui.history.present.mission.name}\n${dict.bfFrameHint}`} onDoubleClick={() => onFrame?.(row.key)}>
+      <span className="brief-name" title={`${row.ui.history.present.mission.name}\n${dict.bfFrameHint}`}>
         {row.ui.history.present.mission.name}
       </span>
       {dirty && (
@@ -100,7 +100,7 @@ function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onS
         </span>
       )}
       {row.missing && <span className="rg-natag brief-missing">{dict.bfMissing}</span>}
-      <select className="rg-sel brief-sel" aria-label={dict.bfVehicle} value={row.sysid ?? ''} onClick={stop} onChange={(e) => onAssign(row.key, e.target.value === '' ? null : Number(e.target.value))}>
+      <select className="rg-sel brief-sel" aria-label={dict.bfVehicle} value={row.sysid ?? ''} onClick={stop} onDoubleClick={stop} onChange={(e) => onAssign(row.key, e.target.value === '' ? null : Number(e.target.value))}>
         <option value="">{dict.bfUnassigned}</option>
         {vehicles.map((v) => (
           <option key={v.sysid} value={v.sysid}>
@@ -109,7 +109,7 @@ function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onS
         ))}
         {!known && <option value={row.sysid ?? ''}>{`#${row.sysid}`}</option>}
       </select>
-      <span className="brief-ctl" onClick={stop}>
+      <span className="brief-ctl" onClick={stop} onDoubleClick={stop}>
         <button type="button" className="btn-icon sm" aria-label={dict.bfShow} title={dict.bfShow} aria-pressed={shown} disabled={active} onClick={() => onHidden(row.key, shown)}>
           {shown ? <IconEye /> : <IconEyeOff />}
         </button>

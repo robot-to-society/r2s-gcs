@@ -157,7 +157,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         fitRequest={io.fitRequest}
         focus={focus}
         fitTo={fitTo}
-        pathColor={brief.row.color}
+        pathColor={brief.pathColor}
         panelCollapsed={panel.collapsed}
         onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, { takeoff: takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1) }))}
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}

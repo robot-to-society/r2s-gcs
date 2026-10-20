@@ -67,6 +67,8 @@ export function rowFramePoints(b: BriefingStore, m: MissionStore, key: string): 
 export interface BriefingHandlers {
   readonly list: BriefingListWiring
   readonly row: Row
+  /** The active path's colour: its row colour once two missions are open; alone it keeps the altitude colours. */
+  readonly pathColor: string | undefined
   /** The editor's vehicle choice: always the active row's assignment (one vehicle per row). */
   readonly assignActive: (sysid: number | null) => void
 }
@@ -97,5 +99,7 @@ export function useBriefing(b: BriefingStore, m: MissionStore, live: MissionUi, 
       if (pts.length > 0) onFit?.(pts)
     },
   }
-  return { list, row: activeRow(workspace), assignActive: (sysid) => b.update((w) => assign(w, w.active, sysid)) }
+  const row = activeRow(workspace)
+  const pathColor = workspace.rows.filter((r) => !r.missing).length > 1 ? row.color : undefined
+  return { list, row, pathColor, assignActive: (sysid) => b.update((w) => assign(w, w.active, sysid)) }
 }
