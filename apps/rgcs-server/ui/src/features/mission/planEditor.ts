@@ -6,13 +6,13 @@ import type { Dict } from '../../shared/i18n'
 import { readFence, readFenceParams, readRally, setFenceAltMax, writeFence, writeRally } from './api'
 import type { FenceEdit, PlanTab } from './fenceMap'
 import { addRally, addZone, rallyDefaultAlt, moveCircle, moveRally, moveVertex, replaceZone, setFence, setRadius, setRally } from './geofenceModel'
-import type { FenceParams, FenceZone } from '../../shared/api/types'
+import type { FenceParams, FenceZone, Home } from '../../shared/api/types'
 import type { Draft } from './model'
 import type { ArmedZone } from './PlanPanels'
 import type { PlanStatus } from './PlanSidebar'
 import { readPlanTab } from './planTab'
 import { downloadText, readFileText, safeFileStem } from './files'
-import { fenceToWpl, parseFenceFile, parseRallyFile, rallyToWpl } from './planFiles'
+import { fencePoints, fenceToWpl, parseFenceFile, parseRallyFile, rallyToWpl } from './planFiles'
 
 /** A new circle starts with this radius; the handle then sets it. */
 const NEW_CIRCLE_M = 100
@@ -23,9 +23,13 @@ interface Args {
   readonly dict: Dict
   /** One undoable plan edit. */
   readonly change: (fn: (d: Draft) => Draft) => void
+  /** Line 0 of a saved fence / rally file (the plan's home, else the vehicle's). */
+  readonly home: Home | null
+  /** Frame these points on the map (after a file loaded). */
+  readonly onFit: (points: readonly { lat: number; lon: number }[]) => void
 }
 
-export function usePlanEditor({ draft, sysid, dict, change }: Args) {
+export function usePlanEditor({ draft, sysid, dict, change, home, onFit }: Args) {
   const [tab, setTabState] = useState<PlanTab>(readPlanTab)
   const [armedState, setArmed] = useState<ArmedZone | null>(null)
   // The polygon being drawn, by identity: a read, delete, load or undo that replaces it ends the
@@ -138,14 +142,17 @@ export function usePlanEditor({ draft, sysid, dict, change }: Args) {
   /** ファイルに保存: the open tab's list as Mission Planner WPL. */
   const saveFile = () => {
     const stem = safeFileStem(draft.mission.name)
-    if (tab === 'fence') downloadText(`${stem}_fence.waypoints`, fenceToWpl(draft.mission.fence), 'text/plain')
-    if (tab === 'rally') downloadText(`${stem}_rally.waypoints`, rallyToWpl(draft.mission.rally), 'text/plain')
+    if (tab === 'fence') downloadText(`${stem}_fence.waypoints`, fenceToWpl(draft.mission.fence, home), 'text/plain')
+    if (tab === 'rally') downloadText(`${stem}_rally.waypoints`, rallyToWpl(draft.mission.rally, home), 'text/plain')
   }
   /** ファイルから読込: replaces the open tab's list (one undoable edit). */
   const loadFile = async (file: File) => {
     try {
       const text = await readFileText(file)
-      const n = tab === 'fence' ? loadInto(parseFenceFile(text), setFence) : loadInto(parseRallyFile(text), setRally)
+      const fence = tab === 'fence' ? parseFenceFile(text) : null
+      const rally = fence ? null : parseRallyFile(text)
+      const n = fence ? loadInto(fence, setFence) : loadInto(rally!, setRally)
+      onFit(fence ? fencePoints(fence) : rally!)
       setStatus({ ok: true, text: dict.plLoaded.replace('{n}', String(n)) })
     } catch {
       setStatus({ ok: false, text: dict.plFileBad })

@@ -84,7 +84,9 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   }, [isPlane, pathValues, hLat, hLon, hAlt])
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
   const io = useMissionIo(store, sysid, dict, vehicleStore)
-  const plan = usePlanEditor({ draft, sysid, dict, change })
+  const [fitTo, setFitTo] = useState<{ seq: number; points: readonly { lat: number; lon: number }[] } | null>(null)
+  const fileHome = draft.mission.home ?? (vehicle?.home ? { lat: vehicle.home.lat, lon: vehicle.home.lon, alt: vehicle.home.alt } : null)
+  const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit: (points) => setFitTo((f) => ({ seq: (f?.seq ?? 0) + 1, points })) })
   const planIo = { sysid, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f) }
   const selectedItems = draft.items.filter((it) => ui.selected.has(it.uid))
   const lastSelected = selectedItems[selectedItems.length - 1]
@@ -139,6 +141,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         predict={predict}
         fitRequest={io.fitRequest}
         focus={focus}
+        fitTo={fitTo}
         onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, { takeoff: takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1) }))}
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}
         onMove={(uid, lat, lon) => change((d) => moveItem(d, uid, lat, lon))}

@@ -91,7 +91,7 @@ function FileButtons({ dict, empty, onSaveFile, onLoadFile }: FileProps & { read
       <input
         ref={input}
         type="file"
-        accept=".waypoints,.txt,.plan,.fen,.rally"
+        accept=".waypoints,.txt,.plan,.fen,.ral"
         aria-label={dict.mFileLoad}
         style={{ display: 'none' }}
         onChange={(e) => {

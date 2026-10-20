@@ -250,6 +250,17 @@ describe('MissionMap', () => {
     // MapLibre keeps the terrain elevation frozen after an animation unless it is told to freeze it
     expect(created.maps[0]!.fitOptions[0]).toMatchObject({ freezeElevation: true })
   })
+  it('a fit request with points fits them (one point: zooms in on it)', () => {
+    const { props, rerender } = renderMap()
+    const m = created.maps[0]!
+    rerender(<MissionMap {...props} fitTo={{ seq: 1, points: [{ lat: 36.1, lon: 137.1 }, { lat: 36.2, lon: 137.2 }] }} />)
+    expect(m.fitted).toHaveLength(1)
+    rerender(<MissionMap {...props} fitTo={{ seq: 2, points: [{ lat: 35.5, lon: 139.5 }] }} />)
+    expect(m.jumps.at(-1)).toEqual({ center: [139.5, 35.5], zoom: 16 })
+    // the same request again does nothing
+    rerender(<MissionMap {...props} fitTo={{ seq: 2, points: [{ lat: 35.5, lon: 139.5 }] }} />)
+    expect(m.fitted).toHaveLength(1)
+  })
   it('3D adds the terrain, the altitude path layer and shows the ground footprint instead of the 2D path', () => {
     const { rerender, props } = renderMap({ terrainTiles: 'https://dem/{z}/{x}/{y}.png', mode: '2d' })
     const m = created.maps[0]!

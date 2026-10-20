@@ -49,6 +49,8 @@ interface Props {
   readonly onRallyMove: (index: number, lat: number, lon: number) => void
   /** FENCE_ALT_MAX (m above home): the 3D fence walls reach it; null = no walls. */
   readonly ceiling?: number | null
+  /** Frame these points (a fence / rally file just loaded); a new `seq` repeats it. */
+  readonly fitTo?: { readonly seq: number; readonly points: readonly { readonly lat: number; readonly lon: number }[] } | null
   /** Move the view here (place search, 機体の位置へ); a new `seq` repeats the move. */
   readonly focus?: { readonly lat: number; readonly lon: number; readonly seq: number } | null
   /** The path the target vehicle is expected to fly for a draft (null = not predicted for it). */
@@ -60,6 +62,8 @@ interface Props {
 
 const HOME: [number, number] = [139.372, 36.162]
 const FOCUS_ZOOM = 16
+/** Fits keep clear of the floating panels (left list, right editor, top bar, bottom summary). */
+const FIT_PADDING = { top: 100, bottom: 110, left: 380, right: 400 }
 /** The `.vmk` disc centre on the position (34 px disc at the element's left edge). */
 const VEHICLE_OFFSET = [-17, 0] as const
 const PATH = 'mission-path'
@@ -72,7 +76,7 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus' | 'fitTo'>
 
 /** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
@@ -273,13 +277,28 @@ export function MissionMap(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusSeq])
 
+  const fitSeq = props.fitTo?.seq ?? 0
+  useEffect(() => {
+    const m = map.current
+    const pts = props.fitTo?.points ?? []
+    if (!m || pts.length === 0) return
+    if (pts.length === 1) {
+      m.jumpTo({ center: [pts[0]!.lon, pts[0]!.lat], zoom: FOCUS_ZOOM })
+      return
+    }
+    const bounds = pts.reduce((b, p) => b.extend([p.lon, p.lat]), new maplibregl.LngLatBounds([pts[0]!.lon, pts[0]!.lat], [pts[0]!.lon, pts[0]!.lat]))
+    m.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 17, duration: 300, ...KEEP_ELEVATION })
+    // only a new request moves the view
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitSeq])
+
   useEffect(() => {
     const m = map.current
     if (!m || fitRequest === 0) return
     const pts = draft.items.filter(hasPosition)
     if (pts.length === 0) return
     const bounds = pts.reduce((b, it) => b.extend([it.lon, it.lat]), new maplibregl.LngLatBounds([pts[0]!.lon, pts[0]!.lat], [pts[0]!.lon, pts[0]!.lat]))
-    m.fitBounds(bounds, { padding: 80, maxZoom: 17, duration: 300, ...KEEP_ELEVATION })
+    m.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 17, duration: 300, ...KEEP_ELEVATION })
     // Only the request counter triggers a fit; the draft is read at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitRequest])

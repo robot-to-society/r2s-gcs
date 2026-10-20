@@ -5,8 +5,8 @@ import { t } from '../../shared/i18n'
 
 let adds = 0
 vi.mock('./MissionMap', () => ({
-  MissionMap: (p: { onAdd: (lat: number, lon: number) => void; tab?: string; onPlanClick: (tab: string, lat: number, lon: number) => void }) => (
-    <div data-testid="mission-map" data-tab={p.tab}>
+  MissionMap: (p: { onAdd: (lat: number, lon: number) => void; tab?: string; onPlanClick: (tab: string, lat: number, lon: number) => void; fitTo?: { points: unknown[] } | null }) => (
+    <div data-testid="mission-map" data-tab={p.tab} data-fit={p.fitTo?.points.length ?? 0}>
       <button type="button" onClick={() => p.onAdd(36.1 + 0.001 * adds++, 139.1)}>
         map-add
       </button>
@@ -154,6 +154,8 @@ describe('MissionView', () => {
     })
     expect(screen.getByTestId('fence-row').querySelector('.fence-title')?.textContent).toBe('包含円')
     expect(within(right).getByText('1 件を読み込みました')).toBeInTheDocument()
+    // the map frames what was loaded (a circle: its north / south extent)
+    expect(screen.getByTestId('mission-map').dataset.fit).toBe('2')
     fireEvent.click(tabs.getByRole('button', { name: 'Rally' }))
     const rally = screen.getByRole('complementary', { name: 'ラリーポイント設定' })
     await act(async () => {

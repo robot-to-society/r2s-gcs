@@ -128,6 +128,8 @@
 - 左の WP リストはドラッグで並べ替え(選択中の行をつかむと選択ごと移動、挿入位置は行の縁の線)。
 - 機体に書き込む: 接続中(link が lost 以外)が 1 機ならそのまま、複数なら機体選択シート(すべて選択 / すべて解除 / 個別、対象機体は最初から選択)を挟み、選んだ機体へ順に検証→書込。
 - Fence / Rally タブ(2026-10-20): 左はゾーン / ポイントの一覧、右パネルはタブ専用(フェンス: 包含・除外の数、FENCE_ALT_MAX、機体へ書込 / 読込、ファイル保存 / 読込。ラリー: 点数、書込 / 読込、ファイル)。ファイルは Mission Planner 互換の QGC WPL 110(MAV_CMD_NAV_FENCE_* / NAV_RALLY_POINT、ポリゴンの頂点数は param1)で保存し、読込はそれと QGroundControl の .plan(geoFence / rallyPoints)。読込は今のリストを置き換える 1 回の編集(取り消し可)。
+- ファイルは Mission Planner と相互運用(MissionPlanner master のソースで確認、2026-10-20): ミッション = `.waypoints`(QGC WPL 110、行 0 がホーム)。フェンス / ラリー = MP の FlightPlanner と同じ書式(行 0 にホーム行、項目は seq 1 から frame 3、param は小数 8 桁、CRLF。MP はフェンス / ラリーの読込で行 0 を捨てるため)。読込は MP の旧 `.fen`(戻り点 + 閉じたポリゴン)/ `.ral`(`RALLY lat lon alt …`)と QGC `.plan` も可。POI = MP の `poi.txt`(`lat<TAB>lon<TAB>名前` CRLF、`features/mission/poiFile.ts`。POI 機能とカメラ ROI で共用予定)。
+- ミッション / フェンス / ラリーのファイル読込が成功したら、読み込んだものに地図を合わせる(左右パネルを避けた余白で。1 点ならその点へ寄る)。
 
 ## 7. メンテナンス(`view:'maint'`)
 
