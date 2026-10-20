@@ -9,6 +9,8 @@ import { PALETTE, type Row, type Workspace } from './model'
 interface Props {
   readonly workspace: Workspace
   readonly liveDirty: boolean
+  /** The live editor is saving / writing / reading: its row cannot be removed meanwhile. */
+  readonly busy?: boolean
   readonly vehicles: readonly VehicleState[]
   readonly dict: Dict
   readonly onSwitch: (key: string) => void
@@ -18,29 +20,30 @@ interface Props {
   readonly onColor: (key: string, color: string) => void
 }
 
-type RowProps = Omit<Props, 'workspace' | 'liveDirty'> & {
+type RowProps = Omit<Props, 'workspace' | 'liveDirty' | 'busy'> & {
   readonly row: Row
   readonly active: boolean
   readonly dirty: boolean
   readonly first: boolean
   readonly last: boolean
+  readonly locked: boolean
 }
 
 const stop = (e: React.SyntheticEvent) => e.stopPropagation()
 
-export function BriefingList({ workspace, liveDirty, ...rest }: Props) {
+export function BriefingList({ workspace, liveDirty, busy = false, ...rest }: Props) {
   const n = workspace.rows.length
   return (
     <div className="brief-list hair" role="list" aria-label={rest.dict.bfList}>
       {workspace.rows.map((row, i) => {
         const active = row.key === workspace.active
-        return <BriefRow key={row.key} {...rest} row={row} active={active} dirty={active ? liveDirty : row.ui.dirty} first={i === 0} last={i === n - 1} />
+        return <BriefRow key={row.key} {...rest} row={row} active={active} dirty={active ? liveDirty : row.ui.dirty} first={i === 0} last={i === n - 1} locked={active && busy} />
       })}
     </div>
   )
 }
 
-function BriefRow({ row, active, dirty, first, last, vehicles, dict, onSwitch, onAssign, onRemove, onMove, onColor }: RowProps) {
+function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onSwitch, onAssign, onRemove, onMove, onColor }: RowProps) {
   const [palette, setPalette] = useState(false)
   const known = row.sysid === null || vehicles.some((v) => v.sysid === row.sysid)
   return (
@@ -74,7 +77,7 @@ function BriefRow({ row, active, dirty, first, last, vehicles, dict, onSwitch, o
         <button type="button" className="btn-icon sm" aria-label={dict.bfDown} title={dict.bfDown} disabled={last} onClick={() => onMove(row.key, 1)}>
           <IconChevronDown size={14} />
         </button>
-        <button type="button" className="btn-icon sm" aria-label={dict.bfRemove} title={dict.bfRemove} onClick={() => onRemove(row.key)}>
+        <button type="button" className="btn-icon sm" aria-label={dict.bfRemove} title={dict.bfRemove} disabled={locked} onClick={() => onRemove(row.key)}>
           <IconClose size={14} />
         </button>
       </span>

@@ -234,17 +234,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       )}
       {plan.tab === 'mission' && (
         <aside className="g panel float float-l mission-left" aria-label={dict.navMission}>
-          <BriefingList
-            workspace={brief.workspace}
-            liveDirty={ui.dirty}
-            vehicles={list}
-            dict={dict}
-            onSwitch={brief.onSwitch}
-            onAssign={brief.onAssign}
-            onRemove={brief.onRemove}
-            onMove={brief.onMove}
-            onColor={brief.onColor}
-          />
+          <BriefingList {...brief.list} liveDirty={ui.dirty} busy={ui.busy !== 'idle'} vehicles={list} dict={dict} />
           <div className="panel-h" style={{ gap: 6 }}>
             <span className="h1" style={{ whiteSpace: 'nowrap' }}>
               {dict.mItemsTitle}
@@ -359,8 +349,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onDeselect={() => store.update(clearSelection)}
         onDeleteSelected={() => store.update(removeSelected)}
         onMeta={(patch) => {
-          // with a vehicle assigned, the editor's vehicle choice moves the assignment too
-          if (patch.sysid !== undefined && brief.row.sysid !== null) brief.onAssign(brief.row.key, patch.sysid)
+          if (patch.sysid !== undefined) brief.assignActive(patch.sysid)
           change((d) => setMeta(d, patch))
         }}
         onItemChange={(uid, patch) => change((d) => updateItem(d, uid, patch))}

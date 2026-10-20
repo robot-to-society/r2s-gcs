@@ -63,4 +63,29 @@ describe('useBriefing helpers', () => {
     switchIfIdle(b, m, first)
     expect(m.getState().savedId).toBe(1)
   })
+
+  it('the_edited_row_is_not_removed_while_busy', () => {
+    const { b, m } = setup()
+    openMission(b, m, loaded(INITIAL_MISSION_UI, mission('A'), 1))
+    openMission(b, m, loaded(INITIAL_MISSION_UI, mission('B'), 2))
+    m.update((u) => setBusy(u, 'saving'))
+    removeLive(b, m, b.getState().active)
+    expect(names(b)).toEqual(['A', 'B'])
+    expect(m.getState().savedId).toBe(2)
+    // a parked row can still go
+    removeLive(b, m, b.getState().rows[0]!.key)
+    expect(names(b)).toEqual(['B'])
+  })
+
+  it('opening_and_removing_carry_the_clipboard', () => {
+    const { b, m } = setup()
+    const clip = { clipboard: toMission(appendWaypoint(emptyDraft(), 1, 2)).items, clipboardUids: [99] }
+    m.update((u) => ({ ...u, ...clip }))
+    openMission(b, m, loaded(INITIAL_MISSION_UI, mission('A'), 1))
+    expect(m.getState().clipboard).toBe(clip.clipboard)
+    openMission(b, m, loaded(INITIAL_MISSION_UI, mission('B'), 2))
+    expect(m.getState().clipboard).toBe(clip.clipboard)
+    removeLive(b, m, b.getState().active)
+    expect(m.getState().clipboardUids).toEqual([99])
+  })
 })

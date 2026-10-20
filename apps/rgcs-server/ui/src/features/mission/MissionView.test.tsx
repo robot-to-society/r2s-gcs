@@ -400,4 +400,38 @@ describe('MissionView', () => {
     const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => c.includes('/mission'))
     expect(calls).toEqual(['POST /api/missions/validate?sysid=2', 'PUT /api/vehicles/2/mission'])
   })
+
+  it('the_clipboard_follows_into_an_opened_file_and_a_switched_row', async () => {
+    const { container, store } = setup()
+    const root = container.firstChild as Element
+    addPoints(2) // A: T, 36.1, 36.101
+    fireEvent.click(wpRows()[2]!)
+    fireEvent.keyDown(root, { key: 'c', metaKey: true })
+    await loadFile(missionFile('Beta', 2)) // B: 36 (takeoff), 36.001
+    const lats = () => store.getState().history.present.items.map((it) => it.lat)
+    const before = lats().length
+    fireEvent.keyDown(root, { key: 'v', metaKey: true })
+    expect(lats()).toHaveLength(before + 1)
+    expect(lats()).toContain(36.101)
+    // copy in B, switch back to A: B's copy is pasted there
+    fireEvent.click(wpRows()[1]!)
+    fireEvent.keyDown(root, { key: 'c', metaKey: true })
+    fireEvent.click(briefRows()[0]!.querySelector('.brief-name')!)
+    expect(store.getState().history.present.mission.name).not.toBe('Beta')
+    fireEvent.keyDown(root, { key: 'v', metaKey: true })
+    expect(lats()).toContain(36.001)
+  })
+
+  it('the_right_panel_vehicle_assigns_the_row_and_frees_it_elsewhere', async () => {
+    const two = new Map([[1, copter], [2, { ...copter, sysid: 2, name: 'UAV-02' }]])
+    setup(undefined, new Map(), two)
+    await loadFile(missionFile('Alpha', 1))
+    fireEvent.change(within(briefRows()[0]!).getByLabelText('割当機体'), { target: { value: '2' } })
+    await loadFile(missionFile('Beta', 1))
+    const assigned = () => briefRows().map((r) => (within(r).getByLabelText('割当機体') as HTMLSelectElement).value)
+    expect(assigned()).toEqual(['2', ''])
+    const right = screen.getByRole('complementary', { name: 'editor' })
+    fireEvent.change(within(right).getByLabelText('対象機体'), { target: { value: '2' } })
+    expect(assigned()).toEqual(['', '2'])
+  })
 })

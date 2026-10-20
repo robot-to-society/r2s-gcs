@@ -28,9 +28,16 @@ export function useWorkspace(store: BriefingStore = briefingStore): Workspace {
   return useSyncExternalStore(store.subscribe, store.getState, store.getState)
 }
 
-const loadActive = (b: BriefingStore, m: MissionStore): void => {
+/** `to` with `from`'s clipboard: ⌘C / ⌘V works across missions (the clipboard belongs to the editor, not a row). */
+export function carryClipboard(from: MissionUi, to: MissionUi): MissionUi {
+  if (to.clipboard === from.clipboard && to.clipboardUids === from.clipboardUids) return to
+  return { ...to, clipboard: from.clipboard, clipboardUids: from.clipboardUids }
+}
+
+/** Loads the active row into the live editor, keeping the editor's clipboard. */
+export const loadActive = (b: BriefingStore, m: MissionStore): void => {
   const ui = activeRow(b.getState()).ui
-  m.update(() => ui)
+  m.update((live) => carryClipboard(live, ui))
 }
 
 /** Parks the live editor into the active row, then loads `key`'s MissionUi into the editor. */

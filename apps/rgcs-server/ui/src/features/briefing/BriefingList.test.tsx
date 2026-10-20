@@ -100,4 +100,11 @@ describe('BriefingList', () => {
     expect(within(rows()[1]!).getByRole('button', { name: '下へ' })).toBeDisabled()
     expect(on.onSwitch).not.toHaveBeenCalled()
   })
+
+  it('the_edited_rows_remove_is_disabled_while_busy', () => {
+    const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn() }
+    render(<BriefingList workspace={twoRows()} liveDirty={false} busy vehicles={vehicles} dict={dict} {...on} />)
+    const remove = screen.getAllByRole('button', { name: '一覧から外す' })
+    expect(remove.map((b) => (b as HTMLButtonElement).disabled)).toEqual([true, false])
+  })
 })
