@@ -119,6 +119,14 @@
 - 元データは機体のパラメータ(`GET /api/vehicles/{sysid}/params/pick?names=…`: キャッシュ値 + 無いものは PARAM_REQUEST_READ で取りに行き最大約 1 秒待つ)。AIRSPEED_CRUISE、WP_LOITER_RAD、ROLL_LIMIT_DEG、TECS_CLMB_MAX / SINK_MAX、ALT_SLOPE_MIN、FLIGHT_OPTIONS、NAVL1_PERIOD / DAMPING、Q_ENABLE、Q_OPTIONS、Q_WP_SPD*。最後に読めた値はブラウザに機体ごとに保存し、未接続でも使う(無ければ ArduPilot 既定値)。
 - 挙動(ArduPilot master 2026-10-20 のソースと SITL QuadPlane 飛行で確認): 速度は EAS→TAS(ISA)、旋回半径 v²/(g·tan ROLL_LIMIT)、ロイター半径は R·EAS2TAS²、ロイターへは中心に向かい手前側から合流、高度変化は中心までの勾配(ALT_SLOPE_MIN 以上)+ TECS の上昇・降下率で円上は螺旋、LOITER_TO_ALT は 5 m 以内まで周回して次 WP への接線で離脱、xtrack 0 は中心→次 WP の線へ L1 で収束、LOITER_TIME の半径は常に WP_LOITER_RAD(param3 は向きのみ)、QuadPlane の NAV_TAKEOFF / NAV_LAND は Q_OPTIONS が許さない限り垂直、DO_VTOL_TRANSITION(3) 後のロイターはホバー。
 - 追加コマンド: LOITER_TO_ALT(31)、VTOL_TAKEOFF(84)、VTOL_LAND(85)、DO_VTOL_TRANSITION(3000)。VTOL 離着陸で始まり終わるミッションを検証で受け付ける。
+- ロイターへの進入(2026-10-20 改訂): 直前の WP は turn_distance(min(WP_RADIUS·EAS2TAS², L1 距離)、90° 未満の旋回は比例縮小)手前で到達扱い(機体ログ「Reached waypoint #2 dist 88m」と一致)、そこからの合流は AP_L1_Control::update_loiter の時間刻みシミュレーション(ロール立ち上がり約 1 秒、SITL の膨らみ 438 m に合わせた)。VTOL 離陸直後の遷移方向は機首方位次第なので予測しない。
+
+### 6.3 作成画面の操作追加(2026-10-20)
+- 開いたとき・対象機体を切り替えたときは、その機体の位置へ地図を移す(以後の機体の移動では動かさない)。
+- 方位表示の下に「場所を検索」(地名・住所は OpenStreetMap Nominatim をブラウザから検索、「緯度, 経度」はそのまま移動)と「機体の位置へ」(複数機なら一覧から選ぶ)。
+- 空のミッションの最初のクリックは機体に合った離陸から始める: QuadPlane(Q_ENABLE)は VTOL_TAKEOFF、Copter / Plane は NAV_TAKEOFF、Rover は離陸なし。
+- 左の WP リストはドラッグで並べ替え(選択中の行をつかむと選択ごと移動、挿入位置は行の縁の線)。
+- 機体に書き込む: 接続中(link が lost 以外)が 1 機ならそのまま、複数なら機体選択シート(すべて選択 / すべて解除 / 個別、対象機体は最初から選択)を挟み、選んだ機体へ順に検証→書込。
 
 ## 7. メンテナンス(`view:'maint'`)
 

@@ -11,6 +11,7 @@ import { CommandPalette } from './CommandPalette'
 import { ContextMenu } from './ContextMenu'
 import { MissionList } from './MissionList'
 import { UploadTargets } from './UploadTargets'
+import { MapFinder } from './MapFinder'
 import { MissionMap } from './MissionMap'
 import { ElevationSheet } from './ElevationSheet'
 import { usePlanEditor } from './planEditor'
@@ -58,11 +59,13 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const [palette, setPalette] = useState(false)
   const [help, setHelp] = useState(false)
   const [targets, setTargets] = useState(false)
+  const [focus, setFocus] = useState<{ lat: number; lon: number; seq: number } | null>(null)
   const [bulk, setBulk] = useState<{ alt: string; frame: MissionFrame }>({ alt: String(draft.mission.default_alt), frame: draft.mission.default_frame })
   const file = useRef<HTMLInputElement>(null)
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const sysid = draft.mission.sysid ?? list[0]?.sysid ?? null
   const online = list.filter((v) => v.link !== 'lost')
+  const located = list.filter((v) => v.gps.fix >= 2 && !(v.lat === 0 && v.lon === 0))
   const vehicle = sysid === null ? null : (vehicles.get(sysid) ?? null)
   // A plane / QuadPlane gets its expected flight drawn over the plan from its own parameters (2026-10-20).
   const isPlane = vehicle?.kind === 'plane'
@@ -131,6 +134,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         vehicle={vehicle}
         predict={predict}
         fitRequest={io.fitRequest}
+        focus={focus}
         onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, takeoffAt, takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1)))}
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}
         onMove={(uid, lat, lon) => change((d) => moveItem(d, uid, lat, lon))}
@@ -153,6 +157,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           <path d="M12 3l6 16-6-4-6 4z" />
         </svg>
       </div>
+      <MapFinder vehicles={located} dict={dict} onGo={(to) => setFocus((f) => ({ ...to, seq: (f?.seq ?? 0) + 1 }))} />
       {basemap && onPickBasemap && basemaps.length > 1 && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" />}
       <MapModeToggle mode={mapMode} available={terrainTiles !== null} dict={dict} onChange={saveMapMode} />
       <PlanTabs tab={plan.tab} dict={dict} onChange={plan.setTab} />

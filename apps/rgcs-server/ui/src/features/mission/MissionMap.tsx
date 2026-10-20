@@ -48,6 +48,8 @@ interface Props {
   readonly onRallyMove: (index: number, lat: number, lon: number) => void
   /** FENCE_ALT_MAX (m above home): the 3D fence walls reach it; null = no walls. */
   readonly ceiling?: number | null
+  /** Move the view here (place search, 機体の位置へ); a new `seq` repeats the move. */
+  readonly focus?: { readonly lat: number; readonly lon: number; readonly seq: number } | null
   /** The path the target vehicle is expected to fly for a draft (null = not predicted for it). */
   readonly predict?: ((d: Draft) => Predicted | null) | undefined
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
@@ -56,6 +58,7 @@ interface Props {
 }
 
 const HOME: [number, number] = [139.372, 36.162]
+const FOCUS_ZOOM = 16
 const PATH = 'mission-path'
 const PREDICTED = 'mission-predicted'
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
@@ -67,7 +70,7 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus'>
 
 const predictedGeoJson = (p: Predicted | null): FeatureCollection =>
   p && p.points.length > 1 ? { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: p.points.map((q) => [q.lon, q.lat]) } }] } : EMPTY
@@ -85,7 +88,8 @@ export function MissionMap(props: Props) {
   const badges = useRef(new Map<number, Badge>())
   const handles = useRef<Marker[]>([])
   const vehicleMarker = useRef<Badge | null>(null)
-  const centred = useRef(false)
+  /** The vehicle the view last opened over (null: none yet / the map was rebuilt). */
+  const centredOn = useRef<number | null>(null)
   const cb = useRef<Callbacks>(props)
   cb.current = props
   const toolRef = useRef(tool)
@@ -134,7 +138,7 @@ export function MissionMap(props: Props) {
       badges.current = new Map()
       handles.current = []
       vehicleMarker.current = null
-      centred.current = false
+      centredOn.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -239,10 +243,11 @@ export function MissionMap(props: Props) {
       vehicleMarker.current = null
       return
     }
-    // An empty mission opens over the vehicle, once: the default view may be far away.
-    if (!centred.current) {
-      centred.current = true
-      if (!draftRef.current.items.some(hasPosition)) m.jumpTo({ center: [vehicle.lon, vehicle.lat] })
+    // The planner opens over the target vehicle, and moves over another one when the target changes
+    // (2026-10-20); the vehicle flying about afterwards leaves the view alone.
+    if (centredOn.current !== vehicle.sysid) {
+      centredOn.current = vehicle.sysid
+      m.jumpTo({ center: [vehicle.lon, vehicle.lat] })
     }
     if (vehicleMarker.current) {
       vehicleMarker.current.marker.setLngLat([vehicle.lon, vehicle.lat])
@@ -253,6 +258,16 @@ export function MissionMap(props: Props) {
       vehicleMarker.current = { marker, el }
     }
   }, [vehicle])
+
+  // Place search / 機体の位置へ
+  const focusSeq = props.focus?.seq ?? 0
+  useEffect(() => {
+    const f = props.focus
+    if (!map.current || !f) return
+    map.current.jumpTo({ center: [f.lon, f.lat], zoom: FOCUS_ZOOM })
+    // only a new request moves the view
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusSeq])
 
   useEffect(() => {
     const m = map.current

@@ -96,3 +96,15 @@
 .up-list label:hover { background: var(--accent-tint); }
 .up-list .up-tag { margin-left: auto; font-size: 11px; }
 .up-foot { display: flex; justify-content: flex-end; padding: 12px 14px; }
+/* Planner map: place search + jump to a vehicle (below the compass) */
+.finder { z-index: 4; display: flex; gap: 8px; align-items: flex-start; }
+.finder-btns { display: flex; flex-direction: column; gap: 8px; }
+.finder-btn { width: 40px; height: 40px; display: grid; place-items: center; color: var(--text-2); }
+.finder-btn.on { color: var(--accent); border-color: var(--accent); }
+.finder-panel { width: 300px; padding: 10px; border-radius: var(--r-ctl); list-style: none; margin: 0; }
+.finder-panel input { width: 100%; }
+.finder-note { padding: 8px 4px 2px; font-size: 12px; }
+.finder-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.finder-list button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 7px 8px; border-radius: 8px; text-align: left; background: none; border: 0; color: inherit; cursor: pointer; }
+.finder-list button:hover { background: var(--accent-tint); }
+.finder-list .ell { max-width: 100%; font-size: 11px; }

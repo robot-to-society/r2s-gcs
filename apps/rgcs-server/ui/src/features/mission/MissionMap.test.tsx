@@ -335,17 +335,22 @@ describe('MissionMap', () => {
   })
 
   const uav = { sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'STABILIZE', armed: false, lat: 36.2509, lon: 137.6385, alt_rel: 0, alt_msl: 1505, hdg: 0, ground_speed: 0, climb: 0, battery: { pct: 90, volt: 16, current: null }, link: 'ok', last_rx_ms: 0, gps: { fix: 3, sats: 10, hdop: 1 }, warn: false, unread: 0 } as never
-  it('an empty mission opens over the vehicle (once); a mission with items keeps its view', () => {
+  it('opens over the target vehicle once (with or without a mission), again when the target changes, and on a focus request', () => {
     const { props, rerender } = renderMap({ draft: emptyDraft(), vehicle: null })
     const m = created.maps[0]!
     expect(m.jumps).toHaveLength(0)
     rerender(<MissionMap {...props} vehicle={uav} />)
     expect(m.jumps).toEqual([{ center: [137.6385, 36.2509] }])
+    // the vehicle moving does not drag the view along
     rerender(<MissionMap {...props} vehicle={{ ...(uav as object), lat: 36.26 } as never} />)
     expect(m.jumps).toHaveLength(1)
+    rerender(<MissionMap {...props} vehicle={{ ...(uav as object), sysid: 2, lat: 35.0, lon: 138.5 } as never} />)
+    expect(m.jumps.at(-1)).toEqual({ center: [138.5, 35.0] })
+    rerender(<MissionMap {...props} vehicle={{ ...(uav as object), sysid: 2, lat: 35.0, lon: 138.5 } as never} focus={{ lat: 35.6812, lon: 139.7671, seq: 1 }} />)
+    expect(m.jumps.at(-1)).toEqual({ center: [139.7671, 35.6812], zoom: 16 })
     created.maps = []
     renderMap({ vehicle: uav })
-    expect(created.maps[0]!.jumps).toHaveLength(0)
+    expect(created.maps[0]!.jumps).toEqual([{ center: [137.6385, 36.2509] }])
   })
 
   it('opens over the vehicle under StrictMode too (the first map is thrown away)', () => {
