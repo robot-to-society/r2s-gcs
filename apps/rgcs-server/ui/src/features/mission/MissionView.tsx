@@ -17,6 +17,7 @@ import { MissionMap } from './MissionMap'
 import { ElevationSheet } from './ElevationSheet'
 import { usePlanEditor } from './planEditor'
 import { FencePanel, PlanTabs, RallyPanel } from './PlanPanels'
+import { FenceSidebar, RallySidebar } from './PlanSidebar'
 import { removeRally, removeZone, setInclusion, setRadius, setRallyAlt } from './geofenceModel'
 import { MissionPicker } from './MissionPicker'
 import { MissionSidebar } from './MissionSidebar'
@@ -84,6 +85,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
   const io = useMissionIo(store, sysid, dict, vehicleStore)
   const plan = usePlanEditor({ draft, sysid, dict, change })
+  const planIo = { sysid, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f) }
   const selectedItems = draft.items.filter((it) => ui.selected.has(it.uid))
   const lastSelected = selectedItems[selectedItems.length - 1]
   const st = stats(draft.items, draft.mission.home, draft.mission.speed)
@@ -206,32 +208,20 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           zones={draft.mission.fence}
           armed={plan.armed}
           drawing={plan.drawing}
-          sysid={sysid}
-          busy={plan.busy}
-          status={plan.status}
           dict={dict}
           onArm={plan.arm}
           onDone={plan.finish}
           onRadius={(zi, r) => change((d) => setRadius(d, zi, r))}
           onInclusion={(zi, inc) => change((d) => setInclusion(d, zi, inc))}
           onRemove={(zi) => change((d) => removeZone(d, zi))}
-          onWrite={plan.write}
-          onRead={plan.read}
-          fenceParams={plan.fenceParams}
-          onAltMax={plan.setAltMax}
         />
       )}
       {plan.tab === 'rally' && (
         <RallyPanel
           points={draft.mission.rally}
-          sysid={sysid}
-          busy={plan.busy}
-          status={plan.status}
           dict={dict}
           onAlt={(i, alt) => change((d) => setRallyAlt(d, i, alt))}
           onRemove={(i) => change((d) => removeRally(d, i))}
-          onWrite={plan.write}
-          onRead={plan.read}
         />
       )}
       {plan.tab === 'mission' && (
@@ -321,6 +311,16 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         </aside>
       )}
 
+      {plan.tab === 'fence' && (
+        <FenceSidebar
+          zones={draft.mission.fence}
+          fenceParams={plan.fenceParams}
+          onAltMax={plan.setAltMax}
+          {...planIo}
+        />
+      )}
+      {plan.tab === 'rally' && <RallySidebar points={draft.mission.rally} {...planIo} />}
+      {plan.tab === 'mission' && (
       <MissionSidebar
         transfer={sysid === null ? null : (transfers.get(sysid) ?? null)}
         draft={draft}
@@ -349,6 +349,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onSaveFile={() => void io.saveWaypointsFile()}
         onSaveRgcs={io.saveRgcsFile}
       />
+      )}
 
       {io.discard && (
         <div className="g-strong discard-sheet" role="alertdialog">

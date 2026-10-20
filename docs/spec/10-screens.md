@@ -127,6 +127,7 @@
 - 空のミッションの最初のクリックは機体に合った離陸から始める: QuadPlane(Q_ENABLE)は VTOL_TAKEOFF、Copter / Plane は NAV_TAKEOFF、Rover は離陸なし。
 - 左の WP リストはドラッグで並べ替え(選択中の行をつかむと選択ごと移動、挿入位置は行の縁の線)。
 - 機体に書き込む: 接続中(link が lost 以外)が 1 機ならそのまま、複数なら機体選択シート(すべて選択 / すべて解除 / 個別、対象機体は最初から選択)を挟み、選んだ機体へ順に検証→書込。
+- Fence / Rally タブ(2026-10-20): 左はゾーン / ポイントの一覧、右パネルはタブ専用(フェンス: 包含・除外の数、FENCE_ALT_MAX、機体へ書込 / 読込、ファイル保存 / 読込。ラリー: 点数、書込 / 読込、ファイル)。ファイルは Mission Planner 互換の QGC WPL 110(MAV_CMD_NAV_FENCE_* / NAV_RALLY_POINT、ポリゴンの頂点数は param1)で保存し、読込はそれと QGroundControl の .plan(geoFence / rallyPoints)。読込は今のリストを置き換える 1 回の編集(取り消し可)。
 
 ## 7. メンテナンス(`view:'maint'`)
 

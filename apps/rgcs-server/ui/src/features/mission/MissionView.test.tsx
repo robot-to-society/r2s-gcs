@@ -141,6 +141,29 @@ describe('MissionView', () => {
     expect(wpRows()[2]!.className).toContain('sel')
   })
 
+  it('the fence and rally tabs get their own right panel and load their files', async () => {
+    localStorage.removeItem('rgcs.planTab')
+    setup()
+    const tabs = within(screen.getByRole('group', { name: '計画の種類' }))
+    fireEvent.click(tabs.getByRole('button', { name: 'Fence' }))
+    expect(screen.queryByRole('complementary', { name: 'editor' })).not.toBeInTheDocument()
+    const right = screen.getByRole('complementary', { name: 'フェンス設定' })
+    const wpl = 'QGC WPL 110\n0\t0\t0\t5003\t150\t0\t0\t0\t36.25\t137.63\t0\t1\n'
+    await act(async () => {
+      fireEvent.change(within(right).getByLabelText('ファイルから読込'), { target: { files: [new File([wpl], 'f.waypoints')] } })
+    })
+    expect(screen.getByTestId('fence-row').querySelector('.fence-title')?.textContent).toBe('包含円')
+    expect(within(right).getByText('1 件を読み込みました')).toBeInTheDocument()
+    fireEvent.click(tabs.getByRole('button', { name: 'Rally' }))
+    const rally = screen.getByRole('complementary', { name: 'ラリーポイント設定' })
+    await act(async () => {
+      fireEvent.change(within(rally).getByLabelText('ファイルから読込'), { target: { files: [new File(['nonsense'], 'r.txt')] } })
+    })
+    expect(within(rally).getByText('読み込めませんでした')).toBeInTheDocument()
+    fireEvent.click(tabs.getByRole('button', { name: 'Mission' }))
+    expect(screen.getByRole('complementary', { name: 'editor' })).toBeInTheDocument()
+  })
+
   it('fence_tab_draws_a_polygon_by_clicks_and_writes_it_to_the_vehicle', async () => {
     localStorage.removeItem('rgcs.planTab')
     const { fetchMock, container } = setup((url, init) => (url.endsWith('/fence') && init?.method === 'PUT' ? envelope({ items: 3, verified: true, mismatched: [], findings: [] }) : envelope([])))

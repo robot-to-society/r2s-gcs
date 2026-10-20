@@ -1,13 +1,14 @@
-// Mission / Fence / Rally planner tabs and the left panels of the fence and rally tabs
+// Mission / Fence / Rally planner tabs and the left panels (lists) of the fence and rally tabs
 // (user request 2026-10-19). The data lives in the plan (`draft.mission.fence / .rally`); these
 // panels only show it and report the operator's choices.
-import { useState } from 'react'
-import type { FenceParams, FenceZone, RallyPoint } from '../../shared/api/types'
+import type { FenceZone, RallyPoint } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconClose } from '../../shared/ui/icons'
 import type { PlanTab } from './fenceMap'
 import { fenceFindings } from './geofenceModel'
 import { PLAN_TABS as TABS, savePlanTab } from './planTab'
+
+export type { PlanStatus } from './PlanSidebar'
 
 export function PlanTabs({ tab, dict, onChange }: { readonly tab: PlanTab; readonly dict: Dict; readonly onChange: (t: PlanTab) => void }) {
   const label = { mission: dict.planMission, fence: dict.planFence, rally: dict.planRally }
@@ -36,39 +37,13 @@ export interface ArmedZone {
   readonly inclusion: boolean
 }
 
-export interface PlanStatus {
-  readonly ok: boolean
-  readonly text: string
+function zoneTitle(z: FenceZone, dict: Dict): string {
+  const kind = z.kind === 'polygon' ? (z.inclusion ? dict.fenceAddIncPoly : dict.fenceAddExcPoly) : z.inclusion ? dict.fenceAddIncCircle : dict.fenceAddExcCircle
+  return z.kind === 'polygon' ? `${kind} · ${z.vertices.length} ${dict.fencePoints}` : kind
 }
 
-interface IoProps {
-  readonly sysid: number | null
-  readonly busy: boolean
-  readonly status: PlanStatus | null
+interface FenceProps {
   readonly dict: Dict
-  readonly onWrite: () => void
-  readonly onRead: () => void
-}
-
-function IoFooter({ sysid, busy, status, dict, onWrite, onRead, note, labels }: IoProps & { readonly note: string; readonly labels: readonly [string, string] }) {
-  return (
-    <div className="hair-t plan-io">
-      <div className="t3 plan-note">{note}</div>
-      {status && <div className={status.ok ? 't3' : 'hint caution'}>{status.text}</div>}
-      {sysid === null && <div className="t3">{dict.planNoVehicle}</div>}
-      <div className="plan-io-btns">
-        <button type="button" className="btn btn-primary" disabled={sysid === null || busy} onClick={onWrite}>
-          {labels[0]}
-        </button>
-        <button type="button" className="btn" disabled={sysid === null || busy} onClick={onRead}>
-          {labels[1]}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-interface FenceProps extends IoProps {
   readonly zones: readonly FenceZone[]
   readonly armed: ArmedZone | null
   /** The polygon being drawn (vertices are added by map clicks). */
@@ -78,48 +53,6 @@ interface FenceProps extends IoProps {
   readonly onRadius: (zone: number, radius: number) => void
   readonly onInclusion: (zone: number, inclusion: boolean) => void
   readonly onRemove: (zone: number) => void
-  /** The target vehicle's FENCE_* parameters (null until read). */
-  readonly fenceParams: FenceParams | null
-  readonly onAltMax: (value: number) => void
-}
-
-/** FENCE_ALT_MAX: shown, settable, with whether ArduPilot enforces it. */
-function AltMaxBox({ params, busy, dict, onSet }: { readonly params: FenceParams | null; readonly busy: boolean; readonly dict: Dict; readonly onSet: (v: number) => void }) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const known = params?.alt_max ?? null
-  const text = draft ?? (known === null ? '' : String(Math.round(known)))
-  const value = Number(text)
-  const valid = text !== '' && Number.isFinite(value) && value > 0
-  return (
-    <div className="hair plan-altmax" data-testid="fence-alt-max">
-      <label className="row" style={{ gap: 8 }}>
-        <span className="grow">{dict.fenceAltMax}</span>
-        <input className="in num" type="number" min={1} step={1} aria-label={dict.fenceAltMax} style={{ width: 80 }} value={text} placeholder="—" onChange={(e) => setDraft(e.target.value)} />
-        <span className="t3">m</span>
-        <button
-          type="button"
-          className="btn btn-sm"
-          disabled={busy || !valid || draft === null}
-          onClick={() => {
-            onSet(value)
-            setDraft(null)
-          }}
-        >
-          {dict.fenceAltMaxSet}
-        </button>
-      </label>
-      <div className="t3 plan-note">
-        {known === null ? dict.fenceAltMaxUnknown : dict.fenceAltMaxNote}
-        {params?.alt_max_on === false && <div className="hint caution">{dict.fenceAltMaxOff}</div>}
-        {params?.enabled === false && <div className="hint caution">{dict.fenceDisabled}</div>}
-      </div>
-    </div>
-  )
-}
-
-function zoneTitle(z: FenceZone, dict: Dict): string {
-  const kind = z.kind === 'polygon' ? (z.inclusion ? dict.fenceAddIncPoly : dict.fenceAddExcPoly) : z.inclusion ? dict.fenceAddIncCircle : dict.fenceAddExcCircle
-  return z.kind === 'polygon' ? `${kind} · ${z.vertices.length} ${dict.fencePoints}` : kind
 }
 
 export function FencePanel(p: FenceProps) {
@@ -146,7 +79,6 @@ export function FencePanel(p: FenceProps) {
           </button>
         ))}
       </div>
-      <AltMaxBox params={p.fenceParams} busy={p.busy} dict={dict} onSet={p.onAltMax} />
       {armed && (
         <div className="hair plan-armed t2">
           <span>{armed.kind === 'polygon' ? dict.fenceArmedPoly : dict.fenceArmedCircle}</span>
@@ -189,12 +121,12 @@ export function FencePanel(p: FenceProps) {
           </div>
         ))}
       </div>
-      <IoFooter {...p} note={dict.fenceNote} labels={[dict.fenceWrite, dict.fenceRead]} />
     </aside>
   )
 }
 
-interface RallyProps extends IoProps {
+interface RallyProps {
+  readonly dict: Dict
   readonly points: readonly RallyPoint[]
   readonly onAlt: (index: number, alt: number) => void
   readonly onRemove: (index: number) => void
@@ -234,7 +166,6 @@ export function RallyPanel(p: RallyProps) {
           </div>
         ))}
       </div>
-      <IoFooter {...p} note={dict.rallyNote} labels={[dict.rallyWrite, dict.rallyRead]} />
     </aside>
   )
 }

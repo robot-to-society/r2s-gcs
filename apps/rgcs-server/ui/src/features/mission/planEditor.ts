@@ -8,8 +8,11 @@ import type { FenceEdit, PlanTab } from './fenceMap'
 import { addRally, addZone, rallyDefaultAlt, moveCircle, moveRally, moveVertex, replaceZone, setFence, setRadius, setRally } from './geofenceModel'
 import type { FenceParams, FenceZone } from '../../shared/api/types'
 import type { Draft } from './model'
-import type { ArmedZone, PlanStatus } from './PlanPanels'
+import type { ArmedZone } from './PlanPanels'
+import type { PlanStatus } from './PlanSidebar'
 import { readPlanTab } from './planTab'
+import { downloadText, readFileText, safeFileStem } from './files'
+import { fenceToWpl, parseFenceFile, parseRallyFile, rallyToWpl } from './planFiles'
 
 /** A new circle starts with this radius; the handle then sets it. */
 const NEW_CIRCLE_M = 100
@@ -132,5 +135,26 @@ export function usePlanEditor({ draft, sysid, dict, change }: Args) {
     })
   }
 
-  return { tab, setTab, armed, arm, drawing, finish, busy, status, write, read, onPlanClick, onFenceEdit, onRallyMove, fenceParams: sysid === null ? null : fenceParams, setAltMax }
+  /** ファイルに保存: the open tab's list as Mission Planner WPL. */
+  const saveFile = () => {
+    const stem = safeFileStem(draft.mission.name)
+    if (tab === 'fence') downloadText(`${stem}_fence.waypoints`, fenceToWpl(draft.mission.fence), 'text/plain')
+    if (tab === 'rally') downloadText(`${stem}_rally.waypoints`, rallyToWpl(draft.mission.rally), 'text/plain')
+  }
+  /** ファイルから読込: replaces the open tab's list (one undoable edit). */
+  const loadFile = async (file: File) => {
+    try {
+      const text = await readFileText(file)
+      const n = tab === 'fence' ? loadInto(parseFenceFile(text), setFence) : loadInto(parseRallyFile(text), setRally)
+      setStatus({ ok: true, text: dict.plLoaded.replace('{n}', String(n)) })
+    } catch {
+      setStatus({ ok: false, text: dict.plFileBad })
+    }
+  }
+  const loadInto = <T,>(list: readonly T[], set: (d: Draft, l: T[]) => Draft): number => {
+    change((d) => set(d, [...list]))
+    return list.length
+  }
+
+  return { tab, setTab, armed, arm, drawing, finish, busy, status, write, read, onPlanClick, onFenceEdit, onRallyMove, fenceParams: sysid === null ? null : fenceParams, setAltMax, saveFile, loadFile }
 }

@@ -12,6 +12,10 @@ export const plannerJa = {
   plSearchNone: '見つかりませんでした',
   plSearchFail: '検索できませんでした',
   plToVehicle: '機体の位置へ',
+  plLoaded: '{n} 件を読み込みました',
+  plFenceSide: 'フェンス設定',
+  plRallySide: 'ラリーポイント設定',
+  plFileBad: '読み込めませんでした',
 } as const
 
 export const plannerEn: Record<keyof typeof plannerJa, string> = {
@@ -26,4 +30,8 @@ export const plannerEn: Record<keyof typeof plannerJa, string> = {
   plSearchNone: 'Nothing found',
   plSearchFail: 'Search failed',
   plToVehicle: 'Go to vehicle',
+  plLoaded: 'Loaded {n}',
+  plFenceSide: 'Fence settings',
+  plRallySide: 'Rally point settings',
+  plFileBad: 'Could not read the file',
 }
