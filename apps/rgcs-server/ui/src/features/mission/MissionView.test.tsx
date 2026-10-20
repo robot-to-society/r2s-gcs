@@ -28,11 +28,11 @@ const copter: VehicleState = {
 const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
 const envelope = (data: unknown, status = 200) => new Response(JSON.stringify({ success: true, data }), { status, headers: { 'content-type': 'application/json' } })
 
-function setup(fetchImpl?: (url: string, init?: RequestInit) => Response, transfers: ReadonlyMap<number, MissionTransfer> = new Map()) {
+function setup(fetchImpl?: (url: string, init?: RequestInit) => Response, transfers: ReadonlyMap<number, MissionTransfer> = new Map(), vehicles: ReadonlyMap<number, VehicleState> = new Map([[1, copter]])) {
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => (fetchImpl ? fetchImpl(String(input), init) : envelope([])))
   vi.stubGlobal('fetch', fetchMock)
   const store = new MissionStore()
-  const utils = render(<MissionView vehicles={new Map([[1, copter]])} transfers={transfers} dict={t('ja')} style={style} store={store} />)
+  const utils = render(<MissionView vehicles={vehicles} transfers={transfers} dict={t('ja')} style={style} store={store} />)
   return { ...utils, fetchMock, store }
 }
 
@@ -253,6 +253,28 @@ describe('MissionView', () => {
     // the planner reads the target vehicle's FENCE_* parameters on its own: not part of this flow
     const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params'))
     expect(calls).toEqual(['POST /api/missions/validate?sysid=1'])
+  })
+
+  it('with several vehicles connected the write asks which ones, then writes each in turn', async () => {
+    const two = new Map([[1, copter], [2, { ...copter, sysid: 2, name: 'UAV-02' }], [3, { ...copter, sysid: 3, name: 'UAV-03', link: 'lost' as const }]])
+    const ok = { findings: [], stats: { distance_m: 0, duration_s: 0, max_alt: 0 } }
+    const { fetchMock } = setup((url) => {
+      if (url.startsWith('/api/missions/validate')) return envelope(ok)
+      if (/\/api\/vehicles\/\d\/mission$/.test(url)) return envelope({ verified: true, items: 3, mismatched: [], findings: [] })
+      return envelope([])
+    }, new Map(), two)
+    addPoints(2)
+    fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
+    const sheet = screen.getByRole('dialog', { name: '書き込む機体を選択' })
+    // the lost vehicle is not offered
+    expect(within(sheet).queryByText('UAV-03')).not.toBeInTheDocument()
+    fireEvent.click(within(sheet).getByRole('button', { name: 'すべて選択' }))
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: '2 機に書き込む' }))
+    })
+    expect(screen.queryByRole('dialog', { name: '書き込む機体を選択' })).not.toBeInTheDocument()
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => c.includes('/mission'))
+    expect(calls).toEqual(['POST /api/missions/validate?sysid=1', 'PUT /api/vehicles/1/mission', 'POST /api/missions/validate?sysid=2', 'PUT /api/vehicles/2/mission'])
   })
 
   it('export_saves_a_dirty_mission_first', async () => {

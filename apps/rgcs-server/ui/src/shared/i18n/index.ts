@@ -5,6 +5,7 @@ import { edit3dEn, edit3dJa } from './edit3d'
 import { planEn, planJa } from './plan'
 import { videoEn, videoJa } from './video'
 import { planeCmdEn, planeCmdJa } from './plane'
+import { plannerEn, plannerJa } from './planner'
 
 export type Lang = 'ja' | 'en'
 
@@ -392,7 +393,7 @@ const baseJa = {
   cmd_param_write: 'パラメータ書込',
 } as const
 
-const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa } as const
+const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa, ...plannerJa } as const
 
 const baseEn: Record<keyof typeof baseJa, string> = {
   vehicles: 'Vehicles',
@@ -778,7 +779,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   cmd_param_write: 'Parameter write',
 }
 
-const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn, ...videoEn, ...planeCmdEn }
+const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn, ...videoEn, ...planeCmdEn, ...plannerEn }
 
 export type Dict = Record<keyof typeof ja, string>
 

@@ -16,8 +16,8 @@ export function useMissionIo(store: MissionStore, sysid: number | null, dict: Di
   const [picker, setPicker] = useState(false)
   const [discard, setDiscard] = useState<(() => void) | null>(null)
   const fit = () => setFitRequest((n) => n + 1)
-  const result = (cmd: string, ok: boolean, reason: string | null) =>
-    vehicles.pushLocalResult({ id: -Date.now(), sysid: sysid ?? 0, cmd, ok, reason, ts: Date.now() })
+  const result = (cmd: string, ok: boolean, reason: string | null, to: number | null = sysid) =>
+    vehicles.pushLocalResult({ id: -Date.now(), sysid: to ?? 0, cmd, ok, reason, ts: Date.now() })
 
   /** Runs `fn` now, or after the operator confirms discarding unsaved edits. */
   const guard = (fn: () => void) => {
@@ -46,20 +46,29 @@ export function useMissionIo(store: MissionStore, sysid: number | null, dict: Di
     }
   }
 
-  const upload = async () => {
-    if (sysid === null) return
+  /** Validates and writes the plan to one vehicle; false when the validation stopped it. */
+  const uploadOne = async (to: number, mission: Mission): Promise<boolean> => {
+    try {
+      const { findings } = await validateMission(mission, to)
+      store.update((u) => setFindings(u, findings))
+      if (findings.some((f) => f.level === 'fatal')) return false
+      const report = await uploadMission(to, mission)
+      store.update((u) => setReport(setFindings(u, report.findings), report))
+      if (report.verified) vehicles.setVehicleMission(to, { ...mission, sysid: to })
+      result('mission_upload', report.verified, report.verified ? `${report.items} ${dict.mItems}, ${dict.mVerified}` : `${dict.mMismatch}: ${report.mismatched.join(', ')}`, to)
+    } catch (e) {
+      result('mission_upload', false, errText(e), to)
+    }
+    return true
+  }
+
+  /** Writes the plan to `targets` (default: the mission's vehicle) one after another. */
+  const upload = async (targets: readonly number[] = sysid === null ? [] : [sysid]) => {
+    if (targets.length === 0) return
     const mission = toMission(store.getState().history.present)
     store.update((u) => setBusy(u, 'uploading'))
     try {
-      const { findings } = await validateMission(mission, sysid)
-      store.update((u) => setFindings(u, findings))
-      if (findings.some((f) => f.level === 'fatal')) return
-      const report = await uploadMission(sysid, mission)
-      store.update((u) => setReport(setFindings(u, report.findings), report))
-      if (report.verified) vehicles.setVehicleMission(sysid, { ...mission, sysid })
-      result('mission_upload', report.verified, report.verified ? `${report.items} ${dict.mItems}, ${dict.mVerified}` : `${dict.mMismatch}: ${report.mismatched.join(', ')}`)
-    } catch (e) {
-      result('mission_upload', false, errText(e))
+      for (const to of targets) await uploadOne(to, mission)
     } finally {
       store.update((u) => setBusy(u, 'idle'))
     }

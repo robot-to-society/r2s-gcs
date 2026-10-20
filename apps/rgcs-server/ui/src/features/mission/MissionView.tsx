@@ -10,6 +10,7 @@ import { usePathParams } from '../flightpath/usePathParams'
 import { CommandPalette } from './CommandPalette'
 import { ContextMenu } from './ContextMenu'
 import { MissionList } from './MissionList'
+import { UploadTargets } from './UploadTargets'
 import { MissionMap } from './MissionMap'
 import { ElevationSheet } from './ElevationSheet'
 import { usePlanEditor } from './planEditor'
@@ -56,10 +57,12 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const [menu, setMenu] = useState<Menu | null>(null)
   const [palette, setPalette] = useState(false)
   const [help, setHelp] = useState(false)
+  const [targets, setTargets] = useState(false)
   const [bulk, setBulk] = useState<{ alt: string; frame: MissionFrame }>({ alt: String(draft.mission.default_alt), frame: draft.mission.default_frame })
   const file = useRef<HTMLInputElement>(null)
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const sysid = draft.mission.sysid ?? list[0]?.sysid ?? null
+  const online = list.filter((v) => v.link !== 'lost')
   const vehicle = sysid === null ? null : (vehicles.get(sysid) ?? null)
   // A plane / QuadPlane gets its expected flight drawn over the plan from its own parameters (2026-10-20).
   const isPlane = vehicle?.kind === 'plane'
@@ -335,7 +338,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onNew={io.fresh}
         onOpen={io.openPicker}
         onSave={() => void io.save()}
-        onUpload={() => void io.upload()}
+        onUpload={() => (online.length > 1 ? setTargets(true) : void io.upload())}
         onSaveFile={() => void io.saveWaypointsFile()}
         onSaveRgcs={io.saveRgcsFile}
       />
@@ -352,6 +355,18 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
             </button>
           </div>
         </div>
+      )}
+      {targets && (
+        <UploadTargets
+          vehicles={online}
+          target={sysid}
+          dict={dict}
+          onClose={() => setTargets(false)}
+          onWrite={(ids) => {
+            setTargets(false)
+            void io.upload(ids)
+          }}
+        />
       )}
       {io.picker && <MissionPicker dict={dict} title={dict.mSaved} onClose={io.closePicker} onPick={(row) => void io.openSaved(row.id)} />}
       {menu && (

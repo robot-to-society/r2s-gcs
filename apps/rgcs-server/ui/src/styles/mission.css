@@ -88,3 +88,11 @@
 .wrow[draggable='true'] { cursor: grab; }
 .wrow.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
 .wrow.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
+/* 書き込む機体を選択 sheet */
+.up-sheet { bottom: auto; }
+.up-bulk { gap: 8px; padding: 0 14px 10px; }
+.up-list { list-style: none; margin: 0; padding: 0 8px; overflow: auto; }
+.up-list label { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 8px; cursor: pointer; }
+.up-list label:hover { background: var(--accent-tint); }
+.up-list .up-tag { margin-left: auto; font-size: 11px; }
+.up-foot { display: flex; justify-content: flex-end; padding: 12px 14px; }
