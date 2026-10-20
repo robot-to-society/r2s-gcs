@@ -45,6 +45,7 @@ import {
   Settings,
   StepForward,
   TriangleAlert,
+  VideoOff,
   User,
   Wrench,
   X,
@@ -81,6 +82,7 @@ export const IconWrench = ({ size = 22, className }: IconProps) => <Lucide icon=
 export const IconCamera = ({ size = 18, className }: IconProps) => <Lucide icon={Camera} size={size} className={className} />
 export const IconMaximize = ({ size = 16, className }: IconProps) => <Lucide icon={Maximize} size={size} className={className} />
 export const IconMinimize = ({ size = 16, className }: IconProps) => <Lucide icon={Minimize} size={size} className={className} />
+export const IconVideoOff = ({ size = 36, className }: IconProps) => <Lucide icon={VideoOff} size={size} className={className} />
 export const IconSearch = ({ size = 16, className }: IconProps) => <Lucide icon={Search} size={size} className={className} />
 export const IconSpeed = ({ size = 15, className }: IconProps) => <Lucide icon={Gauge} size={size} className={className} />
 export const IconFollow = ({ size = 13, className }: IconProps) => <Lucide icon={LocateFixed} size={size} className={className} />

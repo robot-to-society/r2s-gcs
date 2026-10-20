@@ -1,11 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
 import type { RecordingState, VideoMode, VideoSourceStatus } from '../../shared/api/types'
-import { CSRF_HEADER, CSRF_VALUE } from '../../shared/api/client'
 import type { Dict } from '../../shared/i18n'
-import { WhepPlayer } from '../../shared/video/whep'
-import type { PlayerState } from '../../shared/video/state'
 import { recDuration } from './format'
-import { whepUrl } from './api'
+import { isLive, useRecElapsed, useWhepFeed } from './useWhepFeed'
 import { IconMaximize } from '../../shared/ui/icons'
 
 interface Props {
@@ -17,6 +13,8 @@ interface Props {
   readonly modes?: readonly VideoMode[]
   readonly mode?: VideoMode | null
   readonly onMode?: (mode: VideoMode) => void
+  /** Opens the camera cockpit (spec 10 §4.2); the button is disabled without it. */
+  readonly onMaximize?: () => void
 }
 
 const MODE_LABEL: Record<VideoMode, string> = { rgb: 'RGB', thermal: 'IR', side_by_side: '2画面' }
@@ -37,35 +35,10 @@ function VideoTypeSeg({ modes, mode, onMode, label }: { readonly modes: readonly
 }
 
 /** 16:9 thumbnail in the detail panel (spec 10 §3.3 item 2), fed by WHEP when a source is live. */
-export function VideoThumb({ sysid, status, recording, dict, modes = [], mode = null, onMode }: Props) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [phase, setPhase] = useState<PlayerState['phase']>('idle')
-  const [elapsedMs, setElapsedMs] = useState(0)
-  const live = status !== undefined && status.source !== 'none'
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (!live || !video) return
-    const player = new WhepPlayer(video, whepUrl(sysid), {
-      headers: { [CSRF_HEADER]: CSRF_VALUE },
-      onState: (s) => setPhase(s.phase),
-    })
-    player.start()
-    return () => player.stop()
-  }, [live, sysid])
-
-  useEffect(() => {
-    if (recording !== 'recording') return undefined
-    // The timer owns the clock: state is only touched from its callbacks, never in the effect body.
-    const start = Date.now()
-    const tick = () => setElapsedMs(Date.now() - start)
-    const first = setTimeout(tick, 0)
-    const id = setInterval(tick, 1000)
-    return () => {
-      clearTimeout(first)
-      clearInterval(id)
-    }
-  }, [recording])
+export function VideoThumb({ sysid, status, recording, dict, modes = [], mode = null, onMode, onMaximize }: Props) {
+  const live = isLive(status)
+  const { ref: videoRef, phase } = useWhepFeed(sysid, live)
+  const elapsedMs = useRecElapsed(recording)
 
   return (
     <div className="detail-video">
@@ -77,7 +50,7 @@ export function VideoThumb({ sysid, status, recording, dict, modes = [], mode = 
       )}
       {live && phase === 'reconnecting' && <span className="hint caution detail-reconnect">{dict.reconnecting}</span>}
       {modes.length > 1 && onMode && <VideoTypeSeg modes={modes} mode={mode} onMode={onMode} label={dict.videoType} />}
-      <button type="button" className="g-ctl btn-icon maximize" aria-label={dict.maximize} title={dict.maximize} disabled>
+      <button type="button" className="g-ctl btn-icon maximize" aria-label={dict.maximize} title={dict.maximize} disabled={!onMaximize} onClick={onMaximize}>
         <IconMaximize />
       </button>
     </div>

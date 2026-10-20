@@ -71,4 +71,12 @@ describe('VideoThumb', () => {
     rerender(<VideoThumb sysid={3} status={live} recording="idle" dict={t('ja')} modes={['rgb']} mode="rgb" onMode={onMode} />)
     expect(container.querySelector('.seg')).toBeNull()
   })
+  it('the maximize button opens the camera cockpit and stays disabled without a handler', () => {
+    const onMaximize = vi.fn()
+    const { rerender } = render(<VideoThumb sysid={3} status={live} recording="idle" dict={t('ja')} onMaximize={onMaximize} />)
+    screen.getByRole('button', { name: '最大化' }).click()
+    expect(onMaximize).toHaveBeenCalledOnce()
+    rerender(<VideoThumb sysid={3} status={live} recording="idle" dict={t('ja')} />)
+    expect(screen.getByRole('button', { name: '最大化' })).toBeDisabled()
+  })
 })
