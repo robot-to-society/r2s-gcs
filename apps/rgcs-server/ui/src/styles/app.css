@@ -211,3 +211,5 @@
 .warn-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--caution); color: var(--on-caution); font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
 .logrow .src.link { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 .logrow .src.link:hover { color: var(--accent); }
+/* 3D: the low-poly model stands for the vehicle; the marker keeps its name / altitude pill */
+.rg-mk.model3d .vmk { visibility: hidden; }

@@ -16,6 +16,7 @@ import { hasPosition } from './markers'
 import type { MapMode } from './mapMode'
 import type { LatLon } from './store'
 import type { Tracks } from './tracks'
+import type { VehicleModel } from './models/modelLayer'
 
 const CYAN: Rgb = [0x9c / 255, 0xc9 / 255, 1]
 const AMBER: Rgb = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
@@ -137,6 +138,13 @@ function setupGround(m: MlMap): void {
   })
 }
 
+/** Each positioned vehicle as a model at its drawn altitude (its own AMSL until the DEM is in). */
+export function vehicleModels(vehicles: ReadonlyMap<number, VehicleState>, selected: number | null, alts: ReadonlyMap<number, number | null>): VehicleModel[] {
+  return [...vehicles.values()]
+    .filter(hasPosition)
+    .map((v) => ({ sysid: v.sysid, kind: v.kind, at: { lon: v.lon, lat: v.lat, amsl: alts.get(v.sysid) ?? v.alt_msl }, hdg: v.hdg ?? 0, accent: v.sysid === selected ? AMBER : CYAN }))
+}
+
 export interface OpsAir {
   /** When the last 2D / 3D switch started. */
   readonly modeSwitchAt: { readonly current: number }
@@ -148,7 +156,11 @@ export interface OpsAir {
 /** Terrain, posts and floated markers; a no-op without terrain tiles. */
 export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base, mission = null, missionBadges, predicted = null }: Args): OpsAir {
   const air = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup: setupGround, modeLayers: OPS_3D_LAYERS, order: orderLayers })
-  const { sampler, ready, is3d, tick, layer, floats, modeSwitchAt } = air
+  const { sampler, ready, is3d, tick, layer, models, floats, modeSwitchAt } = air
+  // in 3D the model stands for the vehicle: the DOM marker keeps only its name / altitude pill
+  useEffect(() => {
+    markers.current.forEach(({ marker }) => marker.getElement().classList.toggle('model3d', is3d && ready))
+  }, [markers, is3d, ready, vehicles])
   const alts = useRef<ReadonlyMap<number, number | null>>(new Map())
 
   useEffect(() => {
@@ -167,8 +179,9 @@ export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selec
     })
     floats.current = [...vehicleFloats, ...badgeFloats]
     layer.setLines(d.lines, d.posts)
+    models.setModels(vehicleModels(vehicles, selected, d.alts))
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, is3d, sampler, vehicles, selected, homes, tracks, markers, base, tick, layer, floats, mission, missionBadges, predicted])
+  }, [map, ready, is3d, sampler, vehicles, selected, homes, tracks, markers, base, tick, layer, models, floats, mission, missionBadges, predicted])
   return { modeSwitchAt, is3d, alts }
 }

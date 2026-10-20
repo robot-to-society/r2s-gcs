@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import type { Map as MlMap } from 'maplibre-gl'
 import { AirPathLayer } from './airLayer'
+import { VehicleModelLayer } from './models/modelLayer'
 import { floatMarkers, type Floating } from './float'
 import { applyMapMode, DEM_SOURCE, type MapMode, type ModeLayers } from './mapMode'
 import { TerrainSampler, terrainSource } from './terrain'
@@ -28,6 +29,8 @@ export interface Air3d {
   /** Bumps when a DEM tile arrives (recompute altitudes). */
   readonly tick: number
   readonly layer: AirPathLayer
+  /** Low-poly vehicle models, drawn in 3D only (the DOM disc hides then). */
+  readonly models: VehicleModelLayer
   /** The markers to float; set by the caller whenever its data changes. */
   readonly floats: { current: readonly Floating[] }
   /** When the last 2D / 3D camera animation started (ms); camera moves should not cut it short. */
@@ -44,6 +47,7 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
   const [ready, setReady] = useState(false)
   const sampler = useMemo(() => (terrainTiles ? new TerrainSampler(terrainTiles, () => setTick((n) => n + 1)) : null), [terrainTiles])
   const layer = useRef(new AirPathLayer(layerId)).current
+  const models = useRef(new VehicleModelLayer(`${layerId}-models`)).current
   const floats = useRef<readonly Floating[]>([])
   const modeSwitchAt = useRef(0)
   const matrix = useRef<ArrayLike<number> | null>(null)
@@ -60,6 +64,7 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
       m.addSource(DEM_SOURCE, terrainSource(terrainTiles))
       setupRef.current.setup(m)
       m.addLayer(layer)
+      m.addLayer(models)
       setupRef.current.order?.(m)
       layer.onFrame = (mx) => {
         matrix.current = mx
@@ -69,16 +74,17 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
     }
     if (loaded.current) go()
     else m.once('load', go)
-  }, [map, loaded, terrainTiles, layer])
+  }, [map, loaded, terrainTiles, layer, models])
 
   useEffect(() => {
     const m = map.current
     if (!m || !ready) return
     layer.visible = is3d
+    models.visible = is3d
     modeSwitchAt.current = Date.now()
     applyMapMode(m, is3d ? '3d' : '2d', modeRef.current)
     if (!is3d) floatMarkers(m, null, floats.current)
-  }, [map, ready, is3d, layer])
+  }, [map, ready, is3d, layer, models])
 
-  return { sampler, ready, is3d, tick, layer, floats, modeSwitchAt, matrix }
+  return { sampler, ready, is3d, tick, layer, models, floats, modeSwitchAt, matrix }
 }

@@ -173,6 +173,9 @@ function setup(m: MlMap): void {
   })
 }
 
+/** The planner's target vehicle model colour (`--accent`). */
+const VEHICLE_ACCENT: Rgb = [0x9c / 255, 0xc9 / 255, 1]
+
 export interface MissionAir3d {
   readonly is3d: boolean
   /** Screen pixels per metre of altitude at an item in the last 3D frame, `null` before one. */
@@ -182,7 +185,7 @@ export interface MissionAir3d {
 }
 
 export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles, ceiling = null, vehicleHome = null, predicted = null }: Args): MissionAir3d {
-  const { sampler, ready, is3d, tick, layer, floats, matrix } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
+  const { sampler, ready, is3d, tick, layer, models, floats, matrix } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
   const latest = useRef({ draft, alts: new Map<number, number | null>() as ReadonlyMap<number, number | null> })
   const planFloats = useRef<readonly Floating[]>([])
   const vehicleFloat = useRef<Floating | null>(null)
@@ -218,13 +221,26 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     // before its ground is known an item floats at 0 m: the scale barely depends on it
     return pixelsPerMetre(matrix.current, { w: el.clientWidth, h: el.clientHeight }, it.lon, it.lat, latest.current.alts.get(uid) ?? 0)
   }
-  const floatVehicle = (marker: Marker | null, v: VehicleState | null, base: readonly [number, number]) => {
+  const lastVehicle = useRef<{ marker: Marker | null; v: VehicleState | null; base: readonly [number, number] }>({ marker: null, v: null, base: [0, 0] })
+  const placeVehicle = () => {
+    const { marker, v, base } = lastVehicle.current
     // DEM home ground + alt_rel matches how the plan's altitudes are drawn; alt_msl until the DEM is in
-    const amsl = v ? (sampler ? vehicleAmsl(v, vehicleHome, sampler.elevAt)?.amsl : undefined) ?? v.alt_msl : null
+    const amsl = v ? ((sampler ? vehicleAmsl(v, vehicleHome, sampler.elevAt)?.amsl : undefined) ?? v.alt_msl) : null
     vehicleFloat.current = marker && v && amsl !== null ? { marker, lon: v.lon, lat: v.lat, amsl, base } : null
     compose()
+    // in 3D the model stands for the vehicle; the marker keeps its name pill
+    marker?.getElement().classList.toggle('model3d', is3d && ready)
+    models.setModels(v && amsl !== null ? [{ sysid: v.sysid, kind: v.kind, at: { lon: v.lon, lat: v.lat, amsl }, hdg: v.hdg ?? 0, accent: VEHICLE_ACCENT }] : [])
     const m = map.current
     if (m && matrix.current && is3d) floatMarkers(m, matrix.current, floats.current)
+  }
+  const placeRef = useRef(placeVehicle)
+  placeRef.current = placeVehicle
+  // a 2D / 3D switch or a new DEM tile re-places the last vehicle
+  useEffect(() => placeRef.current(), [is3d, ready, tick])
+  const floatVehicle = (marker: Marker | null, v: VehicleState | null, base: readonly [number, number]) => {
+    lastVehicle.current = { marker, v, base }
+    placeVehicle()
   }
   return { is3d, pxPerMetre, floatVehicle }
 }
