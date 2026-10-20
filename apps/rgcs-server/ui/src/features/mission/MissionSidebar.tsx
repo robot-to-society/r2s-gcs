@@ -34,6 +34,8 @@ interface Props {
   readonly onUpload: () => void
   readonly onSaveFile: () => void
   readonly onSaveRgcs: () => void
+  /** The briefing comparison table (two or more missions open), above the summary. */
+  readonly compare?: React.ReactNode
 }
 
 /** Right panel after the prototype: ミッション settings, selection editor, サマリ, write / save buttons. */
@@ -128,6 +130,7 @@ export function MissionSidebar(p: Props) {
         {only && (
           <ItemEditor item={only} uid={only.uid} seq={draft.items.indexOf(only) + 1} kind={p.kind} dict={dict} onChange={p.onItemChange} onCommand={p.onItemCommand} onDelete={() => p.onDeleteSelected()} />
         )}
+        {p.compare}
         <div className="sec" data-testid="mission-summary">
           <div className="h1" style={{ marginBottom: 8 }}>
             {dict.mSummary}

@@ -7,6 +7,9 @@ import { vehicleStore } from '../vehicles/store'
 import { BriefingList } from '../briefing/BriefingList'
 import { briefingStore, type BriefingStore } from '../briefing/store'
 import { useBriefing } from '../briefing/useBriefing'
+import { BatchWriteSheet } from '../briefing/BatchWriteSheet'
+import { CompareTable } from '../briefing/CompareTable'
+import { useBatchWrite } from '../briefing/useBatchWrite'
 import { useBriefingMap } from '../briefing/useBriefingMap'
 import { pathModel, pathParamNames, predictFor } from '../flightpath/predict'
 import { usePathParams } from '../flightpath/usePathParams'
@@ -91,6 +94,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   }, [kind, pathValues, hLat, hLon, hAlt])
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
   const io = useMissionIo(store, briefing, sysid, dict, vehicleStore)
+  const batch = useBatchWrite(brief.list.workspace, vehicles, (to, m) => vehicleStore.setVehicleMission(to, { ...m, sysid: to }))
   const [fitTo, setFitTo] = useState<{ seq: number; points: readonly { lat: number; lon: number }[] } | null>(null)
   const fileHome = draft.mission.home ?? (vehicle?.home ? { lat: vehicle.home.lat, lon: vehicle.home.lon, alt: vehicle.home.alt } : null)
   const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit: (points) => setFitTo((f) => ({ seq: (f?.seq ?? 0) + 1, points })) })
@@ -363,6 +367,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onUpload={() => (online.length > 1 ? setTargets(true) : void io.upload())}
         onSaveFile={() => void io.saveWaypointsFile()}
         onSaveRgcs={io.saveRgcsFile}
+        compare={batch.lines.length >= 2 && <CompareTable lines={batch.lines} canWrite={batch.canWrite && ui.busy === 'idle'} dict={dict} onWriteAll={batch.open} />}
       />
       )}
 
@@ -378,6 +383,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           }}
         />
       )}
+      {batch.sheet && <BatchWriteSheet {...batch.sheet} dict={dict} onWrite={(jobs) => void batch.write(jobs)} onClose={batch.close} />}
       {io.picker && <MissionPicker dict={dict} title={dict.mSaved} onClose={io.closePicker} onPick={(row) => void io.openSaved(row.id)} />}
       {menu && (
         <ContextMenu

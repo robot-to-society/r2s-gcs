@@ -1,0 +1,139 @@
+// 割当どおり書き込む confirmation (spec 2026-10-20 §5.5): the assignments, what fence / rally each
+// vehicle still holds (消す / 残す, default 残す), then per-row progress while the batch runs.
+import { useState } from 'react'
+import type { Mission } from '../../shared/api/types'
+import type { Dict } from '../../shared/i18n'
+import { IconClose } from '../../shared/ui/icons'
+import { km } from '../mission/labels'
+import { BATCH_REASONS, type BatchJob, type BatchState, type Leftover } from './batch'
+
+export interface SheetLine {
+  readonly key: string
+  readonly color: string
+  readonly name: string
+  readonly sysid: number
+  readonly vehicle: string
+  readonly distanceM: number
+  readonly mission: Mission
+}
+
+interface Props {
+  readonly lines: readonly SheetLine[]
+  /** null while the vehicles are being read. */
+  readonly leftovers: ReadonlyMap<number, Leftover> | null
+  readonly states: ReadonlyMap<string, BatchState>
+  readonly running: boolean
+  readonly dict: Dict
+  readonly onWrite: (jobs: readonly BatchJob[]) => void
+  readonly onClose: () => void
+}
+
+type Clear = { readonly fence: boolean; readonly rally: boolean }
+const KEEP: Clear = { fence: false, rally: false }
+
+function reasonText(reason: string | null, dict: Dict): string {
+  if (reason === BATCH_REASONS.offline) return dict.bfOffline
+  if (reason === BATCH_REASONS.mismatch) return dict.bfMismatch
+  if (reason === BATCH_REASONS.fatal) return dict.upFatal
+  return reason ?? ''
+}
+
+function phaseText(s: BatchState | undefined, dict: Dict): string | null {
+  if (!s) return null
+  if (s.phase === 'waiting') return dict.bfWaiting
+  if (s.phase === 'writing') return dict.bfWriting
+  return s.phase === 'done' ? '✓' : `✗ ${reasonText(s.reason, dict)}`.trim()
+}
+
+interface ChoiceProps {
+  readonly text: string
+  readonly erase: boolean
+  readonly disabled: boolean
+  readonly dict: Dict
+  readonly onChange: (erase: boolean) => void
+}
+
+/** 前のフェンス N 区画が残っています + 消す / 残す. */
+function Choice({ text, erase, disabled, dict, onChange }: ChoiceProps) {
+  return (
+    <div className="row brief-left">
+      <span className="hint caution grow">{text}</span>
+      <div className="seg sm" role="group" aria-label={text}>
+        <span className="lens" style={{ transform: `translateX(${erase ? 0 : 100}%)` }} />
+        <button type="button" className={erase ? 'on' : ''} disabled={disabled} onClick={() => onChange(true)}>
+          {dict.bfErase}
+        </button>
+        <button type="button" className={erase ? '' : 'on'} disabled={disabled} onClick={() => onChange(false)}>
+          {dict.bfKeep}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+interface LeftProps {
+  readonly own: number
+  readonly left: number | null | undefined
+  readonly texts: readonly [string, string]
+  readonly erase: boolean
+  readonly disabled: boolean
+  readonly dict: Dict
+  readonly onChange: (erase: boolean) => void
+}
+
+/** Nothing when the mission brings its own (or nothing is left); 不明 when the read failed. */
+function LeftoverLine({ own, left, texts, ...rest }: LeftProps) {
+  if (own > 0 || left === undefined || left === 0) return null
+  if (left === null) return <div className="t3 brief-left">{texts[1]}</div>
+  return <Choice text={texts[0].replace('{n}', String(left))} {...rest} />
+}
+
+export function BatchWriteSheet({ lines, leftovers, states, running, dict, onWrite, onClose }: Props) {
+  const [clear, setClear] = useState<ReadonlyMap<string, Clear>>(new Map())
+  const started = running || states.size > 0
+  const choose = (key: string, patch: Partial<Clear>) => setClear((m) => new Map([...m, [key, { ...(m.get(key) ?? KEEP), ...patch }]]))
+  const jobs = (): BatchJob[] =>
+    lines.map((l) => ({ key: l.key, sysid: l.sysid, mission: l.mission, clearFence: clear.get(l.key)?.fence ?? false, clearRally: clear.get(l.key)?.rally ?? false }))
+  return (
+    <aside className="g-strong sheet up-sheet brief-sheet" aria-label={dict.bfWriteAll} role="dialog">
+      <div className="panel-h">
+        <span className="h1">{dict.bfWriteAll}</span>
+        <span className="grow" />
+        <button type="button" className="btn-icon" aria-label={dict.close} disabled={running} onClick={onClose}>
+          <IconClose />
+        </button>
+      </div>
+      {leftovers === null && <div className="t3 brief-reading">{dict.bfReading}</div>}
+      <ul className="brief-sheet-list">
+        {lines.map((l) => {
+          const left = leftovers?.get(l.sysid)
+          const c = clear.get(l.key) ?? KEEP
+          const phase = phaseText(states.get(l.key), dict)
+          return (
+            <li key={l.key} className="brief-sheet-row">
+              <div className="row" style={{ gap: 8 }}>
+                <span className="brief-dot" style={{ background: l.color }} aria-hidden="true" />
+                <span className="brief-sheet-name">{`${l.name} → ${l.vehicle}`}</span>
+                <span className="grow" />
+                <span className="num t2">{km(l.distanceM)}</span>
+              </div>
+              <LeftoverLine own={l.mission.fence.length} left={left?.fence} texts={[dict.bfLeftFence, dict.bfLeftFenceUnknown]} erase={c.fence} disabled={started} dict={dict} onChange={(fence) => choose(l.key, { fence })} />
+              <LeftoverLine own={l.mission.rally.length} left={left?.rally} texts={[dict.bfLeftRally, dict.bfLeftRallyUnknown]} erase={c.rally} disabled={started} dict={dict} onChange={(rally) => choose(l.key, { rally })} />
+              {phase !== null && <div className={`brief-phase ${states.get(l.key)?.phase ?? ''}`}>{phase}</div>}
+            </li>
+          )
+        })}
+      </ul>
+      <div className="up-foot" style={{ gap: 8 }}>
+        <button type="button" className="btn" disabled={running} onClick={onClose}>
+          {started ? dict.bfClose : dict.bfCancel}
+        </button>
+        {!started && (
+          <button type="button" className="btn btn-primary" disabled={leftovers === null} onClick={() => onWrite(jobs())}>
+            {dict.bfWrite}
+          </button>
+        )}
+      </div>
+    </aside>
+  )
+}

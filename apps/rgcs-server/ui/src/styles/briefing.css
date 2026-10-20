@@ -31,3 +31,25 @@
 .brief-label-frame { color: var(--text-3); font-size: 10px; }
 /* 3D shows the other missions as air lines instead of the crossing labels */
 .mission-map.is-3d .brief-label { display: none; }
+
+/* Comparison table on the right panel (spec 2026-10-20 §5.4): distance large, battery amber over 70 %. */
+.brief-cmp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.brief-cmp-table th { text-align: left; font-weight: 500; font-size: 10px; color: var(--text-3); padding: 0 4px 6px; white-space: nowrap; }
+.brief-cmp-table td { padding: 5px 4px; border-top: 1px solid var(--line); vertical-align: baseline; white-space: nowrap; }
+.brief-cmp-table .big { font-size: 17px; }
+.brief-cmp-table td.warn { color: var(--caution); font-weight: 600; }
+.brief-cmp-name { max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+.brief-dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 3px; flex: none; }
+.brief-cmp-note { margin: 6px 0 10px; font-size: 10px; line-height: 1.4; }
+.brief-cmp-write { width: 100%; }
+
+/* 割当どおり書き込む sheet (§5.5): one line per assigned row, leftover choice, progress. */
+.brief-reading { padding: 0 16px 8px; font-size: 12px; }
+.brief-sheet-list { list-style: none; margin: 0; padding: 0 8px; overflow: auto; }
+.brief-sheet-row { display: grid; gap: 6px; padding: 9px 8px; border-radius: 8px; }
+.brief-sheet-row + .brief-sheet-row { border-top: 1px solid var(--line); }
+.brief-sheet-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.brief-left { gap: 8px; font-size: 12px; }
+.brief-phase { font-size: 12px; color: var(--text-2); }
+.brief-phase.done { color: var(--ok); }
+.brief-phase.failed { color: var(--caution); }
