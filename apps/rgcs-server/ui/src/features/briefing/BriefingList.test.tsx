@@ -131,7 +131,7 @@ describe('BriefingList', () => {
   })
 
   it('the_header_names_saves_and_opens_the_briefing', () => {
-    const header = { name: '', canSave: false, busy: false, onName: vi.fn(), onSave: vi.fn(), onOpen: vi.fn() }
+    const header = { name: '', canSave: false, busy: false, onName: vi.fn(), onSave: vi.fn(), onOpen: vi.fn(), onNew: vi.fn() }
     const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn() }
     const { rerender } = render(<BriefingList workspace={twoRows()} liveDirty={false} vehicles={vehicles} dict={dict} header={header} {...on} />)
     const name = screen.getByRole('textbox', { name: dict.bfName })

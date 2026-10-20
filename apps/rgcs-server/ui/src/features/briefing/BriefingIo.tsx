@@ -11,7 +11,7 @@ import { vehicleStore } from '../vehicles/store'
 import { createBriefing, getBriefing, listBriefings, updateBriefing } from './api'
 import { BriefingPicker, DiscardSheet } from './BriefingPicker'
 import type { BriefingHeader } from './BriefingList'
-import { parkActive, type Workspace } from './model'
+import { emptyWorkspace, parkActive, type Workspace } from './model'
 import { BriefingSaveError, commitSaved, hasMissions, saveWorkspace, validName, workspaceFrom, type SaveDeps } from './persistence'
 import { replaceWorkspace, type BriefingStore } from './store'
 import { isPristine } from './useBriefing'
@@ -70,7 +70,8 @@ async function openBriefing(b: BriefingStore, m: MissionStore, api: BriefingApi,
 /** `ws`: the workspace with the live editor parked in its active row (useBriefing's list.workspace). */
 export function useBriefingIo(b: BriefingStore, m: MissionStore, ws: Workspace, dict: Dict, { api = API, vehicles = vehicleStore, onFit }: Options): { header: BriefingHeader; sheet: ReactNode } {
   const [picker, setPicker] = useState(false)
-  const [pending, setPending] = useState<number | null>(null)
+  /** What waits for the discard question: opening a saved briefing (its id) or a new one. */
+  const [pending, setPending] = useState<number | 'new' | null>(null)
   const [working, setWorking] = useState(false)
   const result: Report = (cmd, ok, reason) => vehicles.pushLocalResult({ id: localResultId(), sysid: 0, cmd, ok, reason, ts: Date.now() })
   const idle = !working && m.getState().busy === 'idle'
@@ -84,6 +85,12 @@ export function useBriefingIo(b: BriefingStore, m: MissionStore, ws: Workspace, 
     setWorking(true)
     await openBriefing(b, m, api, id, result, onFit).finally(() => setWorking(false))
   }
+
+  const startNew = () => {
+    setPending(null)
+    replaceWorkspace(b, m, emptyWorkspace())
+  }
+  const go = (what: number | 'new') => (what === 'new' ? startNew() : void open(what))
 
   const pick = (id: number) => {
     setPicker(false)
@@ -99,11 +106,12 @@ export function useBriefingIo(b: BriefingStore, m: MissionStore, ws: Workspace, 
     onName: (name) => b.update((w) => ({ ...w, name })),
     onSave: () => void save(),
     onOpen: () => setPicker(true),
+    onNew: () => (hasUnsaved(ws) ? setPending('new') : startNew()),
   }
   const sheet = (
     <>
       {picker && <BriefingPicker dict={dict} load={api.list} onPick={pick} onClose={() => setPicker(false)} />}
-      {pending !== null && <DiscardSheet dict={dict} onCancel={() => setPending(null)} onContinue={() => void open(pending)} />}
+      {pending !== null && <DiscardSheet dict={dict} onCancel={() => setPending(null)} onContinue={() => go(pending)} />}
     </>
   )
   return { header, sheet }

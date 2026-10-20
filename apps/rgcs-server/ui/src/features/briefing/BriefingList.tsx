@@ -37,6 +37,8 @@ export interface BriefingHeader {
   readonly onName: (name: string) => void
   readonly onSave: () => void
   readonly onOpen: () => void
+  /** 新しいブリーフィング: an empty, unnamed, never-saved briefing (asks first when something is unsaved). */
+  readonly onNew: () => void
 }
 
 type RowProps = Omit<Props, 'workspace' | 'liveDirty' | 'busy' | 'header'> & {
@@ -65,7 +67,7 @@ export function BriefingList({ workspace, liveDirty, busy = false, header, ...re
   )
 }
 
-function Header({ name, canSave, saveHint, busy, onName, onSave, onOpen, dict }: BriefingHeader & { readonly dict: Dict }) {
+function Header({ name, canSave, saveHint, busy, onName, onSave, onOpen, onNew, dict }: BriefingHeader & { readonly dict: Dict }) {
   return (
     <div className="brief-head">
       <input className="in brief-head-name" aria-label={dict.bfName} placeholder={dict.bfName} maxLength={NAME_MAX} value={name} onChange={(e) => onName(e.target.value)} />
@@ -75,6 +77,9 @@ function Header({ name, canSave, saveHint, busy, onName, onSave, onOpen, dict }:
         </button>
         <button type="button" className="btn sm" disabled={busy} onClick={onOpen}>
           {dict.bfOpen}
+        </button>
+        <button type="button" className="btn sm btn-ghost brief-new" disabled={busy} onClick={onNew}>
+          {dict.bfNew}
         </button>
       </div>
     </div>

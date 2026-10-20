@@ -1,5 +1,6 @@
 // Saving the open missions as a briefing on the server, and opening one (spec 2026-10-20 §5.1).
 // Missions are saved first (new / changed ones), then the briefing that refers to them by id.
+import { ApiError } from '../../shared/api/client'
 import type { Briefing, BriefingFull, BriefingRow } from '../../shared/api/types'
 import type { createMission, updateMission } from '../mission/api'
 import { emptyDraft, toMission } from '../mission/model'
@@ -72,6 +73,17 @@ export function toBriefing(ws: Workspace): Briefing {
 /** Something the briefing would refer to: a saved or non-empty mission (missing / untouched rows do not count). */
 export const hasMissions = (ws: Workspace): boolean => ws.rows.some((r) => !r.missing && (r.ui.savedId !== null || !isPristine(r.ui)))
 
+/** Updates the briefing, or creates it when new or deleted on the server meanwhile (404: saved as a new one). */
+async function putBriefing(b: Briefing, deps: SaveDeps): Promise<Briefing> {
+  if (b.id === null) return deps.createB(b)
+  try {
+    return await deps.updateB(b.id, b)
+  } catch (e) {
+    if (!(e instanceof ApiError && e.status === 404)) throw e
+    return deps.createB({ ...b, id: null })
+  }
+}
+
 /**
  * Parks `live`, saves new / changed missions, then creates or updates the briefing. Refuses (before
  * any call) a briefing with no missions: it would overwrite a saved one's references with nothing.
@@ -82,7 +94,7 @@ export async function saveWorkspace(ws: Workspace, live: MissionUi, deps: SaveDe
   const saved = await saveRows(parked, deps)
   const b = toBriefing(saved)
   try {
-    const out = b.id === null ? await deps.createB(b) : await deps.updateB(b.id, b)
+    const out = await putBriefing(b, deps)
     return { ...saved, id: out.id ?? b.id }
   } catch (e) {
     throw new BriefingSaveError(e instanceof Error ? e.message : String(e), saved)

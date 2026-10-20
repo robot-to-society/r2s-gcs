@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { ApiError } from '../../shared/api/client'
 import type { Briefing, BriefingFull, Mission } from '../../shared/api/types'
 import { appendWaypoint, emptyDraft, toMission } from '../mission/model'
 import { INITIAL_MISSION_UI, MissionStore, edit, loaded } from '../mission/store'
@@ -77,6 +78,17 @@ describe('briefing persistence', () => {
     expect(saved.rows[3]!.missing).toBe(true)
     expect(activeRow(saved).ui.history.present.items).toHaveLength(2)
     expect(deps.create.mock.calls.map(([m]) => nameOf(m))).toEqual(['Beta'])
+  })
+
+  it('saving_a_briefing_deleted_on_the_server_creates_it_again', async () => {
+    const ws = { ...fourRows(), id: 7 }
+    const { deps, calls } = fakeDeps()
+    deps.updateB.mockRejectedValueOnce(new ApiError(404, 'not_found', 'briefing 7 does not exist'))
+    const out = await saveWorkspace(ws, activeRow(ws).ui, deps)
+    expect(deps.updateB).toHaveBeenCalledWith(7, expect.anything())
+    expect(calls.at(-1)).toBe('createB')
+    expect(deps.createB.mock.calls[0]![0].id).toBeNull()
+    expect(out.id).toBe(5)
   })
 
   it('saving_twice_updates_instead_of_creating', async () => {
