@@ -88,6 +88,18 @@ describe('runBatch', () => {
   })
 })
 
+describe('runBatch fence / rally step', () => {
+  it('names_the_fence_or_rally_step_that_failed_after_the_mission_was_written', async () => {
+    const d = deps({ writeFence: vi.fn(async () => report(false)), writeRally: vi.fn(async () => report(false)) })
+    const states: BatchState[] = []
+    await runBatch([job('a', 1, mission('a', { fence: [ZONE] })), job('b', 2, mission('b', { rally: [RALLY] }))], d, (s) => states.push(s))
+    expect(finals(states)).toEqual([
+      ['a', 'failed', 'fenceMismatch'],
+      ['b', 'failed', 'rallyMismatch'],
+    ])
+  })
+})
+
 describe('leftovers', () => {
   it('leftovers_reads_only_what_is_needed_and_reports_unknown_on_error', async () => {
     const fence = vi.fn(async (sysid: number) => (sysid === 3 ? Promise.reject(new Error('no link')) : { zones: sysid === 2 ? [ZONE, ZONE] : [] }))

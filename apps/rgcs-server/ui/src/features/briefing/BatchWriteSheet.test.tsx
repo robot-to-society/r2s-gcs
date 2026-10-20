@@ -68,4 +68,27 @@ describe('BatchWriteSheet', () => {
     expect(screen.getByText('機体のフェンス・ラリーを読み取り中…')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '書き込む' })).toBeDisabled()
   })
+
+  it('a_stale_erase_choice_never_clears_what_is_no_longer_shown', () => {
+    const onWrite = vi.fn()
+    const props = { lines: lines.slice(0, 1), states: NONE, running: false, dict, onWrite, onClose: vi.fn() }
+    const { rerender } = render(<BatchWriteSheet {...props} leftovers={new Map([[1, { fence: 3, rally: 2 }]])} />)
+    for (const b of screen.getAllByRole('button', { name: '消す' })) fireEvent.click(b)
+    // re-read: both now unknown, so no control is shown and nothing may be cleared
+    rerender(<BatchWriteSheet {...props} leftovers={new Map([[1, { fence: null, rally: null }]])} />)
+    expect(screen.queryByRole('button', { name: '消す' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '書き込む' }))
+    expect(onWrite).toHaveBeenLastCalledWith([{ key: 'a', sysid: 1, mission: lines[0]!.mission, clearFence: false, clearRally: false }])
+  })
+
+  it('names_the_fence_or_rally_step_when_only_that_failed', () => {
+    const states: ReadonlyMap<string, BatchState> = new Map([
+      ['a', { key: 'a', phase: 'failed', reason: 'fenceMismatch' }],
+      ['b', { key: 'b', phase: 'failed', reason: 'rallyMismatch' }],
+    ])
+    render(<BatchWriteSheet lines={lines.slice(0, 2)} leftovers={left} states={states} running={false} dict={dict} onWrite={vi.fn()} onClose={vi.fn()} />)
+    const items = screen.getAllByRole('listitem')
+    expect(items[0]!.querySelector('.brief-phase')?.textContent).toBe('✗ フェンス照合不一致')
+    expect(items[1]!.querySelector('.brief-phase')?.textContent).toBe('✗ ラリー照合不一致')
+  })
 })

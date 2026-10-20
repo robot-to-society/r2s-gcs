@@ -33,6 +33,8 @@ export const briefingJa = {
   bfWriting: '書込中',
   bfOffline: '未接続',
   bfMismatch: '照合不一致',
+  bfFenceMismatch: 'フェンス照合不一致',
+  bfRallyMismatch: 'ラリー照合不一致',
 }
 
 export const briefingEn: Record<keyof typeof briefingJa, string> = {
@@ -68,4 +70,6 @@ export const briefingEn: Record<keyof typeof briefingJa, string> = {
   bfWriting: 'Writing',
   bfOffline: 'Not connected',
   bfMismatch: 'Read-back mismatch',
+  bfFenceMismatch: 'Fence mismatch',
+  bfRallyMismatch: 'Rally mismatch',
 }

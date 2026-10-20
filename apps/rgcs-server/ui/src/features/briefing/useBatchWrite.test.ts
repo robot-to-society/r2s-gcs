@@ -4,6 +4,7 @@ import type { Mission, VehicleState } from '../../shared/api/types'
 import { appendWaypoint, emptyDraft, toMission } from '../mission/model'
 import { INITIAL_MISSION_UI, loaded } from '../mission/store'
 import { addRow, assign, emptyWorkspace, type Workspace } from './model'
+import { BatchStore } from './batchStore'
 import { useBatchWrite } from './useBatchWrite'
 
 const api = vi.hoisted(() => ({
@@ -46,7 +47,8 @@ describe('useBatchWrite', () => {
   it('compares_every_row_but_the_missing_and_writes_the_assigned_ones', async () => {
     const vehicles = new Map([[1, vehicle(1)], [2, vehicle(2, 'lost')]])
     const onVerified = vi.fn()
-    const { result } = renderHook(() => useBatchWrite(workspace(), vehicles, onVerified))
+    const store = new BatchStore()
+    const { result } = renderHook(() => useBatchWrite(workspace(), vehicles, onVerified, store))
     expect(result.current.lines.map((l) => [l.name, l.vehicle])).toEqual([['A', 'UAV-01'], ['B', 'UAV-02'], ['D', null]])
     expect(result.current.canWrite).toBe(true)
     await waitFor(() => expect(result.current.lines[0]!.batteryPct).not.toBeNull())
@@ -59,5 +61,38 @@ describe('useBatchWrite', () => {
     expect(api.uploadMission).toHaveBeenCalledTimes(1)
     expect(onVerified).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'A' }))
     expect(result.current.sheet?.running).toBe(false)
+  })
+
+  it('a_running_batch_outlives_the_view_and_no_second_one_starts', async () => {
+    const vehicles = new Map([[1, vehicle(1)], [2, vehicle(2)]])
+    const store = new BatchStore()
+    let release: (v: unknown) => void = () => {}
+    api.uploadMission.mockImplementationOnce(() => new Promise((r) => (release = r)))
+    const first = renderHook(() => useBatchWrite(workspace(), vehicles, vi.fn(), store))
+    act(() => first.result.current.open())
+    await waitFor(() => expect(first.result.current.sheet?.leftovers).not.toBeNull())
+    const jobs = first.result.current.sheet!.lines.map((l) => ({ key: l.key, sysid: l.sysid, mission: l.mission, clearFence: false, clearRally: false }))
+    let running: Promise<void> = Promise.resolve()
+    act(() => {
+      running = first.result.current.write(jobs)
+    })
+    await waitFor(() => expect(api.uploadMission).toHaveBeenCalledTimes(1))
+    first.unmount()
+    // back to the planner: the running batch is shown and nothing new can start
+    const again = renderHook(() => useBatchWrite(workspace(), vehicles, vi.fn(), store))
+    expect(again.result.current.canWrite).toBe(false)
+    expect(again.result.current.sheet?.running).toBe(true)
+    expect(again.result.current.sheet?.states.get(jobs[0]!.key)?.phase).toBe('writing')
+    const session = again.result.current.sheet!.session
+    act(() => again.result.current.open())
+    await act(async () => again.result.current.write(jobs))
+    expect(again.result.current.sheet?.session).toBe(session)
+    await act(async () => {
+      release({ items: 2, verified: true, mismatched: [], findings: [] })
+      await running
+    })
+    expect(api.uploadMission).toHaveBeenCalledTimes(2)
+    expect([...again.result.current.sheet!.states.values()].map((s) => s.phase)).toEqual(['done', 'done'])
+    expect(again.result.current.canWrite).toBe(true)
   })
 })

@@ -16,7 +16,7 @@ export interface BatchJob {
 export type BatchState = { readonly key: string; readonly phase: 'waiting' | 'writing' | 'done' | 'failed'; readonly reason: string | null }
 
 /** Reason codes the sheet translates; any other reason is shown as it is. */
-export const BATCH_REASONS = { offline: 'offline', fatal: 'fatal', mismatch: 'mismatch' } as const
+export const BATCH_REASONS = { offline: 'offline', fatal: 'fatal', mismatch: 'mismatch', fenceMismatch: 'fenceMismatch', rallyMismatch: 'rallyMismatch' } as const
 
 export interface BatchDeps {
   validate: typeof validateMission
@@ -34,7 +34,7 @@ function extra<T>(own: readonly T[], clear: boolean): readonly T[] | null {
   return clear ? [] : null
 }
 
-/** One job; resolves to its failure reason, or null when done. */
+/** One job; resolves to its failure reason, or null when done (a fence / rally reason: the mission itself was written). */
 async function writeJob(job: BatchJob, deps: BatchDeps): Promise<string | null> {
   const { sysid, mission } = job
   if (!deps.connected(sysid)) return BATCH_REASONS.offline
@@ -42,9 +42,9 @@ async function writeJob(job: BatchJob, deps: BatchDeps): Promise<string | null> 
   if (findings.some((f) => f.level === 'fatal')) return BATCH_REASONS.fatal
   if (!(await deps.upload(sysid, mission)).verified) return BATCH_REASONS.mismatch
   const fence: readonly FenceZone[] | null = extra(mission.fence, job.clearFence)
-  if (fence !== null && !(await deps.writeFence(sysid, fence)).verified) return BATCH_REASONS.mismatch
+  if (fence !== null && !(await deps.writeFence(sysid, fence)).verified) return BATCH_REASONS.fenceMismatch
   const rally: readonly RallyPoint[] | null = extra(mission.rally, job.clearRally)
-  if (rally !== null && !(await deps.writeRally(sysid, rally)).verified) return BATCH_REASONS.mismatch
+  if (rally !== null && !(await deps.writeRally(sysid, rally)).verified) return BATCH_REASONS.rallyMismatch
   return null
 }
 

@@ -6,6 +6,7 @@ import type { Dict } from '../../shared/i18n'
 import { IconClose } from '../../shared/ui/icons'
 import { km } from '../mission/labels'
 import { BATCH_REASONS, type BatchJob, type BatchState, type Leftover } from './batch'
+import type { BatchSheet } from './batchStore'
 
 export interface SheetLine {
   readonly key: string
@@ -32,10 +33,31 @@ type Clear = { readonly fence: boolean; readonly rally: boolean }
 const KEEP: Clear = { fence: false, rally: false }
 
 function reasonText(reason: string | null, dict: Dict): string {
-  if (reason === BATCH_REASONS.offline) return dict.bfOffline
-  if (reason === BATCH_REASONS.mismatch) return dict.bfMismatch
-  if (reason === BATCH_REASONS.fatal) return dict.upFatal
-  return reason ?? ''
+  const known: Record<string, string> = {
+    [BATCH_REASONS.offline]: dict.bfOffline,
+    [BATCH_REASONS.mismatch]: dict.bfMismatch,
+    [BATCH_REASONS.fenceMismatch]: dict.bfFenceMismatch,
+    [BATCH_REASONS.rallyMismatch]: dict.bfRallyMismatch,
+    [BATCH_REASONS.fatal]: dict.upFatal,
+  }
+  return reason === null ? '' : (known[reason] ?? reason)
+}
+
+/** 消す only counts where the line shows the control: a known leftover > 0 and none in the mission. */
+const erasable = (own: number, left: number | null | undefined): boolean => own === 0 && typeof left === 'number' && left > 0
+
+function toJobs(lines: readonly SheetLine[], leftovers: ReadonlyMap<number, Leftover> | null, clear: ReadonlyMap<string, Clear>): BatchJob[] {
+  return lines.map((l) => {
+    const left = leftovers?.get(l.sysid)
+    const c = clear.get(l.key) ?? KEEP
+    return {
+      key: l.key,
+      sysid: l.sysid,
+      mission: l.mission,
+      clearFence: c.fence && erasable(l.mission.fence.length, left?.fence),
+      clearRally: c.rally && erasable(l.mission.rally.length, left?.rally),
+    }
+  })
 }
 
 function phaseText(s: BatchState | undefined, dict: Dict): string | null {
@@ -92,8 +114,6 @@ export function BatchWriteSheet({ lines, leftovers, states, running, dict, onWri
   const [clear, setClear] = useState<ReadonlyMap<string, Clear>>(new Map())
   const started = running || states.size > 0
   const choose = (key: string, patch: Partial<Clear>) => setClear((m) => new Map([...m, [key, { ...(m.get(key) ?? KEEP), ...patch }]]))
-  const jobs = (): BatchJob[] =>
-    lines.map((l) => ({ key: l.key, sysid: l.sysid, mission: l.mission, clearFence: clear.get(l.key)?.fence ?? false, clearRally: clear.get(l.key)?.rally ?? false }))
   return (
     <aside className="g-strong sheet up-sheet brief-sheet" aria-label={dict.bfWriteAll} role="dialog">
       <div className="panel-h">
@@ -129,11 +149,17 @@ export function BatchWriteSheet({ lines, leftovers, states, running, dict, onWri
           {started ? dict.bfClose : dict.bfCancel}
         </button>
         {!started && (
-          <button type="button" className="btn btn-primary" disabled={leftovers === null} onClick={() => onWrite(jobs())}>
+          <button type="button" className="btn btn-primary" disabled={leftovers === null} onClick={() => onWrite(toJobs(lines, leftovers, clear))}>
             {dict.bfWrite}
           </button>
         )}
       </div>
     </aside>
   )
+}
+
+/** One sheet per session: a re-open starts with every choice back at 残す. */
+export function BatchSheetView({ sheet, ...rest }: { readonly sheet: BatchSheet } & Pick<Props, 'dict' | 'onWrite' | 'onClose'>) {
+  const { session, ...props } = sheet
+  return <BatchWriteSheet key={session} {...props} {...rest} />
 }
