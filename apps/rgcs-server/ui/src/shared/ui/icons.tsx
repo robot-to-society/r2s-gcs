@@ -16,6 +16,8 @@ import {
   CircleCheck,
   Crosshair,
   Ellipsis,
+  Eye,
+  EyeOff,
   Gauge,
   Grip,
   History,
@@ -74,6 +76,8 @@ export const IconClose = ({ size = 20, className }: IconProps) => <Lucide icon={
 export const IconCollapse = ({ size = 18, className }: IconProps) => <Lucide icon={PanelLeftClose} size={size} className={className} />
 export const IconMenu = ({ size = 18, className }: IconProps) => <Lucide icon={PanelLeftOpen} size={size} className={className} />
 export const IconChevron = ({ size = 18, className }: IconProps) => <Lucide icon={ChevronRight} size={size} className={className} />
+export const IconEye = ({ size = 14, className }: IconProps) => <Lucide icon={Eye} size={size} className={className} />
+export const IconEyeOff = ({ size = 14, className }: IconProps) => <Lucide icon={EyeOff} size={size} className={className} />
 export const IconChevronUp = ({ size = 16, className }: IconProps) => <Lucide icon={ChevronUp} size={size} className={className} />
 export const IconChevronDown = ({ size = 16, className }: IconProps) => <Lucide icon={ChevronDown} size={size} className={className} />
 export const IconCheck = ({ size = 16, className }: IconProps) => <Lucide icon={CircleCheck} size={size} className={className} />

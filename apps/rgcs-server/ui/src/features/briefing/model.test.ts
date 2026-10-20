@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_MISSION_UI } from '../mission/store'
-import { PALETTE, activate, activeRow, addRow, assign, emptyWorkspace, moveRow, parkActive, removeRow, reseedKeys, setColor } from './model'
+import { PALETTE, activate, activeRow, addRow, assign, emptyWorkspace, moveRow, parkActive, removeRow, reseedKeys, setColor, setHidden } from './model'
 
 const saved = (id: number) => ({ ...INITIAL_MISSION_UI, savedId: id })
 
@@ -69,5 +69,18 @@ describe('briefing workspace model', () => {
     const ws = addRow(emptyWorkspace(), saved(1))
     expect(ws.rows.every((r) => r.key !== 'r500')).toBe(true)
     expect(Number(ws.rows[1].key.slice(1))).toBeGreaterThan(500)
+  })
+
+  it('set_hidden_ignores_the_active_row_and_activate_shows_the_row', () => {
+    const ws = addRow(emptyWorkspace(), saved(1))
+    const [first, second] = ws.rows
+    expect(ws.rows.every((r) => !r.hidden)).toBe(true)
+    expect(setHidden(ws, second.key, true)).toBe(ws)
+    const hid = setHidden(ws, first.key, true)
+    expect(hid.rows[0].hidden).toBe(true)
+    expect(hid.rows[1].hidden).toBe(false)
+    const shown = activate(hid, first.key)
+    expect(shown.active).toBe(first.key)
+    expect(shown.rows[0].hidden).toBe(false)
   })
 })

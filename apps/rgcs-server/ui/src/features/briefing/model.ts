@@ -7,6 +7,8 @@ export interface Row {
   readonly color: string
   readonly sysid: number | null
   readonly missing: boolean
+  /** View-only: a parked row left off the map (never sent to the server). */
+  readonly hidden: boolean
   readonly ui: MissionUi
 }
 
@@ -32,7 +34,7 @@ export function reseedKeys(rows: readonly { readonly key: string }[]): void {
 const nextColor = (rows: readonly Row[]): string =>
   PALETTE.find((c) => !rows.some((r) => r.color === c)) ?? PALETTE[rows.length % PALETTE.length]
 
-const makeRow = (rows: readonly Row[], ui: MissionUi): Row => ({ key: nextKey(), color: nextColor(rows), sysid: null, missing: false, ui })
+const makeRow = (rows: readonly Row[], ui: MissionUi): Row => ({ key: nextKey(), color: nextColor(rows), sysid: null, missing: false, hidden: false, ui })
 
 export function emptyWorkspace(): Workspace {
   const row = makeRow([], fresh(INITIAL_MISSION_UI))
@@ -86,6 +88,12 @@ export function assign(ws: Workspace, key: string, sysid: number | null): Worksp
 
 export const parkActive = (ws: Workspace, ui: MissionUi): Workspace => mapRow(ws, ws.active, (r) => ({ ...r, ui }))
 
-export const activate = (ws: Workspace, key: string): Workspace => (ws.active === key || !ws.rows.some((r) => r.key === key) ? ws : { ...ws, active: key })
+/** The active row is always shown, so hiding it is a no-op. */
+export const setHidden = (ws: Workspace, key: string, hidden: boolean): Workspace => (ws.active === key ? ws : mapRow(ws, key, (r) => ({ ...r, hidden })))
+
+export function activate(ws: Workspace, key: string): Workspace {
+  if (ws.active === key || !ws.rows.some((r) => r.key === key)) return ws
+  return { ...mapRow(ws, key, (r) => ({ ...r, hidden: false })), active: key }
+}
 
 export const activeRow = (ws: Workspace): Row => ws.rows.find((r) => r.key === ws.active) ?? ws.rows[0]

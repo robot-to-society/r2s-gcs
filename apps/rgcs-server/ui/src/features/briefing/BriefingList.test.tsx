@@ -25,7 +25,7 @@ function twoRows(): Workspace {
 }
 
 function setup(ws: Workspace = twoRows(), liveDirty = false) {
-  const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn() }
+  const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn() }
   render(<BriefingList workspace={ws} liveDirty={liveDirty} vehicles={vehicles} dict={dict} {...on} />)
   const rows = () => [...document.querySelectorAll<HTMLElement>('.brief-row')]
   return { ws, on, rows }
@@ -102,9 +102,20 @@ describe('BriefingList', () => {
   })
 
   it('the_edited_rows_remove_is_disabled_while_busy', () => {
-    const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn() }
+    const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn() }
     render(<BriefingList workspace={twoRows()} liveDirty={false} busy vehicles={vehicles} dict={dict} {...on} />)
     const remove = screen.getAllByRole('button', { name: '一覧から外す' })
     expect(remove.map((b) => (b as HTMLButtonElement).disabled)).toEqual([true, false])
+  })
+
+  it('the_eye_toggle_hides_a_parked_row_and_is_disabled_on_the_active_one', () => {
+    const { on, rows } = setup()
+    const eye = (i: number) => within(rows()[i]!).getByRole('button', { name: /^(表示|非表示)$/ })
+    expect(eye(0)).toBeDisabled()
+    expect(eye(1)).not.toBeDisabled()
+    expect(eye(1).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(eye(1))
+    expect(on.onHidden).toHaveBeenCalledWith(expect.any(String), true)
+    expect(on.onSwitch).not.toHaveBeenCalled()
   })
 })

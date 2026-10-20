@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { IconChevronDown, IconChevronUp, IconClose } from '../../shared/ui/icons'
+import { IconChevronDown, IconChevronUp, IconClose, IconEye, IconEyeOff } from '../../shared/ui/icons'
 import { PALETTE, type Row, type Workspace } from './model'
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
   readonly onRemove: (key: string) => void
   readonly onMove: (key: string, delta: -1 | 1) => void
   readonly onColor: (key: string, color: string) => void
+  readonly onHidden: (key: string, hidden: boolean) => void
 }
 
 type RowProps = Omit<Props, 'workspace' | 'liveDirty' | 'busy'> & {
@@ -43,8 +44,9 @@ export function BriefingList({ workspace, liveDirty, busy = false, ...rest }: Pr
   )
 }
 
-function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onSwitch, onAssign, onRemove, onMove, onColor }: RowProps) {
+function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onSwitch, onAssign, onRemove, onMove, onColor, onHidden }: RowProps) {
   const [palette, setPalette] = useState(false)
+  const shown = !row.hidden
   const known = row.sysid === null || vehicles.some((v) => v.sysid === row.sysid)
   return (
     <div className={`brief-row${active ? ' on' : ''}`} role="listitem" aria-current={active ? 'true' : undefined} onClick={() => !active && onSwitch(row.key)}>
@@ -71,6 +73,9 @@ function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onS
         {!known && <option value={row.sysid ?? ''}>{`#${row.sysid}`}</option>}
       </select>
       <span className="brief-ctl" onClick={stop}>
+        <button type="button" className="btn-icon sm" aria-label={shown ? dict.bfHide : dict.bfShow} title={shown ? dict.bfHide : dict.bfShow} aria-pressed={shown} disabled={active} onClick={() => onHidden(row.key, shown)}>
+          {shown ? <IconEye /> : <IconEyeOff />}
+        </button>
         <button type="button" className="btn-icon sm" aria-label={dict.bfUp} title={dict.bfUp} disabled={first} onClick={() => onMove(row.key, -1)}>
           <IconChevronUp size={14} />
         </button>

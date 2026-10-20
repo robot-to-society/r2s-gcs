@@ -14,9 +14,11 @@ export interface BriefingMap {
 
 export function briefingMapOf(ws: Workspace): BriefingMap {
   const rows = ws.rows.filter((r) => !r.missing)
+  // a hidden row is neither drawn nor labelled (the active row is never hidden)
+  const shown = rows.filter((r) => !r.hidden)
   // predicting a parked row needs its vehicle's parameters: only its plan is drawn
-  const others = rows.filter((r) => r.key !== ws.active).map((r): OtherMission => ({ key: r.key, color: r.color, draft: r.ui.history.present, predicted: null }))
-  const labels = rows.length > 1 ? crossLabels(rows.map((r) => ({ key: r.key, draft: r.ui.history.present }))) : []
+  const others = shown.filter((r) => r.key !== ws.active).map((r): OtherMission => ({ key: r.key, color: r.color, draft: r.ui.history.present, predicted: null }))
+  const labels = shown.length > 1 ? crossLabels(shown.map((r) => ({ key: r.key, draft: r.ui.history.present }))) : []
   return {
     others,
     labels,

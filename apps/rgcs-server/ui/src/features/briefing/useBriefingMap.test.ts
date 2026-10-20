@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DraftItem } from '../mission/model'
 import { INITIAL_MISSION_UI, type MissionUi } from '../mission/store'
-import { addRow, emptyWorkspace, type Workspace } from './model'
+import { addRow, emptyWorkspace, setHidden, type Workspace } from './model'
 import { briefingMapOf } from './useBriefingMap'
 
 const LAT0 = 36.25
@@ -44,5 +44,15 @@ describe('briefingMapOf', () => {
     const m = briefingMapOf(emptyWorkspace())
     expect(m.others).toEqual([])
     expect(m.labels).toEqual([])
+  })
+
+  it('hidden_rows_are_not_drawn_or_labelled', () => {
+    const ws = three()
+    const shown = briefingMapOf(ws)
+    expect(shown.others).toHaveLength(1)
+    expect(shown.labels).toHaveLength(1)
+    const hid = briefingMapOf(setHidden(ws, ws.rows[1]!.key, true))
+    expect(hid.others).toEqual([])
+    expect(hid.labels).toEqual([])
   })
 })

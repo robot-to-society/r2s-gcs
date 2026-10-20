@@ -12,6 +12,7 @@ interface StoredRow {
   readonly color: string
   readonly sysid: number | null
   readonly missing: boolean
+  readonly hidden?: boolean
   readonly savedId: number | null
   readonly dirty: boolean
   readonly mission: Mission
@@ -24,6 +25,7 @@ export function serialize(ws: Workspace, live: MissionUi): string {
     color: r.color,
     sysid: r.sysid,
     missing: r.missing,
+    hidden: r.hidden,
     savedId: r.ui.savedId,
     dirty: r.ui.dirty,
     mission: toMission(r.ui.history.present),
@@ -37,7 +39,7 @@ function toRow(x: unknown): Row | null {
   if (!isObj(x) || typeof x.key !== 'string' || typeof x.color !== 'string' || !isObj(x.mission) || !Array.isArray(x.mission.items)) return null
   const savedId = typeof x.savedId === 'number' ? x.savedId : null
   const ui = { ...loaded(INITIAL_MISSION_UI, x.mission as unknown as Mission, savedId), dirty: x.dirty === true }
-  return { key: x.key, color: x.color, sysid: typeof x.sysid === 'number' ? x.sysid : null, missing: x.missing === true, ui }
+  return { key: x.key, color: x.color, sysid: typeof x.sysid === 'number' ? x.sysid : null, missing: x.missing === true, hidden: x.hidden === true, ui }
 }
 
 export function restore(text: string | null): Workspace | null {

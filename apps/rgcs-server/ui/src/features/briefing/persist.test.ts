@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { appendWaypoint } from '../mission/model'
 import { MissionStore, edit } from '../mission/store'
 import { BriefingStore, openInNewRow } from './store'
-import { assign, setColor } from './model'
+import { assign, setColor, setHidden } from './model'
 import { STORAGE_KEY, restore, restoreInto, serialize, startPersistence } from './persist'
 
 const build = () => {
@@ -30,6 +30,18 @@ describe('briefing persistence', () => {
     expect(ws!.rows[0].ui.history.present.items).toHaveLength(1)
     expect(ws!.rows[0].ui.history.past).toHaveLength(0)
     expect(ws!.active).toBe(b.getState().active)
+  })
+
+  it('hidden_round_trips_and_defaults_to_false', () => {
+    const { b, m } = build()
+    const [r0, r1] = b.getState().rows
+    expect(r1.key).toBe(b.getState().active)
+    b.update((w) => setHidden(w, r0.key, true))
+    const ws = restore(serialize(b.getState(), m.getState()))
+    expect(ws!.rows.map((r) => r.hidden)).toEqual([true, false])
+    const old = JSON.parse(serialize(b.getState(), m.getState()))
+    for (const r of old.rows) delete r.hidden
+    expect(restore(JSON.stringify(old))!.rows.every((r) => r.hidden === false)).toBe(true)
   })
 
   it('restore_ignores_corrupt_or_old_payloads', () => {

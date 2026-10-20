@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from 'react'
 import { canUndo } from '../mission/history'
 import { missionStore, type MissionStore, type MissionUi } from '../mission/store'
-import { activeRow, assign, moveRow, parkActive, removeRow, setColor, type Row, type Workspace } from './model'
+import { activeRow, assign, moveRow, parkActive, removeRow, setColor, setHidden, type Row, type Workspace } from './model'
 import { restoreInto, startPersistence } from './persist'
 import { briefingStore, carryClipboard, loadActive, openInNewRow, switchRow, useWorkspace, type BriefingStore } from './store'
 
@@ -50,6 +50,7 @@ export interface BriefingListWiring {
   readonly onRemove: (key: string) => void
   readonly onMove: (key: string, delta: -1 | 1) => void
   readonly onColor: (key: string, color: string) => void
+  readonly onHidden: (key: string, hidden: boolean) => void
 }
 
 export interface BriefingHandlers {
@@ -78,6 +79,7 @@ export function useBriefing(b: BriefingStore, m: MissionStore, live: MissionUi):
     onRemove: (key) => removeLive(b, m, key),
     onMove: (key, delta) => b.update((w) => moveRow(w, key, delta)),
     onColor: (key, color) => b.update((w) => setColor(w, key, color)),
+    onHidden: (key, hidden) => b.update((w) => setHidden(w, key, hidden)),
   }
   return { list, row: activeRow(workspace), assignActive: (sysid) => b.update((w) => assign(w, w.active, sysid)) }
 }
