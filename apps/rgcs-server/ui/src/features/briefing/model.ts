@@ -1,0 +1,91 @@
+import { INITIAL_MISSION_UI, fresh, type MissionUi } from '../mission/store'
+
+export const PALETTE: readonly string[] = ['#9cc9ff', '#5fd39b', '#d8a8ff', '#f2b544', '#ff8f6b', '#6fe3e1', '#f78fc7', '#c6d36b']
+
+export interface Row {
+  readonly key: string
+  readonly color: string
+  readonly sysid: number | null
+  readonly missing: boolean
+  readonly ui: MissionUi
+}
+
+export interface Workspace {
+  readonly id: number | null
+  readonly name: string
+  readonly rows: readonly Row[]
+  readonly active: string
+}
+
+let counter = 0
+const nextKey = (): string => `r${++counter}`
+
+/** Call after restoring rows (e.g. from localStorage) so new keys never collide with them. */
+export function reseedKeys(rows: readonly { readonly key: string }[]): void {
+  const max = rows.reduce((m, r) => {
+    const n = /^r(\d+)$/.exec(r.key)
+    return n ? Math.max(m, Number(n[1])) : m
+  }, 0)
+  counter = Math.max(counter, max)
+}
+
+const nextColor = (rows: readonly Row[]): string =>
+  PALETTE.find((c) => !rows.some((r) => r.color === c)) ?? PALETTE[rows.length % PALETTE.length]
+
+const makeRow = (rows: readonly Row[], ui: MissionUi): Row => ({ key: nextKey(), color: nextColor(rows), sysid: null, missing: false, ui })
+
+export function emptyWorkspace(): Workspace {
+  const row = makeRow([], fresh(INITIAL_MISSION_UI))
+  return { id: null, name: '', rows: [row], active: row.key }
+}
+
+export function addRow(ws: Workspace, ui: MissionUi): Workspace {
+  const dup = ui.savedId === null ? undefined : ws.rows.find((r) => r.ui.savedId === ui.savedId)
+  if (dup) return activate(ws, dup.key)
+  const row = makeRow(ws.rows, ui)
+  return { ...ws, rows: [...ws.rows, row], active: row.key }
+}
+
+export function removeRow(ws: Workspace, key: string): Workspace {
+  const i = ws.rows.findIndex((r) => r.key === key)
+  if (i < 0) return ws
+  const rows = ws.rows.filter((r) => r.key !== key)
+  if (rows.length === 0) return withFreshRow(ws)
+  const active = ws.active === key ? rows[Math.min(i, rows.length - 1)].key : ws.active
+  return { ...ws, rows, active }
+}
+
+function withFreshRow(ws: Workspace): Workspace {
+  const e = emptyWorkspace()
+  return { ...ws, rows: e.rows, active: e.active }
+}
+
+export function moveRow(ws: Workspace, key: string, delta: -1 | 1): Workspace {
+  const i = ws.rows.findIndex((r) => r.key === key)
+  const j = i + delta
+  if (i < 0 || j < 0 || j >= ws.rows.length) return ws
+  const rows = ws.rows.slice()
+  rows[i] = ws.rows[j]
+  rows[j] = ws.rows[i]
+  return { ...ws, rows }
+}
+
+const mapRow = (ws: Workspace, key: string, f: (r: Row) => Row): Workspace => ({ ...ws, rows: ws.rows.map((r) => (r.key === key ? f(r) : r)) })
+
+export const setColor = (ws: Workspace, key: string, color: string): Workspace => mapRow(ws, key, (r) => ({ ...r, color }))
+
+export function assign(ws: Workspace, key: string, sysid: number | null): Workspace {
+  return {
+    ...ws,
+    rows: ws.rows.map((r) => {
+      if (r.key === key) return { ...r, sysid }
+      return sysid !== null && r.sysid === sysid ? { ...r, sysid: null } : r
+    }),
+  }
+}
+
+export const parkActive = (ws: Workspace, ui: MissionUi): Workspace => mapRow(ws, ws.active, (r) => ({ ...r, ui }))
+
+export const activate = (ws: Workspace, key: string): Workspace => (ws.active === key || !ws.rows.some((r) => r.key === key) ? ws : { ...ws, active: key })
+
+export const activeRow = (ws: Workspace): Row => ws.rows.find((r) => r.key === ws.active) ?? ws.rows[0]
