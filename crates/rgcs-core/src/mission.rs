@@ -283,11 +283,14 @@ impl Mission {
             out.push(Finding::fatal("empty", None, "mission has no items"));
             return out;
         }
-        if self.items[0].command != MAV_CMD_NAV_TAKEOFF {
+        if !matches!(
+            self.items[0].command,
+            MAV_CMD_NAV_TAKEOFF | MAV_CMD_NAV_VTOL_TAKEOFF
+        ) {
             out.push(Finding::fatal(
                 "first_not_takeoff",
                 Some(1),
-                "the first item must be NAV_TAKEOFF",
+                "the first item must be NAV_TAKEOFF or NAV_VTOL_TAKEOFF",
             ));
         }
         out.extend(self.fence_findings(fence));
@@ -402,7 +405,14 @@ impl Mission {
                     ));
                 }
             } else if it.is_positional()
-                && !matches!(it.command, MAV_CMD_NAV_RETURN_TO_LAUNCH | MAV_CMD_NAV_LAND)
+                && !matches!(
+                    it.command,
+                    MAV_CMD_NAV_RETURN_TO_LAUNCH
+                        | MAV_CMD_NAV_LAND
+                        | MAV_CMD_NAV_TAKEOFF
+                        | MAV_CMD_NAV_VTOL_TAKEOFF
+                        | MAV_CMD_NAV_VTOL_LAND
+                )
             {
                 out.push(Finding::warn("zero_position", seq, "item has no position"));
             }
@@ -415,7 +425,10 @@ impl Mission {
             ));
         }
         if let Some(last) = self.items.last() {
-            if !matches!(last.command, MAV_CMD_NAV_LAND | MAV_CMD_NAV_RETURN_TO_LAUNCH) {
+            if !matches!(
+                last.command,
+                MAV_CMD_NAV_LAND | MAV_CMD_NAV_VTOL_LAND | MAV_CMD_NAV_RETURN_TO_LAUNCH
+            ) {
                 out.push(Finding::warn(
                     "no_land_or_rtl",
                     Some(n as u16),
@@ -574,6 +587,20 @@ mod tests {
         assert_eq!(MissionFrame::Ter.mav(), 10);
         assert_eq!(MissionFrame::from_mav(10), Some(MissionFrame::Ter));
         assert_eq!(MissionFrame::from_mav(5), None);
+    }
+
+    #[test]
+    fn a_quadplane_mission_may_take_off_and_land_vertically() {
+        let f = mission(vec![
+            item(MAV_CMD_NAV_VTOL_TAKEOFF, 0.0, 0.0, 40.0),
+            item(MAV_CMD_NAV_WAYPOINT, 36.0, 139.0, 60.0),
+            item(MAV_CMD_NAV_VTOL_LAND, 0.0, 0.0, 0.0),
+        ])
+        .validate(&FenceInfo::default());
+        let c = codes(&f);
+        for code in ["first_not_takeoff", "zero_position", "no_land_or_rtl"] {
+            assert!(!c.contains(&code), "{code} in {c:?}");
+        }
     }
 
     #[test]

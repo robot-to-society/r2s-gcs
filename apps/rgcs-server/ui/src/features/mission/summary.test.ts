@@ -31,4 +31,9 @@ describe('summary', () => {
     const far = [item(22, 36.1, 139.1, 30), item(16, 37.1, 139.1, 50), item(20, 0, 0, 0)]
     expect(localWarnings(far, 8).map((w) => w.code)).toEqual(['long_flight'])
   })
+  it('a QuadPlane mission may start with VTOL_TAKEOFF and end with VTOL_LAND', () => {
+    const codes = localWarnings([item(84, 0, 0, 40), item(16, 36.1, 139.1, 60), item(85, 0, 0, 0)], 8).map((w) => w.code)
+    expect(codes).not.toContain('first_not_takeoff')
+    expect(codes).not.toContain('no_land_or_rtl')
+  })
 })

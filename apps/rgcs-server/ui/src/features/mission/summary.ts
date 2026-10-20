@@ -33,14 +33,14 @@ export function stats(items: readonly MissionItem[], home: Home | null, speed: n
 export function localWarnings(items: readonly MissionItem[], speed: number): readonly LocalWarning[] {
   if (items.length === 0) return [{ code: 'empty', seq: null }]
   const out: LocalWarning[] = []
-  if (items[0]?.command !== 22) out.push({ code: 'first_not_takeoff', seq: 1 })
+  if (items[0]?.command !== 22 && items[0]?.command !== 84) out.push({ code: 'first_not_takeoff', seq: 1 })
   const frames = new Set(items.filter(isPositional).map((it) => it.frame))
   if (frames.size > 1) out.push({ code: 'mixed_frames', seq: null })
   items.forEach((it, i) => {
     if (isPositional(it) && it.frame === 'ter') out.push({ code: 'terrain_frame', seq: i + 1 })
   })
   const last = items[items.length - 1]
-  if (last && last.command !== 21 && last.command !== 20) out.push({ code: 'no_land_or_rtl', seq: items.length })
+  if (last && ![20, 21, 85].includes(last.command)) out.push({ code: 'no_land_or_rtl', seq: items.length })
   if (stats(items, null, speed).duration_s > LONG_FLIGHT_S) out.push({ code: 'long_flight', seq: null })
   return out
 }
