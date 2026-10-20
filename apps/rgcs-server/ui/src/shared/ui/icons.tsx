@@ -35,6 +35,7 @@ import {
   PanelLeftOpen,
   Pause,
   Pin,
+  Plane,
   Play,
   Plus,
   Power,
@@ -86,6 +87,7 @@ export const IconVideoOff = ({ size = 36, className }: IconProps) => <Lucide ico
 export const IconSearch = ({ size = 16, className }: IconProps) => <Lucide icon={Search} size={size} className={className} />
 export const IconSpeed = ({ size = 15, className }: IconProps) => <Lucide icon={Gauge} size={size} className={className} />
 export const IconFollow = ({ size = 13, className }: IconProps) => <Lucide icon={LocateFixed} size={size} className={className} />
+export const IconPlane = ({ size = 22, className }: IconProps) => <Lucide icon={Plane} size={size} className={className} />
 export const IconRover = ({ size = 22, className }: IconProps) => <Lucide icon={Car} size={size} className={className} />
 export const IconWarn = ({ size = 18, className }: IconProps) => <Lucide icon={TriangleAlert} size={size} className={className} />
 export const IconPin = ({ size = 18, className }: IconProps) => <Lucide icon={Pin} size={size} className={className} />

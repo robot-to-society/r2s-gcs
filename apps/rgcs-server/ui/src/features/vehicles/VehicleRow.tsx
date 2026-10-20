@@ -1,6 +1,7 @@
 import type { Dict } from '../../shared/i18n'
+import { KindIcon } from '../../shared/ui/KindIcon'
 import type { VehicleState } from '../../shared/api/types'
-import { IconCopter, IconFollow, IconHeading, IconRover, IconSignal, IconSpeed } from '../../shared/ui/icons'
+import { IconFollow, IconHeading, IconSignal, IconSpeed } from '../../shared/ui/icons'
 import { altText, battLow, battText, battWidth, dotClass, modeLabel, speedText } from './format'
 
 interface Props {
@@ -32,7 +33,7 @@ export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, fol
       onKeyDown={(e) => e.key === 'Enter' && onSelect(v.sysid)}
     >
       <div className="lead">
-        {v.kind === 'rover' ? <IconRover /> : <IconCopter />}
+        <KindIcon kind={v.kind} />
         <IconHeading />
       </div>
       <div className="row">

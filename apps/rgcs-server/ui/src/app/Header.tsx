@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Dict } from '../shared/i18n'
 import type { Me, VehicleState } from '../shared/api/types'
 import type { LinkState } from '../features/vehicles/reducer'
-import { IconClose, IconCopter, IconRover, IconUser, IconWarn } from '../shared/ui/icons'
+import { IconClose, IconCopter, IconPlane, IconRover, IconUser, IconWarn } from '../shared/ui/icons'
 import { Nav } from './Nav'
 import { UserPopover } from './UserPopover'
 import type { View } from './view'
@@ -25,6 +25,7 @@ export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout
   const [menu, setMenu] = useState(false)
   const copters = vehicles.filter((v) => v.kind === 'copter').length
   const rovers = vehicles.filter((v) => v.kind === 'rover').length
+  const planes = vehicles.filter((v) => v.kind === 'plane').length
   const warns = vehicles.filter((v) => v.warn || v.link !== 'ok').length
   const linkTitle = link === 'open' ? dict.linkOpen : link === 'closed' ? dict.linkClosed : dict.connecting
   return (
@@ -49,6 +50,12 @@ export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout
           <IconRover size={18} />
           <span>{rovers}</span>
         </span>
+        {planes > 0 && (
+          <span className="row" title="Planes">
+            <IconPlane size={18} />
+            <span>{planes}</span>
+          </span>
+        )}
         <span className="row warn">
           <IconWarn />
           <span className="warn">{warns}</span>

@@ -7,13 +7,15 @@ export function hasPosition(v: VehicleState): boolean {
 }
 
 // Markers are plain DOM for MapLibre, so the icons are inline SVG with the same paths as
-// `shared/ui/icons` (Lucide 1.51 `car` / `house`, the prototype's `#i-drone`).
+// `shared/ui/icons` (Lucide 1.51 `car` / `plane` / `house`, the prototype's `#i-drone`).
 const svg = (size: number, body: string) =>
   `<svg class="ic" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
 const DRONE =
   '<path d="M10 10 7 7"/><path d="m14 10 3-3"/><path d="m14 14 3 3"/><path d="m10 14-3 3"/><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"/><circle cx="5.5" cy="5.5" r="3"/><circle cx="18.5" cy="5.5" r="3"/><circle cx="5.5" cy="18.5" r="3"/><circle cx="18.5" cy="18.5" r="3"/>'
 const CAR =
   '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>'
+const PLANE =
+  '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>'
 const HOUSE =
   '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
 
@@ -62,9 +64,9 @@ function applyClasses(el: HTMLElement, v: VehicleState, selected: boolean): void
 /** The prototype's vehicle marker: `.vmk` (heading caret on `.arrow`, type icon on `.disc`) + name pill. */
 export function markerEl(v: VehicleState, selected: boolean, pose: GimbalPose | null = null): HTMLDivElement {
   const el = document.createElement('div')
-  const kind = v.kind === 'rover' ? 'rover' : 'copter'
+  const kind = v.kind === 'rover' || v.kind === 'plane' ? v.kind : 'copter'
   el.innerHTML =
-    `<div class="vmk ${kind}">${fovSvg(v.sysid)}<i class="beacon"></i><div class="arrow"><i class="hd"></i></div><div class="disc">${svg(18, kind === 'rover' ? CAR : DRONE)}</div><i class="lock"></i></div>` +
+    `<div class="vmk ${kind}">${fovSvg(v.sysid)}<i class="beacon"></i><div class="arrow"><i class="hd"></i></div><div class="disc">${svg(18, kind === 'rover' ? CAR : kind === 'plane' ? PLANE : DRONE)}</div><i class="lock"></i></div>` +
     '<div><div class="lbl"></div><div class="alt" style="display:none"></div></div>'
   return updateMarkerEl(el, v, selected, pose)
 }

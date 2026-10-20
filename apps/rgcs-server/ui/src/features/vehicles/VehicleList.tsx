@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { KindIcon } from '../../shared/ui/KindIcon'
 import type { Dict } from '../../shared/i18n'
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import { cmdLabel } from '../../shared/i18n'
-import { IconCollapse, IconCopter, IconMenu, IconPin, IconRover, IconSortAlerts } from '../../shared/ui/icons'
+import { IconCollapse, IconMenu, IconPin, IconSortAlerts } from '../../shared/ui/icons'
 import { saveVehicleSort, sortVehicles, useVehicleSort } from './sort'
 import { matches } from './format'
 import { VehicleRow } from './VehicleRow'
@@ -49,7 +50,7 @@ export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, foll
           </button>
           {vehicles.map((v) => (
             <button key={v.sysid} type="button" className={`btn-icon${v.sysid === selected ? ' sel' : ''}`} title={v.name} aria-label={v.name} onClick={() => onSelect(v.sysid)}>
-              {v.kind === 'rover' ? <IconRover size={20} /> : <IconCopter size={20} />}
+              <KindIcon kind={v.kind} size={20} />
               <span className={dotClass(v)} style={{ width: 7, height: 7 }} />
             </button>
           ))}

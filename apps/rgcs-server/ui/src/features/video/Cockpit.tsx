@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
+import { KindIcon } from '../../shared/ui/KindIcon'
 import type { CameraCommand, CameraSnapshot, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { IconCopter, IconMinimize, IconRover, IconVideoOff, IconWarn } from '../../shared/ui/icons'
+import { IconMinimize, IconVideoOff, IconWarn } from '../../shared/ui/icons'
 import { isLive, recDuration, useRecElapsed, useWhepFeed } from '../camera'
 import { altText, battText, modeLabel, speedText } from '../vehicles/format'
 import { CamBar } from './CamBar'
@@ -45,7 +46,7 @@ export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, 
         )}
         <div className="cockpit-pills">
           <div className="g-ctl row" style={{ gap: 12, padding: '8px 14px', borderRadius: 999 }}>
-            {v.kind === 'rover' ? <IconRover /> : <IconCopter />}
+            <KindIcon kind={v.kind} />
             <span style={{ fontSize: 19, fontWeight: 500 }}>{v.name}</span>
             {v.warn && <IconWarn size={20} />}
             <span className="badge" style={{ color: v.armed ? 'var(--accent)' : 'var(--text-2)' }}>

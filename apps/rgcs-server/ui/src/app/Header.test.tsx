@@ -41,8 +41,18 @@ describe('Header', () => {
     )
     expect(screen.getByTitle('Copters')).toHaveTextContent('2')
     expect(screen.getByTitle('Rovers')).toHaveTextContent('1')
+    // no planes: the design's two counts only
+    expect(screen.queryByTitle('Planes')).not.toBeInTheDocument()
     expect(screen.getByTestId('link')).toHaveAttribute('title', 'Server connected')
     expect(screen.getByText('2026/10/16 (Thu) 12:00')).toBeInTheDocument()
+  })
+
+  it('counts planes / QuadPlanes once there are any', () => {
+    render(
+      <Header vehicles={[mk(1, 'plane', 'ok'), mk(2, 'plane', 'ok'), mk(3, 'copter', 'ok')]} link="open" dict={t('en')} clock="" me={{ username: 'op', role: 'operator', dev_mode: false, hostname: 'rgcs' }} view="ops" onView={() => {}} onLogout={() => {}} />,
+    )
+    expect(screen.getByTitle('Planes')).toHaveTextContent('2')
+    expect(screen.getByTitle('Copters')).toHaveTextContent('1')
   })
 
   it('shows the disconnected state', () => {

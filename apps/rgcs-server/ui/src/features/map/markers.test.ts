@@ -29,6 +29,12 @@ describe('vehicle markers', () => {
     expect(el.title).toBe('UAV-01')
   })
 
+  it('plane_marker_uses_the_lucide_plane', () => {
+    const el = markerEl({ ...base, kind: 'plane' }, false)
+    expect([...el.querySelector('.vmk')!.classList]).toEqual(['vmk', 'plane'])
+    expect(el.querySelector('.disc path')!.getAttribute('d')).toMatch(/^M17\.8 19\.2/)
+  })
+
   it('rover_marker_uses_car_and_light_disc', () => {
     const el = markerEl({ ...base, kind: 'rover' }, false)
     expect([...el.querySelector('.vmk')!.classList]).toEqual(['vmk', 'rover'])

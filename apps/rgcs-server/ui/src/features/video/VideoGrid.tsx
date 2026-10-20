@@ -1,7 +1,8 @@
 import type { MouseEvent } from 'react'
+import { KindIcon } from '../../shared/ui/KindIcon'
 import type { RecordingState, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { IconCopter, IconMaximize, IconRover, IconVideoOff, IconWarn } from '../../shared/ui/icons'
+import { IconMaximize, IconVideoOff, IconWarn } from '../../shared/ui/icons'
 import { isLive, recDuration, useRecElapsed, useWhepFeed } from '../camera'
 import { altText, battText, modeLabel, speedText } from '../vehicles/format'
 
@@ -58,7 +59,7 @@ function VideoTile({ vehicle: v, status, recording, selected, dict, onSelect, on
       <div className="vtile-shade" />
       <div className="vtile-head">
         <div className="row" style={{ gap: 10 }}>
-          {v.kind === 'rover' ? <IconRover /> : <IconCopter />}
+          <KindIcon kind={v.kind} />
           <span style={{ fontSize: 17, fontWeight: 500 }}>{v.name}</span>
           <span className="badge" style={{ color: v.armed ? 'var(--accent)' : 'var(--text-2)' }}>
             {modeLabel(v, dict)}

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
+import { KindIcon } from '../../shared/ui/KindIcon'
 import type { Flight, LogFetchProgress, MaintenanceInput, Operator, ParamProgress, SysId, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { IconCopter, IconRover } from '../../shared/ui/icons'
 import { AppTab } from '../app-settings'
 import { DailyTab } from '../logbook/DailyTab'
 import { LogbookTab } from '../logbook/LogbookTab'
@@ -61,7 +61,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
             </option>
           ))}
         </select>
-        {vehicle && <span className="t2 maint-kind">{vehicle.kind === 'rover' ? <IconRover /> : <IconCopter />}</span>}
+        {vehicle && <span className="t2 maint-kind"><KindIcon kind={vehicle.kind} /></span>}
         {vehicle && <span className="badge t2">{vehicle.mode}</span>}
         {vehicle && <span className={`t3 num maint-arm${vehicle.armed ? ' armed' : ''}`}>{vehicle.armed ? 'ARMED' : 'DISARMED'}</span>}
       </div>
