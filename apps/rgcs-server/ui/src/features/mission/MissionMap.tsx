@@ -8,6 +8,7 @@ import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl, type ContextMe
 import { cmdKey, isTakeoff, moveItem, moveItems, setArc, shiftAlts, type Draft, type DraftItem } from './model'
 import type { Tool } from './store'
 import { useBasemapSwap } from '../map/basemaps'
+import { addPredictedLayer, setPredicted } from '../map/predictedLayer'
 import type { Basemap } from '../../shared/api/types'
 import { KEEP_ELEVATION, type MapMode } from '../map/mapMode'
 import { altChip, useMissionAir, type MissionAir3d, type Predicted } from './missionAir'
@@ -62,7 +63,6 @@ const FOCUS_ZOOM = 16
 /** The `.vmk` disc centre on the position (34 px disc at the element's left edge). */
 const VEHICLE_OFFSET = [-17, 0] as const
 const PATH = 'mission-path'
-const PREDICTED = 'mission-predicted'
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 /** `--accent` → `--alt-hi` (spec 10 §6: the path is coloured by altitude). */
 const ALT_COLOR: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'alt_t'], 0, '#9cc9ff', 1, '#d8a8ff']
@@ -73,9 +73,6 @@ interface Badge {
 }
 
 type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus'>
-
-const predictedGeoJson = (p: Predicted | null): FeatureCollection =>
-  p && p.points.length > 1 ? { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: p.points.map((q) => [q.lon, q.lat]) } }] } : EMPTY
 
 /** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
@@ -121,13 +118,11 @@ export function MissionMap(props: Props) {
       m.addLayer({ id: 'mission-path-casing', type: 'line', source: PATH, paint: { 'line-color': '#0b1b2e', 'line-width': 6, 'line-opacity': 0.6 } })
       m.addLayer({ id: 'mission-path-line', type: 'line', source: PATH, paint: { 'line-color': ALT_COLOR, 'line-width': 3 } })
       // the expected flight (loiter circles, cut corners): thin, dashed and translucent over the plan
-      m.addSource(PREDICTED, { type: 'geojson', data: EMPTY })
-      m.addLayer({ id: 'mission-predicted-line', type: 'line', source: PREDICTED, layout: { 'line-join': 'round' }, paint: { 'line-color': '#ece6ff', 'line-width': 2, 'line-opacity': 0.75, 'line-dasharray': [2, 1.5] } })
+      addPredictedLayer(m, predictedRef.current)
       loaded.current = true
       // The draft may already exist (store is global): draw it as soon as the style is ready.
       const src = m.getSource(PATH) as { setData: (d: unknown) => void } | undefined
       src?.setData(pathGeoJson(draftRef.current.items, draftRef.current.mission.home))
-      ;(m.getSource(PREDICTED) as { setData: (d: unknown) => void } | undefined)?.setData(predictedGeoJson(predictedRef.current))
     })
     m.on('click', (e) => {
       const t = tabRef.current
@@ -166,8 +161,7 @@ export function MissionMap(props: Props) {
   predictedRef.current = predicted
   useEffect(() => {
     if (!loaded.current) return
-    const src = map.current?.getSource(PREDICTED) as { setData: (d: unknown) => void } | undefined
-    src?.setData(predictedGeoJson(predicted))
+    setPredicted(map.current, predicted)
   }, [predicted])
 
   // Badges (one per positioned item), reconciled in place

@@ -4,6 +4,8 @@ import type { FeatureCollection } from 'geojson'
 import type { Basemap, CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
 import { hasPosition as itemHasPosition, pathGeoJson, placeTakeoffs, takeoffAnchor } from '../mission/geo'
 import { badgeText } from '../mission/mapEdit'
+import type { Predicted } from '../mission/missionAir'
+import { addPredictedLayer, setPredicted } from './predictedLayer'
 import { cmdKeyOf } from '../mission/cmds'
 import { follow3dCamera, followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
@@ -31,6 +33,8 @@ interface Props {
   readonly interactive?: boolean
   /** The selected vehicle's mission (route overlay) and its current item (1-based). */
   readonly mission?: Mission | null
+  /** The selected vehicle's expected flight for that mission (planes; flightpath). */
+  readonly predicted?: Predicted | null
   readonly missionCurrent?: number | null
   /** Each vehicle's home, when known (its mission's home); drawn as `.rg-home` tiles. */
   readonly homes?: ReadonlyMap<number, LatLon>
@@ -66,7 +70,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -83,6 +87,9 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     [written, aLat, aLon],
   )
   const missionRef = useRef(mission)
+  const predictedRef = useRef(predicted)
+  predictedRef.current = predicted
+  useEffect(() => setPredicted(map.current, predicted), [predicted])
   missionRef.current = mission
   const dragRef = useRef(onDragStart)
   const clickRef = useRef(onClick)
@@ -122,6 +129,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
         source: MISSION,
         paint: { 'line-color': ['interpolate', ['linear'], ['get', 'alt_t'], 0, '#9cc9ff', 1, '#d8a8ff'], 'line-width': 2.5, 'line-opacity': 0.9 },
       })
+      addPredictedLayer(m, predictedRef.current)
       m.addSource(GUIDED, { type: 'geojson', data: EMPTY })
       m.addLayer({
         id: 'guided-line',
@@ -266,7 +274,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   }, [mission, missionCurrent])
 
   // After the vehicle markers and the mission badges exist: effects run in declaration order.
-  const opsAir = useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base: ARROW_OFFSET, mission, missionBadges })
+  const opsAir = useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base: ARROW_OFFSET, mission, missionBadges, predicted })
   const [zoom, setZoom] = useState(14)
   const followed = useRef<number | null>(null)
   const lifted = useRef<number | null>(null)

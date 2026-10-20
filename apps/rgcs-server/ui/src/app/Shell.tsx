@@ -17,6 +17,7 @@ import type { CameraCommand, CameraProfile, GimbalInputProfile, Me, VehicleComma
 import { t, type Lang } from '../shared/i18n'
 import { LogDock } from './LogDock'
 import { useLogHistory } from '../features/log/useLogHistory'
+import { usePredicted } from '../features/flightpath/usePredicted'
 import { Header } from './Header'
 import { NO_MODAL, type Modal } from './modal'
 import type { View } from './view'
@@ -87,6 +88,8 @@ export function Shell({ me, lang }: Props) {
   const homes = useMemo(() => vehicleHomes(vehicles, vehicleMissions), [vehicles, vehicleMissions])
   useLogHistory(link)
   const current = selected ?? list[0]?.sysid ?? null
+  const currentMission = current === null ? null : (vehicleMissions.get(current) ?? null)
+  const predicted = usePredicted(currentMission, current === null ? null : (vehicles.get(current) ?? null))
   const currentVehicle = current === null ? undefined : vehicles.get(current)
   const detail = selected === null ? undefined : vehicles.get(selected)
   // The maintenance view takes the map's place; the right panel belongs to the operations map.
@@ -232,7 +235,8 @@ export function Shell({ me, lang }: Props) {
               terrainTiles={settings.terrain_tiles}
               target={mapUi.target}
               focus={mapUi.focus}
-              mission={current === null ? null : (vehicleMissions.get(current) ?? null)}
+              mission={currentMission}
+              predicted={predicted}
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}
               homes={homes}
               cameras={cameras}

@@ -262,9 +262,23 @@ describe('MapView', () => {
     expect(badges[0]!.lngLat).toEqual([139.372, 36.162])
   })
 
+  it('draws the predicted flight of the selected vehicle as a thin dashed line (2D)', () => {
+    const predicted = { home: { lat: 36.162, lon: 139.372 }, points: [{ lat: 36.162, lon: 139.372, alt: 0 }, { lat: 36.163, lon: 139.373, alt: 50 }] }
+    const { rerender } = render(
+      <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} predicted={predicted} />,
+    )
+    const map = created.maps[0]!
+    act(() => map.fire('load'))
+    const data = () => map.sources.get('mission-predicted')!.setData.mock.calls.at(-1)![0] as { features: { geometry: { coordinates: number[][] } }[] }
+    expect(data().features[0]!.geometry.coordinates).toEqual([[139.372, 36.162], [139.373, 36.163]])
+    expect(map.layers).toContain('mission-predicted-line')
+    rerender(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} predicted={null} />)
+    expect(data().features).toHaveLength(0)
+  })
+
   it('stacks the mission path below the tracks below the guided line once loaded', () => {
     render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
-    expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line', 'course-nav', 'course-vector-casing', 'course-vector', 'course-target', 'gimbal-footprint', 'gimbal-footprint-line'])
+    expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'mission-predicted-line', 'tracks-others', 'tracks-selected', 'guided-line', 'course-nav', 'course-vector-casing', 'course-vector', 'course-target', 'gimbal-footprint', 'gimbal-footprint-line'])
   })
 
   it('places vehicle markers like the prototype and a home tile per known home', () => {

@@ -6,7 +6,7 @@ import type { FeatureCollection, Point } from 'geojson'
 import type { Map as MlMap, Marker } from 'maplibre-gl'
 import type { Mission, VehicleState } from '../../shared/api/types'
 import { hasPosition as itemHasPosition } from '../mission/geo'
-import { missionAirData } from '../mission/missionAir'
+import { missionAirData, type Predicted } from '../mission/missionAir'
 import { fromMission } from '../mission/model'
 import { mercatorLine, vehicleAmsl, type AirVertex, type ElevAt, type Rgb } from './air'
 import { useAir3d } from './air3d'
@@ -25,7 +25,7 @@ const TRACK_PURPLE: Rgb = [0x80 / 255, 0, 0x80 / 255]
 const GROUND = 'veh-ground'
 const AIR = 'veh-air3d'
 /** Layers shown only in 3D on the operations map. */
-export const OPS_3D_LAYERS = { only3d: [GROUND], only2d: ['mission-path-line', 'tracks-others', 'tracks-selected', 'course-nav', 'course-vector-casing', 'course-vector'] }
+export const OPS_3D_LAYERS = { only3d: [GROUND], only2d: ['mission-path-line', 'mission-predicted-line', 'tracks-others', 'tracks-selected', 'course-nav', 'course-vector-casing', 'course-vector'] }
 
 export interface VehicleAir {
   /** Flight tracks and mission legs. */
@@ -78,7 +78,7 @@ function courseAir(v: VehicleState, amsl: number, ground: number, sel: boolean):
   return { lines, posts }
 }
 
-export function vehicleAirData(vehicles: ReadonlyMap<number, VehicleState>, selected: number | null, homes: ReadonlyMap<number, LatLon>, tracks: Tracks, elevAt: ElevAt, mission: Mission | null = null): VehicleAir {
+export function vehicleAirData(vehicles: ReadonlyMap<number, VehicleState>, selected: number | null, homes: ReadonlyMap<number, LatLon>, tracks: Tracks, elevAt: ElevAt, mission: Mission | null = null, predicted: Predicted | null = null): VehicleAir {
   const posts: AirVertex[][] = []
   const discs: FeatureCollection<Point, { sel: number }> = { type: 'FeatureCollection', features: [] }
   const alts = new Map<number, number | null>()
@@ -97,7 +97,7 @@ export function vehicleAirData(vehicles: ReadonlyMap<number, VehicleState>, sele
     discs.features.push({ type: 'Feature', properties: { sel: v.sysid === selected ? 1 : 0 }, geometry: { type: 'Point', coordinates: [v.lon, v.lat] } })
   })
   const plan = mission ? fromMission(mission) : null
-  const m = plan ? missionAirData(plan, new Set(), elevAt) : null
+  const m = plan ? missionAirData(plan, new Set(), elevAt, null, null, predicted) : null
   const missionAlts = plan ? plan.items.filter(itemHasPosition).map((it) => m!.alts.get(it.uid) ?? null) : []
   return {
     lines: [...trackLines(tracks, homes, elevAt), ...(m?.lines ?? []), ...course],
@@ -123,6 +123,7 @@ interface Args {
   /** The selected vehicle's mission and its badges (one per positioned item, in item order). */
   readonly mission?: Mission | null
   readonly missionBadges?: RefObject<readonly Marker[]>
+  readonly predicted?: Predicted | null
 }
 
 function setupGround(m: MlMap): void {
@@ -145,7 +146,7 @@ export interface OpsAir {
 }
 
 /** Terrain, posts and floated markers; a no-op without terrain tiles. */
-export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base, mission = null, missionBadges }: Args): OpsAir {
+export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base, mission = null, missionBadges, predicted = null }: Args): OpsAir {
   const air = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup: setupGround, modeLayers: OPS_3D_LAYERS, order: orderLayers })
   const { sampler, ready, is3d, tick, layer, floats, modeSwitchAt } = air
   const alts = useRef<ReadonlyMap<number, number | null>>(new Map())
@@ -154,7 +155,7 @@ export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selec
     const m = map.current
     // 2D needs no altitudes: no DEM downloads, no per-frame work
     if (!m || !ready || !sampler || !is3d) return
-    const d = vehicleAirData(vehicles, selected, homes, tracks, sampler.elevAt, mission)
+    const d = vehicleAirData(vehicles, selected, homes, tracks, sampler.elevAt, mission, predicted)
     alts.current = d.alts
     const vehicleFloats = [...markers.current.entries()].flatMap(([sysid, { marker }]) => {
       const v = vehicles.get(sysid)
@@ -168,6 +169,6 @@ export function useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selec
     layer.setLines(d.lines, d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, is3d, sampler, vehicles, selected, homes, tracks, markers, base, tick, layer, floats, mission, missionBadges])
+  }, [map, ready, is3d, sampler, vehicles, selected, homes, tracks, markers, base, tick, layer, floats, mission, missionBadges, predicted])
   return { modeSwitchAt, is3d, alts }
 }
