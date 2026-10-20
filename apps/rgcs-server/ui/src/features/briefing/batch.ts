@@ -76,7 +76,7 @@ const countOrNull = async (read: () => Promise<number>): Promise<number | null> 
   }
 }
 
-/** Reads the vehicles' fence / rally only where the assigned mission has none (0 = not read, not needed). */
+/** Reads the vehicles' fence / rally (vehicles in parallel, one read at a time per vehicle) only where the assigned mission has none (0 = not read, not needed). */
 export async function leftovers(
   jobs: readonly { sysid: number; mission: Mission }[],
   read: { fence: typeof readFence; rally: typeof readRally },
@@ -84,10 +84,9 @@ export async function leftovers(
   const needed = jobs.filter((j) => j.mission.fence.length === 0 || j.mission.rally.length === 0)
   const entries = await Promise.all(
     needed.map(async ({ sysid, mission }): Promise<[number, Leftover]> => {
-      const [fence, rally] = await Promise.all([
-        mission.fence.length > 0 ? 0 : countOrNull(async () => (await read.fence(sysid)).zones.length),
-        mission.rally.length > 0 ? 0 : countOrNull(async () => (await read.rally(sysid)).points.length),
-      ])
+      // one transfer per vehicle at a time (the server answers 409 mission_busy): fence, then rally
+      const fence = mission.fence.length > 0 ? 0 : await countOrNull(async () => (await read.fence(sysid)).zones.length)
+      const rally = mission.rally.length > 0 ? 0 : await countOrNull(async () => (await read.rally(sysid)).points.length)
       return [sysid, { fence, rally }]
     }),
   )

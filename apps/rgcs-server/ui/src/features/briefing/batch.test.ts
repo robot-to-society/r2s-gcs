@@ -118,4 +118,22 @@ describe('leftovers', () => {
     expect(got.get(2)).toEqual({ fence: 2, rally: 1 })
     expect(got.get(3)).toEqual({ fence: null, rally: 0 })
   })
+
+  it('leftovers_reads_one_vehicle_fence_then_rally_never_overlapping', async () => {
+    // the server allows one mission transfer per sysid: an overlapping second read is refused (409 mission_busy)
+    const active = new Set<number>()
+    const busyRead = <T>(value: T) => async (sysid: number): Promise<T> => {
+      if (active.has(sysid)) throw new Error('mission_busy')
+      active.add(sysid)
+      await new Promise((r) => setTimeout(r, 5))
+      active.delete(sysid)
+      return value
+    }
+    const got = await leftovers([{ sysid: 1, mission: mission('a') }, { sysid: 2, mission: mission('b') }], {
+      fence: busyRead({ zones: [ZONE, ZONE] }) as never,
+      rally: busyRead({ points: [RALLY] }) as never,
+    })
+    expect(got.get(1)).toEqual({ fence: 2, rally: 1 })
+    expect(got.get(2)).toEqual({ fence: 2, rally: 1 })
+  })
 })
