@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react'
 import { KindIcon } from '../../shared/ui/KindIcon'
-import type { Flight, LogFetchProgress, MaintenanceInput, Operator, ParamProgress, SysId, VehicleState } from '../../shared/api/types'
+import type { CalibStatus, Flight, LogFetchProgress, MaintenanceInput, Operator, ParamProgress, SysId, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { AppTab } from '../app-settings'
+import { CalibTab } from '../calibration'
 import { DailyTab } from '../logbook/DailyTab'
 import { LogbookTab } from '../logbook/LogbookTab'
 import { HistoryTab } from './HistoryTab'
@@ -22,10 +23,12 @@ interface Props {
   readonly onOpenPresent?: () => void
   readonly flightDrafts?: ReadonlyMap<SysId, Flight>
   readonly logFetch?: ReadonlyMap<SysId, LogFetchProgress>
+  /** Last `calibration` frame per vehicle. */
+  readonly calibration?: ReadonlyMap<SysId, CalibStatus>
 }
 
 /** メンテナンス・設定 (spec 10 §7) after the prototype's maint screen: header row, tab strip, body. */
-export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, me, onOpenPresent, flightDrafts, logFetch }: Props) {
+export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, me, onOpenPresent, flightDrafts, logFetch, calibration }: Props) {
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const [picked, setPicked] = useState<SysId | null>(null)
   const wanted = selected === undefined ? picked : selected
@@ -93,6 +96,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
         hidden={tab !== 'params'}
         onWritten={onWritten}
       />
+      {tab === 'calib' && sysid !== null && <CalibTab key={sysid} sysid={sysid} vehicle={vehicle} session={calibration?.get(sysid)} dict={dict} />}
       {tab === 'daily' && sysid !== null && <DailyTab key={sysid} sysid={sysid} vehicle={vehicle} me={me} dict={dict} onMaintenanceDraft={onMaintenanceDraft} />}
       {tab === 'logbook' && sysid !== null && (
         <LogbookTab

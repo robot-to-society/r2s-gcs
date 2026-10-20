@@ -1,4 +1,4 @@
-import type { CameraSnapshot, CommandResult, Deadman, Flight, LogFetchProgress, Mission, MissionProgress, MissionTransfer, ParamProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CalibStatus, CameraSnapshot, CommandResult, Deadman, Flight, LogFetchProgress, Mission, MissionProgress, MissionTransfer, ParamProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { applyDiff } from '../../shared/ws/apply'
 import { EMPTY_LOG, logReduce, toLogEntry, type LogState } from '../log/store'
 
@@ -23,6 +23,8 @@ export interface VehiclesState {
   readonly flightDrafts: ReadonlyMap<SysId, Flight>
   /** Last `log_fetch_progress` per vehicle. */
   readonly logFetch: ReadonlyMap<SysId, LogFetchProgress>
+  /** Last `calibration` session state per vehicle (点検・校正). */
+  readonly calibration: ReadonlyMap<SysId, CalibStatus>
   readonly deadman: Deadman
   readonly link: LinkState
   /** The message log behind the footer pill and the history sheet. */
@@ -41,6 +43,7 @@ export const initialState: VehiclesState = {
   paramProgress: new Map(),
   flightDrafts: new Map(),
   logFetch: new Map(),
+  calibration: new Map(),
   deadman: 'ok',
   link: 'connecting',
   log: EMPTY_LOG,
@@ -140,6 +143,11 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
       const logFetch = new Map(state.logFetch)
       logFetch.set(msg.sysid, p)
       return { ...state, logFetch }
+    }
+    case 'calibration': {
+      const calibration = new Map(state.calibration)
+      calibration.set(msg.sysid, msg.status)
+      return { ...state, calibration }
     }
     case 'input_state':
       return state.deadman === msg.deadman ? state : { ...state, deadman: msg.deadman }

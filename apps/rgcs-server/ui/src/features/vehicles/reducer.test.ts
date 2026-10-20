@@ -142,6 +142,13 @@ describe('camera, video source and input frames', () => {
     expect(reduce(s1, { t: 'log_fetch_progress', sysid: 1, progress: { ...p } })).toBe(s1)
   })
 
+  it('calibration_status_is_stored_per_vehicle', () => {
+    const status = { kind: 'accel' as const, phase: 'waiting' as const, position: 2, compass: [], rc: [], reboot: false, reason: null }
+    const s1 = reduce(initialState, { t: 'calibration', sysid: 3, status })
+    expect(s1.calibration.get(3)).toEqual(status)
+    expect(initialState.calibration.size).toBe(0)
+  })
+
   it('vehicle_mission_is_stored_locally', () => {
     const m = { id: 1, name: 'm', sysid: 1, default_alt: 50, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], items: [] }
     const s1 = withVehicleMission(initialState, 1, m)

@@ -47,10 +47,11 @@ function setup(opts: { progress?: typeof done; armed?: boolean } = {}) {
 describe('MaintView', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('the_daily_logbook_and_app_tabs_are_enabled', () => {
+  it('every maintenance tab is enabled, 点検・校正 opens the calibration cards', () => {
     setup()
-    for (const name of ['日常点検', '飛行日誌', 'アプリ設定']) expect(screen.getByRole('button', { name })).not.toHaveAttribute('aria-disabled')
-    expect(screen.getByRole('button', { name: '点検・校正' })).toHaveAttribute('aria-disabled', 'true')
+    for (const name of ['点検・校正', '日常点検', '飛行日誌', 'アプリ設定']) expect(screen.getByRole('button', { name })).not.toHaveAttribute('aria-disabled')
+    fireEvent.click(screen.getByRole('button', { name: '点検・校正' }))
+    expect(screen.getByTestId('calib-accel')).toBeInTheDocument()
   })
 
   it('maint_view_shows_progress_then_rows_and_writes_a_change_set', async () => {
@@ -58,7 +59,6 @@ describe('MaintView', () => {
     // header + tabs
     expect(screen.getByRole('combobox', { name: '接続機体' })).toHaveValue('1')
     expect(screen.getByRole('button', { name: 'パラメータ' }).className).toContain('on')
-    expect(screen.getByRole('button', { name: '点検・校正' })).toHaveAttribute('aria-disabled', 'true')
     // the list loads, metadata attaches
     await waitFor(() => expect(screen.getByText('Fence Maximum Altitude')).toBeInTheDocument())
     expect(screen.getByText('4 / 4')).toBeInTheDocument()

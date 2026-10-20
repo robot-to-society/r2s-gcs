@@ -46,7 +46,7 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, log, cameras, videoSources, deadman, missionProgress, missionTransfers, vehicleMissions, paramProgress, flightDrafts, logFetch } = useVehicles()
+  const { vehicles, link, log, cameras, videoSources, deadman, missionProgress, missionTransfers, vehicleMissions, paramProgress, flightDrafts, logFetch, calibration } = useVehicles()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -259,7 +259,7 @@ export function Shell({ me, lang }: Props) {
           {view === 'maint' && (
             <>
               <div className="maint-backdrop" />
-              <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} selected={current} onSelect={setSelected} me={me} flightDrafts={flightDrafts} logFetch={logFetch} onOpenPresent={() => setModal({ kind: 'present-settings' })} />
+              <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} selected={current} onSelect={setSelected} me={me} flightDrafts={flightDrafts} logFetch={logFetch} calibration={calibration} onOpenPresent={() => setModal({ kind: 'present-settings' })} />
             </>
           )}
           {view === 'video' && settings && (
