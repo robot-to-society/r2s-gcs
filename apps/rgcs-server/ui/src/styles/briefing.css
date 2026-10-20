@@ -18,3 +18,14 @@
 .brief-swatch { width: 20px; height: 20px; padding: 0; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.25); cursor: pointer; }
 .brief-swatch.on { outline: 2px solid var(--text); outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) { .brief-row, .brief-ctl { transition: none; } }
+
+/* Crossing / near-approach labels between missions on the planner map (spec 2026-10-20 §5.3):
+   a dark translucent pill, one line per mission, the dot in that mission's colour. */
+.brief-label { display: grid; gap: 1px; padding: 4px 9px; border-radius: 10px; background: var(--glass-strong); border: 1px solid var(--line-hi); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-size: 11px; line-height: 1.35; color: var(--text); white-space: nowrap; cursor: pointer; }
+.brief-label:hover { border-color: rgba(255, 255, 255, 0.3); }
+.brief-label.near { border-style: dashed; }
+.brief-label-line { display: flex; align-items: baseline; gap: 5px; }
+.brief-label-dot { font-size: 10px; }
+.brief-label-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.brief-label-alt { font-family: var(--mono); font-size: 11px; }
+.brief-label-frame { color: var(--text-3); font-size: 10px; }

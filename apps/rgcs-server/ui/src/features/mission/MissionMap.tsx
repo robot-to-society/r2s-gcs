@@ -17,6 +17,9 @@ import { useMissionFeet, type FeetCallbacks } from './missionFeet'
 import { useBoxSelect } from './boxSelect'
 import { attachArcDrag } from './arcDrag'
 import { useFenceRally, type FenceEdit, type PlanTab } from './fenceMap'
+import type { CrossLabel } from '../briefing/crossings'
+import type { OtherMission } from '../briefing/overlay'
+import { useBriefingOverlay } from '../briefing/useBriefingOverlay'
 
 interface Props {
   readonly draft: Draft
@@ -58,6 +61,14 @@ interface Props {
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
   readonly onBackgroundClick: () => void
   readonly onContext: (menu: ContextMenu | null) => void
+  /** The briefing's other open missions: drawn dimmed in their colours, not interactive. */
+  readonly others?: readonly OtherMission[]
+  /** Crossings / near approaches between the briefing's missions. */
+  readonly labels?: readonly CrossLabel[]
+  /** Mission name and colour per row key (for the labels). */
+  readonly names?: ReadonlyMap<string, string>
+  readonly colors?: ReadonlyMap<string, string>
+  readonly onLabel?: (l: CrossLabel) => void
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -68,6 +79,9 @@ const FIT_PADDING = { top: 100, bottom: 110, left: 380, right: 400 }
 const VEHICLE_OFFSET = [-17, 0] as const
 const PATH = 'mission-path'
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
+const NO_OTHERS: readonly OtherMission[] = []
+const NO_LABELS: readonly CrossLabel[] = []
+const NO_KEYS: ReadonlyMap<string, string> = new Map()
 /** `--accent` → `--alt-hi` (spec 10 §6: the path is coloured by altitude). */
 const ALT_COLOR: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'alt_t'], 0, '#9cc9ff', 1, '#d8a8ff']
 
@@ -76,7 +90,7 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus' | 'fitTo'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus' | 'fitTo' | 'others' | 'labels' | 'names' | 'colors'>
 
 /** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
@@ -239,6 +253,7 @@ export function MissionMap(props: Props) {
   const boxActive = useRef(tab === 'mission')
   boxActive.current = tab === 'mission'
   useBoxSelect(container, badges, onBox, boxActive)
+  useBriefingOverlay({ map, loaded, others: props.others ?? NO_OTHERS, labels: props.labels ?? NO_LABELS, names: props.names ?? NO_KEYS, colors: props.colors ?? NO_KEYS, onLabel: (l) => cb.current.onLabel?.(l) })
 
   // The selected vehicle, for context
   useEffect(() => {

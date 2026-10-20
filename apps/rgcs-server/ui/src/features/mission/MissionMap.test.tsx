@@ -74,9 +74,11 @@ class FakeMap {
   terrain: unknown = 'unset'
   visibility = new Map<string, string>()
   layerObjs = new Map<string, unknown>()
-  addLayer(l: { id: string }) {
+  before = new Map<string, string | undefined>()
+  addLayer(l: { id: string }, before?: string) {
     this.layers.push(l.id)
     this.layerObjs.set(l.id, l)
+    this.before.set(l.id, before)
   }
   once(ev: string, cb: Handler) {
     this.on(ev, cb)
@@ -659,6 +661,40 @@ describe('MissionMap', () => {
       expect(props.onRallyMove).toHaveBeenCalledWith(0, 36.16, 139.16)
       act(() => created.maps[0]!.fire('click', { lngLat: { lat: 36.3, lng: 139.3 }, originalEvent: {} }))
       expect(props.onPlanClick).toHaveBeenCalledWith('rally', 36.3, 139.3)
+    })
+  })
+
+  describe('briefing overlay', () => {
+    const brLayers = ['briefing-fence', 'briefing-fence-line', 'briefing-paths', 'briefing-predicted', 'briefing-rally']
+    const other = { key: 'r2', color: '#5fd39b', draft: draft3(), predicted: null }
+    const label = { lat: 36.15, lon: 139.15, kind: 'cross' as const, a: { key: 'r1', alt: 50, frame: 'rel' as const }, b: { key: 'r2', alt: 80, frame: 'abs' as const } }
+    const labels = () => created.markers.filter((m) => m.el.classList.contains('brief-label') && !m.removed)
+
+    it('a_single_mission_adds_no_briefing_layers_or_labels', () => {
+      renderMap()
+      expect(created.maps[0]!.layers.filter((id) => id.startsWith('briefing'))).toEqual([])
+      expect(labels()).toHaveLength(0)
+    })
+
+    it('other_missions_are_drawn_below_the_active_mission_without_click_handlers', () => {
+      renderMap({ others: [other] })
+      const map = created.maps[0]!
+      expect(map.layers.filter((id) => id.startsWith('briefing'))).toEqual(brLayers)
+      for (const id of brLayers) expect(['plan-fence-fill', 'mission-path-casing']).toContain(map.before.get(id))
+      expect(map.sources.get('briefing-paths')!.setData).toHaveBeenLastCalledWith(expect.objectContaining({ features: expect.arrayContaining([expect.objectContaining({ properties: expect.objectContaining({ color: '#5fd39b' }) })]) }))
+      expect(map.handlers.get('click')).toHaveLength(1)
+    })
+
+    it('labels_show_both_missions_and_a_click_reports_the_label', () => {
+      const onLabel = vi.fn()
+      const { rerender, props } = renderMap({ others: [other], labels: [label], names: new Map([['r1', 'A'], ['r2', 'B']]), colors: new Map([['r1', '#9cc9ff'], ['r2', '#5fd39b']]), onLabel })
+      expect(labels()).toHaveLength(1)
+      expect(labels()[0]!.lngLat).toEqual([139.15, 36.15])
+      expect(labels()[0]!.el.textContent).toBe('●A50 mRel●B80 mAbs')
+      act(() => labels()[0]!.el.click())
+      expect(onLabel).toHaveBeenCalledWith(label)
+      rerender(<MissionMap {...props} labels={[]} />)
+      expect(labels()).toHaveLength(0)
     })
   })
 })

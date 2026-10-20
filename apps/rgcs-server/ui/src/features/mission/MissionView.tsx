@@ -7,6 +7,7 @@ import { vehicleStore } from '../vehicles/store'
 import { BriefingList } from '../briefing/BriefingList'
 import { briefingStore, type BriefingStore } from '../briefing/store'
 import { useBriefing } from '../briefing/useBriefing'
+import { useBriefingMap } from '../briefing/useBriefingMap'
 import { pathModel, pathParamNames, predictFor } from '../flightpath/predict'
 import { usePathParams } from '../flightpath/usePathParams'
 import { CommandPalette } from './CommandPalette'
@@ -66,6 +67,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const [help, setHelp] = useState(false)
   const [targets, setTargets] = useState(false)
   const [focus, setFocus] = useState<{ lat: number; lon: number; seq: number } | null>(null)
+  const briefMap = useBriefingMap(brief.list.workspace, (lat, lon) => setFocus((f) => ({ lat, lon, seq: (f?.seq ?? 0) + 1 })))
   const [bulk, setBulk] = useState<{ alt: string; frame: MissionFrame }>({ alt: String(draft.mission.default_alt), frame: draft.mission.default_frame })
   const file = useRef<HTMLInputElement>(null)
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
@@ -162,6 +164,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))}
         onBackgroundClick={() => store.update(clearSelection)}
         onContext={setMenu}
+        {...briefMap}
       />
       <div className="g-ctl float map-l top1 compass" aria-hidden="true" style={{ transform: is3d ? 'rotate(25deg)' : undefined }}>
         <span>N</span>

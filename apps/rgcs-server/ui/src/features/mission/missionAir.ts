@@ -17,7 +17,7 @@ import type { PathPoint } from '../flightpath/planePath'
 
 const POST: Rgb = [0xbf / 255, 0xe0 / 255, 1]
 const AMBER: Rgb = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
-const FRAME_LABEL = { rel: 'Rel', abs: 'Abs', ter: 'Ter' } as const
+export const FRAME_LABEL = { rel: 'Rel', abs: 'Abs', ter: 'Ter' } as const
 
 export const AIR = 'mission-air3d'
 export const FOOT = 'mission-foot'
