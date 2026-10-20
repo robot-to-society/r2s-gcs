@@ -57,12 +57,12 @@ describe('MissionView', () => {
     expect(panel.textContent).toContain('急上昇ほど赤')
   })
 
-  it('the_first_click_puts_the_takeoff_at_the_target_vehicle_and_a_waypoint_at_the_click', () => {
+  it('the_first_click_adds_a_takeoff_without_coordinates_and_a_waypoint_at_the_click', () => {
     const { store } = setup()
     addPoints(1)
     expect(rows()).toEqual(['離陸', 'ウェイポイント'])
     const [t0, w] = store.getState().history.present.items
-    expect([t0!.lat, t0!.lon]).toEqual([36.16, 139.37])
+    expect([t0!.lat, t0!.lon]).toEqual([0, 0])
     expect([w!.lat, w!.lon]).toEqual([36.1, 139.1])
   })
 

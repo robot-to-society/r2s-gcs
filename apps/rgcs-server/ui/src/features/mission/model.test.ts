@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendWaypoint, emptyDraft, isTakeoff, moveItemsTo, takeoffFor, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, setArc, shiftAlts, setCommand, toMission, updateItem } from './model'
+import { appendWaypoint, emptyDraft, isTakeoff, moveItems, moveItemsTo, takeoffFor, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, setArc, shiftAlts, setCommand, toMission, updateItem } from './model'
 
 describe('mission draft model', () => {
   it('first_point_is_takeoff_then_waypoints', () => {
@@ -21,13 +21,18 @@ describe('mission draft model', () => {
     expect(takeoffFor('plane', true)).toBe('VTOL_TAKEOFF')
     expect(takeoffFor('rover', false)).toBeNull()
     expect(takeoffFor(null, false)).toBe('TAKEOFF')
-    const at = { lat: 36.25, lon: 137.63 }
-    const qp = appendWaypoint(emptyDraft(), 36.26, 137.64, at, 'VTOL_TAKEOFF')
+    const qp = appendWaypoint(emptyDraft(), 36.26, 137.64, { takeoff: 'VTOL_TAKEOFF' })
     expect(qp.items.map((i) => i.command)).toEqual([84, 16])
-    expect(qp.items[0]).toMatchObject({ lat: 36.25, lon: 137.63, alt: 50 })
+    expect(qp.items[0]).toMatchObject({ lat: 0, lon: 0, alt: 50 })
     expect(isTakeoff(qp.items[0]!)).toBe(true)
-    const rover = appendWaypoint(emptyDraft(), 36.26, 137.64, at, null)
+    const rover = appendWaypoint(emptyDraft(), 36.26, 137.64, { takeoff: null })
     expect(rover.items.map((i) => i.command)).toEqual([16])
+  })
+
+  it('moving a selection leaves the takeoff where it is (it has no coordinates)', () => {
+    const d = appendWaypoint(appendWaypoint(emptyDraft(), 36.26, 137.64, { takeoff: 'TAKEOFF' }), 36.27, 137.65)
+    const moved = moveItems(d, new Set([1, 2, 3]), 0.01, 0.01)
+    expect(moved.items.map((i) => [i.lat, i.lon].map((x) => Math.round(x * 100) / 100))).toEqual([[0, 0], [36.27, 137.65], [36.28, 137.66]])
   })
 
   it('dragging moves items before the drop slot, a selected block together and in order', () => {
@@ -111,15 +116,15 @@ describe('shiftAlts floor', () => {
 
 describe('takeoff at the vehicle', () => {
   // ArduCopter climbs straight up where it stands: NAV_TAKEOFF's lat / lon are ignored
-  it('the first click of an empty mission adds TAKEOFF at the take-off point and a WAYPOINT at the click', () => {
-    const d = appendWaypoint(emptyDraft(), 36.26, 137.64, { lat: 36.2509, lon: 137.6385 })
+  it('the first click of an empty mission adds a TAKEOFF without coordinates (flown where the vehicle stands) and a WAYPOINT at the click', () => {
+    const d = appendWaypoint(emptyDraft(), 36.26, 137.64, { takeoff: 'TAKEOFF' })
     expect(d.items.map((i) => [i.command, i.lat, i.lon])).toEqual([
-      [22, 36.2509, 137.6385],
+      [22, 0, 0],
       [16, 36.26, 137.64],
     ])
     expect(d.items.map((i) => i.uid)).toEqual([1, 2])
     expect(d.nextUid).toBe(3)
-    const d2 = appendWaypoint(d, 36.27, 137.65, { lat: 36.2509, lon: 137.6385 })
+    const d2 = appendWaypoint(d, 36.27, 137.65, { takeoff: 'TAKEOFF' })
     expect(d2.items.map((i) => i.command)).toEqual([22, 16, 16])
   })
 })

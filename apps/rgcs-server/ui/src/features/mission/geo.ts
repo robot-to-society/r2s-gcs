@@ -1,6 +1,6 @@
 // Geometry helpers shared by the editor map, the summary and the ops progress row.
 import type { Feature, FeatureCollection, LineString } from 'geojson'
-import type { Home, MissionItem } from '../../shared/api/types'
+import type { Home, MissionItem, VehicleState } from '../../shared/api/types'
 import { arcLengthM, isArc, legPath, MAV_CMD_NAV_ARC_WAYPOINT } from './arc'
 
 export interface LatLon {
@@ -79,4 +79,21 @@ export function remainingDistanceM(items: readonly MissionItem[], seq: number, v
     prev = { lat: item.lat, lon: item.lon }
   }
   return total
+}
+
+/**
+ * NAV_TAKEOFF / NAV_VTOL_TAKEOFF are flown where the vehicle stands and are written without
+ * coordinates: for drawing, they sit above `home` (the same item objects otherwise).
+ */
+export function placeTakeoffs<T extends MissionItem>(items: readonly T[], home: LatLon | null): readonly T[] {
+  if (!home) return items
+  return items.map((it) => (it.command === 22 || it.command === 84 ? { ...it, lat: home.lat, lon: home.lon } : it))
+}
+
+/** Where the takeoff is drawn: the plan's home, else the vehicle's home, else the vehicle. */
+export function takeoffAnchor(home: LatLon | null, v: VehicleState | null): LatLon | null {
+  if (home) return { lat: home.lat, lon: home.lon }
+  if (!v) return null
+  if (v.home && !(v.home.lat === 0 && v.home.lon === 0)) return { lat: v.home.lat, lon: v.home.lon }
+  return v.lat === 0 && v.lon === 0 ? null : { lat: v.lat, lon: v.lon }
 }

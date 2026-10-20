@@ -3,7 +3,7 @@ import type { FeatureCollection } from 'geojson'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { VehicleState } from '../../shared/api/types'
 import { hasPosition as vehicleHasPosition, markerEl, updateMarkerEl } from '../map/markers'
-import { hasPosition, pathGeoJson } from './geo'
+import { hasPosition, pathGeoJson, placeTakeoffs, takeoffAnchor } from './geo'
 import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl, type ContextMenu } from './mapEdit'
 import { cmdKey, isTakeoff, moveItem, moveItems, setArc, shiftAlts, type Draft, type DraftItem } from './model'
 import type { Tool } from './store'
@@ -102,7 +102,13 @@ export function MissionMap(props: Props) {
   draftRef.current = draft
   // A drag in progress shows its result before it is committed to the draft (and the undo history).
   const [preview, setPreview] = useState<((d: Draft) => Draft) | null>(null)
-  const shown = useMemo(() => (preview ? preview(draft) : draft), [draft, preview])
+  // the takeoff has no coordinates: it is drawn above the home (the plan's, else the vehicle's)
+  const anchor = takeoffAnchor(draft.mission.home, vehicle)
+  const [aLat, aLon] = [anchor?.lat, anchor?.lon]
+  const shown = useMemo(() => {
+    const d = preview ? preview(draft) : draft
+    return aLat === undefined || aLon === undefined ? d : { ...d, items: placeTakeoffs(d.items, { lat: aLat, lon: aLon }) }
+  }, [draft, preview, aLat, aLon])
   const air = useRef<MissionAir3d>({ is3d: false, pxPerMetre: () => null, floatVehicle: () => {} })
 
   useEffect(() => {

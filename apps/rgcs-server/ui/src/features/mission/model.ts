@@ -74,14 +74,14 @@ export function takeoffFor(kind: VehicleKind | null, quadplane: boolean): Takeof
 }
 
 /**
- * Every click adds a WAYPOINT. On an empty mission the takeoff comes first, at `takeoffAt` (the
- * vehicle or the home) when known: ArduCopter and a QuadPlane ignore its lat / lon and climb where
- * they stand, so a takeoff drawn at the click would show a leg that is never flown.
+ * Every click adds a WAYPOINT. With the airframe's `first.takeoff`, an empty mission starts with
+ * that takeoff, written without coordinates: ArduCopter and a QuadPlane climb where they stand
+ * (the maps draw it above home). Without `first` (imports, tests) the first click is a takeoff there.
  */
-export function appendWaypoint(d: Draft, lat: number, lon: number, takeoffAt: { lat: number; lon: number } | null = null, takeoff: TakeoffKey | null = 'TAKEOFF'): Draft {
-  if (d.items.length > 0 || !takeoff) return { ...d, items: [...d.items, newItem(d, 'WAYPOINT', lat, lon)], nextUid: d.nextUid + 1 }
-  if (!takeoffAt) return { ...d, items: [newItem(d, takeoff, lat, lon)], nextUid: d.nextUid + 1 }
-  const t = newItem(d, takeoff, takeoffAt.lat, takeoffAt.lon)
+export function appendWaypoint(d: Draft, lat: number, lon: number, first?: { readonly takeoff: TakeoffKey | null }): Draft {
+  if (d.items.length > 0 || (first && !first.takeoff)) return { ...d, items: [...d.items, newItem(d, 'WAYPOINT', lat, lon)], nextUid: d.nextUid + 1 }
+  if (!first?.takeoff) return { ...d, items: [newItem(d, 'TAKEOFF', lat, lon)], nextUid: d.nextUid + 1 }
+  const t = newItem(d, first.takeoff, 0, 0)
   const w = newItem({ ...d, nextUid: d.nextUid + 1 }, 'WAYPOINT', lat, lon)
   return { ...d, items: [t, w], nextUid: d.nextUid + 2 }
 }
@@ -107,7 +107,7 @@ export function moveItem(d: Draft, uid: number, lat: number, lon: number): Draft
 }
 
 export function moveItems(d: Draft, uids: ReadonlySet<number>, dLat: number, dLon: number): Draft {
-  return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, lat: it.lat + dLat, lon: it.lon + dLon } : it)) }
+  return { ...d, items: d.items.map((it) => (uids.has(it.uid) && !isTakeoff(it) ? { ...it, lat: it.lat + dLat, lon: it.lon + dLon } : it)) }
 }
 
 /** Inserts copies of `items` (new uids) after `afterUid`, or at the end when it is null / gone. */

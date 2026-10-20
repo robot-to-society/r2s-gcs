@@ -248,6 +248,20 @@ describe('MapView', () => {
     expect(badges.map((b) => b.el.className)).toEqual(['wp-mk small', 'wp-mk small current', 'wp-mk small'])
     expect(badges[1]!.el.textContent).toBe('2')
   })
+  it('the takeoff is a T badge above the home, written without coordinates', () => {
+    const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
+    const mission = {
+      id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [],
+      items: [item(84, 0, 0, 30), item(16, 36.163, 139.373, 60)],
+    }
+    render(
+      <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={mission} missionCurrent={null} homes={new Map([[1, { lat: 36.162, lon: 139.372 }]])} />,
+    )
+    const badges = created.markers.filter((m) => m.el.classList.contains('wp-mk'))
+    expect(badges.map((b) => b.el.textContent)).toEqual(['T', '2'])
+    expect(badges[0]!.lngLat).toEqual([139.372, 36.162])
+  })
+
   it('stacks the mission path below the tracks below the guided line once loaded', () => {
     render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
     expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'tracks-others', 'tracks-selected', 'guided-line', 'course-nav', 'course-vector-casing', 'course-vector', 'course-target', 'gimbal-footprint', 'gimbal-footprint-line'])

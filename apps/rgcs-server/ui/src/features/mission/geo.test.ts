@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MissionItem } from '../../shared/api/types'
-import { haversineM, midpoint, pathGeoJson, remainingDistanceM } from './geo'
+import { haversineM, midpoint, pathGeoJson, remainingDistanceM, placeTakeoffs } from './geo'
 
 const item = (command: number, lat: number, lon: number, alt: number): MissionItem => ({ command, frame: 'rel', params: [0, 0, 0, 0], lat, lon, alt, autocontinue: true })
 
@@ -31,5 +31,19 @@ describe('geo', () => {
     expect(remainingDistanceM(items, 0, vehicle)).toBeNull()
     expect(remainingDistanceM(items, 9, vehicle)).toBeNull()
     expect(remainingDistanceM(items, 4, vehicle)).toBe(0)
+  })
+})
+
+describe('takeoff shown above home', () => {
+  it('places takeoff items (with or without coordinates) at the home for drawing; others untouched', () => {
+    const it0 = { command: 22, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat: 0, lon: 0, alt: 50, autocontinue: true }
+    const vt = { ...it0, command: 84, lat: 36.3, lon: 137.7 }
+    const wp = { ...it0, command: 16, lat: 36.26, lon: 137.64 }
+    const home = { lat: 36.2509, lon: 137.6385 }
+    const out = placeTakeoffs([it0, vt, wp], home)
+    expect(out.map((i) => [i.lat, i.lon])).toEqual([[36.2509, 137.6385], [36.2509, 137.6385], [36.26, 137.64]])
+    expect(out[2]).toBe(wp)
+    const none = [it0, wp]
+    expect(placeTakeoffs(none, null)).toBe(none)
   })
 })

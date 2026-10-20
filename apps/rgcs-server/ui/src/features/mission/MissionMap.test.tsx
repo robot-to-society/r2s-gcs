@@ -420,7 +420,9 @@ describe('MissionMap', () => {
       f.setLngLat([139.25, 36.25])
       f.fire('drag')
     })
-    expect(badges()[0]!.lngLat[0]).toBeCloseTo(139.15, 9)
+    // the takeoff (item 1) stays put: only item 2 moves with its foot
+    expect(badges()[0]!.lngLat[0]).toBeCloseTo(139.1, 9)
+    expect(badges()[1]!.lngLat[0]).toBeCloseTo(139.25, 9)
     rerender(<MissionMap {...props} terrainTiles={DEM} mode="3d" selected={new Set([1])} draft={removeItems(props.draft, new Set([2]))} />)
     expect(badges()[0]!.lngLat).toEqual([139.1, 36.1])
     const g = feet()[0]!

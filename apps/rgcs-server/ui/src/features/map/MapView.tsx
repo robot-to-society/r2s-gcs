@@ -1,8 +1,10 @@
 import maplibregl, { type ExpressionSpecification, type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FeatureCollection } from 'geojson'
 import type { Basemap, CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
-import { hasPosition as itemHasPosition, pathGeoJson } from '../mission/geo'
+import { hasPosition as itemHasPosition, pathGeoJson, placeTakeoffs, takeoffAnchor } from '../mission/geo'
+import { badgeText } from '../mission/mapEdit'
+import { cmdKeyOf } from '../mission/cmds'
 import { follow3dCamera, followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
 import { KEEP_ELEVATION, type MapMode } from './mapMode'
@@ -64,7 +66,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -72,6 +74,14 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   const targetMarker = useRef<Marker | null>(null)
   const missionBadges = useRef<Marker[]>([])
   const homeMarkers = useRef(new Map<number, Marker>())
+  // the takeoff has no coordinates (flown where the vehicle stands): drawn above the home like the planner
+  const owner = written?.sysid ?? selected
+  const anchor = written ? takeoffAnchor(written.home ?? (owner === null ? null : (homes.get(owner) ?? null)), owner === null ? null : (vehicles.get(owner) ?? null)) : null
+  const [aLat, aLon] = [anchor?.lat, anchor?.lon]
+  const mission = useMemo(
+    () => (written && aLat !== undefined && aLon !== undefined ? { ...written, items: [...placeTakeoffs(written.items, { lat: aLat, lon: aLon })] } : written),
+    [written, aLat, aLon],
+  )
   const missionRef = useRef(mission)
   missionRef.current = mission
   const dragRef = useRef(onDragStart)
@@ -250,7 +260,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       if (!itemHasPosition(it)) return
       const el = document.createElement('div')
       el.className = `wp-mk small${i + 1 === missionCurrent ? ' current' : ''}`
-      el.textContent = String(i + 1)
+      el.textContent = badgeText(i + 1, cmdKeyOf(it.command) ?? '')
       missionBadges.current.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m))
     })
   }, [mission, missionCurrent])

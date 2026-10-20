@@ -12,6 +12,7 @@ import { ContextMenu } from './ContextMenu'
 import { MissionList } from './MissionList'
 import { UploadTargets } from './UploadTargets'
 import { MapFinder } from './MapFinder'
+import { placeTakeoffs, takeoffAnchor } from './geo'
 import { MissionMap } from './MissionMap'
 import { ElevationSheet } from './ElevationSheet'
 import { usePlanEditor } from './planEditor'
@@ -67,6 +68,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const online = list.filter((v) => v.link !== 'lost')
   const located = list.filter((v) => v.gps.fix >= 2 && !(v.lat === 0 && v.lon === 0))
   const vehicle = sysid === null ? null : (vehicles.get(sysid) ?? null)
+  // the takeoff has no coordinates: drawn above the home
+  const placed = useMemo(() => ({ ...draft, items: placeTakeoffs(draft.items, takeoffAnchor(draft.mission.home, vehicle)) }), [draft, vehicle])
   // A plane / QuadPlane gets its expected flight drawn over the plan from its own parameters (2026-10-20).
   const isPlane = vehicle?.kind === 'plane'
   const pathValues = usePathParams(sysid, isPlane)
@@ -78,7 +81,6 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
     const params = planeParams(pathValues).params
     return (d: Draft) => predictFor(d, params, vHome)
   }, [isPlane, pathValues, hLat, hLon, hAlt])
-  const takeoffAt = vehicle && vehicle.gps.fix >= 2 && !(vehicle.lat === 0 && vehicle.lon === 0) ? { lat: vehicle.lat, lon: vehicle.lon } : (draft.mission.home ?? null)
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
   const io = useMissionIo(store, sysid, dict, vehicleStore)
   const plan = usePlanEditor({ draft, sysid, dict, change })
@@ -135,7 +137,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         predict={predict}
         fitRequest={io.fitRequest}
         focus={focus}
-        onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, takeoffAt, takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1)))}
+        onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, { takeoff: takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1) }))}
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}
         onMove={(uid, lat, lon) => change((d) => moveItem(d, uid, lat, lon))}
         onMoveSelected={(dLat, dLon) => change((d) => moveItems(d, ui.selected, dLat, dLon))}
@@ -161,7 +163,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       {basemap && onPickBasemap && basemaps.length > 1 && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" />}
       <MapModeToggle mode={mapMode} available={terrainTiles !== null} dict={dict} onChange={saveMapMode} />
       <PlanTabs tab={plan.tab} dict={dict} onChange={plan.setTab} />
-      <ElevationSheet draft={draft} selected={ui.selected} terrainTiles={terrainTiles} ceiling={plan.fenceParams?.alt_max ?? null} dict={dict} onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))} />
+      <ElevationSheet draft={placed} selected={ui.selected} terrainTiles={terrainTiles} ceiling={plan.fenceParams?.alt_max ?? null} dict={dict} onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))} />
       <button type="button" className={`g-ctl ctl float map-r2 top1 help-btn${help ? ' on' : ''}`} title={dict.mHelpTitle} aria-label={dict.mHelpTitle} onClick={() => setHelp((h) => !h)}>
         ?
       </button>
