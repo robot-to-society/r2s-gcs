@@ -25,8 +25,15 @@ describe('logbook schemas', () => {
 
   it('maintenance_registry_and_template_limits', () => {
     expect(maintenanceSchema.safeParse({ performed_on: '2026-12-10', detail: '', reason: '', place: '', engineer: '', notes: '', supersedes: null }).success).toBe(false)
-    expect(registrySchema.safeParse({ name: 'UAV-01', registration: '', uas_type: '', model: '', type_cert_no: '', airworthiness_class: '', airworthiness_no: '', manufacturer: '', serial_no: '', initial_flight_minutes: -1, inspection_template_id: null }).success).toBe(false)
+    expect(registrySchema.safeParse({ name: 'UAV-01', registration: '', uas_type: '', model: '', type_cert_no: '', airworthiness_class: '', airworthiness_no: '', manufacturer: '', serial_no: '', initial_flight_minutes: -1, inspection_template_id: null, endurance_minutes: null }).success).toBe(false)
     expect(templateSchema.safeParse({ name: 'x', items: [] }).success).toBe(false)
     expect(templateSchema.safeParse({ name: 'x', items: [{ label: 'a', detail: '' }] }).success).toBe(true)
+  })
+
+  it('registry_endurance_is_null_or_a_non_negative_integer', () => {
+    const base = { name: 'UAV-01', registration: '', uas_type: '', model: '', type_cert_no: '', airworthiness_class: '', airworthiness_no: '', manufacturer: '', serial_no: '', initial_flight_minutes: 0, inspection_template_id: null }
+    expect(registrySchema.safeParse({ ...base, endurance_minutes: null }).success).toBe(true)
+    expect(registrySchema.safeParse({ ...base, endurance_minutes: 25 }).success).toBe(true)
+    expect(registrySchema.safeParse({ ...base, endurance_minutes: -1 }).success).toBe(false)
   })
 })

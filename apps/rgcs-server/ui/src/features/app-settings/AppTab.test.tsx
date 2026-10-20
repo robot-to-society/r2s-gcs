@@ -10,7 +10,7 @@ const copter: VehicleState = {
 }
 const registry: VehicleRegistry = {
   sysid: 1, name: 'UAV-01', registration: '', uas_type: '', model: '', type_cert_no: '', airworthiness_class: '', airworthiness_no: '', manufacturer: '', serial_no: '',
-  initial_flight_minutes: 0, inspection_template_id: null, total_flight_minutes: 0,
+  initial_flight_minutes: 0, inspection_template_id: null, endurance_minutes: null, total_flight_minutes: 0,
 }
 const template: InspectionTemplate = { id: 1, name: '様式2 標準', version: 1, items: [{ label: '機体全般', detail: 'x' }], updated_at: 0 }
 const settings = { lang: 'ja', map_tile_url: 'x', map_attribution: 'y', map: { gimbal_ground_projection: false, track_minutes: 10 }, basemaps: [], mavlink: { gcs_sysid: 255 } }
@@ -58,6 +58,17 @@ describe('AppTab', () => {
     expect(body).toMatchObject({ registration: 'JU1234567890', initial_flight_minutes: 125, name: 'UAV-01' })
     await waitFor(() => expect(within(card).getByText('保存しました')).toBeInTheDocument())
     expect(within(card).getByText(/125 分/)).toBeInTheDocument()
+  })
+
+  it('registry_form_saves_endurance_minutes', async () => {
+    const { calls } = setup()
+    await waitFor(() => expect(screen.getByLabelText('飛行可能時間 (分)')).toBeInTheDocument())
+    expect(screen.getByText('ブリーフィングのバッテリー目安に使います')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('飛行可能時間 (分)'), { target: { value: '25' } })
+    fireEvent.click(within(screen.getByTestId('registry-card')).getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.some((c) => c.init?.method === 'PUT' && c.url.endsWith('/registry'))).toBe(true))
+    const body = JSON.parse(String(calls.find((c) => c.init?.method === 'PUT')?.init?.body)) as Record<string, unknown>
+    expect(body).toMatchObject({ endurance_minutes: 25 })
   })
 
   it('operator_sees_registry_read_only', async () => {

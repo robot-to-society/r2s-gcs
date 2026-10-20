@@ -127,6 +127,9 @@ async fn validate_registry(app: &AppState, input: &VehicleRegistryInput) -> Resu
     if input.initial_flight_minutes > MAX_MINUTES {
         return Err(invalid("initial_flight_minutes is out of range"));
     }
+    if input.endurance_minutes.is_some_and(|m| m > MAX_MINUTES) {
+        return Err(invalid("endurance_minutes is out of range"));
+    }
     if let Some(id) = input.inspection_template_id {
         match app.store.template(id).await {
             Ok(Some(_)) => {}

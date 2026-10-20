@@ -14,7 +14,7 @@ interface Props {
   readonly dict: Dict
 }
 
-type Field = Exclude<keyof VehicleRegistryInput, 'initial_flight_minutes' | 'inspection_template_id'>
+type Field = Exclude<keyof VehicleRegistryInput, 'initial_flight_minutes' | 'inspection_template_id' | 'endurance_minutes'>
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -93,6 +93,10 @@ export function RegistryForm({ sysid, vehicle, isAdmin, dict }: Props) {
           ))}
           <label htmlFor="reg-initial">{dict.lbInitialMinutes}</label>
           <input id="reg-initial" className="in" type="number" min={0} value={draft.initial_flight_minutes} disabled={!isAdmin} onChange={(e) => set({ initial_flight_minutes: Number(e.target.value) })} />
+          <label htmlFor="reg-endurance">{dict.regEndurance}</label>
+          <input id="reg-endurance" className="in" type="number" min={0} value={draft.endurance_minutes ?? ''} disabled={!isAdmin} onChange={(e) => set({ endurance_minutes: e.target.value === '' ? null : Number(e.target.value) })} />
+          <span />
+          <span className="t3">{dict.regEnduranceNote}</span>
           <label htmlFor="reg-template">{dict.lbTemplateForVehicle}</label>
           <select id="reg-template" className="in" value={draft.inspection_template_id ?? ''} disabled={!isAdmin} onChange={(e) => set({ inspection_template_id: e.target.value === '' ? null : Number(e.target.value) })}>
             <option value="">{dict.lbNoFlight}</option>

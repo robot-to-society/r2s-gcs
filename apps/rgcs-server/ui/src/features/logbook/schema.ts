@@ -74,6 +74,7 @@ export const registrySchema = z.object({
   serial_no: short,
   initial_flight_minutes: z.number().int().min(0).max(10_000_000),
   inspection_template_id: z.number().int().nullable(),
+  endurance_minutes: z.number().int().min(0).max(10_000_000).nullable(),
 })
 
 export const pilotSchema = z.object({ full_name: short, license_no: short })

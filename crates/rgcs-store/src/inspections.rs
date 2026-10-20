@@ -397,6 +397,7 @@ mod tests {
             serial_no: "".into(),
             initial_flight_minutes: 0,
             inspection_template_id: template,
+            endurance_minutes: None,
         }
     }
 

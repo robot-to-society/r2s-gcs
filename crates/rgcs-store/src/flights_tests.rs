@@ -21,6 +21,7 @@ fn registry(initial: u32) -> VehicleRegistryInput {
         serial_no: "".into(),
         initial_flight_minutes: initial,
         inspection_template_id: None,
+        endurance_minutes: None,
     }
 }
 

@@ -30,6 +30,7 @@ fn registry() -> VehicleRegistry {
         serial_no: "SN-0001".into(),
         initial_flight_minutes: 100,
         inspection_template_id: Some(1),
+        endurance_minutes: None,
         total_flight_minutes: 103,
     }
 }

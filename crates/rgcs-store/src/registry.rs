@@ -20,6 +20,9 @@ fn row_to_registry(sysid: SysId, r: &sqlx::sqlite::SqliteRow, total: u32) -> Veh
         serial_no: r.get("serial_no"),
         initial_flight_minutes: r.get::<i64, _>("initial_flight_minutes").max(0) as u32,
         inspection_template_id: r.get("inspection_template_id"),
+        endurance_minutes: r
+            .get::<Option<i64>, _>("endurance_minutes")
+            .map(|m| m.max(0) as u32),
         total_flight_minutes: total,
     }
 }
@@ -38,6 +41,7 @@ fn defaults(sysid: SysId, live_name: &str) -> VehicleRegistry {
         serial_no: String::new(),
         initial_flight_minutes: 0,
         inspection_template_id: None,
+        endurance_minutes: None,
         total_flight_minutes: 0,
     }
 }
@@ -47,7 +51,7 @@ impl Store {
     pub async fn registry(&self, sysid: SysId, live_name: &str) -> Result<VehicleRegistry> {
         let row = sqlx::query(
             "SELECT name, registration, uas_type, model, type_cert_no, airworthiness_class, airworthiness_no, \
-             manufacturer, serial_no, initial_flight_minutes, inspection_template_id FROM vehicles WHERE sysid = ?1",
+             manufacturer, serial_no, initial_flight_minutes, inspection_template_id, endurance_minutes FROM vehicles WHERE sysid = ?1",
         )
             .bind(i64::from(sysid))
             .fetch_optional(&self.pool)
@@ -73,14 +77,15 @@ impl Store {
         sqlx::query(
             "INSERT INTO vehicles (sysid, name, kind, first_seen, last_seen, registration, uas_type, model, \
              type_cert_no, airworthiness_class, airworthiness_no, manufacturer, serial_no, \
-             initial_flight_minutes, inspection_template_id) \
-             VALUES (?1, ?2, ?3, ?4, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14) \
+             initial_flight_minutes, inspection_template_id, endurance_minutes) \
+             VALUES (?1, ?2, ?3, ?4, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15) \
              ON CONFLICT(sysid) DO UPDATE SET name = excluded.name, registration = excluded.registration, \
              uas_type = excluded.uas_type, model = excluded.model, type_cert_no = excluded.type_cert_no, \
              airworthiness_class = excluded.airworthiness_class, airworthiness_no = excluded.airworthiness_no, \
              manufacturer = excluded.manufacturer, serial_no = excluded.serial_no, \
              initial_flight_minutes = excluded.initial_flight_minutes, \
-             inspection_template_id = excluded.inspection_template_id, last_seen = excluded.last_seen",
+             inspection_template_id = excluded.inspection_template_id, \
+             endurance_minutes = excluded.endurance_minutes, last_seen = excluded.last_seen",
         )
         .bind(i64::from(sysid))
         .bind(&input.name)
@@ -96,6 +101,7 @@ impl Store {
         .bind(&input.serial_no)
         .bind(i64::from(input.initial_flight_minutes))
         .bind(input.inspection_template_id)
+        .bind(input.endurance_minutes.map(i64::from))
         .execute(&self.pool)
         .await?;
         self.registry(sysid, &input.name).await
@@ -166,6 +172,7 @@ mod tests {
             serial_no: "SN-0001".into(),
             initial_flight_minutes: 125,
             inspection_template_id: Some(1),
+            endurance_minutes: None,
         };
         let w = s.put_registry(7, &input, "copter").await.unwrap();
         assert_eq!(
@@ -204,5 +211,28 @@ mod tests {
             .await
             .unwrap());
         assert_eq!(s.pilot("admin").await.unwrap().unwrap().license_no, "T123");
+    }
+
+    #[tokio::test]
+    async fn registry_keeps_endurance() {
+        let s = Store::open_memory().await.unwrap();
+        assert_eq!(s.registry(3, "UAV-03").await.unwrap().endurance_minutes, None);
+        let input = VehicleRegistryInput {
+            name: "E".into(),
+            registration: "".into(),
+            uas_type: "".into(),
+            model: "".into(),
+            type_cert_no: "".into(),
+            airworthiness_class: "".into(),
+            airworthiness_no: "".into(),
+            manufacturer: "".into(),
+            serial_no: "".into(),
+            initial_flight_minutes: 0,
+            inspection_template_id: None,
+            endurance_minutes: Some(25),
+        };
+        let w = s.put_registry(3, &input, "copter").await.unwrap();
+        assert_eq!(w.endurance_minutes, Some(25));
+        assert_eq!(s.registry(3, "x").await.unwrap().endurance_minutes, Some(25));
     }
 }
