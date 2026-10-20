@@ -1,11 +1,11 @@
 //! ArduPilot messages → [`VehicleState`] updates. Every function returns a new state.
 
 use mavlink::dialects::ardupilotmega::{
-    MavMessage, MavModeFlag, PositionTargetTypemask, GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA,
+    MavMessage, MavModeFlag, PositionTargetTypemask, ATTITUDE_DATA, GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA,
     HEARTBEAT_DATA, HOME_POSITION_DATA, NAV_CONTROLLER_OUTPUT_DATA, POSITION_TARGET_GLOBAL_INT_DATA,
     SYS_STATUS_DATA, VFR_HUD_DATA,
 };
-use rgcs_core::{Battery, GeoPoint, Gps, NavInfo, VehicleState};
+use rgcs_core::{Attitude, Battery, GeoPoint, Gps, NavInfo, VehicleState};
 
 use crate::modes::{mode_name, vehicle_kind};
 
@@ -23,7 +23,23 @@ pub fn apply(state: &VehicleState, msg: &MavMessage) -> Option<VehicleState> {
         MavMessage::NAV_CONTROLLER_OUTPUT(d) => Some(apply_nav(state, d)),
         MavMessage::POSITION_TARGET_GLOBAL_INT(d) => Some(apply_position_target(state, d)),
         MavMessage::HOME_POSITION(d) => Some(apply_home(state, d)),
+        MavMessage::ATTITUDE(d) => Some(apply_attitude(state, d)),
         _ => None,
+    }
+}
+
+/// Radians → degrees in 0.1° steps: finer changes would only resend the state at 10 Hz.
+fn tenth_deg(rad: f32) -> f32 {
+    (rad.to_degrees() * 10.0).round() / 10.0
+}
+
+pub fn apply_attitude(state: &VehicleState, a: &ATTITUDE_DATA) -> VehicleState {
+    VehicleState {
+        attitude: Some(Attitude {
+            roll: tenth_deg(a.roll),
+            pitch: tenth_deg(a.pitch),
+        }),
+        ..state.clone()
     }
 }
 
@@ -272,6 +288,17 @@ mod tests {
         assert!((s.alt_msl - 12.345).abs() < 1e-4);
         assert!((s.alt_rel - 80.0).abs() < 1e-4);
         assert_eq!(s.hdg, Some(90.0));
+    }
+
+    #[test]
+    fn attitude_gives_roll_and_pitch_in_tenths_of_a_degree() {
+        let a = ATTITUDE_DATA {
+            roll: 0.5236,   // 30.0°
+            pitch: -0.0873, // -5.0°
+            ..ATTITUDE_DATA::DEFAULT
+        };
+        let s = apply(&base(), &MavMessage::ATTITUDE(a)).expect("attitude is shown");
+        assert_eq!(s.attitude, Some(rgcs_core::Attitude { roll: 30.0, pitch: -5.0 }));
     }
 
     #[test]

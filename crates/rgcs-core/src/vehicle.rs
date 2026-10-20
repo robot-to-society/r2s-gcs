@@ -84,6 +84,18 @@ pub struct VehicleState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub home: Option<GeoPoint>,
+    /// ATTITUDE roll / pitch (degrees, 0.1° steps), for the 3D model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub attitude: Option<Attitude>,
+}
+
+/// Roll (right wing down positive) and pitch (nose up positive), degrees.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Attitude {
+    pub roll: f32,
+    pub pitch: f32,
 }
 
 /// A WGS84 point (alt in metres; MSL for home, frame-dependent for targets).
@@ -137,6 +149,7 @@ impl VehicleState {
             nav: None,
             target: None,
             home: None,
+            attitude: None,
         }
     }
 }
@@ -218,6 +231,8 @@ pub struct VehicleStateDiff {
     pub target: Option<Option<GeoPoint>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub home: Option<Option<GeoPoint>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attitude: Option<Option<Attitude>>,
 }
 
 macro_rules! changed {
@@ -253,6 +268,7 @@ impl VehicleStateDiff {
             nav: Some(s.nav),
             target: Some(s.target),
             home: Some(s.home),
+            attitude: Some(s.attitude),
         }
     }
 }
@@ -282,7 +298,8 @@ pub fn diff(prev: &VehicleState, next: &VehicleState) -> Option<VehicleStateDiff
         cog,
         nav,
         target,
-        home
+        home,
+        attitude
     );
     (d != VehicleStateDiff::default()).then_some(d)
 }
@@ -293,6 +310,18 @@ mod tests {
 
     fn base() -> VehicleState {
         VehicleState::new(1, "UAV-01")
+    }
+
+    #[test]
+    fn attitude_changes_are_sent_and_start_unknown() {
+        assert_eq!(base().attitude, None);
+        let next = VehicleState {
+            attitude: Some(Attitude { roll: 12.5, pitch: -3.0 }),
+            ..base()
+        };
+        let d = diff(&base(), &next).expect("changed");
+        assert_eq!(d.attitude, Some(Some(Attitude { roll: 12.5, pitch: -3.0 })));
+        assert_eq!(VehicleStateDiff::full(&next).attitude, Some(Some(Attitude { roll: 12.5, pitch: -3.0 })));
     }
 
     #[test]
