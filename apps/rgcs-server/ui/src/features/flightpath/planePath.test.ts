@@ -143,4 +143,17 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
     expect(join.y).toBeLessThan(c.y - radius * 0.9)
     expect(Math.min(...path.map((pt) => r(pt, c)))).toBeGreaterThan(radius - 1)
   })
+  it('a waypoint leading into a loiter is left a turn distance early and the capture swings wide (SITL 2026-10-20)', () => {
+    // the user's mission on the SITL QuadPlane, flown into WP2 on a 320° course (as the vehicle was):
+    // it overshot WP2's latitude (417 m) to 438 m before joining the circle
+    const sitl: PlaneParams = { ...qp, airspeed: 25, rollLimitDeg: 65, navL1Period: 14, loiterRad: 60, wpRadius: 90 }
+    const wp2 = { x: -132, y: 417 }
+    const path = local([item(22, null, 50), item(16, { x: 208, y: 11 }, 50), item(16, wp2, 50), item(31, { x: 31, y: 332 }, 500)], sitl)
+    const north = Math.max(...path.map((pt) => pt.y))
+    expect(north).toBeGreaterThan(428)
+    expect(north).toBeLessThan(448)
+    // the leg ends turn-distance before WP2 (min(WP_RADIUS·EAS2TAS², L1 distance) for a turn ≥ 90°)
+    const closest = Math.min(...path.map((pt) => r(pt, wp2)))
+    expect(closest).toBeGreaterThan(20)
+  })
 })

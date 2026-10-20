@@ -4,6 +4,7 @@
 import type { Home, MissionItem } from '../../shared/api/types'
 import type { LatLon } from '../mission/geo'
 import { arcAngles, dist, entryTangent, exitTangent, fillet, onCircle, polar, toLatLon, toXy, travelDir, type Xy } from './geom'
+import { captureLoiter } from './l1'
 import type { PlaneParams } from './params'
 import { Track } from './track'
 
@@ -45,13 +46,16 @@ const relAlt = (ctx: Ctx, it: MissionItem) => (it.frame === 'abs' ? it.alt - ctx
 const xyOf = (ctx: Ctx, it: MissionItem): Xy => toXy(ctx.home, it)
 const loiterDefault = (p: PlaneParams) => (Math.abs(p.loiterRad) > 1 ? Math.abs(p.loiterRad) : FALLBACK_LOITER_M)
 
+/** The next item the vehicle flies to after item `i` (RTL included), or null. */
+function nextFlown(ctx: Ctx, i: number): MissionItem | null {
+  return ctx.items.slice(i + 1).find((it) => it.command === CMD.RTL || (FLOWN_TO.includes(it.command) && located(it))) ?? null
+}
+
 /** The next place the vehicle flies to after item `i` (home for RTL), or null. */
 function nextTarget(ctx: Ctx, i: number): Xy | null {
-  for (const it of ctx.items.slice(i + 1)) {
-    if (it.command === CMD.RTL) return { x: 0, y: 0 }
-    if (FLOWN_TO.includes(it.command) && located(it)) return xyOf(ctx, it)
-  }
-  return null
+  const it = nextFlown(ctx, i)
+  if (!it) return null
+  return it.command === CMD.RTL ? { x: 0, y: 0 } : xyOf(ctx, it)
 }
 
 /**
@@ -123,7 +127,10 @@ function loiter(ctx: Ctx, i: number, it: MissionItem): boolean {
     return it.command !== CMD.LOITER_UNLIM
   }
   const { r, cw } = loiterShape(p, it, track.scale(target))
-  const capture = captureLeg(ctx, c, r, cw)
+  const heading = track.heading()
+  const l1 = { period: p.navL1Period, damping: p.navL1Damping, rollLimitDeg: p.rollLimitDeg }
+  const capture = heading ? captureLoiter(track.cur, heading, c, r, cw, track.tas(), l1).pts.slice(1) : captureLeg(ctx, c, r, cw)
+  if (capture.length === 0) capture.push(onCircle(c, r, polar(c, track.cur)))
   // the altitude slope of the leg runs to the centre (altitude.cpp), so the circle comes first
   track.leg(capture, target, dist(track.cur, c))
   let phi = polar(c, capture[capture.length - 1]!)
@@ -153,11 +160,30 @@ function loiter(ctx: Ctx, i: number, it: MissionItem): boolean {
   return true
 }
 
+/**
+ * Where the leg to `wp` ends when a loiter follows: verify_nav_wp accepts the waypoint
+ * turn_distance out, min(WP_RADIUS·EAS2TAS², L1 distance), scaled down for turns under 90°.
+ */
+function acceptPoint(ctx: Ctx, wp: Xy, next: Xy): Xy {
+  const { track, p } = ctx
+  const cur = track.cur
+  const len = dist(cur, wp)
+  if (len === 0) return wp
+  const turn = Math.abs(Math.atan2((wp.x - cur.x) * (next.y - wp.y) - (wp.y - cur.y) * (next.x - wp.x), (wp.x - cur.x) * (next.x - wp.x) + (wp.y - cur.y) * (next.y - wp.y)))
+  const l1Dist = ((p.navL1Damping * p.navL1Period) / Math.PI) * track.tas()
+  const d90 = Math.min(p.wpRadius * track.scale() ** 2, l1Dist)
+  const accept = Math.min(len, d90 * Math.min(1, turn / (Math.PI / 2)))
+  return { x: wp.x + ((cur.x - wp.x) / len) * accept, y: wp.y + ((cur.y - wp.y) / len) * accept }
+}
+
 function waypoint(ctx: Ctx, i: number, it: MissionItem): void {
   const { track } = ctx
   const wp = xyOf(ctx, it)
+  const nextItem = nextFlown(ctx, i)
   const next = nextTarget(ctx, i)
-  track.leg(next && !track.vtol ? fillet(track.cur, wp, next, turnRadius(ctx)) : [wp], relAlt(ctx, it))
+  // into a loiter the L1 capture simulation flies the turn; elsewhere the corner is a fillet
+  if (next && nextItem && LOITERS.includes(nextItem.command) && !track.vtol) track.leg([acceptPoint(ctx, wp, next)], relAlt(ctx, it))
+  else track.leg(next && !track.vtol ? fillet(track.cur, wp, next, turnRadius(ctx)) : [wp], relAlt(ctx, it))
 }
 
 function takeoff(ctx: Ctx, i: number, it: MissionItem): void {

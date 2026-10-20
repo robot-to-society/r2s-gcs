@@ -26,6 +26,8 @@ export interface PlaneParams {
   readonly qWpSpeed: number
   readonly qWpUp: number
   readonly qWpDn: number
+  /** WP_RADIUS (m): a waypoint counts as reached this far out (capped by the L1 distance). */
+  readonly wpRadius: number
 }
 
 export const PLANE_DEFAULTS: PlaneParams = {
@@ -43,6 +45,7 @@ export const PLANE_DEFAULTS: PlaneParams = {
   qWpSpeed: 5,
   qWpUp: 2.5,
   qWpDn: 1.5,
+  wpRadius: 90,
 }
 
 const NAMES: Readonly<Record<keyof PlaneParams, string>> = {
@@ -58,6 +61,7 @@ const NAMES: Readonly<Record<keyof PlaneParams, string>> = {
   navL1Period: 'NAVL1_PERIOD',
   navL1Damping: 'NAVL1_DAMPING',
   qWpSpeed: 'Q_WP_SPD',
+  wpRadius: 'WP_RADIUS',
   qWpUp: 'Q_WP_SPD_UP',
   qWpDn: 'Q_WP_SPD_DN',
 }
@@ -84,6 +88,7 @@ export function planeParams(values: ReadonlyMap<string, number>): { readonly par
     qWpSpeed: num('qWpSpeed') > 0 ? num('qWpSpeed') : PLANE_DEFAULTS.qWpSpeed,
     qWpUp: num('qWpUp') > 0 ? num('qWpUp') : PLANE_DEFAULTS.qWpUp,
     qWpDn: num('qWpDn') > 0 ? num('qWpDn') : PLANE_DEFAULTS.qWpDn,
+    wpRadius: Math.max(0, num('wpRadius')),
   }
   return { params, missing }
 }

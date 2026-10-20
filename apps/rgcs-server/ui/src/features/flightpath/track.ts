@@ -46,6 +46,16 @@ export class Track {
     return this.pts[this.pts.length - 1]!
   }
 
+  /** Unit direction of the last horizontal movement, or null (nothing flown yet / only vertical). */
+  heading(): Xy | null {
+    const c = this.cur
+    for (let i = this.pts.length - 2; i >= 0; i--) {
+      const d = dist(this.pts[i]!, c)
+      if (d > 0.5) return { x: (c.x - this.pts[i]!.x) / d, y: (c.y - this.pts[i]!.y) / d }
+    }
+    return null
+  }
+
   /** Climb / sink allowed per metre of ground: TECS limits at cruise speed, Q_WP_* while hovering. */
   private perMetre(): { up: number; down: number } {
     const p = this.p
