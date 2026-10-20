@@ -42,6 +42,18 @@ pub async fn spawn_app_with_link() -> (AxumRouter, AppState, mpsc::Receiver<Outg
     spawn_app_full(None).await
 }
 
+/// `spawn_app_with_link` that also hands back every command the queue accepted, in order.
+pub async fn spawn_app_recording() -> (
+    AxumRouter,
+    AppState,
+    mpsc::UnboundedReceiver<rgcs_core::VehicleCommand>,
+    mpsc::Receiver<Outgoing>,
+) {
+    let (rec_tx, rec_rx) = mpsc::unbounded_channel();
+    let (app, state, out) = spawn_app_inner(None, Some(rec_tx)).await;
+    (app, state, rec_rx, out)
+}
+
 /// `spawn_app` plus an MT11 simulator the camera manager connects to instead of the profile host.
 pub async fn spawn_app_with_sim() -> (AxumRouter, AppState, SimServer) {
     let sim = SimServer::start().await;
@@ -82,6 +94,13 @@ pub async fn login_as(app: &AxumRouter, username: &str, password: &str) -> Strin
 async fn spawn_app_full(
     sim: Option<std::net::SocketAddr>,
 ) -> (AxumRouter, AppState, mpsc::Receiver<Outgoing>) {
+    spawn_app_inner(sim, None).await
+}
+
+async fn spawn_app_inner(
+    sim: Option<std::net::SocketAddr>,
+    record: Option<mpsc::UnboundedSender<rgcs_core::VehicleCommand>>,
+) -> (AxumRouter, AppState, mpsc::Receiver<Outgoing>) {
     let (outgoing_tx, outgoing_rx) = mpsc::channel::<Outgoing>(16);
     let store = Store::open_memory().await.expect("memory store");
     let dev_mode = store.dev_mode().await.expect("dev_mode");
@@ -90,6 +109,9 @@ async fn spawn_app_full(
     let (queue_tx, mut queue_rx) = mpsc::channel::<QueuedCommand>(8);
     tokio::spawn(async move {
         while let Some(job) = queue_rx.recv().await {
+            if let Some(r) = &record {
+                let _ = r.send(job.cmd.clone());
+            }
             let _ = job.done.send(Outcome::Accepted);
         }
     });

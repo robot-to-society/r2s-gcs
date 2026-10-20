@@ -3,6 +3,7 @@
 //! Nothing here depends on MAVLink, tokio or the web framework: these are the
 //! values that cross the WebSocket / HTTP boundary (`docs/spec/50-api.md`).
 
+pub mod calibration;
 pub mod camera;
 pub mod command;
 pub mod gcs;
@@ -17,6 +18,9 @@ pub mod params;
 pub mod vehicle;
 pub mod ws;
 
+pub use calibration::{
+    CalibFrame, CalibKind, CalibPhase, CalibRecord, CalibStatus, CompassProgress, RcRange,
+};
 pub use camera::{
     AxisFunction, AxisMapping, ButtonFunction, ButtonMapping, CameraCaps, CameraCommand, CameraKind,
     CameraProfile, CameraSnapshot, CameraState, CenterMode, Deadman, Firmware, GimbalAttitude, GimbalCaps,
@@ -43,7 +47,7 @@ pub use mission::{
 pub use operator::Operator;
 pub use params::{ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult};
 pub use vehicle::{
-    diff, Attitude, Battery, GeoPoint, Gps, LinkStatus, NavInfo, SysId, VehicleKind, VehicleState, VehicleStateDiff,
-    VehicleSummary,
+    diff, Attitude, Battery, GeoPoint, Gps, LinkStatus, NavInfo, SysId, VehicleKind, VehicleState,
+    VehicleStateDiff, VehicleSummary,
 };
 pub use ws::{ClientMessage, ServerMessage, VehicleMessage, VideoSourceEntry};

@@ -47,14 +47,14 @@ async fn statustext_is_persisted_and_broadcast_with_its_row_id() {
     let mut rx = state.tx.subscribe();
     let (events_tx, events_rx) = mpsc::channel(8);
     let (out_tx, _out_rx) = mpsc::channel(8);
+    let sinks = rgcs_server::telemetry::EventSinks {
+        outgoing: out_tx,
+        ..rgcs_server::telemetry::EventSinks::of(&state)
+    };
     tokio::spawn(rgcs_server::telemetry::pump_events(
         events_rx,
         state.tx.clone(),
-        state.params.clone(),
-        state.missions.clone(),
-        state.logs.clone(),
-        state.messages.clone(),
-        out_tx,
+        sinks,
     ));
     events_tx
         .send(RouterEvent::Message(VehicleMessage::new(

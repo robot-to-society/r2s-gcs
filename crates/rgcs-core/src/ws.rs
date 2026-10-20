@@ -122,6 +122,11 @@ pub enum ServerMessage {
         sysid: SysId,
         flight: Flight,
     },
+    /// A calibration session changed (点検・校正, spec 10 §7).
+    Calibration {
+        sysid: SysId,
+        status: crate::calibration::CalibStatus,
+    },
     /// DataFlash fetch progress (every 64 KB and at the end).
     LogFetchProgress {
         sysid: SysId,

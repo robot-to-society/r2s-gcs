@@ -70,7 +70,8 @@ pub fn event_frame(ev: RouterEvent, now_ms: u64) -> Option<ServerMessage> {
         RouterEvent::Updated(_)
         | RouterEvent::ParamValue { .. }
         | RouterEvent::Mission { .. }
-        | RouterEvent::Log { .. } => None,
+        | RouterEvent::Log { .. }
+        | RouterEvent::Calib { .. } => None,
     }
 }
 
@@ -78,20 +79,49 @@ pub fn event_frame(ev: RouterEvent, now_ms: u64) -> Option<ServerMessage> {
 /// Parameters the mission validation needs; asked for as soon as a vehicle appears.
 pub const FENCE_PARAMS: [&str; 4] = ["FENCE_ENABLE", "FENCE_ALT_MAX", "FENCE_RADIUS", "FENCE_TYPE"];
 
+/// Where router events go besides the WebSocket.
+#[derive(Clone)]
+pub struct EventSinks {
+    pub params: crate::params::ParamCache,
+    pub missions: crate::missions::MissionHub,
+    pub logs: crate::logs::LogHub,
+    pub calib: crate::calibration::CalibHub,
+    pub messages: crate::message_log::MessageLog,
+    pub outgoing: mpsc::Sender<rgcs_mavlink::Outgoing>,
+}
+
+impl EventSinks {
+    pub fn of(app: &crate::app::AppState) -> Self {
+        Self {
+            params: app.params.clone(),
+            missions: app.missions.clone(),
+            logs: app.logs.clone(),
+            calib: app.calib.clone(),
+            messages: app.messages.clone(),
+            outgoing: app.outgoing.clone(),
+        }
+    }
+}
+
 pub async fn pump_events(
     mut events: mpsc::Receiver<RouterEvent>,
     tx: broadcast::Sender<ServerMessage>,
-    params: crate::params::ParamCache,
-    missions: crate::missions::MissionHub,
-    logs: crate::logs::LogHub,
-    messages: crate::message_log::MessageLog,
-    outgoing: mpsc::Sender<rgcs_mavlink::Outgoing>,
+    sinks: EventSinks,
 ) {
+    let EventSinks {
+        params,
+        missions,
+        logs,
+        calib,
+        messages,
+        outgoing,
+    } = sinks;
     while let Some(ev) = events.recv().await {
         params.apply(&ev);
         match &ev {
             RouterEvent::Mission { sysid, frame } => missions.on_frame(*sysid, frame.clone()),
             RouterEvent::Log { sysid, frame } => logs.on_frame(*sysid, frame.clone()),
+            RouterEvent::Calib { sysid, frame } => calib.on_frame(*sysid, frame),
             RouterEvent::Discovered(sysid) => {
                 for name in FENCE_PARAMS {
                     let _ = outgoing.try_send(rgcs_mavlink::Outgoing {
@@ -145,8 +175,17 @@ mod tests {
         let params = crate::params::ParamCache::new(tx.clone());
         let logs = crate::logs::LogHub::new(tx.clone(), true);
         let store = rgcs_store::Store::open_memory().await.unwrap();
+        let calib = crate::calibration::CalibHub::new(tx.clone(), store.clone());
         let messages = crate::message_log::MessageLog::spawn(store, tx.clone());
-        tokio::spawn(pump_events(events_rx, tx, params, hub, logs, messages, out_tx));
+        let sinks = EventSinks {
+            params,
+            missions: hub,
+            logs,
+            calib,
+            messages,
+            outgoing: out_tx,
+        };
+        tokio::spawn(pump_events(events_rx, tx, sinks));
         events_tx.send(RouterEvent::Discovered(1)).await.unwrap();
         let mut names = Vec::new();
         for _ in 0..3 {

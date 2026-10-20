@@ -22,9 +22,9 @@ use crate::params::ParamCache;
 use crate::settings;
 use crate::video::VideoHub;
 use crate::{
-    api, auth, branding, camera_api, commands, export_api, flight_api, geofence_api, guided, input_api,
-    inspector_api, logbook_api, logs_api, messages_api, mission_api, param_api, param_pick, present_api,
-    video_api, ws,
+    api, auth, branding, calib_api, camera_api, commands, export_api, flight_api, geofence_api, guided,
+    input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api, param_api, param_pick,
+    present_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -55,6 +55,8 @@ pub struct AppState {
     pub flights: crate::flights::FlightTracker,
     /// DataFlash retrieval over LOG_REQUEST_* (addendum §9).
     pub logs: crate::logs::LogHub,
+    /// 点検・校正 sessions (spec 10 §7).
+    pub calib: crate::calibration::CalibHub,
     /// Persistent message log (footer, history sheet, acknowledgements).
     pub messages: crate::message_log::MessageLog,
     /// Where branding files (and the database) live; `config.toml` `data_dir`.
@@ -98,6 +100,7 @@ impl AppState {
         let params = ParamCache::new(tx.clone());
         let flights = crate::flights::FlightTracker::new(store.clone(), tx.clone());
         let logs = crate::logs::LogHub::new(tx.clone(), true);
+        let calib = crate::calibration::CalibHub::new(tx.clone(), store.clone());
         let messages = crate::message_log::MessageLog::spawn(store.clone(), tx.clone());
         let whep = WhepRelay::new(&crate::config::Config::default().whep_upstream)
             .expect("default whep upstream parses");
@@ -114,6 +117,7 @@ impl AppState {
             missions,
             flights,
             logs,
+            calib,
             messages,
             gcs,
             inspector: rgcs_mavlink::Inspector::default(),
@@ -377,6 +381,14 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
             "/vehicles/{sysid}/maintenance",
             get(flight_api::list_maintenance).post(flight_api::create_maintenance),
         )
+        .route(
+            "/vehicles/{sysid}/calibration",
+            get(calib_api::overview).post(calib_api::start),
+        )
+        .route("/vehicles/{sysid}/calibration/next", post(calib_api::next))
+        .route("/vehicles/{sysid}/calibration/cancel", post(calib_api::cancel))
+        .route("/vehicles/{sysid}/calibration/finish", post(calib_api::finish))
+        .route("/vehicles/{sysid}/motor-test", post(calib_api::motor_test))
         .route("/vehicles/{sysid}/logs", get(logs_api::list))
         .route("/vehicles/{sysid}/logs/fc", get(logs_api::list_fc))
         .route("/vehicles/{sysid}/logs/fetch", post(logs_api::fetch))

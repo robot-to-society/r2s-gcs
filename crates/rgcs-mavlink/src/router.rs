@@ -54,6 +54,11 @@ pub enum RouterEvent {
         sysid: SysId,
         frame: LogFrame,
     },
+    /// Calibration traffic (accelerometer position request, compass progress, RC input).
+    Calib {
+        sysid: SysId,
+        frame: rgcs_core::CalibFrame,
+    },
 }
 
 struct Slot {
@@ -117,6 +122,11 @@ impl Router {
             m if MissionFrame::from_message(m).is_some() => {
                 if let Some(frame) = MissionFrame::from_message(m) {
                     events.push(RouterEvent::Mission { sysid, frame });
+                }
+            }
+            m if crate::calib_frame(m).is_some() => {
+                if let Some(frame) = crate::calib_frame(m) {
+                    events.push(RouterEvent::Calib { sysid, frame });
                 }
             }
             m if LogFrame::from_message(m).is_some() => {
@@ -538,5 +548,30 @@ mod tests {
         assert!(events.iter().any(
             |e| matches!(e, RouterEvent::Log { sysid: 1, frame: crate::LogFrame::Entry(d) } if d.id == 3)
         ));
+    }
+
+    #[test]
+    fn calibration_frames_become_calib_events() {
+        use mavlink::dialects::ardupilotmega::{HEARTBEAT_DATA, MAG_CAL_PROGRESS_DATA};
+        let mut r = Router::default();
+        let header = MavHeader {
+            system_id: 1,
+            component_id: 1,
+            sequence: 0,
+        };
+        r.on_message(
+            &header,
+            &MavMessage::HEARTBEAT(HEARTBEAT_DATA::DEFAULT),
+            Clock::default(),
+        );
+        let progress = MavMessage::MAG_CAL_PROGRESS(MAG_CAL_PROGRESS_DATA {
+            completion_pct: 12,
+            ..MAG_CAL_PROGRESS_DATA::DEFAULT
+        });
+        let events = r.on_message(&header, &progress, Clock::default());
+        assert!(events.contains(&RouterEvent::Calib {
+            sysid: 1,
+            frame: rgcs_core::CalibFrame::MagProgress { id: 0, pct: 12 },
+        }));
     }
 }

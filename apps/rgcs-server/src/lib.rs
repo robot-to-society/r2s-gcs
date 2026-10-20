@@ -7,6 +7,8 @@ pub mod api;
 pub mod app;
 pub mod auth;
 pub mod branding;
+pub mod calib_api;
+pub mod calibration;
 pub mod camera_api;
 pub mod cameras;
 pub mod commands;

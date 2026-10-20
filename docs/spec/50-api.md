@@ -40,7 +40,12 @@
 | GET | `/api/vehicles/{sysid}/messages?since=` | `[{id, ts, severity, text, acked_by?, acked_at?}]` |
 | POST | `/api/vehicles/{sysid}/messages/{id}/ack` | 警告・エラー(STATUSTEXT severity ≤ 4、またはサーバー生成の警告)だけ受け付ける。それ以外は `400 not_ackable`。結果は WS `message_ack` で全クライアントへ。監査 `message_ack` |
 | GET | `/api/messages?since=&severity=&sysid=&limit=` | 全体ログ(機体メッセージ + `command_result` + システム)。新しい順、`limit` 既定 500。フッターと履歴シートの初期表示(10 §1) |
-| POST | `/api/vehicles/{sysid}/calibration` | `{kind: accel\|compass\|level\|rc\|esc}` |
+| GET | `/api/vehicles/{sysid}/calibration` | `{records: CalibRecord[], session: CalibStatus\|null}`。`records` は種類ごとの最新の実施(ArduPilot は校正日を持たないため RGCS が `calibrations` 表に記録、2026-10-20) |
+| POST | `/api/vehicles/{sysid}/calibration` | `{kind: accel\|compass\|level\|rc\|esc, confirm_token?}` → `CalibStatus`。accel = `PREFLIGHT_CALIBRATION` p5=1(6 姿勢、機体の `COMMAND_LONG ACCELCAL_VEHICLE_POS` で進む)/ level = p5=2 / compass = `DO_START_MAG_CAL`(全コンパス、autosave、`MAG_CAL_PROGRESS` / `MAG_CAL_REPORT`)/ rc = `RC_CHANNELS` を 10 Hz で要求し最小・最大を記録 / esc = `ESC_CALIBRATION`=3 を書込(次回起動時に自動校正、要確認 `calib_esc`)。アーム中 `409 vehicle_armed`、実行中 `409 busy`、未接続 404、`503 link_lost`。監査 `calibration` |
+| POST | `/api/vehicles/{sysid}/calibration/next` | 加速度計: 要求された姿勢に置いた → `ACCELCAL_VEHICLE_POS`(p1 = 姿勢)。待機中でなければ `409 not_waiting` |
+| POST | `/api/vehicles/{sysid}/calibration/cancel` | compass は `DO_CANCEL_MAG_CAL`、rc は `RC_CHANNELS` の間隔を既定(0)へ戻す。`409 not_running` |
+| POST | `/api/vehicles/{sysid}/calibration/finish` | rc のみ: 400 µs 以上動いたチャンネルの `RCn_MIN / MAX / TRIM`(TRIM = 終了時の位置)を書込・照合(変更履歴に残る)。動いたチャンネルが無ければ `failed: rc_not_moved` |
+| POST | `/api/vehicles/{sysid}/motor-test` | `{motor: 1–12, pct: 0<–100, seconds: 0<–10, count?, confirm_token}` → `{ok, reason?}`。`DO_MOTOR_TEST`(p2=0 スロットル %、`count` > 0 で `motor` から順に `count` 個)。要確認 `motor_test`、アーム中 409。実施は `calibrations` に `motor` として記録 |
 
 `cmd` の列挙: `pause`, `resume`, `rtl`, `land`, `change_alt`, `change_speed`, `set_mode`, `mission_start`, `mission_resume`, `arm`, `disarm`, `other(mav_cmd, params)`。
 
@@ -159,6 +164,7 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 | `mission_transfer` | `{sysid, transfer: {phase: write\|verify\|done\|failed, done, total}}` | ミッション書込中(`PUT .../mission`)。write は機体が要求した項目数、verify は読み戻した項目数(`total` = 項目数 + ホーム)、最後に done か failed |
 | `flight_draft_created` | `{sysid, flight: Flight}` | DISARM 時(初回 ARM から最後の DISARM までが 1 飛行。10 分以内の再 ARM は同じ飛行、リンク喪失 10 分で最終受信時刻に着陸扱い) |
 | `log_fetch_progress` | `{sysid, progress: {fc_log_id, received, total, done, error?}}` | 64 KB ごとと完了時 |
+| `calibration` | `{sysid, status: CalibStatus}` | 校正セッションの変化ごと(開始・姿勢要求・コンパス進捗・RC 入力・終了) |
 | `input_state` | `{deadman: ok\|lost}` | 変化時(`input_hb` 1.5 s 途絶で `lost`、サーバーは速度 0 を 1 回送る) |
 | `error` | `{code, message}` | 入力拒否時 |
 

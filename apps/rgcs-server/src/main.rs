@@ -74,11 +74,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(telemetry::pump_events(
         events_rx,
         tx.clone(),
-        state.params.clone(),
-        state.missions.clone(),
-        state.logs.clone(),
-        state.messages.clone(),
-        state.outgoing.clone(),
+        telemetry::EventSinks::of(&state),
     ));
     tokio::spawn(state.missions.clone().resend_loop());
     tokio::spawn(state.flights.clone().run(router.clone()));
