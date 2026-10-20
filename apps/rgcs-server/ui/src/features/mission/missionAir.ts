@@ -4,13 +4,13 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { FeatureCollection, Point } from 'geojson'
 import type { Map as MlMap, Marker } from 'maplibre-gl'
-import { climbColor, itemAmsl, mercatorLine, type AirPoint, type AirVertex, type ElevAt, type Rgb } from '../map/air'
+import { climbColor, itemAmsl, mercatorLine, vehicleAmsl, type AirPoint, type AirVertex, type ElevAt, type Rgb } from '../map/air'
 import { useAir3d } from '../map/air3d'
-import { pixelsPerMetre } from '../map/float'
+import { floatMarkers, pixelsPerMetre, type Floating } from '../map/float'
 import type { MapMode } from '../map/mapMode'
 import { arcPoints, isArc } from './arc'
 import { circleRing } from './geofenceModel'
-import type { FenceZone } from '../../shared/api/types'
+import type { FenceZone, VehicleState } from '../../shared/api/types'
 import { haversineM, hasPosition, type LatLon } from './geo'
 import type { Draft, DraftItem } from './model'
 import type { PathPoint } from '../flightpath/planePath'
@@ -177,11 +177,18 @@ export interface MissionAir3d {
   readonly is3d: boolean
   /** Screen pixels per metre of altitude at an item in the last 3D frame, `null` before one. */
   readonly pxPerMetre: (uid: number) => number | null
+  /** The target vehicle's marker flies at its altitude in 3D (`base`: its 2D offset). */
+  readonly floatVehicle: (marker: Marker | null, v: VehicleState | null, base: readonly [number, number]) => void
 }
 
 export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles, ceiling = null, vehicleHome = null, predicted = null }: Args): MissionAir3d {
   const { sampler, ready, is3d, tick, layer, floats, matrix } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
   const latest = useRef({ draft, alts: new Map<number, number | null>() as ReadonlyMap<number, number | null> })
+  const planFloats = useRef<readonly Floating[]>([])
+  const vehicleFloat = useRef<Floating | null>(null)
+  const compose = () => {
+    floats.current = vehicleFloat.current ? [...planFloats.current, vehicleFloat.current] : planFloats.current
+  }
   useEffect(() => {
     const m = map.current
     if (!m || !ready || !sampler || !is3d) return
@@ -196,7 +203,8 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
       const p = marker.getLngLat()
       return { marker, lon: p.lng, lat: p.lat, amsl: d.mids[i] ?? null, base: [0, 0] as const }
     })
-    floats.current = [...badgeFloats, ...handleFloats]
+    planFloats.current = [...badgeFloats, ...handleFloats]
+    compose()
     layer.setLines(d.lines, d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
@@ -210,5 +218,13 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     // before its ground is known an item floats at 0 m: the scale barely depends on it
     return pixelsPerMetre(matrix.current, { w: el.clientWidth, h: el.clientHeight }, it.lon, it.lat, latest.current.alts.get(uid) ?? 0)
   }
-  return { is3d, pxPerMetre }
+  const floatVehicle = (marker: Marker | null, v: VehicleState | null, base: readonly [number, number]) => {
+    // DEM home ground + alt_rel matches how the plan's altitudes are drawn; alt_msl until the DEM is in
+    const amsl = v ? (sampler ? vehicleAmsl(v, vehicleHome, sampler.elevAt)?.amsl : undefined) ?? v.alt_msl : null
+    vehicleFloat.current = marker && v && amsl !== null ? { marker, lon: v.lon, lat: v.lat, amsl, base } : null
+    compose()
+    const m = map.current
+    if (m && matrix.current && is3d) floatMarkers(m, matrix.current, floats.current)
+  }
+  return { is3d, pxPerMetre, floatVehicle }
 }

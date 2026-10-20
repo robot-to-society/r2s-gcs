@@ -59,6 +59,8 @@ interface Props {
 
 const HOME: [number, number] = [139.372, 36.162]
 const FOCUS_ZOOM = 16
+/** The `.vmk` disc centre on the position (34 px disc at the element's left edge). */
+const VEHICLE_OFFSET = [-17, 0] as const
 const PATH = 'mission-path'
 const PREDICTED = 'mission-predicted'
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
@@ -101,7 +103,7 @@ export function MissionMap(props: Props) {
   // A drag in progress shows its result before it is committed to the draft (and the undo history).
   const [preview, setPreview] = useState<((d: Draft) => Draft) | null>(null)
   const shown = useMemo(() => (preview ? preview(draft) : draft), [draft, preview])
-  const air = useRef<MissionAir3d>({ is3d: false, pxPerMetre: () => null })
+  const air = useRef<MissionAir3d>({ is3d: false, pxPerMetre: () => null, floatVehicle: () => {} })
 
   useEffect(() => {
     if (!container.current) return
@@ -241,6 +243,7 @@ export function MissionMap(props: Props) {
     if (!vehicle || !vehicleHasPosition(vehicle)) {
       vehicleMarker.current?.marker.remove()
       vehicleMarker.current = null
+      air.current.floatVehicle(null, null, VEHICLE_OFFSET)
       return
     }
     // The planner opens over the target vehicle, and moves over another one when the target changes
@@ -254,9 +257,10 @@ export function MissionMap(props: Props) {
       updateMarkerEl(vehicleMarker.current.el, vehicle, false)
     } else {
       const el = markerEl(vehicle, false)
-      const marker = new maplibregl.Marker({ element: el, anchor: 'left', offset: [-17, 0] }).setLngLat([vehicle.lon, vehicle.lat]).addTo(m)
+      const marker = new maplibregl.Marker({ element: el, anchor: 'left', offset: [...VEHICLE_OFFSET] }).setLngLat([vehicle.lon, vehicle.lat]).addTo(m)
       vehicleMarker.current = { marker, el }
     }
+    air.current.floatVehicle(vehicleMarker.current.marker, vehicle, VEHICLE_OFFSET)
   }, [vehicle])
 
   // Place search / 機体の位置へ

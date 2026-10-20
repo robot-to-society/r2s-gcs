@@ -35,6 +35,16 @@ describe('vehicle markers', () => {
     expect(el.querySelector('.disc path')!.getAttribute('d')).toMatch(/^M17\.8 19\.2/)
   })
 
+  it('the plane icon turns with the heading like the caret (Lucide draws it nose to 45°)', () => {
+    const el = markerEl({ ...base, kind: 'plane', hdg: 90 }, false)
+    const ic = () => el.querySelector<SVGElement>('.disc .ic')!
+    expect(ic().style.transform).toBe('rotate(45deg)')
+    updateMarkerEl(el, { ...base, kind: 'plane', hdg: 270 }, false)
+    expect(ic().style.transform).toBe('rotate(225deg)')
+    // the multicopter is round: it stays put
+    expect(markerEl({ ...base, hdg: 90 }, false).querySelector<SVGElement>('.disc .ic')!.style.transform).toBe('')
+  })
+
   it('rover_marker_uses_car_and_light_disc', () => {
     const el = markerEl({ ...base, kind: 'rover' }, false)
     expect([...el.querySelector('.vmk')!.classList]).toEqual(['vmk', 'rover'])

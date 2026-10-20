@@ -281,6 +281,18 @@ describe('MissionMap', () => {
       window.dispatchEvent(new MouseEvent('pointermove', { clientY: toY }))
     })
   }
+  it('in 3D the vehicle marker flies at its altitude and follows it as it climbs', () => {
+    const v = { ...(uav as object), lat: 36.2, lon: 139.2, alt_rel: 20, alt_msl: 520 } as never
+    const { props, rerender } = renderMap({ terrainTiles: DEM, mode: '3d', vehicle: v })
+    const mk = () => created.markers.find((x) => x.el.querySelector('.vmk'))!
+    frame()
+    const low = mk().offset![1]
+    expect(low).toBeLessThan(0)
+    rerender(<MissionMap {...props} terrainTiles={DEM} mode="3d" vehicle={{ ...(v as object), alt_rel: 120, alt_msl: 620 } as never} />)
+    frame()
+    expect(mk().offset![1]).toBeCloseTo(low - 200, 0)
+  })
+
   it('in 3D a badge drags up and down to change only the altitude, previewing the chip', () => {
     const { props } = renderMap({ terrainTiles: DEM, mode: '3d' })
     frame()

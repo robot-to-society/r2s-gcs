@@ -16,6 +16,8 @@ const CAR =
   '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>'
 const PLANE =
   '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>'
+/** Lucide `plane` points its nose up-right. */
+const PLANE_NOSE_DEG = 45
 const HOUSE =
   '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
 
@@ -78,6 +80,9 @@ export function updateMarkerEl(el: HTMLDivElement, v: VehicleState, selected: bo
   el.title = v.name
   const arrow = el.querySelector<HTMLElement>('.arrow')
   if (arrow) arrow.style.transform = `rotate(${v.hdg ?? 0}deg)`
+  // the plane is drawn from above: its nose follows the heading (Lucide's points to 45°)
+  const ic = el.querySelector<SVGElement>('.vmk.plane .disc .ic')
+  if (ic) ic.style.transform = `rotate(${(v.hdg ?? 0) - PLANE_NOSE_DEG}deg)`
   const lbl = el.querySelector('.lbl')
   if (lbl) lbl.textContent = v.name
   const alt = el.querySelector('.alt')
