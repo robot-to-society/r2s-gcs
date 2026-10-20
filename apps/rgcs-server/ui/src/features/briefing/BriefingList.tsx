@@ -5,6 +5,7 @@ import type { VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconChevronDown, IconChevronUp, IconClose, IconEye, IconEyeOff } from '../../shared/ui/icons'
 import { PALETTE, type Row, type Workspace } from './model'
+import { NAME_MAX } from './persistence'
 
 interface Props {
   readonly workspace: Workspace
@@ -19,9 +20,22 @@ interface Props {
   readonly onMove: (key: string, delta: -1 | 1) => void
   readonly onColor: (key: string, color: string) => void
   readonly onHidden: (key: string, hidden: boolean) => void
+  /** The briefing's name and its save / open buttons (absent: the list alone). */
+  readonly header?: BriefingHeader
 }
 
-type RowProps = Omit<Props, 'workspace' | 'liveDirty' | 'busy'> & {
+export interface BriefingHeader {
+  readonly name: string
+  /** A valid name and nothing running. */
+  readonly canSave: boolean
+  /** A save / open is running. */
+  readonly busy: boolean
+  readonly onName: (name: string) => void
+  readonly onSave: () => void
+  readonly onOpen: () => void
+}
+
+type RowProps = Omit<Props, 'workspace' | 'liveDirty' | 'busy' | 'header'> & {
   readonly row: Row
   readonly active: boolean
   readonly dirty: boolean
@@ -32,14 +46,33 @@ type RowProps = Omit<Props, 'workspace' | 'liveDirty' | 'busy'> & {
 
 const stop = (e: React.SyntheticEvent) => e.stopPropagation()
 
-export function BriefingList({ workspace, liveDirty, busy = false, ...rest }: Props) {
+export function BriefingList({ workspace, liveDirty, busy = false, header, ...rest }: Props) {
   const n = workspace.rows.length
   return (
-    <div className="brief-list hair" role="list" aria-label={rest.dict.bfList}>
-      {workspace.rows.map((row, i) => {
-        const active = row.key === workspace.active
-        return <BriefRow key={row.key} {...rest} row={row} active={active} dirty={active ? liveDirty : row.ui.dirty} first={i === 0} last={i === n - 1} locked={active && busy} />
-      })}
+    <>
+      {header && <Header {...header} dict={rest.dict} />}
+      <div className="brief-list hair" role="list" aria-label={rest.dict.bfList}>
+        {workspace.rows.map((row, i) => {
+          const active = row.key === workspace.active
+          return <BriefRow key={row.key} {...rest} row={row} active={active} dirty={active ? liveDirty : row.ui.dirty} first={i === 0} last={i === n - 1} locked={active && busy} />
+        })}
+      </div>
+    </>
+  )
+}
+
+function Header({ name, canSave, busy, onName, onSave, onOpen, dict }: BriefingHeader & { readonly dict: Dict }) {
+  return (
+    <div className="brief-head">
+      <input className="in brief-head-name" aria-label={dict.bfName} placeholder={dict.bfName} maxLength={NAME_MAX} value={name} onChange={(e) => onName(e.target.value)} />
+      <div className="brief-head-btns">
+        <button type="button" className="btn sm" title={canSave ? dict.bfSave : dict.bfNameHint} disabled={!canSave} onClick={onSave}>
+          {dict.bfSave}
+        </button>
+        <button type="button" className="btn sm" disabled={busy} onClick={onOpen}>
+          {dict.bfOpen}
+        </button>
+      </div>
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { BriefingList } from '../briefing/BriefingList'
 import { briefingStore, type BriefingStore } from '../briefing/store'
 import { useBriefing } from '../briefing/useBriefing'
 import { useBriefingWrite } from '../briefing/BatchWrite'
+import { useBriefingIo } from '../briefing/BriefingIo'
 import { useBriefingMap } from '../briefing/useBriefingMap'
 import { pathModel, pathParamNames, predictFor } from '../flightpath/predict'
 import { usePathParams } from '../flightpath/usePathParams'
@@ -95,7 +96,9 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const batch = useBriefingWrite(brief.list.workspace, vehicles, ui.busy !== 'idle', dict)
   const [fitTo, setFitTo] = useState<{ seq: number; points: readonly { lat: number; lon: number }[] } | null>(null)
   const fileHome = draft.mission.home ?? (vehicle?.home ? { lat: vehicle.home.lat, lon: vehicle.home.lon, alt: vehicle.home.alt } : null)
-  const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit: (points) => setFitTo((f) => ({ seq: (f?.seq ?? 0) + 1, points })) })
+  const onFit = (points: readonly { lat: number; lon: number }[]) => setFitTo((f) => ({ seq: (f?.seq ?? 0) + 1, points }))
+  const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit })
+  const briefIo = useBriefingIo(briefing, store, brief.list.workspace, dict, { onFit })
   const planIo = { sysid, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f) }
   const selectedItems = draft.items.filter((it) => ui.selected.has(it.uid))
   const lastSelected = selectedItems[selectedItems.length - 1]
@@ -239,7 +242,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       )}
       {plan.tab === 'mission' && (
         <aside className="g panel float float-l mission-left" aria-label={dict.navMission}>
-          <BriefingList {...brief.list} liveDirty={ui.dirty} busy={ui.busy !== 'idle'} vehicles={list} dict={dict} />
+          <BriefingList {...brief.list} header={briefIo.header} liveDirty={ui.dirty} busy={ui.busy !== 'idle'} vehicles={list} dict={dict} />
           <div className="panel-h" style={{ gap: 6 }}>
             <span className="h1" style={{ whiteSpace: 'nowrap' }}>
               {dict.mItemsTitle}
@@ -382,6 +385,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         />
       )}
       {batch.sheet}
+      {briefIo.sheet}
       {io.picker && <MissionPicker dict={dict} title={dict.mSaved} onClose={io.closePicker} onPick={(row) => void io.openSaved(row.id)} />}
       {menu && (
         <ContextMenu

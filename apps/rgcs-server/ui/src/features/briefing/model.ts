@@ -20,7 +20,7 @@ export interface Workspace {
 }
 
 let counter = 0
-const nextKey = (): string => `r${++counter}`
+export const nextKey = (): string => `r${++counter}`
 
 /** Call after restoring rows (e.g. from localStorage) so new keys never collide with them. */
 export function reseedKeys(rows: readonly { readonly key: string }[]): void {

@@ -35,6 +35,13 @@ export const briefingJa = {
   bfMismatch: '照合不一致',
   bfFenceMismatch: 'フェンス照合不一致',
   bfRallyMismatch: 'ラリー照合不一致',
+  bfName: 'ブリーフィング名',
+  bfNameHint: '名前を入れると保存できます (80 文字まで)',
+  bfSave: 'ブリーフィングを保存',
+  bfOpen: 'ブリーフィングを開く',
+  bfOpenTitle: '保存済みブリーフィング',
+  bfMissions: 'ミッション',
+  bfNoSaved: '保存済みのブリーフィングはありません',
 }
 
 export const briefingEn: Record<keyof typeof briefingJa, string> = {
@@ -72,4 +79,11 @@ export const briefingEn: Record<keyof typeof briefingJa, string> = {
   bfMismatch: 'Read-back mismatch',
   bfFenceMismatch: 'Fence mismatch',
   bfRallyMismatch: 'Rally mismatch',
+  bfName: 'Briefing name',
+  bfNameHint: 'Enter a name to save (up to 80 characters)',
+  bfSave: 'Save briefing',
+  bfOpen: 'Open briefing',
+  bfOpenTitle: 'Saved briefings',
+  bfMissions: 'missions',
+  bfNoSaved: 'No saved briefings',
 }
