@@ -1,9 +1,8 @@
-// Draws the briefing's other missions under the active one (dimmed, no click handlers) and the
-// crossing / near-approach labels as DOM markers (spec 2026-10-20 §5.3).
-import maplibregl, { type ExpressionSpecification, type Map as MlMap, type Marker } from 'maplibre-gl'
+// Draws the briefing's other missions under the active one (dimmed, no click handlers; spec
+// 2026-10-20 §5.3 without the crossing labels, §9).
+import type { ExpressionSpecification, Map as MlMap } from 'maplibre-gl'
 import { useEffect, useRef, type RefObject } from 'react'
-import type { CrossLabel } from './crossings'
-import { briefLabelEl, othersGeoJson, type OtherMission, type OthersGeoJson } from './overlay'
+import { othersGeoJson, type OtherMission, type OthersGeoJson } from './overlay'
 
 const PATHS = 'briefing-paths'
 const FENCE = 'briefing-fence'
@@ -46,11 +45,7 @@ export interface BriefingOverlayArgs {
   readonly map: RefObject<MlMap | null>
   readonly loaded: RefObject<boolean>
   readonly others: readonly OtherMission[]
-  readonly labels: readonly CrossLabel[]
-  readonly names: ReadonlyMap<string, string>
-  readonly colors: ReadonlyMap<string, string>
-  readonly onLabel: (l: CrossLabel) => void
-  /** 3D hides the flat routes (and, through `.is-3d`, the labels). */
+  /** 3D hides the flat routes (the air lines replace them). */
   readonly is3d: boolean
 }
 
@@ -68,27 +63,6 @@ function useOthersLayers(map: RefObject<MlMap | null>, loaded: RefObject<boolean
   }, [map, loaded, others, is3d])
 }
 
-export function useBriefingOverlay({ map, loaded, others, labels, names, colors, onLabel, is3d }: BriefingOverlayArgs): void {
+export function useBriefingOverlay({ map, loaded, others, is3d }: BriefingOverlayArgs): void {
   useOthersLayers(map, loaded, others, is3d)
-  const onLabelRef = useRef(onLabel)
-  useEffect(() => {
-    onLabelRef.current = onLabel
-  }, [onLabel])
-  const markers = useRef<Marker[]>([])
-  useEffect(() => {
-    const m = map.current
-    if (!m) return
-    markers.current.forEach((mk) => mk.remove())
-    markers.current = labels.map((l) => {
-      const el = briefLabelEl(l, names, colors, (x) => onLabelRef.current(x))
-      return new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -8] }).setLngLat([l.lon, l.lat]).addTo(m)
-    })
-  }, [map, labels, names, colors])
-  useEffect(
-    () => () => {
-      markers.current.forEach((mk) => mk.remove())
-      markers.current = []
-    },
-    [],
-  )
 }

@@ -2,7 +2,6 @@ import type { StyleSpecification } from 'maplibre-gl'
 import { useMemo, useRef, useState } from 'react'
 import type { Mission, MissionFrame, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { IconClose } from '../../shared/ui/icons'
 import { vehicleStore } from '../vehicles/store'
 import { BriefingList } from '../briefing/BriefingList'
 import { briefingStore, type BriefingStore } from '../briefing/store'
@@ -20,6 +19,9 @@ import { MapFinder } from './MapFinder'
 import { placeTakeoffs, takeoffAnchor } from './geo'
 import { MissionMap } from './MissionMap'
 import { ElevationSheet } from './ElevationSheet'
+import { HelpPanel } from './HelpPanel'
+import { usePlanPanel } from './planPanel'
+import { PlanRail } from './PlanRail'
 import { usePlanEditor } from './planEditor'
 import { FencePanel, PlanTabs, RallyPanel } from './PlanPanels'
 import { FenceSidebar, RallySidebar } from './PlanSidebar'
@@ -63,13 +65,16 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const is3d = mapMode === '3d' && terrainTiles !== null
   const ui = useMissionUi(store)
   const draft = ui.history.present
-  const brief = useBriefing(briefing, store, ui)
+  const [fitTo, setFitTo] = useState<{ seq: number; points: readonly { lat: number; lon: number }[] } | null>(null)
+  const onFit = (points: readonly { lat: number; lon: number }[]) => setFitTo((f) => ({ seq: (f?.seq ?? 0) + 1, points }))
+  const brief = useBriefing(briefing, store, ui, onFit)
+  const panel = usePlanPanel()
   const [menu, setMenu] = useState<Menu | null>(null)
   const [palette, setPalette] = useState(false)
   const [help, setHelp] = useState(false)
   const [targets, setTargets] = useState(false)
   const [focus, setFocus] = useState<{ lat: number; lon: number; seq: number } | null>(null)
-  const briefMap = useBriefingMap(brief.list.workspace, (lat, lon) => setFocus((f) => ({ lat, lon, seq: (f?.seq ?? 0) + 1 })))
+  const briefMap = useBriefingMap(brief.list.workspace)
   const [bulk, setBulk] = useState<{ alt: string; frame: MissionFrame }>({ alt: String(draft.mission.default_alt), frame: draft.mission.default_frame })
   const file = useRef<HTMLInputElement>(null)
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
@@ -94,12 +99,10 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
   const io = useMissionIo(store, briefing, sysid, dict, vehicleStore)
   const batch = useBriefingWrite(brief.list.workspace, vehicles, ui.busy !== 'idle', dict)
-  const [fitTo, setFitTo] = useState<{ seq: number; points: readonly { lat: number; lon: number }[] } | null>(null)
   const fileHome = draft.mission.home ?? (vehicle?.home ? { lat: vehicle.home.lat, lon: vehicle.home.lon, alt: vehicle.home.alt } : null)
-  const onFit = (points: readonly { lat: number; lon: number }[]) => setFitTo((f) => ({ seq: (f?.seq ?? 0) + 1, points }))
   const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit })
   const briefIo = useBriefingIo(briefing, store, brief.list.workspace, dict, { onFit })
-  const planIo = { sysid, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f) }
+  const planIo = { sysid, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f), onCollapse: panel.collapse }
   const selectedItems = draft.items.filter((it) => ui.selected.has(it.uid))
   const lastSelected = selectedItems[selectedItems.length - 1]
   const st = stats(draft.items, draft.mission.home, draft.mission.speed)
@@ -140,7 +143,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   }
 
   return (
-    <div className="mission-view" style={{ position: 'absolute', inset: 0 }} tabIndex={-1} onKeyDown={onKeyDown} data-testid="mission-view">
+    <div className={`mission-view${panel.collapsed ? ' panel-collapsed' : ''}`} style={{ position: 'absolute', inset: 0 }} tabIndex={-1} onKeyDown={onKeyDown} data-testid="mission-view">
       <MissionMap
         draft={draft}
         selected={ui.selected}
@@ -154,6 +157,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         fitRequest={io.fitRequest}
         focus={focus}
         fitTo={fitTo}
+        pathColor={brief.row.color}
+        panelCollapsed={panel.collapsed}
         onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, { takeoff: takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1) }))}
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}
         onMove={(uid, lat, lon) => change((d) => moveItem(d, uid, lat, lon))}
@@ -185,25 +190,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       <button type="button" className={`g-ctl ctl float map-r2 top1 help-btn${help ? ' on' : ''}`} title={dict.mHelpTitle} aria-label={dict.mHelpTitle} onClick={() => setHelp((h) => !h)}>
         ?
       </button>
-      {help && (
-        <div className="g-strong float map-r top2 help-panel" role="dialog" aria-label={dict.mHelpTitle}>
-          <div className="row" style={{ marginBottom: 8 }}>
-            <span className="h2">{dict.mHelpTitle}</span>
-            <div className="grow" />
-            <button type="button" className="btn-icon sm" aria-label={dict.close} onClick={() => setHelp(false)}>
-              <IconClose size={16} />
-            </button>
-          </div>
-          <div className="help-grid">
-            {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const).map((n) => (
-              <HelpRow key={n} k={dict[`mHelp${n}k` as keyof Dict]} v={dict[`mHelp${n}v` as keyof Dict]} />
-            ))}
-          </div>
-          <div className="t4" style={{ marginTop: 10, fontSize: 11 }}>
-            {dict.mShortcuts}
-          </div>
-        </div>
-      )}
+      {help && <HelpPanel dict={dict} onClose={() => setHelp(false)} />}
       <div className="g-ctl float map-c num mission-pill" aria-hidden="true">
         <span>
           <span className="t3">{dict.mDistance}</span>
@@ -308,11 +295,11 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
               ref={file}
               type="file"
               accept=".waypoints,.rgcsmission,.txt,text/plain,application/json"
+              multiple
               style={{ display: 'none' }}
               data-testid="mission-file"
               onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) void io.loadFile(f)
+                void io.loadFiles([...(e.target.files ?? [])])
                 e.target.value = ''
               }}
             />
@@ -328,7 +315,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         </aside>
       )}
 
-      {plan.tab === 'fence' && (
+      {panel.collapsed && <PlanRail dict={dict} onExpand={panel.expand} />}
+      {!panel.collapsed && plan.tab === 'fence' && (
         <FenceSidebar
           zones={draft.mission.fence}
           fenceParams={plan.fenceParams}
@@ -336,8 +324,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           {...planIo}
         />
       )}
-      {plan.tab === 'rally' && <RallySidebar points={draft.mission.rally} {...planIo} />}
-      {plan.tab === 'mission' && (
+      {!panel.collapsed && plan.tab === 'rally' && <RallySidebar points={draft.mission.rally} {...planIo} />}
+      {!panel.collapsed && plan.tab === 'mission' && (
       <MissionSidebar
         transfer={sysid === null ? null : (transfers.get(sysid) ?? null)}
         draft={draft}
@@ -369,6 +357,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onSaveFile={() => void io.saveWaypointsFile()}
         onSaveRgcs={io.saveRgcsFile}
         compare={batch.compare}
+        onCollapse={panel.collapse}
       />
       )}
 
@@ -404,19 +393,6 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         />
       )}
     </div>
-  )
-}
-
-function HelpRow({ k, v }: { readonly k: string; readonly v: string }) {
-  return (
-    <>
-      <span className="mono" style={{ whiteSpace: 'nowrap', color: 'var(--accent)', fontSize: 11 }}>
-        {k}
-      </span>
-      <span className="t2" style={{ lineHeight: 1.4 }}>
-        {v}
-      </span>
-    </>
   )
 }
 

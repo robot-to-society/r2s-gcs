@@ -35,6 +35,8 @@ import {
   OctagonX,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Pause,
   Pin,
   Plane,
@@ -75,6 +77,8 @@ export const IconUser = ({ size = 18, className }: IconProps) => <Lucide icon={U
 export const IconClose = ({ size = 20, className }: IconProps) => <Lucide icon={X} size={size} className={className} />
 export const IconCollapse = ({ size = 18, className }: IconProps) => <Lucide icon={PanelLeftClose} size={size} className={className} />
 export const IconMenu = ({ size = 18, className }: IconProps) => <Lucide icon={PanelLeftOpen} size={size} className={className} />
+export const IconPanelRightClose = ({ size = 18, className }: IconProps) => <Lucide icon={PanelRightClose} size={size} className={className} />
+export const IconPanelRightOpen = ({ size = 18, className }: IconProps) => <Lucide icon={PanelRightOpen} size={size} className={className} />
 export const IconChevron = ({ size = 18, className }: IconProps) => <Lucide icon={ChevronRight} size={size} className={className} />
 export const IconEye = ({ size = 14, className }: IconProps) => <Lucide icon={Eye} size={size} className={className} />
 export const IconEyeOff = ({ size = 14, className }: IconProps) => <Lucide icon={EyeOff} size={size} className={className} />

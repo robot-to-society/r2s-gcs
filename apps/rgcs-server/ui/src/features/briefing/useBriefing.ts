@@ -3,6 +3,8 @@
 import { useEffect, useMemo } from 'react'
 import { canUndo } from '../mission/history'
 import { missionStore, type MissionStore, type MissionUi } from '../mission/store'
+import type { LatLon } from '../mission/geo'
+import { framePoints } from './frame'
 import { activeRow, assign, moveRow, parkActive, removeRow, setColor, setHidden, type Row, type Workspace } from './model'
 import { restoreInto, startPersistence } from './persist'
 import { briefingStore, carryClipboard, loadActive, openInNewRow, switchRow, useWorkspace, type BriefingStore } from './store'
@@ -51,6 +53,15 @@ export interface BriefingListWiring {
   readonly onMove: (key: string, delta: -1 | 1) => void
   readonly onColor: (key: string, color: string) => void
   readonly onHidden: (key: string, hidden: boolean) => void
+  /** Double-click: frame that row's mission on the map. */
+  readonly onFrame: (key: string) => void
+}
+
+/** The row's mission as it stands: the live editor for the active row, else its parked draft. */
+export function rowFramePoints(b: BriefingStore, m: MissionStore, key: string): LatLon[] {
+  const ws = b.getState()
+  const draft = key === ws.active ? m.getState().history.present : ws.rows.find((r) => r.key === key)?.ui.history.present
+  return draft ? framePoints(draft) : []
 }
 
 export interface BriefingHandlers {
@@ -61,7 +72,8 @@ export interface BriefingHandlers {
 }
 
 /** `workspace` shows the live editor in the active row (its current name / items). */
-export function useBriefing(b: BriefingStore, m: MissionStore, live: MissionUi): BriefingHandlers {
+/** `onFit`: frames points on the planner map (the row double-click). */
+export function useBriefing(b: BriefingStore, m: MissionStore, live: MissionUi, onFit?: (points: readonly LatLon[]) => void): BriefingHandlers {
   const ws = useWorkspace(b)
   useEffect(() => {
     if (b !== briefingStore || m !== missionStore) return
@@ -80,6 +92,10 @@ export function useBriefing(b: BriefingStore, m: MissionStore, live: MissionUi):
     onMove: (key, delta) => b.update((w) => moveRow(w, key, delta)),
     onColor: (key, color) => b.update((w) => setColor(w, key, color)),
     onHidden: (key, hidden) => b.update((w) => setHidden(w, key, hidden)),
+    onFrame: (key) => {
+      const pts = rowFramePoints(b, m, key)
+      if (pts.length > 0) onFit?.(pts)
+    },
   }
   return { list, row: activeRow(workspace), assignActive: (sysid) => b.update((w) => assign(w, w.active, sysid)) }
 }

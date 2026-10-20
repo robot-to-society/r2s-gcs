@@ -1,0 +1,118 @@
+// MissionView with several missions open (spec 2026-10-20 §9): framing a row, multi-file open and
+// the collapsible right panel. The map is mocked: it reports what it is asked to frame.
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { VehicleState } from '../../shared/api/types'
+import { t } from '../../shared/i18n'
+
+vi.mock('./MissionMap', () => ({
+  MissionMap: (p: { fitTo?: { seq: number; points: readonly { lat: number; lon: number }[] } | null; panelCollapsed?: boolean }) => (
+    <div data-testid="mission-map" data-fit={JSON.stringify(p.fitTo?.points ?? [])} data-seq={p.fitTo?.seq ?? 0} data-collapsed={String(p.panelCollapsed ?? false)} />
+  ),
+}))
+
+const { MissionView } = await import('./MissionView')
+const { MissionStore } = await import('./store')
+const { BriefingStore } = await import('../briefing/store')
+const { appendWaypoint, emptyDraft, toMission } = await import('./model')
+const { serializeRgcsMission } = await import('./files')
+const { rasterStyle } = await import('../map/style')
+
+const copter: VehicleState = {
+  sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'STABILIZE', armed: false, lat: 36.16, lon: 139.37, alt_rel: 0, alt_msl: 0, hdg: 0,
+  ground_speed: 0, climb: 0, battery: { pct: 90, volt: 24, current: null }, link: 'ok', last_rx_ms: 0, gps: { fix: 3, sats: 12, hdop: 1 }, warn: false, unread: 0,
+}
+const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
+const envelope = (data: unknown) => new Response(JSON.stringify({ success: true, data }), { status: 200, headers: { 'content-type': 'application/json' } })
+
+function setup() {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => envelope([])))
+  const store = new MissionStore()
+  const briefing = new BriefingStore()
+  const view = () => <MissionView vehicles={new Map([[1, copter]])} dict={t('ja')} style={style} store={store} briefing={briefing} />
+  const utils = render(view())
+  return { ...utils, view, store, briefing }
+}
+
+const briefRows = () => [...document.querySelectorAll<HTMLElement>('.brief-row')]
+const names = () => briefRows().map((r) => r.querySelector('.brief-name')?.textContent)
+const fitted = () => JSON.parse(screen.getByTestId('mission-map').dataset.fit!) as { lat: number; lon: number }[]
+/** A mission of waypoints at (lat0 + i·0.01, 139), a fence circle and a rally point. */
+function missionFile(name: string, lat0: number, points: number, withPlan = false): File {
+  const draft = Array.from({ length: points }).reduce<ReturnType<typeof emptyDraft>>((d, _, i) => appendWaypoint(d, lat0 + i * 0.01, 139), emptyDraft())
+  const m = toMission(draft)
+  const plan = withPlan ? { fence: [{ kind: 'circle' as const, inclusion: true, center: { lat: lat0, lon: 139.5 }, radius: 100 }], rally: [{ lat: lat0 - 0.5, lon: 139, alt: 50 }] } : {}
+  return new File([serializeRgcsMission({ ...m, ...plan, name })], `${name}.rgcsmission`)
+}
+const pick = async (files: File[]) => {
+  await act(async () => {
+    fireEvent.change(screen.getByTestId('mission-file'), { target: { files } })
+  })
+}
+
+describe('MissionView briefing feedback (§9)', () => {
+  beforeEach(() => localStorage.removeItem('rgcs.planPanel'))
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('several_files_open_several_rows_and_a_bad_one_does_not_stop_the_rest', async () => {
+    const { store } = setup()
+    expect((screen.getByTestId('mission-file') as HTMLInputElement).multiple).toBe(true)
+    await pick([missionFile('Alpha', 36, 2), new File(['{ nonsense'], 'Broken.rgcsmission'), missionFile('Gamma', 35, 1)])
+    expect(names()).toEqual(['Alpha', 'Gamma'])
+    expect(store.getState().history.present.mission.name).toBe('Gamma')
+  })
+
+  it('double_clicking_a_row_frames_that_mission', async () => {
+    const { store } = setup()
+    await pick([missionFile('Alpha', 36, 2, true), missionFile('Beta', 35, 3)])
+    // a parked row: the first click switches to it, the double-click frames it
+    const alpha = briefRows()[0]!.querySelector('.brief-name')!
+    fireEvent.click(alpha)
+    expect(store.getState().history.present.mission.name).toBe('Alpha')
+    fireEvent.doubleClick(alpha)
+    const pts = fitted()
+    const lats = pts.map((p) => p.lat)
+    // its waypoints, the fence circle (east of them) and the rally point (south)
+    expect(lats).toEqual(expect.arrayContaining([36, 36.01, 35.5]))
+    expect(Math.max(...pts.map((p) => p.lon))).toBeGreaterThan(139.5)
+    // nothing of Beta's
+    expect(lats.some((l) => l < 35.1)).toBe(false)
+    // the active row frames too, with the live draft
+    fireEvent.click(briefRows()[1]!.querySelector('.brief-name')!)
+    const seq = Number(screen.getByTestId('mission-map').dataset.seq)
+    fireEvent.doubleClick(briefRows()[1]!.querySelector('.brief-name')!)
+    expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 1)
+    expect(fitted().map((p) => p.lat).sort()).toEqual([35, 35.01, 35.02])
+    // a double-click on the row's controls frames nothing
+    fireEvent.doubleClick(within(briefRows()[1]!).getByLabelText('割当機体'))
+    expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 1)
+  })
+
+  it('the_right_panel_collapses_on_every_tab_and_remembers_it', () => {
+    const { unmount, view } = setup()
+    const tabs = () => within(screen.getByRole('group', { name: '計画の種類' }))
+    const map = () => screen.getByTestId('mission-map')
+    expect(map().dataset.collapsed).toBe('false')
+    fireEvent.click(within(screen.getByRole('complementary', { name: 'editor' })).getByRole('button', { name: 'パネルをたたむ' }))
+    expect(screen.queryByRole('complementary', { name: 'editor' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'パネルを開く' })).toBeInTheDocument()
+    expect(map().dataset.collapsed).toBe('true')
+    expect(localStorage.getItem('rgcs.planPanel')).toBe('collapsed')
+    // the other tabs stay collapsed, and their panels collapse the same way
+    fireEvent.click(tabs().getByRole('button', { name: 'Fence' }))
+    expect(screen.queryByRole('complementary', { name: 'フェンス設定' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'パネルを開く' }))
+    expect(map().dataset.collapsed).toBe('false')
+    fireEvent.click(within(screen.getByRole('complementary', { name: 'フェンス設定' })).getByRole('button', { name: 'パネルをたたむ' }))
+    fireEvent.click(tabs().getByRole('button', { name: 'Rally' }))
+    expect(screen.queryByRole('complementary', { name: 'ラリーポイント設定' })).not.toBeInTheDocument()
+    // a new visit (reload) keeps it collapsed
+    unmount()
+    render(view())
+    expect(screen.getByRole('button', { name: 'パネルを開く' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'パネルを開く' }))
+    expect(within(screen.getByRole('complementary', { name: 'ラリーポイント設定' })).getByRole('button', { name: 'パネルをたたむ' })).toBeInTheDocument()
+    expect(localStorage.getItem('rgcs.planPanel')).toBe('open')
+    localStorage.removeItem('rgcs.planTab')
+  })
+})

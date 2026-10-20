@@ -128,6 +128,11 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
     }
   }
 
+  /** Each file opens its own row in the order picked; a bad one is reported and the rest go on. */
+  const loadFiles = async (files: readonly File[]) => {
+    for (const f of files) await loadFile(f)
+  }
+
   const openSaved = async (id: number) => {
     setPicker(false)
     try {
@@ -150,6 +155,7 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
     saveWaypointsFile,
     saveRgcsFile,
     loadFile,
+    loadFiles,
     openSaved,
   }
 }

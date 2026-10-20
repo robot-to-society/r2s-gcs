@@ -1,13 +1,11 @@
 // The briefing's other missions on the planner map (spec 2026-10-20): route, predicted path, fence
-// and rally of every open mission but the one being edited, each in its row colour, plus the DOM
-// labels at crossings / near approaches showing both planned altitudes.
+// and rally of every open mission but the one being edited, each in its row colour. No crossing
+// labels (§9): overlaps are read from the colours in 2D and from the 3D view.
 import type { Feature, FeatureCollection, Geometry, Point } from 'geojson'
 import type { PathPoint } from '../flightpath/planePath'
 import { fenceGeoJson } from '../mission/fenceMap'
 import { pathGeoJson, placeTakeoffs } from '../mission/geo'
-import { FRAME_LABEL } from '../mission/missionAir'
 import type { Draft } from '../mission/model'
-import type { CrossLabel, Side } from './crossings'
 
 export interface OtherMission {
   readonly key: string
@@ -49,32 +47,4 @@ export function othersGeoJson(others: readonly OtherMission[]): OthersGeoJson {
     fences: collection(tags.flatMap(({ o, tag }) => fenceOf(o, tag))),
     rally: collection(tags.flatMap(({ o, tag }) => rallyOf(o, tag))),
   }
-}
-
-function span(cls: string, text: string): HTMLSpanElement {
-  const el = document.createElement('span')
-  el.className = cls
-  el.textContent = text
-  return el
-}
-
-function sideLine(s: Side, names: ReadonlyMap<string, string>, colors: ReadonlyMap<string, string>): HTMLDivElement {
-  const line = document.createElement('div')
-  line.className = 'brief-label-line'
-  const dot = span('brief-label-dot', '●')
-  dot.style.color = colors.get(s.key) ?? ''
-  line.append(dot, span('brief-label-name', names.get(s.key) ?? ''), span('brief-label-alt num', `${Math.round(s.alt)} m`), span('brief-label-frame', FRAME_LABEL[s.frame]))
-  return line
-}
-
-/** "● 北エリア 40 m Rel" per side; a click goes to `onLabel` and never reaches the map. */
-export function briefLabelEl(l: CrossLabel, names: ReadonlyMap<string, string>, colors: ReadonlyMap<string, string>, onLabel: (l: CrossLabel) => void): HTMLDivElement {
-  const el = document.createElement('div')
-  el.className = `brief-label ${l.kind}`
-  el.append(sideLine(l.a, names, colors), sideLine(l.b, names, colors))
-  el.addEventListener('click', (e) => {
-    e.stopPropagation()
-    onLabel(l)
-  })
-  return el
 }

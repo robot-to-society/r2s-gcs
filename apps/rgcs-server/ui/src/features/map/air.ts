@@ -61,6 +61,12 @@ export function climbColor(dz: number, dh: number): Rgb {
   return t < 0.5 ? mix(MINT, AMBER, (t - 0.25) * 4) : mix(AMBER, DANGER, (t - 0.5) * 2)
 }
 
+/** A mission drawn in its own colour (spec 2026-10-20 §9): `base` until half of 45°, then towards `--danger` at 45°. */
+export function climbTint(base: Rgb, dz: number, dh: number): Rgb {
+  const t = ((Math.atan2(dz, Math.max(0, dh)) * 180) / Math.PI) / STEEP_DEG
+  return t < 0.5 ? base : mix(base, DANGER, (t - 0.5) * 2)
+}
+
 /** Same maths as `maplibregl.MercatorCoordinate.fromLngLat` (kept pure for tests). */
 const EARTH_CIRCUMFERENCE = 2 * Math.PI * 6371008.8
 

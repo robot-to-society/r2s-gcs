@@ -20,6 +20,8 @@ interface Props {
   readonly onMove: (key: string, delta: -1 | 1) => void
   readonly onColor: (key: string, color: string) => void
   readonly onHidden: (key: string, hidden: boolean) => void
+  /** Double-click on the name: frame that row's mission on the map. */
+  readonly onFrame?: (key: string) => void
   /** The briefing's name and its save / open buttons (absent: the list alone). */
   readonly header?: BriefingHeader
 }
@@ -79,7 +81,7 @@ function Header({ name, canSave, saveHint, busy, onName, onSave, onOpen, dict }:
   )
 }
 
-function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onSwitch, onAssign, onRemove, onMove, onColor, onHidden }: RowProps) {
+function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onSwitch, onAssign, onRemove, onMove, onColor, onHidden, onFrame }: RowProps) {
   const [palette, setPalette] = useState(false)
   const shown = !row.hidden
   const known = row.sysid === null || vehicles.some((v) => v.sysid === row.sysid)
@@ -89,7 +91,7 @@ function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onS
         <button type="button" className="brief-chip" aria-label={dict.bfColor} style={{ background: row.color }} onClick={() => setPalette((p) => !p)} />
         {palette && <ColorPopover current={row.color} dict={dict} onPick={(c) => onColor(row.key, c)} onClose={() => setPalette(false)} />}
       </span>
-      <span className="brief-name" title={row.ui.history.present.mission.name}>
+      <span className="brief-name" title={`${row.ui.history.present.mission.name}\n${dict.bfFrameHint}`} onDoubleClick={() => onFrame?.(row.key)}>
         {row.ui.history.present.mission.name}
       </span>
       {dirty && (

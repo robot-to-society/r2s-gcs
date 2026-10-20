@@ -43,6 +43,9 @@ export const briefingJa = {
   bfMissions: 'ミッション',
   bfNoSaved: '保存済みのブリーフィングはありません',
   bfNothing: '保存するミッションがありません',
+  bfFrameHint: 'ダブルクリックで地図に全体を表示',
+  bfPanelCollapse: 'パネルをたたむ',
+  bfPanelExpand: 'パネルを開く',
 }
 
 export const briefingEn: Record<keyof typeof briefingJa, string> = {
@@ -88,4 +91,7 @@ export const briefingEn: Record<keyof typeof briefingJa, string> = {
   bfMissions: 'missions',
   bfNoSaved: 'No saved briefings',
   bfNothing: 'No missions to save',
+  bfFrameHint: 'Double-click to frame it on the map',
+  bfPanelCollapse: 'Collapse panel',
+  bfPanelExpand: 'Expand panel',
 }

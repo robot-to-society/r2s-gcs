@@ -4,7 +4,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { FeatureCollection, Point } from 'geojson'
 import type { Map as MlMap, Marker } from 'maplibre-gl'
-import { climbColor, itemAmsl, mercatorLine, vehicleAmsl, type AirPoint, type AirVertex, type ElevAt, type Rgb } from '../map/air'
+import { climbColor, climbTint, itemAmsl, mercatorLine, vehicleAmsl, type AirPoint, type AirVertex, type ElevAt, type Rgb } from '../map/air'
 import { useAir3d } from '../map/air3d'
 import { floatMarkers, pixelsPerMetre, type Floating } from '../map/float'
 import type { MapMode } from '../map/mapMode'
@@ -67,11 +67,13 @@ function legPoints(a: Stop, b: Stop, elevAt: ElevAt): Pt[] {
   })
 }
 
+type Climb = (dz: number, dh: number) => Rgb
+
 /** Each vertex takes the climb of the segment that leaves it (the last one, the segment into it). */
-function coloured(pts: readonly Pt[]): AirPoint[] {
+function coloured(pts: readonly Pt[], climb: Climb = climbColor): AirPoint[] {
   return pts.map((p, i) => {
     const [a, b] = i < pts.length - 1 ? [p, pts[i + 1]!] : [pts[i - 1] ?? p, p]
-    return { ...p, color: climbColor(b.amsl - a.amsl, haversineM(a.lat, a.lon, b.lat, b.lon)) }
+    return { ...p, color: climb(b.amsl - a.amsl, haversineM(a.lat, a.lon, b.lat, b.lon)) }
   })
 }
 
@@ -169,9 +171,12 @@ export function othersAirLines(others: readonly OtherMission[], elevAt: ElevAt):
   })
 }
 
-export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elevAt: ElevAt, ceiling: number | null = null, vehicleHome: LatLon | null = null, predicted: Predicted | null = null): MissionAir {
+/** `color`: the mission's row colour for its legs (steep climbs still turn red); null = the climb scale. */
+export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elevAt: ElevAt, ceiling: number | null = null, vehicleHome: LatLon | null = null, predicted: Predicted | null = null, color: string | null = null): MissionAir {
   const { items, home, homeGround, alts, stops, legs } = routeOf(draft, elevAt)
-  const lines = legs.map((leg) => mercatorLine(coloured(leg)))
+  const base = color === null ? null : hexRgb(color)
+  const climb: Climb = base ? (dz, dh) => climbTint(base, dz, dh) : climbColor
+  const lines = legs.map((leg) => mercatorLine(coloured(leg, climb)))
   const discs: FeatureCollection<Point, { sel: number }> = { type: 'FeatureCollection', features: [] }
   const posts = stops.flatMap((s) => {
     const g = elevAt(s.lon, s.lat) ?? homeGround
@@ -186,8 +191,8 @@ export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elev
     const zb = alts.get(b.uid)
     return za == null || zb == null ? null : (za + zb) / 2
   })
-  const base = home ? homeGround : vehicleHome ? elevAt(vehicleHome.lon, vehicleHome.lat) : null
-  const walls = ceiling !== null && base !== null ? fenceWalls(draft.mission.fence, base + ceiling, (lon, lat) => elevAt(lon, lat) ?? base) : { lines: [], posts: [] }
+  const floor = home ? homeGround : vehicleHome ? elevAt(vehicleHome.lon, vehicleHome.lat) : null
+  const walls = ceiling !== null && floor !== null ? fenceWalls(draft.mission.fence, floor + ceiling, (lon, lat) => elevAt(lon, lat) ?? floor) : { lines: [], posts: [] }
   return { lines: [...lines, ...walls.lines], posts: [...posts, ...walls.posts, ...predictedLine(predicted, elevAt)], discs, alts, mids }
 }
 
@@ -206,6 +211,8 @@ interface Args {
   readonly predicted?: Predicted | null
   /** The briefing's other shown missions, drawn as dimmed lines beside the plan. */
   readonly others?: readonly OtherMission[]
+  /** The mission's row colour (null: the climb scale). */
+  readonly color?: string | null
 }
 
 const NO_OTHERS: readonly OtherMission[] = []
@@ -233,7 +240,7 @@ export interface MissionAir3d {
   readonly floatVehicle: (marker: Marker | null, v: VehicleState | null, base: readonly [number, number]) => void
 }
 
-export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles, ceiling = null, vehicleHome = null, predicted = null, others = NO_OTHERS }: Args): MissionAir3d {
+export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles, ceiling = null, vehicleHome = null, predicted = null, others = NO_OTHERS, color = null }: Args): MissionAir3d {
   const { sampler, ready, is3d, tick, layer, models, floats, matrix } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
   const latest = useRef({ draft, alts: new Map<number, number | null>() as ReadonlyMap<number, number | null> })
   const planFloats = useRef<readonly Floating[]>([])
@@ -244,7 +251,7 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
   useEffect(() => {
     const m = map.current
     if (!m || !ready || !sampler || !is3d) return
-    const d = missionAirData(draft, selected, sampler.elevAt, ceiling, vehicleHome, predicted)
+    const d = missionAirData(draft, selected, sampler.elevAt, ceiling, vehicleHome, predicted, color)
     latest.current = { draft, alts: d.alts }
     const byUid = new Map(draft.items.map((it) => [it.uid, it]))
     const badgeFloats = [...badges.current.entries()].flatMap(([uid, { marker }]) => {
@@ -260,7 +267,7 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     layer.setLines([...d.lines, ...othersAirLines(others, sampler.elevAt)], d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats, ceiling, vehicleHome?.lat, vehicleHome?.lon, predicted, others])
+  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats, ceiling, vehicleHome?.lat, vehicleHome?.lon, predicted, others, color])
 
   const pxPerMetre = (uid: number): number | null => {
     const m = map.current

@@ -17,7 +17,6 @@ import { useMissionFeet, type FeetCallbacks } from './missionFeet'
 import { useBoxSelect } from './boxSelect'
 import { attachArcDrag } from './arcDrag'
 import { useFenceRally, type FenceEdit, type PlanTab } from './fenceMap'
-import type { CrossLabel } from '../briefing/crossings'
 import type { OtherMission } from '../briefing/overlay'
 import { useBriefingOverlay } from '../briefing/useBriefingOverlay'
 
@@ -63,25 +62,23 @@ interface Props {
   readonly onContext: (menu: ContextMenu | null) => void
   /** The briefing's other open missions: drawn dimmed in their colours, not interactive. */
   readonly others?: readonly OtherMission[]
-  /** Crossings / near approaches between the briefing's missions. */
-  readonly labels?: readonly CrossLabel[]
-  /** Mission name and colour per row key (for the labels). */
-  readonly names?: ReadonlyMap<string, string>
-  readonly colors?: ReadonlyMap<string, string>
-  readonly onLabel?: (l: CrossLabel) => void
+  /** The mission's row colour: its 2D and 3D path lines (absent: the altitude gradient). */
+  readonly pathColor?: string
+  /** The right panel is folded to its rail: fits use the space it freed. */
+  readonly panelCollapsed?: boolean
 }
 
 const HOME: [number, number] = [139.372, 36.162]
 const FOCUS_ZOOM = 16
 /** Fits keep clear of the floating panels (left list, right editor, top bar, bottom summary). */
 const FIT_PADDING = { top: 100, bottom: 110, left: 380, right: 400 }
+/** The same with the right panel folded to its 44 px rail. */
+const FIT_PADDING_RAIL = { ...FIT_PADDING, right: 84 }
 /** The `.vmk` disc centre on the position (34 px disc at the element's left edge). */
 const VEHICLE_OFFSET = [-17, 0] as const
 const PATH = 'mission-path'
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 const NO_OTHERS: readonly OtherMission[] = []
-const NO_LABELS: readonly CrossLabel[] = []
-const NO_KEYS: ReadonlyMap<string, string> = new Map()
 /** `--accent` → `--alt-hi` (spec 10 §6: the path is coloured by altitude). */
 const ALT_COLOR: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'alt_t'], 0, '#9cc9ff', 1, '#d8a8ff']
 
@@ -90,7 +87,7 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus' | 'fitTo' | 'others' | 'labels' | 'names' | 'colors'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus' | 'fitTo' | 'others' | 'pathColor' | 'panelCollapsed'>
 
 /** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
@@ -134,7 +131,7 @@ export function MissionMap(props: Props) {
     m.on('load', () => {
       m.addSource(PATH, { type: 'geojson', data: EMPTY })
       m.addLayer({ id: 'mission-path-casing', type: 'line', source: PATH, paint: { 'line-color': '#0b1b2e', 'line-width': 6, 'line-opacity': 0.6 } })
-      m.addLayer({ id: 'mission-path-line', type: 'line', source: PATH, paint: { 'line-color': ALT_COLOR, 'line-width': 3 } })
+      m.addLayer({ id: 'mission-path-line', type: 'line', source: PATH, paint: { 'line-color': pathColorRef.current ?? ALT_COLOR, 'line-width': 3 } })
       // the expected flight (loiter circles, cut corners): thin, dashed and translucent over the plan
       addPredictedLayer(m, predictedRef.current)
       loaded.current = true
@@ -165,6 +162,13 @@ export function MissionMap(props: Props) {
   }, [])
 
   const is3d = props.mode === '3d' && (props.terrainTiles ?? null) !== null
+  const pathColor = props.pathColor
+  const pathColorRef = useRef(pathColor)
+  pathColorRef.current = pathColor
+  useEffect(() => {
+    if (loaded.current) map.current?.setPaintProperty('mission-path-line', 'line-color', pathColor ?? ALT_COLOR)
+  }, [pathColor])
+  const fitPadding = props.panelCollapsed ? FIT_PADDING_RAIL : FIT_PADDING
 
   // Path
   useEffect(() => {
@@ -233,7 +237,7 @@ export function MissionMap(props: Props) {
   }, [draft])
 
   // After the map, the badges and the handles exist: effects run in declaration order.
-  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle), predicted, others: props.others ?? NO_OTHERS })
+  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle), predicted, others: props.others ?? NO_OTHERS, color: pathColor ?? null })
   const feetCb = useRef<FeetCallbacks>(null!)
   feetCb.current = {
     onPreview: (uid, multi, from, to) => setPreview(() => (d: Draft) => (multi ? moveItems(d, selectedRef.current, to.lat - from.lat, to.lon - from.lon) : moveItem(d, uid, to.lat, to.lon))),
@@ -253,7 +257,7 @@ export function MissionMap(props: Props) {
   const boxActive = useRef(tab === 'mission')
   boxActive.current = tab === 'mission'
   useBoxSelect(container, badges, onBox, boxActive)
-  useBriefingOverlay({ map, loaded, others: props.others ?? NO_OTHERS, labels: props.labels ?? NO_LABELS, names: props.names ?? NO_KEYS, colors: props.colors ?? NO_KEYS, is3d, onLabel: (l) => cb.current.onLabel?.(l) })
+  useBriefingOverlay({ map, loaded, others: props.others ?? NO_OTHERS, is3d })
 
   // The selected vehicle, for context
   useEffect(() => {
@@ -302,7 +306,7 @@ export function MissionMap(props: Props) {
       return
     }
     const bounds = pts.reduce((b, p) => b.extend([p.lon, p.lat]), new maplibregl.LngLatBounds([pts[0]!.lon, pts[0]!.lat], [pts[0]!.lon, pts[0]!.lat]))
-    m.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 17, duration: 300, ...KEEP_ELEVATION })
+    m.fitBounds(bounds, { padding: fitPadding, maxZoom: 17, duration: 300, ...KEEP_ELEVATION })
     // only a new request moves the view
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitSeq])
@@ -313,7 +317,7 @@ export function MissionMap(props: Props) {
     const pts = draft.items.filter(hasPosition)
     if (pts.length === 0) return
     const bounds = pts.reduce((b, it) => b.extend([it.lon, it.lat]), new maplibregl.LngLatBounds([pts[0]!.lon, pts[0]!.lat], [pts[0]!.lon, pts[0]!.lat]))
-    m.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 17, duration: 300, ...KEEP_ELEVATION })
+    m.fitBounds(bounds, { padding: fitPadding, maxZoom: 17, duration: 300, ...KEEP_ELEVATION })
     // Only the request counter triggers a fit; the draft is read at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitRequest])

@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import type { FenceParams, FenceZone, RallyPoint } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
+import { CollapseButton } from './PlanRail'
 
 export interface PlanStatus {
   readonly ok: boolean
@@ -16,6 +17,8 @@ interface IoProps {
   readonly dict: Dict
   readonly onWrite: () => void
   readonly onRead: () => void
+  /** Folds the panel to its rail. */
+  readonly onCollapse?: () => void
 }
 
 function IoFooter({ sysid, busy, status, dict, onWrite, onRead, note, labels }: IoProps & { readonly note: string; readonly labels: readonly [string, string] }) {
@@ -120,6 +123,8 @@ export function FenceSidebar(p: FenceSideProps) {
         <div className="sec">
           <div className="row" style={{ marginBottom: 12, gap: 8 }}>
             <span className="h1">{dict.fenceTitle}</span>
+            <div className="grow" />
+            {p.onCollapse && <CollapseButton dict={dict} onCollapse={p.onCollapse} />}
           </div>
           <div className="num summary-grid" data-testid="fence-summary">
             <span className="t2">{dict.fenceInclusion}</span>
@@ -150,6 +155,8 @@ export function RallySidebar(p: RallySideProps) {
         <div className="sec">
           <div className="row" style={{ marginBottom: 12, gap: 8 }}>
             <span className="h1">{dict.rallyTitle}</span>
+            <div className="grow" />
+            {p.onCollapse && <CollapseButton dict={dict} onCollapse={p.onCollapse} />}
           </div>
           <div className="num summary-grid" data-testid="rally-summary">
             <span className="t2">{dict.rallyTitle}</span>

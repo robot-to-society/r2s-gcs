@@ -5,6 +5,7 @@ import { ItemEditor } from './ItemEditor'
 import { km, mmss } from './labels'
 import type { Draft, DraftItem } from './model'
 import { findingText, type LocalWarning } from './summary'
+import { CollapseButton } from './PlanRail'
 import { TransferBar } from './TransferBar'
 
 interface Props {
@@ -36,6 +37,8 @@ interface Props {
   readonly onSaveRgcs: () => void
   /** The briefing comparison table (two or more missions open), above the summary. */
   readonly compare?: React.ReactNode
+  /** Folds the panel to its rail. */
+  readonly onCollapse?: () => void
 }
 
 /** Right panel after the prototype: ミッション settings, selection editor, サマリ, write / save buttons. */
@@ -61,6 +64,7 @@ export function MissionSidebar(p: Props) {
             <button type="button" className="btn btn-sm" disabled={p.busy} onClick={p.onSave}>
               {dict.mSave}
             </button>
+            {p.onCollapse && <CollapseButton dict={dict} onCollapse={p.onCollapse} />}
           </div>
           <div className="form">
             <span>{dict.mName}</span>

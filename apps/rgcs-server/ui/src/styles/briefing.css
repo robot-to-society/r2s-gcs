@@ -1,4 +1,4 @@
-/* The briefing list (spec 2026-10-20 §5.1) on top of the planner's left panel: compact rows in the
+/* The briefing list (spec 2026-10-20 §5.1; double-click a name to frame it, §9) on top of the planner's left panel: compact rows in the
    .wrow look (radius 10, 2 px / 8 px margins, accent tint for the row being edited). */
 .brief-list { padding: 4px 0; flex: none; }
 /* The briefing's name with 保存 / 開く above the rows. */
@@ -24,19 +24,6 @@
 .brief-swatch.on { outline: 2px solid var(--text); outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) { .brief-row, .brief-ctl { transition: none; } }
 
-/* Crossing / near-approach labels between missions on the planner map (spec 2026-10-20 §5.3):
-   a dark translucent pill, one line per mission, the dot in that mission's colour. */
-.brief-label { display: grid; gap: 1px; padding: 4px 9px; border-radius: 10px; background: var(--glass-strong); border: 1px solid var(--line-hi); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-size: 11px; line-height: 1.35; color: var(--text); white-space: nowrap; cursor: pointer; }
-.brief-label:hover { border-color: rgba(255, 255, 255, 0.3); }
-.brief-label.near { border-style: dashed; }
-.brief-label-line { display: flex; align-items: baseline; gap: 5px; }
-.brief-label-dot { font-size: 10px; }
-.brief-label-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-.brief-label-alt { font-family: var(--mono); font-size: 11px; }
-.brief-label-frame { color: var(--text-3); font-size: 10px; }
-/* 3D shows the other missions as air lines instead of the crossing labels */
-.mission-map.is-3d .brief-label { display: none; }
-
 /* Comparison table on the right panel (spec 2026-10-20 §5.4): distance large, battery amber over 70 %. */
 .brief-cmp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .brief-cmp-table th { text-align: left; font-weight: 500; font-size: 10px; color: var(--text-3); padding: 0 4px 6px; white-space: nowrap; }
@@ -58,3 +45,9 @@
 .brief-phase { font-size: 12px; color: var(--text-2); }
 .brief-phase.done { color: var(--ok); }
 .brief-phase.failed { color: var(--caution); }
+
+/* The planner's right panel folded to a rail (§9): the map controls beside it move over too. */
+.mission-view.panel-collapsed { --right-w: 44px; }
+.plan-rail { display: flex; flex-direction: column; align-items: center; padding: 8px 0; }
+.plan-rail .btn-icon { width: 32px; height: 32px; }
+.plan-collapse { flex: none; }

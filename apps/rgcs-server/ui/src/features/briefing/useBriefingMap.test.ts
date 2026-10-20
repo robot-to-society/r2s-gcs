@@ -31,28 +31,13 @@ describe('briefingMapOf', () => {
     expect(m.others[0]!.predicted).toBeNull()
   })
 
-  it('labels_cover_the_active_row_too_and_names_colours_follow_the_rows', () => {
-    const ws = three()
-    const m = briefingMapOf(ws)
-    expect(m.labels).toHaveLength(1)
-    expect(new Set([m.labels[0]!.a.key, m.labels[0]!.b.key])).toEqual(new Set([ws.rows[0]!.key, ws.rows[1]!.key]))
-    expect(m.names.get(ws.rows[0]!.key)).toBe('A')
-    expect(m.colors.get(ws.rows[1]!.key)).toBe(ws.rows[1]!.color)
+  it('a_single_mission_has_no_others', () => {
+    expect(briefingMapOf(emptyWorkspace()).others).toEqual([])
   })
 
-  it('a_single_mission_has_no_others_and_no_labels', () => {
-    const m = briefingMapOf(emptyWorkspace())
-    expect(m.others).toEqual([])
-    expect(m.labels).toEqual([])
-  })
-
-  it('hidden_rows_are_not_drawn_or_labelled', () => {
+  it('hidden_rows_are_not_drawn', () => {
     const ws = three()
-    const shown = briefingMapOf(ws)
-    expect(shown.others).toHaveLength(1)
-    expect(shown.labels).toHaveLength(1)
-    const hid = briefingMapOf(setHidden(ws, ws.rows[1]!.key, true))
-    expect(hid.others).toEqual([])
-    expect(hid.labels).toEqual([])
+    expect(briefingMapOf(ws).others).toHaveLength(1)
+    expect(briefingMapOf(setHidden(ws, ws.rows[1]!.key, true)).others).toEqual([])
   })
 })

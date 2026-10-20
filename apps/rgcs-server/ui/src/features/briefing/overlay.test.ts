@@ -1,9 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { FenceZone, RallyPoint } from '../../shared/api/types'
 import type { Draft, DraftItem } from '../mission/model'
 import { emptyDraft } from '../mission/model'
-import type { CrossLabel } from './crossings'
-import { briefLabelEl, othersGeoJson, type OtherMission } from './overlay'
+import { othersGeoJson, type OtherMission } from './overlay'
 
 const LAT0 = 36.25
 const LON0 = 137.64
@@ -57,28 +56,5 @@ describe('othersGeoJson', () => {
     })
     const g = othersGeoJson([other('b', '#d8a8ff', draftOf('B', 2, [], [rallyAt(LAT0)]))])
     expect(new Set([...g.paths.features, ...g.rally.features].map((f) => f.properties?.key))).toEqual(new Set(['b']))
-  })
-})
-
-describe('briefLabelEl', () => {
-  const label: CrossLabel = { lat: LAT0, lon: LON0, kind: 'cross', a: { key: 'a', alt: 39.6, frame: 'rel' }, b: { key: 'b', alt: 80, frame: 'abs' } }
-
-  it('shows_one_line_per_mission_with_its_colour_name_altitude_and_frame', () => {
-    const el = briefLabelEl(label, new Map([['a', '北エリア'], ['b', '<b>南</b>']]), new Map([['a', '#5fd39b'], ['b', '#d8a8ff']]), () => {})
-    expect(el.className).toBe('brief-label cross')
-    const lines = [...el.querySelectorAll('.brief-label-line')]
-    expect(lines.map((l) => l.textContent)).toEqual(['●北エリア40 mRel', '●<b>南</b>80 mAbs'])
-    expect((lines[0]!.querySelector('.brief-label-dot') as HTMLElement).style.color).toBe('rgb(95, 211, 155)')
-    expect(el.querySelector('b')).toBeNull()
-  })
-
-  it('clicking_calls_onLabel_without_reaching_the_map', () => {
-    const onLabel = vi.fn()
-    const el = briefLabelEl(label, new Map(), new Map(), onLabel)
-    const ev = new MouseEvent('click', { bubbles: true })
-    const stop = vi.spyOn(ev, 'stopPropagation')
-    el.dispatchEvent(ev)
-    expect(onLabel).toHaveBeenCalledWith(label)
-    expect(stop).toHaveBeenCalled()
   })
 })

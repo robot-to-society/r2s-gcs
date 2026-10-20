@@ -96,6 +96,10 @@ class FakeMap {
   setTerrain(t: unknown) {
     this.terrain = t
   }
+  paint = new Map<string, unknown>()
+  setPaintProperty(id: string, k: string, v: unknown) {
+    this.paint.set(`${id}.${k}`, v)
+  }
   setLayoutProperty(id: string, _k: string, v: string) {
     this.visibility.set(id, v)
   }
@@ -132,6 +136,10 @@ const { MissionMap } = await import('./MissionMap')
 const { appendWaypoint, emptyDraft, removeItems } = await import('./model')
 const { rasterStyle } = await import('../map/style')
 const { toMercator } = await import('../map/air')
+const { missionAirData } = await import('./missionAir')
+const { briefingMapOf } = await import('../briefing/useBriefingMap')
+const { activeRow, addRow, emptyWorkspace } = await import('../briefing/model')
+const { INITIAL_MISSION_UI } = await import('./store')
 
 const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
 const draft3 = () => appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
@@ -664,16 +672,29 @@ describe('MissionMap', () => {
     })
   })
 
+  it('the_active_path_uses_its_row_colour', () => {
+    const { rerender, props } = renderMap({ pathColor: '#ff4d79' })
+    const map = created.maps[0]!
+    const line = map.layerObjs.get('mission-path-line') as { paint: Record<string, unknown> }
+    expect(line.paint['line-color']).toBe('#ff4d79')
+    rerender(<MissionMap {...props} pathColor="#31d848" />)
+    expect(map.paint.get('mission-path-line.line-color')).toBe('#31d848')
+    // 3D: the level legs take the row colour (steep climbs still turn red)
+    const level = appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2)
+    const air = missionAirData(level, new Set(), () => 100, null, null, null, '#31d848')
+    const rgb = [0x31 / 255, 0xd8 / 255, 0x48 / 255]
+    for (const v of air.lines.flat()) v.c.forEach((c, i) => expect(c).toBeCloseTo(rgb[i]!, 5))
+    expect(air.lines.flat().length).toBeGreaterThan(0)
+  })
+
   describe('briefing overlay', () => {
     const brLayers = ['briefing-fence', 'briefing-fence-line', 'briefing-paths', 'briefing-predicted', 'briefing-rally']
     const other = { key: 'r2', color: '#5fd39b', draft: draft3(), predicted: null }
-    const label = { lat: 36.15, lon: 139.15, kind: 'cross' as const, a: { key: 'r1', alt: 50, frame: 'rel' as const }, b: { key: 'r2', alt: 80, frame: 'abs' as const } }
     const labels = () => created.markers.filter((m) => m.el.classList.contains('brief-label') && !m.removed)
 
-    it('a_single_mission_adds_no_briefing_layers_or_labels', () => {
+    it('a_single_mission_adds_no_briefing_layers', () => {
       renderMap()
       expect(created.maps[0]!.layers.filter((id) => id.startsWith('briefing'))).toEqual([])
-      expect(labels()).toHaveLength(0)
     })
 
     it('other_missions_are_drawn_below_the_active_mission_without_click_handlers', () => {
@@ -685,16 +706,18 @@ describe('MissionMap', () => {
       expect(map.handlers.get('click')).toHaveLength(1)
     })
 
-    it('labels_show_both_missions_and_a_click_reports_the_label', () => {
-      const onLabel = vi.fn()
-      const { rerender, props } = renderMap({ others: [other], labels: [label], names: new Map([['r1', 'A'], ['r2', 'B']]), colors: new Map([['r1', '#9cc9ff'], ['r2', '#5fd39b']]), onLabel })
-      expect(labels()).toHaveLength(1)
-      expect(labels()[0]!.lngLat).toEqual([139.15, 36.15])
-      expect(labels()[0]!.el.textContent).toBe('●A50 mRel●B80 mAbs')
-      act(() => labels()[0]!.el.click())
-      expect(onLabel).toHaveBeenCalledWith(label)
-      rerender(<MissionMap {...props} labels={[]} />)
+    it('no_crossing_labels_are_drawn', () => {
+      // two missions crossing at the same altitude: only their colours tell them apart (spec §9)
+      const ew = appendWaypoint(appendWaypoint(emptyDraft(), 36.2, 139.1), 36.2, 139.3)
+      const ns = appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.2), 36.3, 139.2)
+      const ui = (d: typeof ew, id: number) => ({ ...INITIAL_MISSION_UI, savedId: id, history: { ...INITIAL_MISSION_UI.history, present: d } })
+      const ws = addRow(addRow(emptyWorkspace(), ui(ew, 1)), ui(ns, 2))
+      const bm = briefingMapOf(ws)
+      expect(bm).not.toHaveProperty('labels')
+      renderMap({ draft: activeRow(ws).ui.history.present, ...bm })
+      expect(created.maps[0]!.layers.filter((id) => id.startsWith('briefing'))).toEqual(brLayers)
       expect(labels()).toHaveLength(0)
+      expect(document.querySelector('.brief-label')).toBeNull()
     })
   })
 })

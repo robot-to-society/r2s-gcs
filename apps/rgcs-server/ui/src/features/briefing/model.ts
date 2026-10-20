@@ -1,6 +1,7 @@
 import { INITIAL_MISSION_UI, fresh, type MissionUi } from '../mission/store'
+import { nextColor } from './palette'
 
-export const PALETTE: readonly string[] = ['#9cc9ff', '#5fd39b', '#d8a8ff', '#f2b544', '#ff8f6b', '#6fe3e1', '#f78fc7', '#c6d36b']
+export { PALETTE } from './palette'
 
 export interface Row {
   readonly key: string
@@ -31,10 +32,7 @@ export function reseedKeys(rows: readonly { readonly key: string }[]): void {
   counter = Math.max(counter, max)
 }
 
-const nextColor = (rows: readonly Row[]): string =>
-  PALETTE.find((c) => !rows.some((r) => r.color === c)) ?? PALETTE[rows.length % PALETTE.length]
-
-const makeRow = (rows: readonly Row[], ui: MissionUi): Row => ({ key: nextKey(), color: nextColor(rows), sysid: null, missing: false, hidden: false, ui })
+const makeRow = (rows: readonly Row[], ui: MissionUi): Row => ({ key: nextKey(), color: nextColor(rows.map((r) => r.color)), sysid: null, missing: false, hidden: false, ui })
 
 export function emptyWorkspace(): Workspace {
   const row = makeRow([], fresh(INITIAL_MISSION_UI))
