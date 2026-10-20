@@ -1,6 +1,6 @@
 // The editor's draft: a Mission whose items carry a stable `uid` for React keys and selection.
 // Every function returns a new draft; the input is never mutated.
-import type { Mission, MissionFrame, MissionItem } from '../../shared/api/types'
+import type { Mission, MissionFrame, MissionItem, VehicleKind } from '../../shared/api/types'
 import { CMDS, cmdKeyOf, type FieldSpec } from './cmds'
 
 export interface DraftItem extends MissionItem {
@@ -65,15 +65,23 @@ function newItem(d: Draft, key: string, lat: number, lon: number): DraftItem {
   }
 }
 
+export type TakeoffKey = 'TAKEOFF' | 'VTOL_TAKEOFF'
+
+/** The takeoff a mission for this airframe starts with: VTOL for a QuadPlane, none for a rover. */
+export function takeoffFor(kind: VehicleKind | null, quadplane: boolean): TakeoffKey | null {
+  if (kind === 'rover') return null
+  return kind === 'plane' && quadplane ? 'VTOL_TAKEOFF' : 'TAKEOFF'
+}
+
 /**
- * Every click adds a WAYPOINT. On an empty mission a TAKEOFF comes first, at `takeoffAt` (the
- * vehicle or the home) when known: ArduCopter ignores NAV_TAKEOFF's lat / lon and climbs where
- * it stands, so a TAKEOFF drawn at the click would show a leg that is never flown.
+ * Every click adds a WAYPOINT. On an empty mission the takeoff comes first, at `takeoffAt` (the
+ * vehicle or the home) when known: ArduCopter and a QuadPlane ignore its lat / lon and climb where
+ * they stand, so a takeoff drawn at the click would show a leg that is never flown.
  */
-export function appendWaypoint(d: Draft, lat: number, lon: number, takeoffAt: { lat: number; lon: number } | null = null): Draft {
-  if (d.items.length > 0) return { ...d, items: [...d.items, newItem(d, 'WAYPOINT', lat, lon)], nextUid: d.nextUid + 1 }
-  if (!takeoffAt) return { ...d, items: [newItem(d, 'TAKEOFF', lat, lon)], nextUid: d.nextUid + 1 }
-  const t = newItem(d, 'TAKEOFF', takeoffAt.lat, takeoffAt.lon)
+export function appendWaypoint(d: Draft, lat: number, lon: number, takeoffAt: { lat: number; lon: number } | null = null, takeoff: TakeoffKey | null = 'TAKEOFF'): Draft {
+  if (d.items.length > 0 || !takeoff) return { ...d, items: [...d.items, newItem(d, 'WAYPOINT', lat, lon)], nextUid: d.nextUid + 1 }
+  if (!takeoffAt) return { ...d, items: [newItem(d, takeoff, lat, lon)], nextUid: d.nextUid + 1 }
+  const t = newItem(d, takeoff, takeoffAt.lat, takeoffAt.lon)
   const w = newItem({ ...d, nextUid: d.nextUid + 1 }, 'WAYPOINT', lat, lon)
   return { ...d, items: [t, w], nextUid: d.nextUid + 2 }
 }
@@ -195,8 +203,8 @@ export function setMeta(d: Draft, patch: Partial<Omit<Mission, 'items'>>): Draft
   return { ...d, mission: { ...d.mission, ...patch } }
 }
 
-/** NAV_TAKEOFF: ArduCopter ignores its lat / lon, so the map pins it at the take-off point. */
-export const isTakeoff = (it: MissionItem): boolean => it.command === 22
+/** NAV_TAKEOFF / NAV_VTOL_TAKEOFF: flown where the vehicle stands, so the map pins it there. */
+export const isTakeoff = (it: MissionItem): boolean => it.command === 22 || it.command === 84
 
 export function cmdKey(it: MissionItem): string {
   return cmdKeyOf(it.command) ?? `CMD_${it.command}`

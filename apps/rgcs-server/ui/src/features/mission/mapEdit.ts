@@ -25,7 +25,7 @@ const title = (cmdKey: string): string => CMDS[cmdKey]?.mav ?? cmdKey
 
 /** Prototype badge letter: T takeoff, L land, R RTL, ◎ ROI, else the 1-based sequence. */
 export function badgeText(seq: number, cmdKey: string): string {
-  return cmdKey === 'TAKEOFF' ? 'T' : cmdKey === 'LAND' ? 'L' : cmdKey === 'RTL' ? 'R' : cmdKey === 'DO_SET_ROI' ? '◎' : String(seq)
+  return cmdKey === 'TAKEOFF' || cmdKey === 'VTOL_TAKEOFF' ? 'T' : cmdKey === 'LAND' ? 'L' : cmdKey === 'RTL' ? 'R' : cmdKey === 'DO_SET_ROI' ? '◎' : String(seq)
 }
 
 /** Prototype `.rg-wp > .dot` marker; MapLibre positions it, we only toggle `sel`. */

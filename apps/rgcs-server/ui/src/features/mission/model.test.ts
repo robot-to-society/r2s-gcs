@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendWaypoint, emptyDraft, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, setArc, shiftAlts, setCommand, toMission, updateItem } from './model'
+import { appendWaypoint, emptyDraft, isTakeoff, takeoffFor, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, setArc, shiftAlts, setCommand, toMission, updateItem } from './model'
 
 describe('mission draft model', () => {
   it('first_point_is_takeoff_then_waypoints', () => {
@@ -13,6 +13,21 @@ describe('mission draft model', () => {
     expect(d2.items[1]?.params).toEqual([0, 0, 0, 0])
     expect(d2.items.map((i) => i.uid)).toEqual([1, 2])
     expect(d2.nextUid).toBe(3)
+  })
+
+  it('the first click starts with the takeoff that suits the airframe', () => {
+    expect(takeoffFor('copter', false)).toBe('TAKEOFF')
+    expect(takeoffFor('plane', false)).toBe('TAKEOFF')
+    expect(takeoffFor('plane', true)).toBe('VTOL_TAKEOFF')
+    expect(takeoffFor('rover', false)).toBeNull()
+    expect(takeoffFor(null, false)).toBe('TAKEOFF')
+    const at = { lat: 36.25, lon: 137.63 }
+    const qp = appendWaypoint(emptyDraft(), 36.26, 137.64, at, 'VTOL_TAKEOFF')
+    expect(qp.items.map((i) => i.command)).toEqual([84, 16])
+    expect(qp.items[0]).toMatchObject({ lat: 36.25, lon: 137.63, alt: 50 })
+    expect(isTakeoff(qp.items[0]!)).toBe(true)
+    const rover = appendWaypoint(emptyDraft(), 36.26, 137.64, at, null)
+    expect(rover.items.map((i) => i.command)).toEqual([16])
   })
 
   it('insert_remove_move_reorder_are_immutable', () => {
