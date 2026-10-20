@@ -23,7 +23,7 @@ export const midpoint = (a: LatLon, b: LatLon): LatLon => ({ lat: (a.lat + b.lat
 
 /** NAV commands that fly to a position (same rule as `MissionItem::is_positional` in rgcs-core). */
 export function isPositional(it: MissionItem): boolean {
-  return (it.command >= 16 && it.command <= 22) || it.command === 82 || it.command === 201 || it.command === MAV_CMD_NAV_ARC_WAYPOINT
+  return (it.command >= 16 && it.command <= 22) || [31, 82, 84, 85, 201].includes(it.command) || it.command === MAV_CMD_NAV_ARC_WAYPOINT
 }
 
 export function hasPosition(it: MissionItem): boolean {

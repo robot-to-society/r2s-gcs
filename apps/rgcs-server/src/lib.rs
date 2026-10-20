@@ -28,6 +28,7 @@ pub mod messages_api;
 pub mod mission_api;
 pub mod missions;
 pub mod param_api;
+pub mod param_pick;
 pub mod params;
 pub mod pdf;
 pub mod present_api;

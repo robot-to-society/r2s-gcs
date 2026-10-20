@@ -43,9 +43,19 @@ export const CMDS: Readonly<Record<string, CmdSpec>> = {
   // Copter 4.7+: the leg into this item is a circular arc of `arcAngle` degrees (+ clockwise, ±359)
   ARC_WAYPOINT: { id: 36, mav: 'MAV_CMD_NAV_ARC_WAYPOINT', pos: true, alt: true, fields: [num(1, 'arcAngle', 0, { min: -359, max: 359, step: 1, only: ['copter'] })] },
   SPLINE_WAYPOINT: { id: 82, mav: 'MAV_CMD_NAV_SPLINE_WAYPOINT', pos: true, alt: true, fields: [num(1, 'delay', 0, { min: 0, step: 1 })] },
-  LOITER_TIME: { id: 19, mav: 'MAV_CMD_NAV_LOITER_TIME', pos: true, alt: true, fields: [num(1, 'time', 10, { min: 0, step: 1 }), num(3, 'radius', 0, { only: ['plane'] })] },
+  // ArduPlane keeps only param3's sign for LOITER_TIME (negative = counter-clockwise); the radius is WP_LOITER_RAD
+  LOITER_TIME: { id: 19, mav: 'MAV_CMD_NAV_LOITER_TIME', pos: true, alt: true, fields: [num(1, 'time', 10, { min: 0, step: 1 }), num(3, 'ccwSign', 0, { step: 1, only: ['plane'] })] },
   LOITER_TURNS: { id: 18, mav: 'MAV_CMD_NAV_LOITER_TURNS', pos: true, alt: true, fields: [num(1, 'turns', 1, { min: 0, step: 0.5 }), num(3, 'radius', 20, { step: 1 })] },
   LOITER_UNLIM: { id: 17, mav: 'MAV_CMD_NAV_LOITER_UNLIM', pos: true, alt: true, fields: [num(3, 'radius', 0, { only: ['plane'] })] },
+  LOITER_TO_ALT: {
+    id: 31,
+    mav: 'MAV_CMD_NAV_LOITER_TO_ALT',
+    pos: true,
+    alt: true,
+    fields: [num(2, 'radius', 0, { step: 1, only: ['plane'] }), tog(4, 'xtrack', 0, { only: ['plane'] })],
+  },
+  VTOL_TAKEOFF: { id: 84, mav: 'MAV_CMD_NAV_VTOL_TAKEOFF', pos: true, alt: true, fields: [] },
+  VTOL_LAND: { id: 85, mav: 'MAV_CMD_NAV_VTOL_LAND', pos: true, alt: false, fields: [tog(1, 'fwApproach', 0, { only: ['plane'] })] },
   LAND: { id: 21, mav: 'MAV_CMD_NAV_LAND', pos: true, alt: false, fields: [num(1, 'abortAlt', 0, { min: 0, only: ['plane'] })] },
   RTL: { id: 20, mav: 'MAV_CMD_NAV_RETURN_TO_LAUNCH', pos: false, alt: false, fields: [] },
   NAV_DELAY: {
@@ -112,6 +122,7 @@ export const CMDS: Readonly<Record<string, CmdSpec>> = {
   DO_GRIPPER: { id: 211, mav: 'MAV_CMD_DO_GRIPPER', pos: false, alt: false, fields: [num(1, 'gripperNo', 1, { min: 1, step: 1 }), sel(2, 'gripperAction', 1, [0, 1])] },
   DO_AUX_FUNCTION: { id: 218, mav: 'MAV_CMD_DO_AUX_FUNCTION', pos: false, alt: false, fields: [num(1, 'auxFn', 0, { min: 0, step: 1 }), sel(2, 'switchPos', 2, [0, 1, 2])] },
   DO_FENCE_ENABLE: { id: 207, mav: 'MAV_CMD_DO_FENCE_ENABLE', pos: false, alt: false, fields: [sel(1, 'fenceEnable', 1, [0, 1, 2])] },
+  DO_VTOL_TRANSITION: { id: 3000, mav: 'MAV_CMD_DO_VTOL_TRANSITION', pos: false, alt: false, fields: [sel(1, 'vtolState', 3, [3, 4], { only: ['plane'] })] },
   DO_LAND_START: { id: 189, mav: 'MAV_CMD_DO_LAND_START', pos: false, alt: false, fields: [] },
   CONDITION_DELAY: { id: 112, mav: 'MAV_CMD_CONDITION_DELAY', pos: false, alt: false, fields: [num(1, 'delay', 5, { min: 0, step: 1 })] },
   CONDITION_DISTANCE: { id: 114, mav: 'MAV_CMD_CONDITION_DISTANCE', pos: false, alt: false, fields: [num(1, 'dist', 50, { min: 0, step: 1 })] },
@@ -126,7 +137,7 @@ export const CMDS: Readonly<Record<string, CmdSpec>> = {
 }
 
 export const PALETTE = {
-  pos: ['WAYPOINT', 'ARC_WAYPOINT', 'SPLINE_WAYPOINT', 'TAKEOFF', 'LAND', 'LOITER_TIME', 'LOITER_TURNS', 'LOITER_UNLIM', 'DO_SET_ROI'],
+  pos: ['WAYPOINT', 'ARC_WAYPOINT', 'SPLINE_WAYPOINT', 'TAKEOFF', 'LAND', 'LOITER_TIME', 'LOITER_TURNS', 'LOITER_UNLIM', 'LOITER_TO_ALT', 'VTOL_TAKEOFF', 'VTOL_LAND', 'DO_SET_ROI'],
   do: [
     'DO_CHANGE_SPEED',
     'DO_SET_CAM_TRIGG_DIST',
@@ -141,6 +152,7 @@ export const PALETTE = {
     'DO_AUX_FUNCTION',
     'DO_FENCE_ENABLE',
     'DO_LAND_START',
+    'DO_VTOL_TRANSITION',
     'RTL',
   ],
   cond: ['CONDITION_DELAY', 'CONDITION_DISTANCE', 'CONDITION_YAW', 'NAV_DELAY', 'DO_JUMP'],

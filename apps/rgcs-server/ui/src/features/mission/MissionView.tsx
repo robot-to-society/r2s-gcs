@@ -1,9 +1,12 @@
 import type { StyleSpecification } from 'maplibre-gl'
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { Mission, MissionFrame, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconClose } from '../../shared/ui/icons'
 import { vehicleStore } from '../vehicles/store'
+import { planeParams } from '../flightpath/params'
+import { predictFor } from '../flightpath/predict'
+import { usePathParams } from '../flightpath/usePathParams'
 import { CommandPalette } from './CommandPalette'
 import { ContextMenu } from './ContextMenu'
 import { MissionList } from './MissionList'
@@ -58,6 +61,17 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const sysid = draft.mission.sysid ?? list[0]?.sysid ?? null
   const vehicle = sysid === null ? null : (vehicles.get(sysid) ?? null)
+  // A plane / QuadPlane gets its expected flight drawn over the plan from its own parameters (2026-10-20).
+  const isPlane = vehicle?.kind === 'plane'
+  const pathValues = usePathParams(sysid, isPlane)
+  // telemetry replaces the home object every update: depend on its values, not its identity
+  const [hLat, hLon, hAlt] = [vehicle?.home?.lat, vehicle?.home?.lon, vehicle?.home?.alt]
+  const predict = useMemo(() => {
+    if (!isPlane) return undefined
+    const vHome = hLat !== undefined && hLon !== undefined && hAlt !== undefined ? { lat: hLat, lon: hLon, alt: hAlt } : null
+    const params = planeParams(pathValues).params
+    return (d: Draft) => predictFor(d, params, vHome)
+  }, [isPlane, pathValues, hLat, hLon, hAlt])
   const takeoffAt = vehicle && vehicle.gps.fix >= 2 && !(vehicle.lat === 0 && vehicle.lon === 0) ? { lat: vehicle.lat, lon: vehicle.lon } : (draft.mission.home ?? null)
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
   const io = useMissionIo(store, sysid, dict, vehicleStore)
@@ -112,6 +126,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         mode={mapMode}
         terrainTiles={terrainTiles}
         vehicle={vehicle}
+        predict={predict}
         fitRequest={io.fitRequest}
         onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, takeoffAt))}
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}

@@ -15,6 +15,9 @@ pub const MAV_CMD_NAV_LAND: u16 = 21;
 pub const MAV_CMD_NAV_TAKEOFF: u16 = 22;
 pub const MAV_CMD_NAV_SPLINE_WAYPOINT: u16 = 82;
 /// Copter 4.7+: the leg into this item is a circular arc of `param1` degrees (+ clockwise).
+pub const MAV_CMD_NAV_LOITER_TO_ALT: u16 = 31;
+pub const MAV_CMD_NAV_VTOL_TAKEOFF: u16 = 84;
+pub const MAV_CMD_NAV_VTOL_LAND: u16 = 85;
 pub const MAV_CMD_NAV_ARC_WAYPOINT: u16 = 36;
 pub const MAV_CMD_NAV_DELAY: u16 = 93;
 pub const MAV_CMD_CONDITION_DELAY: u16 = 112;
@@ -74,7 +77,13 @@ impl MissionItem {
     pub fn is_positional(&self) -> bool {
         matches!(
             self.command,
-            16..=22 | MAV_CMD_NAV_ARC_WAYPOINT | MAV_CMD_NAV_SPLINE_WAYPOINT | MAV_CMD_DO_SET_ROI
+            16..=22
+                | MAV_CMD_NAV_LOITER_TO_ALT
+                | MAV_CMD_NAV_ARC_WAYPOINT
+                | MAV_CMD_NAV_SPLINE_WAYPOINT
+                | MAV_CMD_NAV_VTOL_TAKEOFF
+                | MAV_CMD_NAV_VTOL_LAND
+                | MAV_CMD_DO_SET_ROI
         )
     }
 
@@ -530,6 +539,13 @@ mod tests {
         let sent = mission(vec![arc, wp]).for_vehicle();
         assert_eq!(sent.items[0].params, [-46.0, 1.5, 0.0, 0.0]);
         assert_eq!(sent.items[1].params[0], 2.5);
+    }
+
+    #[test]
+    fn plane_loiter_to_alt_and_vtol_commands_are_positional() {
+        for cmd in [31, 84, 85] {
+            assert!(item(cmd, 36.0, 137.0, 30.0).is_positional(), "MAV_CMD {cmd}");
+        }
     }
 
     #[test]

@@ -10,7 +10,7 @@ import type { Tool } from './store'
 import { useBasemapSwap } from '../map/basemaps'
 import type { Basemap } from '../../shared/api/types'
 import { KEEP_ELEVATION, type MapMode } from '../map/mapMode'
-import { altChip, useMissionAir, type MissionAir3d } from './missionAir'
+import { altChip, useMissionAir, type MissionAir3d, type Predicted } from './missionAir'
 import { attachAltDrag } from './altDrag'
 import { useMissionFeet, type FeetCallbacks } from './missionFeet'
 import { useBoxSelect } from './boxSelect'
@@ -48,6 +48,8 @@ interface Props {
   readonly onRallyMove: (index: number, lat: number, lon: number) => void
   /** FENCE_ALT_MAX (m above home): the 3D fence walls reach it; null = no walls. */
   readonly ceiling?: number | null
+  /** The path the target vehicle is expected to fly for a draft (null = not predicted for it). */
+  readonly predict?: ((d: Draft) => Predicted | null) | undefined
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
   readonly onBackgroundClick: () => void
   readonly onContext: (menu: ContextMenu | null) => void
@@ -55,6 +57,7 @@ interface Props {
 
 const HOME: [number, number] = [139.372, 36.162]
 const PATH = 'mission-path'
+const PREDICTED = 'mission-predicted'
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 /** `--accent` → `--alt-hi` (spec 10 §6: the path is coloured by altitude). */
 const ALT_COLOR: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'alt_t'], 0, '#9cc9ff', 1, '#d8a8ff']
@@ -64,7 +67,10 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict'>
+
+const predictedGeoJson = (p: Predicted | null): FeatureCollection =>
+  p && p.points.length > 1 ? { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: p.points.map((q) => [q.lon, q.lat]) } }] } : EMPTY
 
 /** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
@@ -102,10 +108,14 @@ export function MissionMap(props: Props) {
       m.addSource(PATH, { type: 'geojson', data: EMPTY })
       m.addLayer({ id: 'mission-path-casing', type: 'line', source: PATH, paint: { 'line-color': '#0b1b2e', 'line-width': 6, 'line-opacity': 0.6 } })
       m.addLayer({ id: 'mission-path-line', type: 'line', source: PATH, paint: { 'line-color': ALT_COLOR, 'line-width': 3 } })
+      // the expected flight (loiter circles, cut corners): thin, dashed and translucent over the plan
+      m.addSource(PREDICTED, { type: 'geojson', data: EMPTY })
+      m.addLayer({ id: 'mission-predicted-line', type: 'line', source: PREDICTED, layout: { 'line-join': 'round' }, paint: { 'line-color': '#ece6ff', 'line-width': 2, 'line-opacity': 0.75, 'line-dasharray': [2, 1.5] } })
       loaded.current = true
       // The draft may already exist (store is global): draw it as soon as the style is ready.
       const src = m.getSource(PATH) as { setData: (d: unknown) => void } | undefined
       src?.setData(pathGeoJson(draftRef.current.items, draftRef.current.mission.home))
+      ;(m.getSource(PREDICTED) as { setData: (d: unknown) => void } | undefined)?.setData(predictedGeoJson(predictedRef.current))
     })
     m.on('click', (e) => {
       const t = tabRef.current
@@ -137,6 +147,16 @@ export function MissionMap(props: Props) {
     const src = map.current?.getSource(PATH) as { setData: (d: unknown) => void } | undefined
     src?.setData(pathGeoJson(shown.items, shown.mission.home))
   }, [shown])
+
+  const predict = props.predict
+  const predicted = useMemo(() => (predict ? predict(shown) : null), [predict, shown])
+  const predictedRef = useRef(predicted)
+  predictedRef.current = predicted
+  useEffect(() => {
+    if (!loaded.current) return
+    const src = map.current?.getSource(PREDICTED) as { setData: (d: unknown) => void } | undefined
+    src?.setData(predictedGeoJson(predicted))
+  }, [predicted])
 
   // Badges (one per positioned item), reconciled in place
   useEffect(() => {
@@ -189,7 +209,7 @@ export function MissionMap(props: Props) {
   }, [draft])
 
   // After the map, the badges and the handles exist: effects run in declaration order.
-  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle) })
+  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle), predicted })
   const feetCb = useRef<FeetCallbacks>(null!)
   feetCb.current = {
     onPreview: (uid, multi, from, to) => setPreview(() => (d: Draft) => (multi ? moveItems(d, selectedRef.current, to.lat - from.lat, to.lon - from.lon) : moveItem(d, uid, to.lat, to.lon))),

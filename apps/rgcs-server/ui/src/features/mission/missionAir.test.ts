@@ -81,4 +81,13 @@ describe('missionAirData', () => {
     expect(walled.lines).toHaveLength(1)
     expect(walled.lines[0]![0]!.z).toBeCloseTo(toMercator(139.375, 36.165 + 50 / 110_540, 220).z, 9)
   })
+  it('adds the predicted flight path as a thin translucent line above the home ground (posts pass)', () => {
+    const home = { lat: 36.16, lon: 139.37 }
+    const points = [{ ...home, alt: 0 }, { ...home, alt: 40 }, { lat: 36.161, lon: 139.37, alt: 40 }]
+    const d = missionAirData(draft([]) as never, new Set(), () => 100, null, null, { home, points })
+    expect(d.lines).toHaveLength(0)
+    expect(d.posts).toHaveLength(1)
+    expect(d.posts[0]!.map((v) => v.z)).toEqual(points.map((p) => toMercator(p.lon, p.lat, 100 + p.alt).z))
+    expect(missionAirData(draft([]) as never, new Set(), () => null, null, null, { home, points }).posts).toHaveLength(0)
+  })
 })

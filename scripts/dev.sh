@@ -8,6 +8,8 @@
 #   scripts/dev.sh --video    # also run MediaMTX + ffmpeg test pattern (scripts/dev-video.sh)
 #   scripts/dev.sh --sitl 3   # three SITL vehicles (SYSID 1..3, homes ~100 m apart) through
 #                             # scripts/mav-relay.py on udp:14550 -> rgcs-server udpin:14551
+#   scripts/dev.sh --quadplane  # add one ArduPlane QuadPlane SITL after the copters (next SYSID,
+#                             # through the relay; needs build/sitl/bin/arduplane)
 #
 # Env overrides: ARDUPILOT_DIR, SITL_HOME (lat,lon,alt,yaw), SITL_SPEEDUP, SITL_COUNT, RGCS_PORT, UI_PORT.
 # Everything runtime-related lives in .dev/ (git-ignored). Ctrl-C stops all three processes.
@@ -23,6 +25,8 @@ fi
 ARDUPILOT_DIR="${ARDUPILOT_DIR:-$HOME/github/rtos/ardupilot}"
 SITL_BIN="$ARDUPILOT_DIR/build/sitl/bin/arducopter"
 SITL_PARAMS="$ARDUPILOT_DIR/Tools/autotest/default_params/copter.parm"
+PLANE_BIN="$ARDUPILOT_DIR/build/sitl/bin/arduplane"
+QUADPLANE_PARAMS="$ARDUPILOT_DIR/Tools/autotest/default_params/quadplane.parm"
 SITL_HOME="${SITL_HOME:-36.2509,137.6385,1505,0}"  # 上高地 (河童橋付近): 3D 地図の確認用
 SITL_SPEEDUP="${SITL_SPEEDUP:-1}"
 SITL_PORT=5760
@@ -36,6 +40,7 @@ MODE="vite"
 START_SITL=1
 SIYI_SIM=0
 VIDEO=0
+QUADPLANE=0
 ARGS=("$@")
 for ((i = 0; i < ${#ARGS[@]}; i++)); do
   arg="${ARGS[$i]}"
@@ -45,7 +50,8 @@ for ((i = 0; i < ${#ARGS[@]}; i++)); do
     --no-sitl) START_SITL=0 ;;
     --siyi-sim) SIYI_SIM=1 ;;
     --video) VIDEO=1 ;;
-    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+    --quadplane) QUADPLANE=1 ;;
+    -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -78,7 +84,7 @@ home_of() {
 }
 
 # --- 1. SITL -----------------------------------------------------------------
-if [ "$START_SITL" = 1 ] && [ "$SITL_COUNT" -gt 1 ]; then
+if [ "$START_SITL" = 1 ] && { [ "$SITL_COUNT" -gt 1 ] || [ "$QUADPLANE" = 1 ]; }; then
   if [ ! -x "$SITL_BIN" ]; then
     echo "[dev] SITL binary not found: $SITL_BIN (build ArduPilot sitl or set ARDUPILOT_DIR)" >&2
     exit 1
@@ -95,6 +101,20 @@ if [ "$START_SITL" = 1 ] && [ "$SITL_COUNT" -gt 1 ]; then
         >"$DEV_DIR/sitl-$((i + 1)).log" 2>&1 &
     PIDS+=($!)
   done
+  if [ "$QUADPLANE" = 1 ]; then
+    if [ ! -x "$PLANE_BIN" ]; then
+      echo "[dev] ArduPlane SITL not found: $PLANE_BIN (./waf plane in $ARDUPILOT_DIR)" >&2
+      exit 1
+    fi
+    n=$((SITL_COUNT + 1))
+    dir="$DEV_DIR/sitl/qp"
+    mkdir -p "$dir"
+    echo "[dev] starting QuadPlane SITL (SYSID $n, home $(home_of "$SITL_COUNT")) -> $DEV_DIR/sitl-qp.log"
+    (cd "$dir" && exec "$PLANE_BIN" --model quadplane --speedup "$SITL_SPEEDUP" --defaults "$QUADPLANE_PARAMS" \
+        --home "$(home_of "$SITL_COUNT")" -I"$SITL_COUNT" --sysid "$n" --serial0 "udpclient:127.0.0.1:$RELAY_VEHICLE_PORT" -w) \
+        >"$DEV_DIR/sitl-qp.log" 2>&1 &
+    PIDS+=($!)
+  fi
 elif [ "$START_SITL" = 1 ]; then
   if port_in_use "$SITL_PORT"; then
     echo "[dev] SITL already listening on tcp:$SITL_PORT, reusing it"
@@ -119,7 +139,7 @@ fi
 CONFIG="$DEV_DIR/config.toml"
 {
   echo "listen = \"127.0.0.1:$RGCS_PORT\""
-  if [ "$SITL_COUNT" -gt 1 ]; then
+  if [ "$SITL_COUNT" -gt 1 ] || [ "$QUADPLANE" = 1 ]; then
     echo "mavlink_url = \"udpin:127.0.0.1:$RELAY_SERVER_PORT\""
   else
     echo "mavlink_url = \"tcp:127.0.0.1:$SITL_PORT\""
@@ -176,8 +196,8 @@ fi
 echo
 echo "[dev] UI:      $URL"
 echo "[dev] API:     http://127.0.0.1:$RGCS_PORT/api/health"
-if [ "$SITL_COUNT" -gt 1 ]; then
-  echo "[dev] SITL:    $SITL_COUNT vehicles via the relay (logs $DEV_DIR/sitl-N.log, $DEV_DIR/relay.log)"
+if [ "$SITL_COUNT" -gt 1 ] || [ "$QUADPLANE" = 1 ]; then
+  echo "[dev] SITL:    $SITL_COUNT vehicles$([ "$QUADPLANE" = 1 ] && echo " + QuadPlane") via the relay (logs $DEV_DIR/sitl-N.log, $DEV_DIR/relay.log)"
 else
   echo "[dev] SITL:    tcp:127.0.0.1:$SITL_PORT (telemetry streams start ~10-15 s after link-up)"
   echo "[dev] SITL log: $DEV_DIR/sitl.log"
