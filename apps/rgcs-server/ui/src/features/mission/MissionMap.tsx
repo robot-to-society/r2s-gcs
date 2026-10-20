@@ -233,7 +233,7 @@ export function MissionMap(props: Props) {
   }, [draft])
 
   // After the map, the badges and the handles exist: effects run in declaration order.
-  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle), predicted })
+  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle), predicted, others: props.others ?? NO_OTHERS })
   const feetCb = useRef<FeetCallbacks>(null!)
   feetCb.current = {
     onPreview: (uid, multi, from, to) => setPreview(() => (d: Draft) => (multi ? moveItems(d, selectedRef.current, to.lat - from.lat, to.lon - from.lon) : moveItem(d, uid, to.lat, to.lon))),
@@ -253,7 +253,7 @@ export function MissionMap(props: Props) {
   const boxActive = useRef(tab === 'mission')
   boxActive.current = tab === 'mission'
   useBoxSelect(container, badges, onBox, boxActive)
-  useBriefingOverlay({ map, loaded, others: props.others ?? NO_OTHERS, labels: props.labels ?? NO_LABELS, names: props.names ?? NO_KEYS, colors: props.colors ?? NO_KEYS, onLabel: (l) => cb.current.onLabel?.(l) })
+  useBriefingOverlay({ map, loaded, others: props.others ?? NO_OTHERS, labels: props.labels ?? NO_LABELS, names: props.names ?? NO_KEYS, colors: props.colors ?? NO_KEYS, is3d, onLabel: (l) => cb.current.onLabel?.(l) })
 
   // The selected vehicle, for context
   useEffect(() => {

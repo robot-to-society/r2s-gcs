@@ -14,6 +14,7 @@ import type { FenceZone, VehicleState } from '../../shared/api/types'
 import { haversineM, hasPosition, type LatLon } from './geo'
 import type { Draft, DraftItem } from './model'
 import type { PathPoint } from '../flightpath/planePath'
+import type { OtherMission } from '../briefing/overlay'
 
 const POST: Rgb = [0xbf / 255, 0xe0 / 255, 1]
 const AMBER: Rgb = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
@@ -116,7 +117,18 @@ function predictedLine(pred: Predicted | null, elevAt: ElevAt): AirVertex[][] {
  * `ceiling`: FENCE_ALT_MAX (m above home) to raise the fence zones to, `null` = no walls.
  * `vehicleHome`: the target vehicle's home, the ceiling's base when the plan has neither home nor items.
  */
-export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elevAt: ElevAt, ceiling: number | null = null, vehicleHome: LatLon | null = null, predicted: Predicted | null = null): MissionAir {
+interface Route {
+  readonly items: DraftItem[]
+  readonly home: LatLon | null
+  readonly homeGround: number | null
+  readonly alts: ReadonlyMap<number, number | null>
+  readonly stops: readonly Stop[]
+  /** The sampled points of each leg (home → first item → …), AMSL by the item's frame. */
+  readonly legs: Pt[][]
+}
+
+/** Rel = home ground (DEM at the home / first positioned item) + alt, Abs = alt, Ter = DEM at the point + alt. */
+function routeOf(draft: Draft, elevAt: ElevAt): Route {
   const items = draft.items.filter(hasPosition)
   const home: LatLon | null = draft.mission.home ?? items[0] ?? null
   const alts = new Map(items.map((it) => [it.uid, itemAmsl(it, home, elevAt)] as const))
@@ -126,7 +138,40 @@ export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elev
     return amsl === null || amsl === undefined ? [] : [{ lat: it.lat, lon: it.lon, amsl, item: it }]
   })
   const route = draft.mission.home && homeGround !== null && stops.length > 0 ? [{ ...draft.mission.home, amsl: homeGround, item: null }, ...stops] : stops
-  const lines = route.slice(1).map((b, i) => mercatorLine(coloured(legPoints(route[i]!, b, elevAt))))
+  const legs = route.slice(1).map((b, i) => legPoints(route[i]!, b, elevAt))
+  return { items, home, homeGround, alts, stops, legs }
+}
+
+/** The base the dimmed briefing lines mix toward (`AirVertex.c` has no alpha). */
+const DIM_BASE: Rgb = [0x11 / 255, 0x16 / 255, 0x1e / 255]
+const DIM = 0.45
+
+const hexRgb = (hex: string): Rgb => {
+  const n = Number.parseInt(hex.replace('#', '').slice(0, 6), 16)
+  return Number.isFinite(n) ? [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255] : DIM_BASE
+}
+
+/** The briefing's row colour mixed DIM toward DIM_BASE. */
+export function dimmed(hex: string): Rgb {
+  const c = hexRgb(hex)
+  return [c[0] + (DIM_BASE[0] - c[0]) * DIM, c[1] + (DIM_BASE[1] - c[1]) * DIM, c[2] + (DIM_BASE[2] - c[2]) * DIM]
+}
+
+/** One 3D line per other briefing mission along its positioned items, in its dimmed row colour (no posts). */
+export function othersAirLines(others: readonly OtherMission[], elevAt: ElevAt): AirVertex[][] {
+  return others.flatMap((o) => {
+    const { legs } = routeOf(o.draft, elevAt)
+    if (legs.length === 0) return []
+    const color = dimmed(o.color)
+    // consecutive legs share their joining stop
+    const pts = legs.flatMap((leg, i) => (i === 0 ? leg : leg.slice(1)))
+    return [mercatorLine(pts.map((p) => ({ ...p, color })))]
+  })
+}
+
+export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elevAt: ElevAt, ceiling: number | null = null, vehicleHome: LatLon | null = null, predicted: Predicted | null = null): MissionAir {
+  const { items, home, homeGround, alts, stops, legs } = routeOf(draft, elevAt)
+  const lines = legs.map((leg) => mercatorLine(coloured(leg)))
   const discs: FeatureCollection<Point, { sel: number }> = { type: 'FeatureCollection', features: [] }
   const posts = stops.flatMap((s) => {
     const g = elevAt(s.lon, s.lat) ?? homeGround
@@ -159,7 +204,11 @@ interface Args {
   readonly ceiling?: number | null
   readonly vehicleHome?: LatLon | null
   readonly predicted?: Predicted | null
+  /** The briefing's other shown missions, drawn as dimmed lines beside the plan. */
+  readonly others?: readonly OtherMission[]
 }
+
+const NO_OTHERS: readonly OtherMission[] = []
 
 function setup(m: MlMap): void {
   m.addSource(GROUND, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
@@ -184,7 +233,7 @@ export interface MissionAir3d {
   readonly floatVehicle: (marker: Marker | null, v: VehicleState | null, base: readonly [number, number]) => void
 }
 
-export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles, ceiling = null, vehicleHome = null, predicted = null }: Args): MissionAir3d {
+export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles, ceiling = null, vehicleHome = null, predicted = null, others = NO_OTHERS }: Args): MissionAir3d {
   const { sampler, ready, is3d, tick, layer, models, floats, matrix } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
   const latest = useRef({ draft, alts: new Map<number, number | null>() as ReadonlyMap<number, number | null> })
   const planFloats = useRef<readonly Floating[]>([])
@@ -208,10 +257,10 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     })
     planFloats.current = [...badgeFloats, ...handleFloats]
     compose()
-    layer.setLines(d.lines, d.posts)
+    layer.setLines([...d.lines, ...othersAirLines(others, sampler.elevAt)], d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats, ceiling, vehicleHome?.lat, vehicleHome?.lon, predicted])
+  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats, ceiling, vehicleHome?.lat, vehicleHome?.lon, predicted, others])
 
   const pxPerMetre = (uid: number): number | null => {
     const m = map.current

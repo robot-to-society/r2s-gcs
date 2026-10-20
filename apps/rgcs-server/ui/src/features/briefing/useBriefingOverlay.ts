@@ -24,11 +24,22 @@ function setup(m: MlMap): void {
   m.addLayer({ id: 'briefing-rally', type: 'circle', source: RALLY, paint: { 'circle-color': COLOR, 'circle-radius': 5, 'circle-opacity': 0.55, 'circle-stroke-color': '#0b1b2e', 'circle-stroke-width': 1 } }, before)
 }
 
-function draw(m: MlMap, g: OthersGeoJson): void {
+/** The routes drawn flat in 2D only: in 3D the air lines (othersAirLines) replace them. */
+const ONLY_2D = [PATHS, 'briefing-predicted']
+
+type VisHost = Pick<MlMap, 'getLayer' | 'setLayoutProperty'>
+
+/** Fence and rally stay draped in both modes, like the active plan's fence. */
+export function applyOthersMode(m: VisHost, is3d: boolean): void {
+  ONLY_2D.forEach((id) => m.getLayer(id) && m.setLayoutProperty(id, 'visibility', is3d ? 'none' : 'visible'))
+}
+
+function draw(m: MlMap, g: OthersGeoJson, is3d: boolean): void {
   if (!m.getSource(PATHS)) setup(m)
   ;(m.getSource(PATHS) as Source | undefined)?.setData(g.paths)
   ;(m.getSource(FENCE) as Source | undefined)?.setData(g.fences)
   ;(m.getSource(RALLY) as Source | undefined)?.setData(g.rally)
+  applyOthersMode(m, is3d)
 }
 
 export interface BriefingOverlayArgs {
@@ -39,24 +50,26 @@ export interface BriefingOverlayArgs {
   readonly names: ReadonlyMap<string, string>
   readonly colors: ReadonlyMap<string, string>
   readonly onLabel: (l: CrossLabel) => void
+  /** 3D hides the flat routes (and, through `.is-3d`, the labels). */
+  readonly is3d: boolean
 }
 
 /** The layers are only added once there is something to draw: a single-mission session stays as it was. */
-function useOthersLayers(map: RefObject<MlMap | null>, loaded: RefObject<boolean>, others: readonly OtherMission[]): void {
-  const latest = useRef<OthersGeoJson | null>(null)
+function useOthersLayers(map: RefObject<MlMap | null>, loaded: RefObject<boolean>, others: readonly OtherMission[], is3d: boolean): void {
+  const latest = useRef<{ g: OthersGeoJson; is3d: boolean } | null>(null)
   useEffect(() => {
     const m = map.current
     if (!m) return
     const g = othersGeoJson(others)
-    latest.current = g
+    latest.current = { g, is3d }
     if (others.length === 0 && !m.getSource(PATHS)) return
-    if (loaded.current) draw(m, g)
-    else m.once('load', () => latest.current && draw(m, latest.current))
-  }, [map, loaded, others])
+    if (loaded.current) draw(m, g, is3d)
+    else m.once('load', () => latest.current && draw(m, latest.current.g, latest.current.is3d))
+  }, [map, loaded, others, is3d])
 }
 
-export function useBriefingOverlay({ map, loaded, others, labels, names, colors, onLabel }: BriefingOverlayArgs): void {
-  useOthersLayers(map, loaded, others)
+export function useBriefingOverlay({ map, loaded, others, labels, names, colors, onLabel, is3d }: BriefingOverlayArgs): void {
+  useOthersLayers(map, loaded, others, is3d)
   const onLabelRef = useRef(onLabel)
   useEffect(() => {
     onLabelRef.current = onLabel

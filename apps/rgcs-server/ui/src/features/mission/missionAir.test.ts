@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { toMercator } from '../map/air'
 import type { DraftItem } from './model'
-import { missionAirData } from './missionAir'
+import { missionAirData, othersAirLines } from './missionAir'
 
 const it_ = (uid: number, lat: number, alt: number, frame: DraftItem['frame'] = 'rel', command = 16): DraftItem => ({ uid, command, frame, params: [0, 0, 0, 0], lat, lon: 139.37, alt, autocontinue: true })
 const draft = (items: DraftItem[], home: { lat: number; lon: number; alt: number } | null = null) => ({ mission: { id: null, name: 'm', sysid: null, default_alt: 60, default_frame: 'rel' as const, speed: 8, home, items: [] }, items, nextUid: 99 })
@@ -89,5 +89,28 @@ describe('missionAirData', () => {
     expect(d.posts).toHaveLength(1)
     expect(d.posts[0]!.map((v) => v.z)).toEqual(points.map((p) => toMercator(p.lon, p.lat, 100 + p.alt).z))
     expect(missionAirData(draft([]) as never, new Set(), () => null, null, null, { home, points }).posts).toHaveLength(0)
+  })
+})
+
+describe('othersAirLines', () => {
+  const dim = (c: number, base: number) => c / 255 + (base / 255 - c / 255) * 0.45
+  it('others_air_lines_use_the_dimmed_mission_colour_and_amsl', () => {
+    const other = { key: 'b', color: '#9cc9ff', draft: draft([it_(1, 36.16, 30), it_(2, 36.161, 80)]) as never, predicted: null }
+    const lines = othersAirLines([other], () => 100)
+    expect(lines).toHaveLength(1)
+    const line = lines[0]!
+    const c = [dim(0x9c, 0x11), dim(0xc9, 0x16), dim(0xff, 0x1e)]
+    line.forEach((v) => v.c.forEach((x, i) => expect(x).toBeCloseTo(c[i]!, 12)))
+    expect(line[0]!.z).toBeCloseTo(toMercator(139.37, 36.16, 130).z, 12)
+    expect(line.at(-1)!.z).toBeCloseTo(toMercator(139.37, 36.161, 180).z, 12)
+  })
+  it('joins every leg of a mission into one line and skips a mission with nothing to draw', () => {
+    const three = { key: 'a', color: '#5fd39b', draft: draft([it_(1, 36.16, 30), it_(2, 36.161, 80), it_(3, 36.162, 80)]) as never, predicted: null }
+    const single = { key: 'c', color: '#5fd39b', draft: draft([it_(1, 36.16, 30)]) as never, predicted: null }
+    const legs = missionAirData(three.draft, new Set(), () => 100).lines
+    const lines = othersAirLines([three, single], () => 100)
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toHaveLength(legs[0]!.length + legs[1]!.length - 1)
+    expect(othersAirLines([three], () => null)).toHaveLength(0)
   })
 })
