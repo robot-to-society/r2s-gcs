@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { LogEntry, VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
@@ -69,9 +69,41 @@ describe('DetailPanel', () => {
     render(<DetailPanel {...base} onOpenLog={onOpenLog} onOpenCommands={onOpenCommands} />)
     fireEvent.click(screen.getByRole('button', { name: 'メッセージ履歴' }))
     expect(onOpenLog).toHaveBeenCalledWith(1)
-    fireEvent.click(screen.getByRole('button', { name: '全コマンド' }))
+    fireEvent.click(screen.getByRole('button', { name: /全コマンド/ }))
     expect(onOpenCommands).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('button', { name: 'メンテナンス' })).toBeDisabled()
+  })
+
+  it('the tiles carry a label, open maintenance / the filtered history, and show what needs attention', () => {
+    const onOpenLog = vi.fn()
+    const onOpenMaint = vi.fn()
+    const { rerender } = render(<DetailPanel {...base} onOpenLog={onOpenLog} onOpenMaint={onOpenMaint} commandsOpen />)
+    const tiles = screen.getByTestId('detail-tiles')
+    const maint = within(tiles).getByRole('button', { name: /メンテナンス/ })
+    const history = within(tiles).getByRole('button', { name: /履歴/ })
+    expect(maint).toHaveTextContent('メンテナンス')
+    fireEvent.click(maint)
+    expect(onOpenMaint).toHaveBeenCalledWith(1)
+    fireEvent.click(history)
+    expect(onOpenLog).toHaveBeenCalledWith(1)
+    // two alerts wait for acknowledgement
+    expect(within(history).getByText('2')).toBeInTheDocument()
+    expect(within(tiles).getByRole('button', { name: /全コマンド/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(maint).queryByTitle('校正の要確認があります')).toBeNull()
+    rerender(<DetailPanel {...base} onOpenMaint={onOpenMaint} maintAttention />)
+    expect(within(screen.getByTestId('detail-tiles')).getByTitle('校正の要確認があります')).toBeInTheDocument()
+  })
+
+  it('the pin keeps the panel on this vehicle', () => {
+    const onTogglePin = vi.fn()
+    const { rerender } = render(<DetailPanel {...base} pinned={false} onTogglePin={onTogglePin} />)
+    const pin = screen.getByRole('button', { name: 'この機体に固定' })
+    expect(pin).toBeEnabled()
+    expect(pin).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(pin)
+    expect(onTogglePin).toHaveBeenCalledWith(1)
+    rerender(<DetailPanel {...base} pinned onTogglePin={onTogglePin} />)
+    expect(screen.getByRole('button', { name: '固定を解除' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '固定を解除' })).toHaveClass('on')
   })
 
   it('empty_state', () => {

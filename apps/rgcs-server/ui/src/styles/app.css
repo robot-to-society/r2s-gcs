@@ -110,6 +110,15 @@
 .detail-telemetry .batt { margin-top: 4px; }
 .detail-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 12px 14px; }
 .detail-tiles .tile-btn:disabled { opacity: 0.45; }
+/* labelled tiles: icon over a short label, attention on the corner */
+.tile-btn.tile-l { position: relative; height: 64px; grid-template-rows: auto auto; align-content: center; gap: 5px; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+.tile-btn.tile-l:hover:not(:disabled) { border-color: var(--line-hi); }
+.tile-btn.tile-l:active:not(:disabled) { transform: translateY(1px); }
+.tile-btn.tile-l:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
+.tile-lbl { font-size: 11px; line-height: 1; color: var(--text-2); letter-spacing: 0.02em; }
+.tile-btn.on .tile-lbl { color: var(--accent); }
+.tile-count { position: absolute; top: 6px; right: 6px; min-width: 20px; height: 20px; padding: 0 6px; font-size: 11px; }
+.tile-dot { position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: var(--caution); box-shadow: 0 0 0 3px rgba(242, 181, 68, 0.18); }
 .detail-empty { padding: 0 16px 14px; }
 
 /* ---- guided modal ---- */

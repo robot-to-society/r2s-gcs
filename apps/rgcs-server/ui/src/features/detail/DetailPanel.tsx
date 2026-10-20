@@ -2,10 +2,12 @@ import type { CameraCommand, CameraSnapshot, Mission, MissionProgress, MissionTr
 import type { BtnState } from '../commands'
 import { CameraStatusRow, CameraStrip, VideoThumb } from '../camera'
 import type { Dict } from '../../shared/i18n'
-import { IconClock, IconClose, IconGrid, IconPin, IconWrench } from '../../shared/ui/icons'
+import { IconClose, IconPin } from '../../shared/ui/icons'
 import { battWidth, dotClass } from '../vehicles/format'
 import { DetailMessages } from './DetailMessages'
 import { EmergencyRow } from './EmergencyRow'
+import { pendingAlerts } from './messages'
+import { DetailTiles } from './DetailTiles'
 import { MissionProgressRow } from './MissionProgressRow'
 
 interface Props {
@@ -34,6 +36,13 @@ interface Props {
   /** Emergency buttons (pause / RTL / land) send through the shared command runner. */
   readonly onCommand?: (command: VehicleCommand) => void
   readonly feedback?: (cmd: string) => BtnState | null
+  /** Opens メンテナンス・設定 on this vehicle. */
+  readonly onOpenMaint?: (sysid: SysId) => void
+  /** A calibration of this vehicle failed or is older than 30 days. */
+  readonly maintAttention?: boolean
+  /** The panel stays on this vehicle while the selection moves (spec 10 §3.3). */
+  readonly pinned?: boolean
+  readonly onTogglePin?: (sysid: SysId) => void
 }
 
 const NONE_CAPS: CameraSnapshot['caps'] = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: null }
@@ -52,7 +61,15 @@ export function DetailPanel(p: Props) {
         <span className={dotClass(v)} style={{ width: 11, height: 11 }} />
         <span className="h1">{v.name}</span>
         <div className="grow" />
-        <button type="button" className="btn-icon" title={dict.pinned} aria-label={dict.pinned} disabled>
+        <button
+          type="button"
+          className={`btn-icon${p.pinned ? ' on' : ''}`}
+          title={p.pinned ? dict.unpinVehicle : dict.pinVehicle}
+          aria-label={p.pinned ? dict.unpinVehicle : dict.pinVehicle}
+          aria-pressed={p.pinned === true}
+          disabled={!p.onTogglePin}
+          onClick={() => p.onTogglePin?.(v.sysid)}
+        >
           <IconPin />
         </button>
         <button type="button" className="btn-icon" aria-label={dict.close} title={dict.close} onClick={onClose}>
@@ -98,17 +115,16 @@ export function DetailPanel(p: Props) {
         {p.onWriteMission && (
           <MissionProgressRow progress={p.missionProgress ?? null} mission={p.vehicleMission ?? null} vehicle={v} dict={dict} onWrite={p.onWriteMission} onStart={() => p.onStartMission?.()} transfer={p.missionTransfer ?? null} />
         )}
-        <div className="detail-tiles hair">
-          <button type="button" className="tile-btn" disabled title={`${dict.maintenance} (${dict.comingSoon})`} aria-label={dict.maintenance}>
-            <IconWrench />
-          </button>
-          <button type="button" className="tile-btn" disabled title={`${dict.history} (${dict.comingSoon})`} aria-label={dict.history}>
-            <IconClock />
-          </button>
-          <button type="button" className={`tile-btn${p.commandsOpen ? ' on' : ''}`} title={dict.allCommands} aria-label={dict.allCommands} onClick={onOpenCommands}>
-            <IconGrid />
-          </button>
-        </div>
+        <DetailTiles
+          sysid={v.sysid}
+          alerts={pendingAlerts(p.entries, v.sysid)}
+          maintAttention={p.maintAttention === true}
+          commandsOpen={p.commandsOpen === true}
+          dict={dict}
+          onOpenMaint={p.onOpenMaint}
+          onOpenLog={p.onOpenLog}
+          onOpenCommands={onOpenCommands}
+        />
         <DetailMessages sysid={v.sysid} entries={p.entries} dict={dict} onAck={p.onAck} onOpenLog={p.onOpenLog} />
       </div>
     </aside>

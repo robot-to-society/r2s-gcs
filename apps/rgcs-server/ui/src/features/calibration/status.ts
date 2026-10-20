@@ -25,6 +25,11 @@ export function cardStatus(kind: CalibKind, rec: CalibRecord | undefined, now: n
   return { tone: 'ok', text: dict.calDone.replace('{date}', date) }
 }
 
+/** The maintenance tile's dot: a calibration failed last time or is older than 30 days (motor tests never go stale). */
+export function needsAttention(records: readonly CalibRecord[], now: number): boolean {
+  return records.some((r) => !r.ok || (r.kind !== 'motor' && now - r.at > STALE_MS))
+}
+
 const COMMON: readonly CalibKind[] = ['accel', 'compass', 'level', 'rc']
 
 /** ESC calibration (`ESC_CALIBRATION`) is ArduCopter's; motor tests need multirotor motors. */

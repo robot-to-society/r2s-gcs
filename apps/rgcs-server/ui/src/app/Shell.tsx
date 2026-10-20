@@ -22,6 +22,8 @@ import { VideoStage } from '../features/video'
 import { Header } from './Header'
 import { NO_MODAL, type Modal } from './modal'
 import type { View } from './view'
+import { useCalibAttention } from '../features/calibration'
+import { panelSysid, togglePin } from './pin'
 
 function formatClock(d: Date, lang: Lang): string {
   const p = (n: number) => String(n).padStart(2, '0')
@@ -59,6 +61,8 @@ export function Shell({ me, lang }: Props) {
     }
   }, [])
   const [selected, setSelected] = useState<number | null>(null)
+  // 詳細パネルのピン: the panel stays on this vehicle while the selection moves
+  const [pinned, setPinned] = useState<number | null>(null)
   const [view, setView] = useState<View>('ops')
   // 全機体映像: the vehicle in the camera cockpit (null = the grid)
   const [maxVideo, setMaxVideo] = useState<number | null>(null)
@@ -94,7 +98,11 @@ export function Shell({ me, lang }: Props) {
   const currentMission = current === null ? null : (vehicleMissions.get(current) ?? null)
   const predicted = usePredicted(currentMission, current === null ? null : (vehicles.get(current) ?? null))
   const currentVehicle = current === null ? undefined : vehicles.get(current)
-  const detail = selected === null ? undefined : vehicles.get(selected)
+  const panel = panelSysid(pinned, selected, (sysid) => vehicles.has(sysid))
+  const detail = panel === null ? undefined : vehicles.get(panel)
+  // the command dock acts on the vehicle the panel shows (a pinned panel may differ from the selection)
+  const dockVehicle = detail ?? currentVehicle
+  const maintAttention = useCalibAttention(detail?.sysid ?? null, detail ? calibration.get(detail.sysid)?.phase : undefined)
   // The maintenance and video views take the map's place; the right panel belongs to the operations map.
   const showDetail = detail !== undefined && view !== 'maint' && view !== 'video'
   const openCockpit = (sysid: number) => {
@@ -306,7 +314,17 @@ export function Shell({ me, lang }: Props) {
               dict={dict}
               onAck={ackAlert}
               onOpenLog={(sysid) => vehicleStore.logAction({ k: 'open', filter: sysid })}
-              onClose={() => setSelected(null)}
+              onClose={() => {
+                setPinned(null)
+                setSelected(null)
+              }}
+              pinned={pinned === detail.sysid}
+              onTogglePin={(sysid) => setPinned((p) => togglePin(p, sysid))}
+              onOpenMaint={(sysid) => {
+                setSelected(sysid)
+                setView('maint')
+              }}
+              maintAttention={maintAttention}
               onOpenCommands={() => setCommandsOpen((o) => !o)}
               camera={cameras.get(detail.sysid)}
               videoSource={videoSources.get(detail.sysid)}
@@ -324,9 +342,9 @@ export function Shell({ me, lang }: Props) {
               feedback={(cmd) => runner.feedback(detail.sysid, cmd)}
             />
           )}
-          {commandsOpen && view === 'ops' && currentVehicle && (
+          {commandsOpen && view === 'ops' && dockVehicle && (
             <CommandDock
-              vehicle={currentVehicle}
+              vehicle={dockVehicle}
               entries={log.entries}
               dict={dict}
               beside={detail !== undefined}

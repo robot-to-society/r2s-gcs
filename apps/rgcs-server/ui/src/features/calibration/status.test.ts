@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { t } from '../../shared/i18n'
 import type { CalibRecord } from '../../shared/api/types'
-import { calibKinds, cardStatus, motorCount, STALE_MS } from './status'
+import { calibKinds, cardStatus, motorCount, needsAttention, STALE_MS } from './status'
 
 const dict = t('ja')
 const day = 86_400_000
@@ -44,5 +44,15 @@ describe('motorCount', () => {
     expect(motorCount({ FRAME_CLASS: 7 })).toBe(3)
     expect(motorCount({ Q_FRAME_CLASS: 2 })).toBe(6)
     expect(motorCount({})).toBe(4)
+  })
+})
+
+describe('needsAttention', () => {
+  it('flags a failed or stale calibration, never a missing one or an old motor test', () => {
+    expect(needsAttention([], now)).toBe(false)
+    expect(needsAttention([rec({ at: now - day })], now)).toBe(false)
+    expect(needsAttention([rec({ ok: false })], now)).toBe(true)
+    expect(needsAttention([rec({ at: now - STALE_MS - 1 })], now)).toBe(true)
+    expect(needsAttention([rec({ kind: 'motor', at: now - STALE_MS - 1 })], now)).toBe(false)
   })
 })
