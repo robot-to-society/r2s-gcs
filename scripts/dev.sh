@@ -10,6 +10,7 @@
 #                             # scripts/mav-relay.py on udp:14550 -> rgcs-server udpin:14551
 #   scripts/dev.sh --quadplane  # add one ArduPlane QuadPlane SITL after the copters (next SYSID,
 #                             # through the relay; needs build/sitl/bin/arduplane)
+#   scripts/dev.sh --sitl 0 --quadplane  # fixed wing only: the QuadPlane is SYSID 1 (UAV-01)
 #
 # Env overrides: ARDUPILOT_DIR, SITL_HOME (lat,lon,alt,yaw), SITL_SPEEDUP, SITL_COUNT, RGCS_PORT, UI_PORT.
 # Everything runtime-related lives in .dev/ (git-ignored). Ctrl-C stops all three processes.
@@ -51,7 +52,7 @@ for ((i = 0; i < ${#ARGS[@]}; i++)); do
     --siyi-sim) SIYI_SIM=1 ;;
     --video) VIDEO=1 ;;
     --quadplane) QUADPLANE=1 ;;
-    -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -73,8 +74,9 @@ trap cleanup EXIT INT TERM
 
 port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
-if ! [[ "$SITL_COUNT" =~ ^[1-9]$ ]]; then
-  echo "[dev] --sitl / SITL_COUNT must be 1..9 (got '$SITL_COUNT')" >&2
+# --sitl 0 --quadplane: the QuadPlane alone, as SYSID 1 (UAV-01).
+if ! [[ "$SITL_COUNT" =~ ^[0-9]$ ]] || { [ "$SITL_COUNT" = 0 ] && [ "$QUADPLANE" = 0 ]; }; then
+  echo "[dev] --sitl / SITL_COUNT must be 1..9, or 0 with --quadplane (got '$SITL_COUNT')" >&2
   exit 2
 fi
 
