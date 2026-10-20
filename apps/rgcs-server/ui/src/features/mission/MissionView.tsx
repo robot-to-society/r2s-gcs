@@ -4,8 +4,7 @@ import type { Mission, MissionFrame, VehicleState } from '../../shared/api/types
 import type { Dict } from '../../shared/i18n'
 import { IconClose } from '../../shared/ui/icons'
 import { vehicleStore } from '../vehicles/store'
-import { planeParams } from '../flightpath/params'
-import { predictFor } from '../flightpath/predict'
+import { pathModel, pathParamNames, predictFor } from '../flightpath/predict'
 import { usePathParams } from '../flightpath/usePathParams'
 import { CommandPalette } from './CommandPalette'
 import { ContextMenu } from './ContextMenu'
@@ -71,17 +70,17 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const vehicle = sysid === null ? null : (vehicles.get(sysid) ?? null)
   // the takeoff has no coordinates: drawn above the home
   const placed = useMemo(() => ({ ...draft, items: placeTakeoffs(draft.items, takeoffAnchor(draft.mission.home, vehicle)) }), [draft, vehicle])
-  // A plane / QuadPlane gets its expected flight drawn over the plan from its own parameters (2026-10-20).
-  const isPlane = vehicle?.kind === 'plane'
-  const pathValues = usePathParams(sysid, isPlane)
+  // A plane / QuadPlane / copter gets its expected flight drawn over the plan from its own parameters (2026-10-20).
+  const kind = vehicle?.kind ?? null
+  const pathValues = usePathParams(sysid, pathParamNames(kind))
   // telemetry replaces the home object every update: depend on its values, not its identity
   const [hLat, hLon, hAlt] = [vehicle?.home?.lat, vehicle?.home?.lon, vehicle?.home?.alt]
   const predict = useMemo(() => {
-    if (!isPlane) return undefined
+    const model = pathModel(kind, pathValues)
+    if (!model) return undefined
     const vHome = hLat !== undefined && hLon !== undefined && hAlt !== undefined ? { lat: hLat, lon: hLon, alt: hAlt } : null
-    const params = planeParams(pathValues).params
-    return (d: Draft) => predictFor(d, params, vHome)
-  }, [isPlane, pathValues, hLat, hLon, hAlt])
+    return (d: Draft) => predictFor(d, model, vHome)
+  }, [kind, pathValues, hLat, hLon, hAlt])
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
   const io = useMissionIo(store, sysid, dict, vehicleStore)
   const [fitTo, setFitTo] = useState<{ seq: number; points: readonly { lat: number; lon: number }[] } | null>(null)

@@ -257,8 +257,8 @@ describe('MissionView', () => {
       fireEvent.click(screen.getByText('map-add'))
       fireEvent.click(screen.getByRole('button', { name: '保存' }))
     })
-    // the planner reads the target vehicle's FENCE_* parameters on its own: not part of this flow
-    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params'))
+    // the planner reads the target vehicle's FENCE_* and path parameters on its own: not part of this flow
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params') && !c.includes('/params/pick'))
     expect(calls).toEqual(['POST /api/missions', 'PUT /api/missions/5'])
     expect(screen.queryByText('未保存')).not.toBeInTheDocument()
   })
@@ -275,8 +275,8 @@ describe('MissionView', () => {
       fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
     })
     expect(screen.getByText('先頭が TAKEOFF ではありません')).toBeInTheDocument()
-    // the planner reads the target vehicle's FENCE_* parameters on its own: not part of this flow
-    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params'))
+    // the planner reads the target vehicle's FENCE_* and path parameters on its own: not part of this flow
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params') && !c.includes('/params/pick'))
     expect(calls).toEqual(['POST /api/missions/validate?sysid=1'])
   })
 
@@ -342,8 +342,8 @@ describe('MissionView', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'ファイルに保存' }))
     })
-    // the planner reads the target vehicle's FENCE_* parameters on its own: not part of this flow
-    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params'))
+    // the planner reads the target vehicle's FENCE_* and path parameters on its own: not part of this flow
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params') && !c.includes('/params/pick'))
     expect(calls).toEqual(['POST /api/missions', 'PUT /api/missions/5', 'GET /api/missions/5/export?format=waypoints'])
     expect(screen.queryByText('未保存')).not.toBeInTheDocument()
     expect(click).toHaveBeenCalledTimes(1)

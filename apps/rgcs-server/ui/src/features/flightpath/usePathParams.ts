@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '../../shared/api/client'
-import { PLANE_PARAM_NAMES } from './params'
 import { loadSaved, mergeValues, saveValues, type Values } from './saved'
 
 interface Picked {
@@ -15,10 +14,12 @@ const RETRY_MS = 5000
 const RETRIES = 3
 
 /**
- * The parameters behind the predicted path for `sysid`: saved values first, refreshed from the
- * vehicle (connected or not, the server answers from its cache and asks for the rest).
+ * The parameters behind the predicted path for `sysid` (`names`: the ones its flight model reads,
+ * none = no prediction): saved values first, refreshed from the vehicle (connected or not, the
+ * server answers from its cache and asks for the rest).
  */
-export function usePathParams(sysid: number | null, wanted: boolean): ReadonlyMap<string, number> {
+export function usePathParams(sysid: number | null, names: readonly string[]): ReadonlyMap<string, number> {
+  const wanted = names.length > 0
   const [values, setValues] = useState<{ sysid: number | null; values: Values }>({ sysid: null, values: {} })
   useEffect(() => {
     if (sysid === null || !wanted) return
@@ -26,7 +27,7 @@ export function usePathParams(sysid: number | null, wanted: boolean): ReadonlyMa
     let tries = 0
     let timer: ReturnType<typeof setTimeout> | undefined
     const ask = () => {
-      pickParams(sysid, PLANE_PARAM_NAMES)
+      pickParams(sysid, names)
         .then((got) => {
           if (!alive) return
           const merged = mergeValues(loadSaved(sysid), got.values)
@@ -45,6 +46,6 @@ export function usePathParams(sysid: number | null, wanted: boolean): ReadonlyMa
       alive = false
       clearTimeout(timer)
     }
-  }, [sysid, wanted])
+  }, [sysid, wanted, names])
   return useMemo(() => new Map(values.sysid === sysid ? Object.entries(values.values) : []), [values, sysid])
 }

@@ -116,12 +116,13 @@
 - 実装: 左の一覧(番号・コマンド名・`MAV_CMD_*`・高度チップ、▲▼ 並べ替え、Shift / ⌘ 複数選択)、地図(追加 / 選択ツール、クリック追加、ドラッグ移動、中点 `+` 挿入、右クリック 挿入 / 削除 / 高度一括)、右のコマンド編集(`CMDS` の項目、機種が無視する項目は「未使用」で無効)、サマリー(距離・時間・最大高度・警告 + サーバー検証結果)、Undo / Redo 60 段、保存 / 開く(DB)、`.waypoints` 保存(サーバー書き出し)/ `.rgcsmission` 保存 / 読込、機体へ書込(検証 → 書込 → 読込一致)/ 機体から読込。運用マップに経路 + 現在 WP バッジ、右パネルに進捗行(現在 WP / 残り距離、書込 / 開始)。
 - 後送り(追補 §5.2): 3D、地形・標高プロファイル、Shift + ドラッグ矩形選択、一覧のドラッグ並べ替え、ポリゴンフェンス判定(円形のみ)、バッテリ余裕(推定 20 分超の警告で代替)。
 
-### 6.2 予測飛行経路(2026-10-20、Plane / QuadPlane。Copter は次段)
-- 対象機体が Plane のとき、計画の上に「実際に飛ぶと予想される経路」を重ねる: 2D は細い破線(半透明)、3D は細い半透明線(上昇率で着色)。計画の直線は主線のまま。風は考慮しない推定。
+### 6.2 予測飛行経路(2026-10-20、Plane / QuadPlane / Copter)
+- 対象機体が Plane / Copter のとき、計画の上に「実際に飛ぶと予想される経路」を重ねる: 2D は細い破線(半透明)、3D は細い半透明線(上昇率で着色)。計画の直線は主線のまま。風は考慮しない推定。
 - 元データは機体のパラメータ(`GET /api/vehicles/{sysid}/params/pick?names=…`: キャッシュ値 + 無いものは PARAM_REQUEST_READ で取りに行き最大約 1 秒待つ)。AIRSPEED_CRUISE、WP_LOITER_RAD、ROLL_LIMIT_DEG、TECS_CLMB_MAX / SINK_MAX、ALT_SLOPE_MIN、FLIGHT_OPTIONS、NAVL1_PERIOD / DAMPING、Q_ENABLE、Q_OPTIONS、Q_WP_SPD*。最後に読めた値はブラウザに機体ごとに保存し、未接続でも使う(無ければ ArduPilot 既定値)。
 - 挙動(ArduPilot master 2026-10-20 のソースと SITL QuadPlane 飛行で確認): 速度は EAS→TAS(ISA)、旋回半径 v²/(g·tan ROLL_LIMIT)、ロイター半径は R·EAS2TAS²、ロイターへは中心に向かい手前側から合流、高度変化は中心までの勾配(ALT_SLOPE_MIN 以上)+ TECS の上昇・降下率で円上は螺旋、LOITER_TO_ALT は 5 m 以内まで周回して次 WP への接線で離脱、xtrack 0 は中心→次 WP の線へ L1 で収束、LOITER_TIME の半径は常に WP_LOITER_RAD(param3 は向きのみ)、QuadPlane の NAV_TAKEOFF / NAV_LAND は Q_OPTIONS が許さない限り垂直、DO_VTOL_TRANSITION(3) 後のロイターはホバー。
 - 追加コマンド: LOITER_TO_ALT(31)、VTOL_TAKEOFF(84)、VTOL_LAND(85)、DO_VTOL_TRANSITION(3000)。VTOL 離着陸で始まり終わるミッションを検証で受け付ける。
 - ロイターへの進入(2026-10-20 改訂): 直前の WP は turn_distance(min(WP_RADIUS·EAS2TAS², L1 距離)、90° 未満の旋回は比例縮小)手前で到達扱い(機体ログ「Reached waypoint #2 dist 88m」と一致)、そこからの合流は AP_L1_Control::update_loiter の時間刻みシミュレーション(ロール立ち上がり約 1 秒、SITL の膨らみ 438 m に合わせた)。VTOL 離陸直後の遷移方向は機首方位次第なので予測しない。
+- Copter(2026-10-20、ArduCopter master のソースと SITL 飛行で確認): パラメータは WP_SPD / WP_RADIUS_M / WP_SPD_UP / WP_SPD_DN / WP_ACC / WP_JERK / WP_ACC_CNR / RTL_ALT_M / RTL_ALT_FINAL_M / RTL_CLIMB_MIN_M / RTL_CONE_SLOPE(4.7 で改名。旧名 WPNAV_* / RTL_ALT 等の cm 値も読む)。WP は停止せずに通過するのは次が WAYPOINT / SPLINE / ARC / LOITER_UNLIM / LOITER_TIME / LAND 等で待機 0 のとき、角は SCurve の重ね合わせ(前区間の減速中に次区間を始める: 中間点が WP_RADIUS_M 以内・中間点の速度が区間速度以下・横加速度が角加速度以下)。速度は加速度・ジャークの S 字(短い区間は最高速度を下げる)。SPLINE はエルミート曲線(接線は前後の点から、SPLINE_FACTOR 4 で制限)、ARC は円弧、LOITER_TURNS は最寄りの縁へ移って周回(負の半径は反時計回り)、離陸は垂直、RTL は円錐勾配で決めた高度へ上昇→帰還→降下。SITL 飛行(直線・角・スプライン・LOITER_TURNS・RTL、981 点)との水平距離は p50 0.1 m / p90 0.7 m / 最大 1.0 m(角の切り込みは予測が約 0.7 m 大きい)。
 
 ### 6.3 作成画面の操作追加(2026-10-20)
 - 開いたとき・対象機体を切り替えたときは、その機体の位置へ地図を移す(以後の機体の移動では動かさない)。
