@@ -321,13 +321,34 @@
 - [ ] **Step 5:** Check in the browser on the dev stack (`scripts/dev.sh` running on :5173): load the three test missions from Task 13. Screenshot to `.dev/briefing/2d.png`, read it back and check the colours and labels.
 - [ ] **Step 6:** Commit as `feat(ui): every mission, fence and rally of the briefing on the 2D map, crossings labelled`.
 
+### Task 9b: Show / hide each mission (user request 2026-10-20)
+
+**Files:**
+- Modify: `features/briefing/model.ts` (+test), `features/briefing/persist.ts` (+test), `features/briefing/BriefingList.tsx` (+test), the hook that builds `others` / labels (`features/briefing/useBriefingMap.ts` or wherever Task 9 put it) (+test), `shared/i18n/briefing.ts`, `shared/ui/icons.tsx` (Lucide `Eye` / `EyeOff` if missing)
+
+**Interfaces:**
+- `Row` gains `readonly hidden: boolean` (default `false` everywhere rows are created, including `workspaceFrom` later).
+- `export function setHidden(ws: Workspace, key: string, hidden: boolean): Workspace`. It is a no-op for the active row, which is always shown.
+- `activate(ws, key)` also clears `hidden` on the row it activates.
+- Persisted rows carry `hidden`. Restoring an old payload without it gives `false`. It is not sent to the server.
+- `BriefingList` gets `onHidden(key: string, hidden: boolean)` and an eye toggle button per row: `aria-pressed` = shown; label `表示` / `非表示`; disabled on the active row.
+- Hidden rows are left out of `others` and out of the `crossLabels` input. They are kept in the comparison table and the batch write (Tasks 11, 12).
+
+- [ ] **Step 1:** Write the tests:
+  - `set_hidden_ignores_the_active_row_and_activate_shows_the_row`
+  - `hidden_round_trips_and_defaults_to_false`
+  - `the_eye_toggle_hides_a_parked_row_and_is_disabled_on_the_active_one`
+  - `hidden_rows_are_not_drawn_or_labelled`
+- [ ] **Step 2–4:** FAIL → implement → PASS.
+- [ ] **Step 5:** Commit as `feat(ui): show / hide each briefing mission`.
+
 ### Task 10: Other missions in 3D
 
 **Files:**
 - Modify: `features/mission/missionAir.ts`, `features/mission/missionAir.test.ts`, `MissionMap.tsx` (pass `others`)
 
 **Interfaces:**
-- Produces `export function othersAirLines(others: readonly OtherMission[], elevAt: ElevAt): AirVertex[][]`. Each mission uses its colour mixed 45 % toward the base `#11161e`, which stands in for transparency since `AirVertex.c` has no alpha.
+- Hidden rows are already excluded from `others` (Task 9b). Produces `export function othersAirLines(others: readonly OtherMission[], elevAt: ElevAt): AirVertex[][]`. Each mission uses its colour mixed 45 % toward the base `#11161e`, which stands in for transparency since `AirVertex.c` has no alpha.
 - In `useMissionAir`, append these lines to `layer.setLines(...)` (new arg `others`), together with fence and rally walls if the active mission draws walls today. Otherwise only the route lines.
 
 - [ ] **Step 1:** Write the test `others_air_lines_use_the_dimmed_mission_colour_and_amsl` (a 2-item mission → one line, colour equals the mix, z from `elevAt + alt` for Rel).
