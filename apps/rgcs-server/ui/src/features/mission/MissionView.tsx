@@ -21,7 +21,7 @@ import { canRedo, canUndo } from './history'
 import { km, mmss } from './labels'
 import type { ContextMenu as Menu } from './mapEdit'
 import { useMissionIo } from './useMissionIo'
-import { appendWaypoint, takeoffFor, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, removeItems, reorder, reverseItems, setAltBulk, setArc, setCommand, setMeta, shiftAlts, updateItem, type Draft } from './model'
+import { appendWaypoint, moveItemsTo, takeoffFor, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, removeItems, reorder, reverseItems, setAltBulk, setArc, setCommand, setMeta, shiftAlts, updateItem, type Draft } from './model'
 import { MissionStore, addToSelection, clearSelection, copySelected, pasteClipboard, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
 import { localWarnings, stats } from './summary'
 import { BasemapPicker } from '../map/BasemapPicker'
@@ -270,6 +270,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
               dict={dict}
               onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))}
               onReorder={(uid, dir) => change((d) => reorder(d, uid, dir))}
+              onMove={(uids, before) => change((d) => moveItemsTo(d, uids, before))}
               onContext={(uid, x, y) => {
                 store.update((u) => (u.selected.has(uid) ? u : selectOne(u, uid, false)))
                 setMenu({ uid, x, y })

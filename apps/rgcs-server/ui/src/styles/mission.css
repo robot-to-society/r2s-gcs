@@ -84,3 +84,7 @@
 .mission-map:not(.tab-mission) .rg-wp, .mission-map:not(.tab-mission) .rg-mid, .mission-map:not(.tab-mission) .rg-foot { pointer-events: none; opacity: 0.75; }
 .plan-altmax { display: grid; gap: 6px; padding: 10px 14px; font-size: 13px; }
 .elev-ceiling { position: absolute; right: 4px; transform: translateY(-120%); font-size: 10px; color: var(--danger); pointer-events: none; }
+/* WP list drag & drop: the drop slot is a line on the row's edge */
+.wrow[draggable='true'] { cursor: grab; }
+.wrow.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+.wrow.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }

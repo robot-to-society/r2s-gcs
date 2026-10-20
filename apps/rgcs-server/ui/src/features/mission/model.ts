@@ -173,6 +173,16 @@ export function reorder(d: Draft, uid: number, dir: -1 | 1): Draft {
   return { ...d, items }
 }
 
+/** Moves `uids` (kept in list order) to the slot before index `before` of the current list (drag & drop). */
+export function moveItemsTo(d: Draft, uids: ReadonlySet<number>, before: number): Draft {
+  const moving = d.items.filter((it) => uids.has(it.uid))
+  if (moving.length === 0) return d
+  const rest = d.items.filter((it) => !uids.has(it.uid))
+  const at = d.items.slice(0, before).filter((it) => !uids.has(it.uid)).length
+  const items = [...rest.slice(0, at), ...moving, ...rest.slice(at)]
+  return items.every((it, i) => it === d.items[i]) ? d : { ...d, items }
+}
+
 /** Switch the MAV_CMD: params reset to the new defaults; the position is kept only for positional commands. */
 export function setCommand(d: Draft, uid: number, key: string): Draft {
   const spec = CMDS[key]

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendWaypoint, emptyDraft, isTakeoff, takeoffFor, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, setArc, shiftAlts, setCommand, toMission, updateItem } from './model'
+import { appendWaypoint, emptyDraft, isTakeoff, moveItemsTo, takeoffFor, fromMission, insertAfter, moveItem, removeItems, reorder, setAltBulk, setArc, shiftAlts, setCommand, toMission, updateItem } from './model'
 
 describe('mission draft model', () => {
   it('first_point_is_takeoff_then_waypoints', () => {
@@ -28,6 +28,20 @@ describe('mission draft model', () => {
     expect(isTakeoff(qp.items[0]!)).toBe(true)
     const rover = appendWaypoint(emptyDraft(), 36.26, 137.64, at, null)
     expect(rover.items.map((i) => i.command)).toEqual([16])
+  })
+
+  it('dragging moves items before the drop slot, a selected block together and in order', () => {
+    let d = emptyDraft()
+    for (let k = 0; k < 5; k++) d = appendWaypoint(d, 36 + k / 100, 139)
+    const order = (x: typeof d) => x.items.map((i) => i.uid)
+    expect(order(moveItemsTo(d, new Set([2]), 5))).toEqual([1, 3, 4, 5, 2])
+    expect(order(moveItemsTo(d, new Set([5]), 0))).toEqual([5, 1, 2, 3, 4])
+    expect(order(moveItemsTo(d, new Set([2, 4]), 1))).toEqual([1, 2, 4, 3, 5])
+    expect(order(moveItemsTo(d, new Set([1, 2]), 4))).toEqual([3, 4, 1, 2, 5])
+    // dropping in place returns the same draft
+    expect(moveItemsTo(d, new Set([3]), 2)).toBe(d)
+    expect(moveItemsTo(d, new Set([3]), 3)).toBe(d)
+    expect(order(d)).toEqual([1, 2, 3, 4, 5])
   })
 
   it('insert_remove_move_reorder_are_immutable', () => {
