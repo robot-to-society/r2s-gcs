@@ -40,15 +40,14 @@ const failure = (e: unknown): GuidedOutcome =>
   e instanceof ApiError ? { kind: 'error', code: e.code, message: e.message } : { kind: 'error', code: 'unknown', message: e instanceof Error ? e.message : String(e) }
 
 /**
- * One press of 移動開始 (the operator's confirmation): switch to GUIDED unless already there,
- * wait until the vehicle reports GUIDED, then send the target — answering the server's confirm
- * request itself. The target is never sent to a vehicle that has not reached GUIDED.
+ * One press of 移動開始 (the operator's confirmation): switch to GUIDED unless already there (a mode
+ * change needs no confirm token), wait until the vehicle reports GUIDED, then send the target —
+ * answering the server's confirm request for the target itself. The target is never sent to a vehicle that has not reached GUIDED.
  */
 export async function startGuided(sysid: number, body: GuidedBody, deps: StartDeps): Promise<GuidedOutcome> {
   try {
     if (deps.mode() !== 'GUIDED') {
-      const { confirm_token } = await deps.confirm(sysid, 'set_mode')
-      await deps.command(sysid, { cmd: 'set_mode', args: { mode: 'GUIDED' } }, confirm_token)
+      await deps.command(sysid, { cmd: 'set_mode', args: { mode: 'GUIDED' } })
       if (!(await deps.waitFor(() => deps.mode() === 'GUIDED', GUIDED_MODE_WAIT_MS))) return { kind: 'error', code: 'mode_timeout', message: 'GUIDED' }
     }
     const first = await runGuided(sysid, body, undefined, deps.send)

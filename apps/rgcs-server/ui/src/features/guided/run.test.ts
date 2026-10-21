@@ -57,16 +57,18 @@ describe('startGuided (one press of 移動開始)', () => {
     expect(await startGuided(1, body, d)).toEqual({ kind: 'sent', id: 9, warning: null })
     expect(calls).toEqual(['send:undefined'])
   })
-  it('switches to GUIDED, waits until the vehicle reports it, then sends the target', async () => {
+  it('switches to GUIDED without a confirm token, waits until the vehicle reports it, then sends the target', async () => {
     const { d, calls } = deps('LOITER')
     expect(await startGuided(1, body, d)).toEqual({ kind: 'sent', id: 9, warning: null })
-    expect(calls).toEqual(['confirm:set_mode', 'command:set_mode:GUIDED:tok-set_mode', 'send:undefined'])
+    expect(calls).toEqual(['command:set_mode:GUIDED:undefined', 'send:undefined'])
+    expect(d.confirm).not.toHaveBeenCalled()
     expect(d.waitFor).toHaveBeenCalledWith(expect.any(Function), 5000)
   })
   it('never sends the target when the vehicle does not reach GUIDED', async () => {
     const { d, calls } = deps('LOITER', { command: vi.fn(async () => ({ id: 1, status: 'queued' })), waitFor: vi.fn(async () => false) })
     expect(await startGuided(1, body, d)).toEqual({ kind: 'error', code: 'mode_timeout', message: 'GUIDED' })
-    expect(calls).toEqual(['confirm:set_mode'])
+    expect(calls).toEqual([])
+    expect(d.send).not.toHaveBeenCalled()
   })
   it('answers the server confirm itself: the press is the confirmation', async () => {
     const send = vi.fn().mockRejectedValueOnce(new ApiError(409, 'confirm_required', 'confirm token required')).mockResolvedValueOnce({ id: 3, warning: null })
