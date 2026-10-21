@@ -18,6 +18,7 @@ import { orderLayers } from './layers'
 import { gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
 import type { LatLon } from './store'
 import { tracksGeoJson, type Tracks } from './tracks'
+import type { WaypointPick } from './wpGo'
 
 interface Props {
   readonly vehicles: ReadonlyMap<number, VehicleState>
@@ -52,6 +53,8 @@ interface Props {
   /** One-shot centre on a vehicle (from the message log). */
   readonly focus?: { readonly sysid: number; readonly n: number } | null
   readonly onContext?: (p: { lat: number; lon: number; x: number; y: number }) => void
+  /** Click on a mission badge (2D and 3D): the mission's vehicle, the badge number and its viewport spot. */
+  readonly onWaypoint?: (p: WaypointPick) => void
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -70,7 +73,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -95,6 +98,10 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   const clickRef = useRef(onClick)
   const contextRef = useRef(onContext)
   contextRef.current = onContext
+  const waypointRef = useRef(onWaypoint)
+  waypointRef.current = onWaypoint
+  const ownerRef = useRef(owner)
+  ownerRef.current = owner
   dragRef.current = onDragStart
   clickRef.current = onClick
 
@@ -267,11 +274,21 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     mission.items.forEach((it, i) => {
       if (!itemHasPosition(it)) return
       const el = document.createElement('div')
-      el.className = `wp-mk small${i + 1 === missionCurrent ? ' current' : ''}`
+      el.className = `wp-mk small${i + 1 === missionCurrent ? ' current' : ''}${waypointRef.current ? ' go' : ''}`
       el.textContent = badgeText(i + 1, cmdKeyOf(it.command) ?? '')
+      el.addEventListener('click', (e) => badgeClick(e, el, i + 1))
       missionBadges.current.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([it.lon, it.lat]).addTo(m))
     })
   }, [mission, missionCurrent])
+
+  /** The marker sits in the map's container: keep the click from also reaching the map. */
+  function badgeClick(e: MouseEvent, el: HTMLElement, n: number): void {
+    const sysid = ownerRef.current
+    if (!waypointRef.current || sysid === null) return
+    e.stopPropagation()
+    const r = el.getBoundingClientRect()
+    waypointRef.current({ sysid, n, x: r.left + r.width / 2, y: r.bottom })
+  }
 
   // After the vehicle markers and the mission badges exist: effects run in declaration order.
   const opsAir = useVehicleAir({ map, loaded, mode, terrainTiles, vehicles, selected, homes, tracks, markers, base: ARROW_OFFSET, mission, missionBadges, predicted })

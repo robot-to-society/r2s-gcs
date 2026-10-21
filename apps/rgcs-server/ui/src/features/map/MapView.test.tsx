@@ -255,6 +255,39 @@ describe('MapView', () => {
     expect(badges.map((b) => b.el.className)).toEqual(['wp-mk small', 'wp-mk small current', 'wp-mk small'])
     expect(badges[1]!.el.textContent).toBe('2')
   })
+  it('a badge click reports the mission owner, the badge number (= MAVLink seq) and where it is', () => {
+    const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
+    const mission = {
+      id: 1, name: 'm', sysid: 4, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [],
+      items: [item(16, 36.162, 139.372, 30), item(178, 0, 0, 0), item(16, 36.164, 139.374, 60)],
+    }
+    const onWaypoint = vi.fn()
+    const onClick = vi.fn()
+    const { container } = render(
+      <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={onClick} target={null} mission={mission} missionCurrent={null} onWaypoint={onWaypoint} />,
+    )
+    const badges = created.markers.filter((m) => m.el.classList.contains('wp-mk'))
+    expect(badges.map((b) => b.el.textContent)).toEqual(['1', '3'])
+    expect(badges[1]!.el.classList.contains('go')).toBe(true)
+    // the badge sits in the map container in MapLibre: a click must not reach the map
+    const parentClick = vi.fn()
+    container.addEventListener('click', parentClick)
+    container.appendChild(badges[1]!.el)
+    badges[1]!.el.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(onWaypoint).toHaveBeenCalledWith(expect.objectContaining({ sysid: 4, n: 3 }))
+    const at = onWaypoint.mock.calls[0]![0] as { x: number; y: number }
+    expect(Number.isFinite(at.x) && Number.isFinite(at.y)).toBe(true)
+    expect(parentClick).not.toHaveBeenCalled()
+  })
+  it('badges are not clickable without a handler (audience mini-map)', () => {
+    const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
+    const mission = { id: 1, name: 'm', sysid: 4, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [], items: [item(16, 36.162, 139.372, 30)] }
+    render(
+      <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={mission} missionCurrent={null} />,
+    )
+    const badge = created.markers.find((m) => m.el.classList.contains('wp-mk'))!
+    expect(badge.el.classList.contains('go')).toBe(false)
+  })
   it('the takeoff is a T badge above the home, written without coordinates', () => {
     const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
     const mission = {

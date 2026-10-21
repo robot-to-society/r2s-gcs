@@ -9,7 +9,7 @@ import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } 
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { MaintView } from '../features/params'
-import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks, NO_PADDING } from '../features/map'
+import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks, NO_PADDING, WpGoPopover, type WaypointPick } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
@@ -71,6 +71,9 @@ export function Shell({ me, lang }: Props) {
   const [commandsOpen, setCommandsOpen] = useState(false)
   // Fleet command being confirmed, with its targets fixed when the dialog opened.
   const [mapMenu, setMapMenu] = useState<MapPoint | null>(null)
+  // 「このWPへ行く」: the mission badge clicked on the operations map
+  const [wpGo, setWpGo] = useState<WaypointPick | null>(null)
+  useEffect(() => setWpGo(null), [view])
   const [fleet, setFleet] = useState<{ command: VehicleCommand; targets: VehicleState[] } | null>(null)
   const runner = useCommandRunner({
     entries: log.entries,
@@ -260,6 +263,7 @@ export function Shell({ me, lang }: Props) {
               onDragStart={() => mapUiStore.update(clearFollow)}
               onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
               onContext={view === 'ops' ? setMapMenu : undefined}
+              onWaypoint={setWpGo}
             />
           )}
           {view === 'ops' && settings && <MapModeToggle mode={mapMode} available={settings.terrain_tiles !== null} dict={dict} onChange={saveMapMode} />}
@@ -366,6 +370,9 @@ export function Shell({ me, lang }: Props) {
                 setModal({ kind: 'guided', sysid: currentVehicle.sysid })
               }}
             />
+          )}
+          {wpGo && view === 'ops' && (
+            <WpGoPopover at={wpGo} vehicle={vehicles.get(wpGo.sysid)} dict={dict} onSend={runner.pick} onClose={() => setWpGo(null)} />
           )}
           {fleet && (
             <FleetConfirm
