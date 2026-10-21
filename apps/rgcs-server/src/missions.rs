@@ -329,6 +329,7 @@ fn list_mission(items: Vec<rgcs_core::MissionItem>) -> Mission {
         items,
         fence: Vec::new(),
         rally: Vec::new(),
+        surveys: Vec::new(),
     }
 }
 

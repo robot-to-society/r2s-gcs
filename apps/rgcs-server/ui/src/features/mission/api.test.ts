@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Mission } from '../../shared/api/types'
 import { createMission, downloadMission, readFence, readFenceParams, readRally, setFenceAltMax, writeFence, writeRally, exportWaypoints, getKnownMission, importWaypoints, listMissions, updateMission, uploadMission, uploadSavedMission, validateMission } from './api'
 
-const mission: Mission = { id: null, name: 'm', sysid: null, default_alt: 50, default_frame: 'rel', speed: 8, home: null, fence: [], rally: [], items: [] }
+const mission: Mission = { id: null, name: 'm', sysid: null, default_alt: 50, default_frame: 'rel', speed: 8, home: null, fence: [], rally: [], surveys: [], items: [] }
 
 function stub(responder: (url: string, init?: RequestInit) => Response) {
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => responder(String(input), init))

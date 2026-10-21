@@ -3,7 +3,7 @@ import type { Mission } from '../../shared/api/types'
 import { missionHomes, vehicleHomes } from './homes'
 import type { VehicleState } from '../../shared/api/types'
 
-const mission = (sysid: number, home: Mission['home']): Mission => ({ id: sysid, name: 'm', sysid, default_alt: 60, default_frame: 'rel', speed: 8, home, fence: [], rally: [], items: [] })
+const mission = (sysid: number, home: Mission['home']): Mission => ({ id: sysid, name: 'm', sysid, default_alt: 60, default_frame: 'rel', speed: 8, home, fence: [], rally: [], surveys: [], items: [] })
 
 describe('missionHomes', () => {
   it('takes each known mission home and skips missing or null-island ones', () => {

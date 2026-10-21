@@ -132,6 +132,7 @@ pub fn mission_from_items(home: Option<MissionItem>, items: Vec<MissionItem>) ->
         items,
         fence: Vec::new(),
         rally: Vec::new(),
+        surveys: Vec::new(),
     }
 }
 

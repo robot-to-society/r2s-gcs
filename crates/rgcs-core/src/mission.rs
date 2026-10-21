@@ -120,6 +120,21 @@ pub struct Mission {
     /// Rally points planned with the mission (written separately: `PUT .../rally`).
     #[serde(default)]
     pub rally: Vec<crate::geofence::RallyPoint>,
+    /// Survey-grid blocks: item ranges generated from a survey spec.
+    #[serde(default)]
+    pub surveys: Vec<SurveyBlock>,
+}
+
+/// A run of `count` items starting at `first` (0-based) that a survey grid generated.
+/// `spec` is the editor's survey definition, opaque to the server.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct SurveyBlock {
+    pub id: String,
+    pub first: u32,
+    pub count: u32,
+    #[ts(type = "unknown")]
+    pub spec: serde_json::Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -295,6 +310,7 @@ impl Mission {
         }
         out.extend(self.fence_findings(fence));
         out.extend(self.structure_findings());
+        out.extend(self.survey_findings());
         if self.stats().duration_s > LONG_FLIGHT_S {
             out.push(Finding::warn(
                 "long_flight",
@@ -375,6 +391,30 @@ impl Mission {
                 )
             })
             .collect()
+    }
+
+    fn survey_findings(&self) -> Vec<Finding> {
+        let n = self.items.len() as u64;
+        let mut out = Vec::new();
+        let mut ranges: Vec<(u64, u64)> = Vec::new();
+        for sv in &self.surveys {
+            let (first, end) = (u64::from(sv.first), u64::from(sv.first) + u64::from(sv.count));
+            if sv.count == 0 || end > n {
+                out.push(Finding::fatal(
+                    "survey_range",
+                    Some(sv.first.saturating_add(1).min(u32::from(u16::MAX)) as u16),
+                    "survey range is empty or outside the mission items",
+                ));
+            } else if ranges.iter().any(|&(a, b)| first < b && a < end) {
+                out.push(Finding::fatal(
+                    "survey_range",
+                    Some((sv.first + 1).min(u32::from(u16::MAX)) as u16),
+                    "survey ranges overlap",
+                ));
+            }
+            ranges.push((first, end));
+        }
+        out
     }
 
     fn structure_findings(&self) -> Vec<Finding> {
@@ -508,6 +548,7 @@ pub fn demo20() -> Mission {
         items,
         fence: Vec::new(),
         rally: Vec::new(),
+        surveys: Vec::new(),
     }
 }
 
@@ -539,6 +580,7 @@ mod tests {
             items,
             fence: Vec::new(),
             rally: Vec::new(),
+            surveys: Vec::new(),
         }
     }
 
@@ -703,5 +745,53 @@ mod tests {
         let f = demo20().validate(&FenceInfo::default());
         assert!(!Mission::has_fatal(&f), "{f:?}");
         assert_eq!(demo20().items.len(), 20);
+    }
+    fn survey(first: u32, count: u32) -> SurveyBlock {
+        SurveyBlock {
+            id: "s".into(),
+            first,
+            count,
+            spec: serde_json::json!({}),
+        }
+    }
+
+    fn three_wps() -> Vec<MissionItem> {
+        vec![
+            item(MAV_CMD_NAV_TAKEOFF, 36.0, 137.0, 30.0),
+            item(16, 36.0, 137.001, 30.0),
+            item(16, 36.0, 137.002, 30.0),
+        ]
+    }
+
+    #[test]
+    fn validate_flags_survey_out_of_range() {
+        let mut m = mission(three_wps());
+        m.surveys = vec![survey(2, 2)];
+        let f = m.validate(&FenceInfo::default());
+        assert!(
+            f.iter()
+                .any(|x| x.code == "survey_range" && x.level == FindingLevel::Fatal),
+            "{f:?}"
+        );
+        m.surveys = vec![survey(1, 0)];
+        assert!(codes(&m.validate(&FenceInfo::default())).contains(&"survey_range"));
+        m.surveys = vec![survey(1, 2)];
+        assert!(!codes(&m.validate(&FenceInfo::default())).contains(&"survey_range"));
+    }
+
+    #[test]
+    fn validate_flags_overlapping_surveys() {
+        let mut m = mission(three_wps());
+        m.surveys = vec![survey(0, 2), survey(1, 2)];
+        let f = m.validate(&FenceInfo::default());
+        assert!(codes(&f).contains(&"survey_range"), "{f:?}");
+    }
+
+    #[test]
+    fn mission_without_surveys_deserializes() {
+        let mut v = serde_json::to_value(mission(three_wps())).unwrap();
+        v.as_object_mut().unwrap().remove("surveys");
+        let m: Mission = serde_json::from_value(v).unwrap();
+        assert!(m.surveys.is_empty());
     }
 }

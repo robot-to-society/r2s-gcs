@@ -49,6 +49,7 @@ fn row_to_mission(r: &sqlx::sqlite::SqliteRow) -> Result<Mission> {
         items,
         fence: serde_json::from_str(&r.get::<String, _>("fence")).map_err(json_err)?,
         rally: serde_json::from_str(&r.get::<String, _>("rally")).map_err(json_err)?,
+        surveys: serde_json::from_str(&r.get::<String, _>("surveys")).map_err(json_err)?,
     })
 }
 
@@ -94,9 +95,10 @@ impl Store {
         let items = serde_json::to_string(&m.items).map_err(json_err)?;
         let fence = serde_json::to_string(&m.fence).map_err(json_err)?;
         let rally = serde_json::to_string(&m.rally).map_err(json_err)?;
+        let surveys = serde_json::to_string(&m.surveys).map_err(json_err)?;
         let id = sqlx::query(
-            "INSERT INTO missions (name, sysid, default_alt, default_frame, speed, home, items, created_by, created_at, updated_at, fence, rally) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, ?10, ?11)",
+            "INSERT INTO missions (name, sysid, default_alt, default_frame, speed, home, items, created_by, created_at, updated_at, fence, rally, surveys) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, ?10, ?11, ?12)",
         )
         .bind(&m.name)
         .bind(m.sysid.map(i64::from))
@@ -109,6 +111,7 @@ impl Store {
         .bind(now)
         .bind(fence)
         .bind(rally)
+        .bind(surveys)
         .execute(&self.pool)
         .await?
         .last_insert_rowid();
@@ -129,8 +132,9 @@ impl Store {
         let items = serde_json::to_string(&m.items).map_err(json_err)?;
         let fence = serde_json::to_string(&m.fence).map_err(json_err)?;
         let rally = serde_json::to_string(&m.rally).map_err(json_err)?;
+        let surveys = serde_json::to_string(&m.surveys).map_err(json_err)?;
         let changed = sqlx::query(
-            "UPDATE missions SET name = ?2, sysid = ?3, default_alt = ?4, default_frame = ?5, speed = ?6, home = ?7, items = ?8, updated_at = ?9, fence = ?10, rally = ?11 \
+            "UPDATE missions SET name = ?2, sysid = ?3, default_alt = ?4, default_frame = ?5, speed = ?6, home = ?7, items = ?8, updated_at = ?9, fence = ?10, rally = ?11, surveys = ?12 \
              WHERE id = ?1",
         )
         .bind(id)
@@ -144,6 +148,7 @@ impl Store {
         .bind(unix_ms())
         .bind(fence)
         .bind(rally)
+        .bind(surveys)
         .execute(&self.pool)
         .await?
         .rows_affected();
@@ -230,5 +235,28 @@ mod tests {
         let again = s.get_mission(created.id.unwrap()).await.unwrap().unwrap();
         assert!(again.fence.is_empty());
         assert_eq!(again.rally, m.rally);
+    }
+    #[tokio::test]
+    async fn surveys_round_trip() {
+        use rgcs_core::SurveyBlock;
+        let s = Store::open_memory().await.unwrap();
+        let mut m = demo20();
+        let spec = serde_json::json!({"angle": 12.5, "polygon": [[36.0, 137.0]], "nested": {"a": [1, 2]}});
+        m.surveys = vec![SurveyBlock {
+            id: "s1".into(),
+            first: 1,
+            count: 4,
+            spec: spec.clone(),
+        }];
+        let created = s.create_mission(&m, "admin").await.unwrap();
+        let id = created.id.unwrap();
+        let got = s.get_mission(id).await.unwrap().unwrap();
+        assert_eq!(got.surveys, m.surveys);
+        let mut upd = got.clone();
+        upd.surveys[0].count = 5;
+        s.update_mission(id, &upd).await.unwrap();
+        let again = s.get_mission(id).await.unwrap().unwrap();
+        assert_eq!(again.surveys[0].count, 5);
+        assert_eq!(again.surveys[0].spec, spec);
     }
 }

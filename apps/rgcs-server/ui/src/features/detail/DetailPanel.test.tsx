@@ -112,7 +112,7 @@ describe('DetailPanel', () => {
   })
 
   it('detail_panel_renders_the_progress_row_when_a_mission_is_known', () => {
-    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], items: [] }
+    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [], items: [] }
     const onWriteMission = vi.fn()
     const { rerender } = render(
       <DetailPanel {...base} entries={[]} onWriteMission={onWriteMission} onStartMission={() => {}} />,

@@ -191,5 +191,6 @@ pub fn from_wpl(text: &str) -> Result<Mission, WplError> {
         items,
         fence: Vec::new(),
         rally: Vec::new(),
+        surveys: Vec::new(),
     })
 }

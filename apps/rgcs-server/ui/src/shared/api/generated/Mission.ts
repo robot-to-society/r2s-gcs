@@ -4,6 +4,7 @@ import type { Home } from "./Home";
 import type { MissionFrame } from "./MissionFrame";
 import type { MissionItem } from "./MissionItem";
 import type { RallyPoint } from "./RallyPoint";
+import type { SurveyBlock } from "./SurveyBlock";
 
 export type Mission = { id: number | null, name: string, sysid: number | null, default_alt: number, default_frame: MissionFrame, 
 /**
@@ -17,4 +18,8 @@ fence: Array<FenceZone>,
 /**
  * Rally points planned with the mission (written separately: `PUT .../rally`).
  */
-rally: Array<RallyPoint>, };
+rally: Array<RallyPoint>, 
+/**
+ * Survey-grid blocks: item ranges generated from a survey spec.
+ */
+surveys: Array<SurveyBlock>, };

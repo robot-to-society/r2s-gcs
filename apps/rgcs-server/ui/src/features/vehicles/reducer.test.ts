@@ -150,7 +150,7 @@ describe('camera, video source and input frames', () => {
   })
 
   it('vehicle_mission_is_stored_locally', () => {
-    const m = { id: 1, name: 'm', sysid: 1, default_alt: 50, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], items: [] }
+    const m = { id: 1, name: 'm', sysid: 1, default_alt: 50, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [], items: [] }
     const s1 = withVehicleMission(initialState, 1, m)
     expect(s1.vehicleMissions.get(1)).toBe(m)
     expect(initialState.vehicleMissions.size).toBe(0)

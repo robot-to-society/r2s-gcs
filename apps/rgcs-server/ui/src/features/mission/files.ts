@@ -30,6 +30,8 @@ const missionSchema = z.object({
   // added 2026-10-19: older files have neither
   fence: z.array(zone).max(100).default([]),
   rally: z.array(rallyPoint).max(100).default([]),
+  // added 2026-10-21: survey-grid blocks; older files have none
+  surveys: z.array(z.object({ id: z.string(), first: z.number().int().min(0), count: z.number().int().min(0), spec: z.custom<unknown>(() => true) })).max(100).default([]),
 })
 
 const fileSchema = z.object({ format: z.literal('rgcsmission'), version: z.number().int(), mission: missionSchema })

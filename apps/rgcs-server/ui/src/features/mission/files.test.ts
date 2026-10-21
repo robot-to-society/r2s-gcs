@@ -16,6 +16,7 @@ const mission: Mission = {
     { kind: 'polygon', inclusion: false, vertices: [{ lat: 36.16, lon: 139.37 }, { lat: 36.16, lon: 139.38 }, { lat: 36.17, lon: 139.38 }] },
   ],
   rally: [{ lat: 36.163, lon: 139.373, alt: 60 }],
+  surveys: [],
 }
 
 describe('.rgcsmission files', () => {
