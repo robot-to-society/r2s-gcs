@@ -74,6 +74,37 @@ describe('useSurvey', () => {
     expect(s.draft().surveys[0]!.spec.angleDeg).toBe(30)
   })
 
+  it('a_live_preview_does_not_run_the_predictor_and_keeps_the_committed_entry_check', () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+    // a predicted path far from every shooting start: the committed survey misses its entries
+    const predict = vi.fn(() => ({ home: HOME, points: [{ lat: 0, lon: 0, alt: 0 }] }))
+    const s = setup({ predict })
+    expect(s.hook.result.current.metrics(s.id)?.warnings).toContain('entry')
+    const calls = predict.mock.calls.length
+    act(() => s.hook.result.current.update(s.id, { angleDeg: 20 }, 'live'))
+    act(() => vi.advanceTimersToNextFrame())
+    const m = s.hook.result.current.metrics(s.id)!
+    expect(m.spec.angleDeg).toBe(20)
+    expect(m.warnings).toContain('entry')
+    expect(predict).toHaveBeenCalledTimes(calls)
+    act(() => s.hook.result.current.update(s.id, { angleDeg: 20 }, 'done'))
+    s.rerender()
+    s.hook.result.current.metrics(s.id)
+    expect(predict).toHaveBeenCalledTimes(calls + 1)
+  })
+
+  it('cancel_drops_a_preview_without_a_commit', () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+    const s = setup()
+    act(() => s.hook.result.current.update(s.id, { angleDeg: 20 }, 'live'))
+    act(() => vi.advanceTimersToNextFrame())
+    expect(s.hook.result.current.preview).not.toBeNull()
+    act(() => s.hook.result.current.cancel())
+    expect(s.hook.result.current.preview).toBeNull()
+    act(() => s.hook.result.current.update(s.id, {}, 'done'))
+    expect(s.commits).not.toHaveBeenCalled()
+  })
+
   it('metrics_has_numbers_ground_and_worst_case_from_the_terrain', () => {
     const elevAt = (lon: number) => (lon > HOME.lon ? 40 : 0)
     const s = setup({ elevAt })

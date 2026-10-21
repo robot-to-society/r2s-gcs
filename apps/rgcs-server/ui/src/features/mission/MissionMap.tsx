@@ -20,7 +20,7 @@ import { useFenceRally, type FenceEdit, type PlanTab } from './fenceMap'
 import type { OtherMission } from '../briefing/overlay'
 import { useBriefingOverlay } from '../briefing/useBriefingOverlay'
 import { useSurveyDrawLayer, type SurveyDrawMap } from '../survey/surveyDrawLayer'
-import { useSurveyMap, type SurveyMapProps } from '../survey/surveyMap'
+import { useSettled, useSurveyMap, type SurveyMapProps } from '../survey/surveyMap'
 
 interface Props {
   readonly draft: Draft
@@ -85,7 +85,7 @@ const VEHICLE_OFFSET = [-17, 0] as const
 const PATH = 'mission-path'
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 const NO_OTHERS: readonly OtherMission[] = []
-const NO_SURVEY: SurveyMapProps = { metrics: () => null, onPolygon: () => {}, onAngle: () => {}, showFootprints: false }
+const NO_SURVEY: SurveyMapProps = { metrics: () => null, onPolygon: () => {}, onAngle: () => {}, onCancel: () => {}, showFootprints: false, previewing: false }
 /** `--accent` → `--alt-hi` (spec 10 §6: the path is coloured by altitude). */
 const ALT_COLOR: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'alt_t'], 0, '#9cc9ff', 1, '#d8a8ff']
 
@@ -104,6 +104,8 @@ export function MissionMap(props: Props) {
   tabRef.current = tab
   // while a survey area is drawn the waypoints stay put: no drags, mid-leg inserts or box select
   const drawing = (props.surveyDraw ?? null) !== null
+  // a survey drag previews every frame: mid-leg handles and the predicted line wait for its release
+  const previewing = props.survey?.previewing ?? false
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -188,7 +190,8 @@ export function MissionMap(props: Props) {
   }, [shown])
 
   const predict = props.predict
-  const predicted = useMemo(() => (predict ? predict(shown) : null), [predict, shown])
+  const settled = useSettled(shown, previewing)
+  const predicted = useMemo(() => (predict ? predict(settled) : null), [predict, settled])
   const predictedRef = useRef(predicted)
   predictedRef.current = predicted
   useEffect(() => {
@@ -233,7 +236,7 @@ export function MissionMap(props: Props) {
     const m = map.current
     if (!m) return
     handles.current.forEach((h) => h.remove())
-    handles.current = (drawing ? [] : midHandles(draft)).map((h) => {
+    handles.current = (drawing || previewing ? [] : midHandles(draft)).map((h) => {
       const el = handleEl()
       el.addEventListener('click', (e) => {
         e.stopPropagation()
@@ -244,7 +247,7 @@ export function MissionMap(props: Props) {
     })
     // arcDeps only reads refs and setPreview: the handles need rebuilding for a new draft only
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, drawing])
+  }, [draft, drawing, previewing])
 
   // After the map, the badges and the handles exist: effects run in declaration order.
   air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle), predicted, others: props.others ?? NO_OTHERS, color: pathColor ?? null })

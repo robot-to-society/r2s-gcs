@@ -15,7 +15,7 @@ interface MapProps {
   surveyDraw?: { ring: readonly unknown[]; onClick: (lat: number, lon: number) => void } | null
   draft: { surveys: readonly { id: string; spec: { polygon: Ring } }[] }
   predict?: (d: never) => { points: readonly unknown[] } | null
-  survey?: { onPolygon: (id: string, ring: Ring, done: boolean) => void; showFootprints: boolean } | null
+  survey?: { onPolygon: (id: string, ring: Ring, done: boolean) => void; showFootprints: boolean; previewing: boolean } | null
 }
 /** The ring a map vertex drag sends: vertex 2 moved 0.001° east of where the drag started. */
 let dragged: Ring = []
@@ -32,6 +32,7 @@ vi.mock('./MissionMap', () => ({
       data-lon2={p.draft.surveys[0]?.spec.polygon[2]?.lon ?? ''}
       data-predicted={p.predict ? (p.predict(p.draft as never)?.points.length ?? 0) : -1}
       data-foot={String(p.survey?.showFootprints ?? '')}
+      data-previewing={String(p.survey?.previewing ?? '')}
     >
       <button type="button" onClick={() => dragVertex(p, false)}>
         vertex-drag
@@ -215,12 +216,14 @@ describe('MissionView survey on the map', () => {
     fireEvent.click(screen.getByText('vertex-drag'))
     await frame()
     expect(lon2()).toBeCloseTo(before + 0.001, 9)
+    expect(screen.getByTestId('mission-map').dataset.previewing).toBe('true')
     expect(store.getState().history).toBe(start)
     fireEvent.click(screen.getByText('vertex-drop'))
     const h = store.getState().history
     expect(h.past).toHaveLength(start.past.length + 1)
     expect(h.present.surveys[0]!.spec.polygon[2]!.lon).toBeCloseTo(before + 0.001, 9)
     expect(lon2()).toBeCloseTo(before + 0.001, 9)
+    expect(screen.getByTestId('mission-map').dataset.previewing).toBe('false')
     // the panel and the map share the survey: the panel still shows it after the commit
     expect(screen.getByTestId('survey-panel')).toBeInTheDocument()
   })

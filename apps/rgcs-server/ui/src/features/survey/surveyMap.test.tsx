@@ -87,11 +87,12 @@ function setup(over: { draft?: Draft; editable?: boolean; is3d?: boolean; showFo
   const fake = fakeMap()
   const onPolygon = vi.fn()
   const onAngle = vi.fn()
+  const onCancel = vi.fn()
   const props = { draft: over.draft ?? draft, editable: over.editable ?? true, is3d: over.is3d ?? false, showFootprints: over.showFootprints ?? false }
   const hook = renderHook((p: typeof props) =>
-    useSurveyMap({ map: { current: fake as unknown as MlMap }, loaded: { current: true }, metrics: (sid) => (sid === id ? gen : null), onPolygon, onAngle, ...p }),
+    useSurveyMap({ map: { current: fake as unknown as MlMap }, loaded: { current: true }, metrics: (sid) => (sid === id ? gen : null), onPolygon, onAngle, onCancel, previewing: false, ...p }),
   { initialProps: props })
-  return { fake, id, draft, onPolygon, onAngle, hook, props }
+  return { fake, id, draft, onPolygon, onAngle, onCancel, hook, props }
 }
 
 describe('useSurveyMap', () => {
@@ -136,6 +137,7 @@ describe('useSurveyMap', () => {
     expect(vertices()).toHaveLength(ring.length)
     const v = vertices()[2]!
     act(() => {
+      v.fire('dragstart')
       v.setLngLat([ring[2]!.lon + 0.001, ring[2]!.lat])
       v.fire('drag')
     })
@@ -152,6 +154,7 @@ describe('useSurveyMap', () => {
     const h = handle()!
     const target = handlePoint(ring, 47.6)!
     act(() => {
+      h.fire('dragstart')
       h.setLngLat([target.lon, target.lat])
       h.fire('drag')
     })
@@ -180,5 +183,31 @@ describe('useSurveyMap', () => {
     expect(s.fake.visibility.get('survey-area-fill')).not.toBe('none')
     s.hook.rerender({ ...s.props, is3d: false })
     expect(s.fake.visibility.get('survey-shoot')).toBe('visible')
+  })
+
+  it('a marker removed mid-drag ends the drag: the preview is dropped, and a later drag starts clean', () => {
+    const s = setup()
+    const v = vertices()[1]!
+    act(() => {
+      v.fire('dragstart')
+      v.fire('drag')
+    })
+    s.hook.rerender({ ...s.props, editable: false })
+    expect(v.removed).toBe(true)
+    expect(s.onCancel).toHaveBeenCalledTimes(1)
+    // a late dragend from the removed marker sends nothing
+    act(() => v.fire('dragend'))
+    expect(s.onPolygon).toHaveBeenCalledTimes(1)
+    s.hook.rerender({ ...s.props, editable: true })
+    const h = handle()!
+    act(() => h.fire('dragstart'))
+    s.hook.rerender({ ...s.props, draft: { ...s.draft, surveys: [] } })
+    expect(s.onCancel).toHaveBeenCalledTimes(2)
+  })
+
+  it('removing markers that are not being dragged leaves any preview alone', () => {
+    const s = setup()
+    s.hook.rerender({ ...s.props, editable: false })
+    expect(s.onCancel).not.toHaveBeenCalled()
   })
 })

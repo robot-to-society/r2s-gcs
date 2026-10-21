@@ -1,136 +1,9 @@
 import { act, render } from '@testing-library/react'
 import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { created } from '../../test/fakeMaplibre'
 
-type Handler = (e?: unknown) => void
-const created = { maps: [] as FakeMap[], markers: [] as FakeMarker[], deferLoad: false }
-
-class FakeMarker {
-  el: HTMLElement
-  lngLat: [number, number] = [0, 0]
-  draggable: boolean
-  removed = false
-  handlers = new Map<string, Handler[]>()
-  constructor(opts: { element: HTMLElement; draggable?: boolean }) {
-    this.el = opts.element
-    this.draggable = opts.draggable ?? false
-    created.markers.push(this)
-  }
-  getElement() {
-    return this.el
-  }
-  setLngLat(ll: [number, number]) {
-    this.lngLat = ll
-    return this
-  }
-  getLngLat() {
-    return { lng: this.lngLat[0], lat: this.lngLat[1] }
-  }
-  addTo() {
-    return this
-  }
-  remove() {
-    this.removed = true
-  }
-  offset: [number, number] | null = null
-  setDraggable(d: boolean) {
-    this.draggable = d
-    return this
-  }
-  setOffset(o: [number, number]) {
-    this.offset = o
-    return this
-  }
-  on(ev: string, cb: Handler) {
-    this.handlers.set(ev, [...(this.handlers.get(ev) ?? []), cb])
-    return this
-  }
-  fire(ev: string, e?: unknown) {
-    this.handlers.get(ev)?.forEach((cb) => cb(e))
-  }
-}
-
-class FakeMap {
-  handlers = new Map<string, Handler[]>()
-  sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>()
-  options: unknown
-  fitted: unknown[] = []
-  constructor(options: unknown) {
-    this.options = options
-    created.maps.push(this)
-  }
-  on(ev: string, cb: Handler) {
-    this.handlers.set(ev, [...(this.handlers.get(ev) ?? []), cb])
-    if (ev === 'load' && !created.deferLoad) cb()
-  }
-  fire(ev: string, e?: unknown) {
-    this.handlers.get(ev)?.forEach((cb) => cb(e))
-  }
-  addControl() {}
-  addSource(id: string) {
-    this.sources.set(id, { setData: vi.fn() })
-  }
-  layers: string[] = []
-  terrain: unknown = 'unset'
-  visibility = new Map<string, string>()
-  layerObjs = new Map<string, unknown>()
-  before = new Map<string, string | undefined>()
-  addLayer(l: { id: string }, before?: string) {
-    this.layers.push(l.id)
-    this.layerObjs.set(l.id, l)
-    this.before.set(l.id, before)
-  }
-  once(ev: string, cb: Handler) {
-    this.on(ev, cb)
-  }
-  getLayer(id: string) {
-    return this.layers.includes(id) ? { id } : undefined
-  }
-  moveLayer() {}
-  stop() {}
-  easeTo() {}
-  jumps: unknown[] = []
-  jumpTo(o: unknown) {
-    this.jumps.push(o)
-  }
-  setTerrain(t: unknown) {
-    this.terrain = t
-  }
-  paint = new Map<string, unknown>()
-  setPaintProperty(id: string, k: string, v: unknown) {
-    this.paint.set(`${id}.${k}`, v)
-  }
-  setLayoutProperty(id: string, _k: string, v: string) {
-    this.visibility.set(id, v)
-  }
-  triggerRepaint() {}
-  /** 1e-4° per px from (139, 36): enough to aim the arc gesture. */
-  unproject(p: [number, number]) {
-    return { lng: 139 + p[0] * 1e-4, lat: 36 - p[1] * 1e-4 }
-  }
-  getContainer() {
-    return { clientWidth: 800, clientHeight: 600 }
-  }
-  project() {
-    return { x: 0, y: 0 }
-  }
-  getSource(id: string) {
-    return this.sources.get(id)
-  }
-  fitOptions: unknown[] = []
-  fitBounds(b: unknown, o?: unknown) {
-    this.fitted.push(b)
-    this.fitOptions.push(o)
-  }
-  getCanvas() {
-    return document.createElement('canvas')
-  }
-  remove() {}
-}
-
-vi.mock('maplibre-gl', () => ({
-  default: { Map: FakeMap, Marker: FakeMarker, NavigationControl: class {}, ScaleControl: class {}, LngLatBounds: class { extend() { return this } } },
-}))
+vi.mock('maplibre-gl', async () => (await import('../../test/fakeMaplibre')).maplibreModule)
 
 const { MissionMap } = await import('./MissionMap')
 const { appendWaypoint, emptyDraft, removeItems } = await import('./model')
@@ -786,5 +659,32 @@ describe('MissionMap survey drawing', () => {
   it('adds no survey layers until a drawing starts', () => {
     renderMap()
     expect(created.maps[0]!.layers.some((id) => id.startsWith('survey-draw-'))).toBe(false)
+  })
+})
+
+describe('MissionMap survey preview', () => {
+  beforeEach(() => {
+    created.maps = []
+    created.markers = []
+    created.deferLoad = false
+  })
+  const mids = () => created.markers.filter((m) => m.el.classList.contains('rg-mid')).length
+
+  it('while a survey drag previews: no mid-leg handles, none rebuilt per frame, the predicted line stays on the last committed draft', () => {
+    const predict = vi.fn(() => null)
+    const survey = { metrics: () => null, onPolygon: vi.fn(), onAngle: vi.fn(), onCancel: vi.fn(), showFootprints: false, previewing: false }
+    const { props, rerender } = renderMap({ predict, survey })
+    expect(handles()).toHaveLength(2)
+    const calls = predict.mock.calls.length
+    const frame1 = appendWaypoint(props.draft, 36.4, 139.4)
+    const frame2 = appendWaypoint(frame1, 36.5, 139.5)
+    rerender(<MissionMap {...props} predict={predict} survey={{ ...survey, previewing: true }} draft={frame1} />)
+    expect(handles()).toHaveLength(0)
+    rerender(<MissionMap {...props} predict={predict} survey={{ ...survey, previewing: true }} draft={frame2} />)
+    expect(mids()).toBe(2)
+    expect(predict).toHaveBeenCalledTimes(calls)
+    rerender(<MissionMap {...props} predict={predict} survey={survey} draft={frame2} />)
+    expect(handles()).toHaveLength(4)
+    expect(predict).toHaveBeenCalledTimes(calls + 1)
   })
 })

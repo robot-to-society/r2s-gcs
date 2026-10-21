@@ -58,14 +58,18 @@ function useMapSide({ draft, change, home, params, terrainTiles, predict, tab }:
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const mapDraft = useMemo(() => previewDraft(draft, editor), [draft, editor.preview])
   const foot = useFootToggle()
+  /** A drag (map or panel) is being previewed: the map skips per-frame mid-leg handles and prediction. */
+  const previewing = editor.preview !== null
   const mapSurvey: SurveyMapProps = {
     metrics: editor.metrics,
     onPolygon: (id, polygon, done) => editor.update(id, { polygon: [...polygon] }, done ? 'done' : 'live'),
     onAngle: (id, angleDeg, done) => editor.update(id, { angleDeg }, done ? 'done' : 'live'),
+    onCancel: editor.cancel,
     showFootprints: foot.on,
+    previewing,
   }
   const footButton = { visible: draft.surveys.length > 0 && tab === 'mission', on: foot.on, onToggle: foot.toggle }
-  return { editor, mapDraft, mapSurvey, footButton }
+  return { editor, mapDraft, mapSurvey, footButton, previewing }
 }
 
 export function useSurveyWiring({ store, draft, change, afterUid, home, kind, params, tab, onFit, terrainTiles, predict }: Args) {

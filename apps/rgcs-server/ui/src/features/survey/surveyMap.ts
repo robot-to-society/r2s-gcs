@@ -2,7 +2,7 @@
 // photo points) and, while editable, a draggable handle per polygon vertex plus the rotate handle.
 // A drag previews (`done` false, once per move) and its release commits one undo step (`done` true).
 import maplibregl, { type FilterSpecification, type Map as MlMap, type Marker } from 'maplibre-gl'
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { LatLon } from '../mission/geo'
 import type { Draft, DraftSurvey } from '../mission/model'
 import type { SurveySpec } from './spec'
@@ -14,7 +14,11 @@ export interface SurveyMapProps {
   readonly metrics: (id: string) => SurveyShape | null
   readonly onPolygon: (id: string, ring: readonly LatLon[], done: boolean) => void
   readonly onAngle: (id: string, deg: number, done: boolean) => void
+  /** Ends a drag without a commit (its handle was removed mid-drag, so no release will come). */
+  readonly onCancel: () => void
   readonly showFootprints: boolean
+  /** A survey drag is being previewed: the map holds back per-frame work (mid-leg handles, the predicted line). */
+  readonly previewing: boolean
 }
 
 interface Args extends SurveyMapProps {
@@ -78,7 +82,7 @@ interface Spot {
   readonly send: (p: LatLon, done: boolean) => void
 }
 
-type Senders = Pick<SurveyMapProps, 'onPolygon' | 'onAngle'>
+type Senders = Pick<SurveyMapProps, 'onPolygon' | 'onAngle' | 'onCancel'>
 
 /** Where the handles go; `latest` gives the survey as shown when a drag reports. */
 function spots(surveys: readonly DraftSurvey[], latest: () => readonly DraftSurvey[], cb: RefObject<Senders>): Spot[] {
@@ -108,6 +112,8 @@ function makeMarker(m: MlMap, spot: Spot, dragging: { current: string | null }, 
   mk.on('dragstart', () => (dragging.current = spot.key))
   mk.on('drag', () => send(false))
   mk.on('dragend', () => {
+    // a marker removed mid-drag has had its drag ended already
+    if (dragging.current !== spot.key) return
     dragging.current = null
     send(true)
   })
@@ -132,7 +138,7 @@ function useEditHandles(map: RefObject<MlMap | null>, surveys: readonly DraftSur
     const want = editable ? spots(surveys, () => latest.current, senders) : []
     sendRef.current = new Map(want.map((s) => [s.key, s.send]))
     const keep = new Set(want.map((s) => s.key))
-    for (const [key, mk] of marks.current) if (!keep.has(key)) mk.remove()
+    for (const [key, mk] of marks.current) if (!keep.has(key)) drop(key, mk)
     marks.current = new Map(
       want.map((s) => {
         const mk = marks.current.get(s.key)
@@ -141,16 +147,23 @@ function useEditHandles(map: RefObject<MlMap | null>, surveys: readonly DraftSur
       }),
     )
   }, [map, surveys, editable])
+  /** Removes a marker; one being dragged will never report its release, so its drag ends here. */
+  function drop(key: string, mk: Marker): void {
+    mk.remove()
+    if (key !== dragging.current) return
+    dragging.current = null
+    senders.current.onCancel()
+  }
   useEffect(
     () => () => {
-      marks.current.forEach((mk) => mk.remove())
+      marks.current.forEach((mk, key) => drop(key, mk))
       marks.current = new Map()
     },
     [],
   )
 }
 
-export function useSurveyMap({ map, loaded, draft, metrics, onPolygon, onAngle, showFootprints, editable, is3d }: Args): void {
+export function useSurveyMap({ map, loaded, draft, metrics, onPolygon, onAngle, onCancel, showFootprints, editable, is3d }: Args): void {
   const pieces = draft.surveys.map((s) => featuresOf(s, metrics(s.id)))
   const sent = useRef<readonly SurveyFeature[][] | null>(null)
   const paint = useRef(() => {})
@@ -174,5 +187,12 @@ export function useSurveyMap({ map, loaded, draft, metrics, onPolygon, onAngle, 
     const m = map.current
     if (m && !loaded.current) m.once('load', () => paint.current())
   }, [map, loaded])
-  useEditHandles(map, draft.surveys, editable, { onPolygon, onAngle })
+  useEditHandles(map, draft.surveys, editable, { onPolygon, onAngle, onCancel })
+}
+
+/** `value`, except that while `hold` is set the value from before the hold is kept. */
+export function useSettled<T>(value: T, hold: boolean): T {
+  const [kept, setKept] = useState(value)
+  if (!hold && kept !== value) setKept(value)
+  return hold ? kept : value
 }

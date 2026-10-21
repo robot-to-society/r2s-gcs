@@ -56,6 +56,8 @@ interface MetricsCtx {
   readonly elevAt: ElevAt | null
   readonly rollLimitDeg?: number
   readonly predict?: (d: Draft) => Predicted | null
+  /** A drag preview: no predictor run; the committed survey's `entry` result is carried over. */
+  readonly carryEntry?: boolean
 }
 
 function computeMetrics(spec: SurveySpec, c: MetricsCtx): SurveyMetrics | null {
@@ -67,7 +69,8 @@ function computeMetrics(spec: SurveySpec, c: MetricsCtx): SurveyMetrics | null {
   const homeAmsl = c.elevAt && c.home ? c.elevAt(c.home.lon, c.home.lat) : null
   const worst = ground && homeAmsl !== null ? worstCase(spec, geometry, ground, homeAmsl) : null
   const predicted = spec.airframe === 'plane' && c.predict ? c.predict(regenerateSurvey(c.draft, c.id, spec, items))?.points : undefined
-  const warnings = surveyWarnings({ spec, geometry, numbers, worst, items, home: c.home, predicted, rollLimitDeg: c.rollLimitDeg })
+  const checked = surveyWarnings({ spec, geometry, numbers, worst, items, home: c.home, predicted, rollLimitDeg: c.rollLimitDeg })
+  const warnings = c.carryEntry && !checked.includes('entry') ? [...checked, 'entry' as const] : checked
   return { spec, items, geometry, numbers, ground, worst, warnings, rollLimitDeg: c.rollLimitDeg }
 }
 
@@ -121,16 +124,24 @@ export function useSurvey({ draft, change, home, elevAt, vehicleParams, predict,
     return s && spec ? { ...s, spec } : s
   }
 
-  const metrics = (id: string): SurveyMetrics | null => {
-    const spec = shown(id)
-    if (!spec) return null
-    if (!cache.has(spec)) cache.set(spec, computeMetrics(spec, { draft, id, home, elevAt, rollLimitDeg, predict }))
+  const metricsOf = (id: string, spec: SurveySpec, carryEntry?: boolean): SurveyMetrics | null => {
+    const live = carryEntry !== undefined
+    if (!cache.has(spec)) cache.set(spec, computeMetrics(spec, { draft, id, home, elevAt, rollLimitDeg, predict: live ? undefined : predict, carryEntry }))
     return cache.get(spec) ?? null
+  }
+  /** A drag preview skips the predictor (once per frame is too slow) and keeps the committed entry check. */
+  const metrics = (id: string): SurveyMetrics | null => {
+    const committed = draft.surveys.find((s) => s.id === id)?.spec
+    const settled = committed ? metricsOf(id, committed) : null
+    if (frames.preview?.id !== id) return settled
+    return metricsOf(id, frames.preview.spec, settled?.warnings.includes('entry') ?? false)
   }
 
   const expand = (id: string) => change((d) => expandSurvey(d, id))
+  /** Ends a drag without committing it (its handle went away mid-drag). */
+  const cancel = useCallback(() => void frames.take(), [frames])
 
   /** The survey being dragged (its spec as of the last frame); null when no drag is in progress. */
   const preview = frames.preview
-  return { surveyFor, update, expand, metrics, rejected, preview }
+  return { surveyFor, update, expand, metrics, rejected, preview, cancel }
 }
