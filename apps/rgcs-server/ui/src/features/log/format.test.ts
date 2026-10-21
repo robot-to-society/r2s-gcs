@@ -17,4 +17,13 @@ describe('log entry text', () => {
     expect(entryText(cmd('rtl link_closed'), t('en'))).toBe('Return to launch failed link closed')
     expect(entryText(cmd('mission_upload 20 項目, 読込一致', 'ok'), t('ja'))).toBe('ミッション書込 成功 20 項目, 読込一致')
   })
+
+  it('names the MAV_CMD of other commands: go to WP and message rate, else the generic label', () => {
+    expect(entryText(cmd('other:224 denied'), t('ja'))).toBe('WP へ移動 失敗 拒否')
+    expect(entryText(cmd('other:511', 'ok'), t('ja'))).toBe('メッセージレート設定 成功')
+    expect(entryText(cmd('other:511', 'ok'), t('en'))).toBe(`Message rate ${t('en').ok}`)
+    expect(entryText(cmd('other:224', 'ok'), t('en'))).toBe(`Go to WP ${t('en').ok}`)
+    expect(entryText(cmd('other:400 denied'), t('ja'))).toBe('その他の対応コマンド 失敗 拒否')
+    expect(entryText(cmd('other denied'), t('ja'))).toBe('その他の対応コマンド 失敗 拒否')
+  })
 })

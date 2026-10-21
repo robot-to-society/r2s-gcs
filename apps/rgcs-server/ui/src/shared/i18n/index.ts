@@ -58,6 +58,8 @@ const baseJa = {
   cmd_mission_start: 'ミッション開始',
   cmd_mission_resume: 'ミッション再開',
   cmd_other: 'その他の対応コマンド',
+  cmd_other_224: 'WP へ移動',
+  cmd_other_511: 'メッセージレート設定',
   cmd_guided: 'Guided移動',
   cmd_camera: 'カメラ・ジンバル',
   allCommands: '全コマンド',
@@ -450,6 +452,8 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   cmd_mission_start: 'Start mission',
   cmd_mission_resume: 'Resume mission',
   cmd_other: 'Other supported commands',
+  cmd_other_224: 'Go to WP',
+  cmd_other_511: 'Message rate',
   cmd_guided: 'Guided move',
   cmd_camera: 'Camera & gimbal',
   allCommands: 'All commands',
@@ -807,8 +811,9 @@ export function t(lang: Lang): Dict {
   return dictionaries[lang]
 }
 
-/** Label for a command name (`arm`, `set_mode`, `guided`, …); unknown names are shown raw. */
+/** Label for a command name (`arm`, `set_mode`, `guided`, `other:224`, …); unknown names are shown raw. */
 export function cmdLabel(name: string, dict: Dict): string {
-  const key = `cmd_${name}` as keyof Dict
-  return key in dict ? dict[key] : name
+  const key = `cmd_${name.replace(':', '_')}` as keyof Dict
+  if (key in dict) return dict[key]
+  return name.startsWith('other:') ? dict.cmd_other : name
 }

@@ -62,6 +62,13 @@ describe('local results', () => {
     s.pushLocalResult(r)
     expect(s.getState().results).toEqual([r])
   })
+
+  it('pushLocalResult logs an other command with its MAV_CMD', async () => {
+    const { VehicleStore } = await import('./store')
+    const s = new VehicleStore()
+    s.pushLocalResult({ id: -2, sysid: 1, cmd: 'other', ok: false, reason: 'link_lost', ts: 1, mav_cmd: 224 })
+    expect(s.getState().log.entries[0]?.text).toBe('other:224 link_lost')
+  })
 })
 
 describe('send', () => {

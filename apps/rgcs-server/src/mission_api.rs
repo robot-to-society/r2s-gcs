@@ -179,6 +179,7 @@ async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) ->
                     ok: report.verified,
                     reason: (!report.verified).then(|| format!("mismatch at {:?}", report.mismatched)),
                     ts: unix_ms(),
+                    mav_cmd: None,
                 }));
             ok(UploadReport { findings, ..report })
         }

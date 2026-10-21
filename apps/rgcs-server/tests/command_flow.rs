@@ -197,10 +197,40 @@ async fn mode_change_rtl_and_land_need_no_confirm_token() {
     ] {
         let (status, resp, _) = call(
             &app,
-            req(Method::POST, "/api/vehicles/1/command", Some(&cookie), Some(body.clone())),
+            req(
+                Method::POST,
+                "/api/vehicles/1/command",
+                Some(&cookie),
+                Some(body.clone()),
+            ),
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{body} -> {resp}");
         assert!(resp["data"]["id"].is_u64(), "{resp}");
     }
+}
+
+#[tokio::test]
+async fn other_command_results_name_their_mav_cmd() {
+    let (app, state) = spawn_app().await;
+    seed_vehicle(&state, 1, false, false).await;
+    let cookie = login(&app).await;
+    let mut rx = state.tx.subscribe();
+    let body = json!({ "cmd": "other", "args": { "mav_cmd": 224, "params": [4, 0, 0, 0, 0, 0, 0] } });
+    let (status, resp, _) = call(
+        &app,
+        req(Method::POST, "/api/vehicles/1/command", Some(&cookie), Some(body)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    let result = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if let Ok(rgcs_core::ServerMessage::CommandResult(r)) = rx.recv().await {
+                return r;
+            }
+        }
+    })
+    .await
+    .expect("result within 3 s");
+    assert_eq!((result.cmd.as_str(), result.mav_cmd), ("other", Some(224)));
 }

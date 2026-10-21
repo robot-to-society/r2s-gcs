@@ -4,4 +4,8 @@ export type CommandResult = { id: number, sysid: number, cmd: string, ok: boolea
 /**
  * Unix time in milliseconds.
  */
-ts: number, };
+ts: number, 
+/**
+ * The MAV_CMD of an `other` command; absent for every named command.
+ */
+mav_cmd?: number, };

@@ -233,6 +233,7 @@ async fn command_results_are_logged_and_broadcast_as_log_entries() {
         ok: false,
         reason: Some("PreArm".into()),
         ts: 2_000,
+        mav_cmd: None,
     }));
     let frame = next_frame(&mut rx, |m| matches!(m, ServerMessage::LogEntry(_))).await;
     let ServerMessage::LogEntry(e) = frame else {
@@ -254,6 +255,7 @@ async fn command_results_are_logged_and_broadcast_as_log_entries() {
         ok: true,
         reason: Some("verified".into()),
         ts: 3_000,
+        mav_cmd: None,
     }));
     let frame = next_frame(&mut rx, |m| matches!(m, ServerMessage::LogEntry(_))).await;
     let ServerMessage::LogEntry(e) = frame else {
@@ -263,6 +265,22 @@ async fn command_results_are_logged_and_broadcast_as_log_entries() {
         (e.severity, e.text.as_str()),
         (Severity::Ok, "mission_upload verified")
     );
+
+    // An `other` result names its MAV_CMD so the UI can label it (WP へ移動, メッセージレート設定).
+    let _ = state.tx.send(ServerMessage::CommandResult(CommandResult {
+        id: 11,
+        sysid: 1,
+        cmd: "other".into(),
+        ok: false,
+        reason: Some("denied".into()),
+        ts: 4_000,
+        mav_cmd: Some(511),
+    }));
+    let frame = next_frame(&mut rx, |m| matches!(m, ServerMessage::LogEntry(_))).await;
+    let ServerMessage::LogEntry(e) = frame else {
+        unreachable!()
+    };
+    assert_eq!(e.text, "other:511 denied");
 }
 
 fn statustext(router_id: u64, text: &str) -> VehicleMessage {

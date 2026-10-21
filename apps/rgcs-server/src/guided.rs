@@ -143,6 +143,7 @@ pub async fn guided(
         ok: true,
         reason: None,
         ts: unix_ms(),
+        mav_cmd: None,
     }));
     ok(GuidedReply { id, warning })
 }

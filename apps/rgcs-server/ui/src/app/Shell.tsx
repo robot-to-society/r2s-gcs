@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
-import { CommandDock, ConfirmDialog, FleetConfirm, fleetTargets, useCommandRunner, type RunResult } from '../features/commands'
+import { CommandDock, ConfirmDialog, FleetConfirm, fleetTargets, localResult, useCommandRunner, type RunResult } from '../features/commands'
 import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
@@ -79,7 +79,7 @@ export function Shell({ me, lang }: Props) {
     entries: log.entries,
     dict,
     vehicleOf: (sysid) => vehicles.get(sysid),
-    onError: (sysid, command, message) => vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: command.cmd, ok: false, reason: message, ts: Date.now() }),
+    onError: (sysid, command, message) => vehicleStore.pushLocalResult(localResult(sysid, command, message)),
   })
   const tracks = useTracks()
   const mapUi = useMapUi()
@@ -207,7 +207,7 @@ export function Shell({ me, lang }: Props) {
   const settle = (sysid: number, result: RunResult, command: VehicleCommand) => {
     if (result.kind === 'needs_confirm') return setModal({ kind: 'confirm', sysid, command, message: result.message })
     if (result.kind === 'error') {
-      vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: command.cmd, ok: false, reason: result.message, ts: Date.now() })
+      vehicleStore.pushLocalResult(localResult(sysid, command, result.message))
     }
     setModal(NO_MODAL)
   }

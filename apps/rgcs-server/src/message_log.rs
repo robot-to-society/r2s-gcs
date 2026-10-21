@@ -105,10 +105,15 @@ impl MessageLog {
     }
 
     /// Logs a command result and broadcasts it as a `log_entry`.
+    /// The text is "<cmd>[:<mav_cmd>] [reason]"; the UI translates the first word.
     pub async fn record_command(&self, r: &CommandResult) {
+        let name = match r.mav_cmd {
+            Some(mav_cmd) => format!("{}:{mav_cmd}", r.cmd),
+            None => r.cmd.clone(),
+        };
         let text = match &r.reason {
-            Some(reason) => format!("{} {}", r.cmd, reason),
-            _ => r.cmd.clone(),
+            Some(reason) => format!("{name} {reason}"),
+            _ => name,
         };
         let new = NewMessage {
             ts: r.ts,

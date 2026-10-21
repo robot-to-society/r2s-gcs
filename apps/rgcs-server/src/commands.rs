@@ -157,6 +157,7 @@ async fn finish(
         ok: outcome.ok(),
         reason: outcome.reason(),
         ts: crate::app::unix_ms(),
+        mav_cmd: cmd.mav_cmd(),
     }));
 }
 

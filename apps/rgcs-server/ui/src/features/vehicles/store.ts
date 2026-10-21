@@ -53,7 +53,8 @@ export class VehicleStore {
   pushLocalResult(r: CommandResult): void {
     const results = addResult(this.state.results, r)
     if (results === this.state.results) return
-    const text = r.reason ? `${r.cmd} ${r.reason}` : r.cmd
+    const name = r.mav_cmd === undefined ? r.cmd : `${r.cmd}:${r.mav_cmd}`
+    const text = r.reason ? `${name} ${r.reason}` : name
     const severity = r.ok ? 'ok' : 'error'
     const entry = { id: r.id, ts: r.ts, sysid: r.sysid, source: 'command', severity, text, ackable: false, acked_by: null, acked_at: null } as const
     this.set({ ...this.state, results, log: logReduce(this.state.log, { k: 'entry', entry }) })

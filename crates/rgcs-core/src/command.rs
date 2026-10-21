@@ -56,6 +56,14 @@ impl VehicleCommand {
             Self::Other { .. } => "other",
         }
     }
+
+    /// The MAV_CMD of an `other` command (it tells e.g. 224 go-to-WP from 511 message rate apart).
+    pub fn mav_cmd(&self) -> Option<u16> {
+        match self {
+            Self::Other { mav_cmd, .. } => Some(*mav_cmd),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -70,6 +78,10 @@ pub struct CommandResult {
     /// Unix time in milliseconds.
     #[ts(type = "number")]
     pub ts: u64,
+    /// The MAV_CMD of an `other` command; absent for every named command.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub mav_cmd: Option<u16>,
 }
 
 #[cfg(test)]
@@ -86,6 +98,39 @@ mod tests {
         assert!(!VehicleCommand::Land.requires_confirm());
         assert!(!VehicleCommand::Pause.requires_confirm());
         assert!(!VehicleCommand::ChangeAlt { alt_rel: 50.0 }.requires_confirm());
+    }
+
+    #[test]
+    fn other_commands_carry_their_mav_cmd() {
+        let goto = VehicleCommand::Other {
+            mav_cmd: 224,
+            params: [3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        };
+        assert_eq!(goto.mav_cmd(), Some(224));
+        assert_eq!(VehicleCommand::Arm.mav_cmd(), None);
+    }
+
+    #[test]
+    fn result_mav_cmd_is_optional_on_the_wire() {
+        let r = CommandResult {
+            id: 1,
+            sysid: 1,
+            cmd: "arm".into(),
+            ok: true,
+            reason: None,
+            ts: 5,
+            mav_cmd: None,
+        };
+        let json = serde_json::to_value(&r).unwrap();
+        assert!(json.get("mav_cmd").is_none(), "{json}");
+        let back: CommandResult = serde_json::from_str(
+            r#"{"id":2,"sysid":1,"cmd":"other","ok":false,"reason":null,"ts":5,"mav_cmd":511}"#,
+        )
+        .unwrap();
+        assert_eq!(back.mav_cmd, Some(511));
+        let old: CommandResult =
+            serde_json::from_str(r#"{"id":2,"sysid":1,"cmd":"arm","ok":true,"reason":null,"ts":5}"#).unwrap();
+        assert_eq!(old.mav_cmd, None);
     }
 
     #[test]
