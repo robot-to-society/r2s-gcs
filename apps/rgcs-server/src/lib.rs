@@ -36,6 +36,7 @@ pub mod params;
 pub mod pdf;
 pub mod present_api;
 pub mod settings;
+pub mod survey_camera_api;
 pub mod telemetry;
 pub mod transfer;
 pub mod ui_embed;

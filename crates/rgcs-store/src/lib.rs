@@ -19,6 +19,7 @@ pub mod password;
 pub mod presentation;
 pub mod registry;
 pub mod sessions;
+pub mod survey_cameras;
 pub mod users;
 
 use std::path::Path;

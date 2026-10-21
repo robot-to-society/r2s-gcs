@@ -16,6 +16,7 @@ pub mod logbook;
 pub mod mission;
 pub mod operator;
 pub mod params;
+pub mod survey_camera;
 pub mod vehicle;
 pub mod ws;
 
@@ -49,6 +50,7 @@ pub use mission::{
 };
 pub use operator::Operator;
 pub use params::{ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult};
+pub use survey_camera::{validate_survey_camera, SurveyCamera};
 pub use vehicle::{
     diff, Attitude, Battery, GeoPoint, Gps, LinkStatus, NavInfo, SysId, VehicleKind, VehicleState,
     VehicleStateDiff, VehicleSummary,

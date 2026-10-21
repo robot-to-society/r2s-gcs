@@ -80,6 +80,17 @@
 
 エラー: `400 invalid`(名前 1〜80 文字、行 ≤ 20、色 `#rrggbb`、同じミッションの重複なし、同じ機体を 2 行に割り当てない。メッセージ入り)、`400 unknown_mission`(作成 / 更新時に行の `mission_id` が存在しない)、`404 not_found`。書込みは監査 target `briefing`(command `create` / `update` / `delete`)。
 
+### 2.2.3 測量カメラ(2026-10-21)
+写真測量(サーベイグリッド)の計画に使う共有カメラ一覧。セッション認証は `/api/missions` と同じ。組込みカメラ `Sony α7R IV 35mm`(センサー 35.7 × 23.8 mm、9504 × 6336 px、焦点距離 35 mm、シャッター 1/1000 s、最小間隔 1.0 s)を初期データとして持つ。
+| メソッド | パス | 本文 / 応答 |
+|---|---|---|
+| GET | `/api/survey-cameras` | `[SurveyCamera{id, name, sensor_w_mm, sensor_h_mm, image_w_px, image_h_px, focal_mm, shutter_s, min_interval_s, builtin}]`(組込みが先、次に名前順) |
+| POST | `/api/survey-cameras` | `SurveyCamera{id: null, ...}` → `201 SurveyCamera`(id 付き。クライアントの `builtin: true` は無視され常に `false`) |
+| PUT | `/api/survey-cameras/{id}` | `SurveyCamera` → `SurveyCamera` |
+| DELETE | `/api/survey-cameras/{id}` | → `{deleted: true}` |
+
+エラー: `400 invalid`(名前 1〜80 文字、数値はすべて有限で 0 より大きい、`shutter_s` ≤ 1。メッセージ入り)、`404 not_found`、`409 builtin`(組込みカメラの PUT / DELETE)。書込みは監査 target `survey_camera`(command `create` / `update` / `delete`)。
+
 ### 2.3 カメラ
 | メソッド | パス | 本文 / 応答 |
 |---|---|---|

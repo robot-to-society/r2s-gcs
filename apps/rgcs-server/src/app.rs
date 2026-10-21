@@ -24,7 +24,7 @@ use crate::video::VideoHub;
 use crate::{
     api, auth, branding, briefing_api, calib_api, camera_api, commands, export_api, flight_api, geofence_api,
     guided, input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api, param_api,
-    param_pick, present_api, video_api, ws,
+    param_pick, present_api, survey_camera_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -435,6 +435,15 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
             get(briefing_api::get_briefing)
                 .put(briefing_api::update_briefing)
                 .delete(briefing_api::delete_briefing),
+        )
+        .route(
+            "/survey-cameras",
+            get(survey_camera_api::list_survey_cameras).post(survey_camera_api::create_survey_camera),
+        )
+        .route(
+            "/survey-cameras/{id}",
+            axum::routing::put(survey_camera_api::update_survey_camera)
+                .delete(survey_camera_api::delete_survey_camera),
         )
         .route("/vehicles/{sysid}/camera", get(camera_api::get_camera))
         .route("/vehicles/{sysid}/camera/command", post(camera_api::command))
