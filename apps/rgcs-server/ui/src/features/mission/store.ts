@@ -2,6 +2,7 @@
 import { useSyncExternalStore } from 'react'
 import type { Finding, Mission, MissionItem, UploadReport } from '../../shared/api/types'
 import { canRedo, canUndo, initHistory, push, redo, undo, type History } from './history'
+import { reconcileSurveys } from '../survey/draftOps'
 import { emptyDraft, fromMission, insertItemsAfter, remapJumps, removeItems, type Draft } from './model'
 
 export type Tool = 'select' | 'add'
@@ -22,7 +23,11 @@ export interface MissionUi {
   readonly clipboard: readonly MissionItem[]
   /** The uids the clipboard was copied from (a pasted DO_JUMP follows its copied target). */
   readonly clipboardUids: readonly number[]
+  /** Names of the surveys the last edit detached (it changed their items); the next edit clears it. */
+  readonly surveyNotice: readonly string[]
 }
+
+const NO_NOTICE: readonly string[] = []
 
 export const INITIAL_MISSION_UI: MissionUi = {
   history: initHistory(emptyDraft()),
@@ -36,6 +41,7 @@ export const INITIAL_MISSION_UI: MissionUi = {
   lastReport: null,
   clipboard: [],
   clipboardUids: [],
+  surveyNotice: NO_NOTICE,
 }
 
 const EMPTY: ReadonlySet<number> = new Set()
@@ -46,8 +52,13 @@ function prune(selected: ReadonlySet<number>, draft: Draft): ReadonlySet<number>
   return kept.length === selected.size ? selected : new Set(kept)
 }
 
-const commit = (ui: MissionUi, next: Draft): MissionUi =>
-  next === ui.history.present ? ui : { ...ui, history: push(ui.history, next), dirty: true, selected: prune(ui.selected, next), findings: [] }
+/** Pushes `next` after dropping the surveys it touched outside the survey ops (named in `surveyNotice`). */
+const commit = (ui: MissionUi, next: Draft): MissionUi => {
+  if (next === ui.history.present) return ui
+  const { draft, dropped } = reconcileSurveys(ui.history.present, next)
+  const surveyNotice = dropped.length > 0 ? dropped : NO_NOTICE
+  return { ...ui, history: push(ui.history, draft), dirty: true, selected: prune(ui.selected, draft), findings: [], surveyNotice }
+}
 
 /** Records an edit: new present (DO_JUMPs kept on their targets), redo cleared, mission dirty. */
 export const edit = (ui: MissionUi, next: Draft): MissionUi => (next === ui.history.present ? ui : commit(ui, remapJumps(ui.history.present, next)))
@@ -121,9 +132,10 @@ export const loaded = (ui: MissionUi, m: Mission, savedId: number | null): Missi
   dirty: false,
   findings: [],
   lastReport: null,
+  surveyNotice: NO_NOTICE,
 })
 
-export const fresh = (ui: MissionUi): MissionUi => ({ ...ui, history: initHistory(emptyDraft()), selected: EMPTY, anchor: null, savedId: null, dirty: false, findings: [], lastReport: null })
+export const fresh = (ui: MissionUi): MissionUi => ({ ...ui, history: initHistory(emptyDraft()), selected: EMPTY, anchor: null, savedId: null, dirty: false, findings: [], lastReport: null, surveyNotice: NO_NOTICE })
 export const markSaved = (ui: MissionUi, id: number): MissionUi => ({ ...ui, savedId: id, dirty: false })
 /** `ui` still edits the mission `draft` was a state of (it is its present, or in its undo / redo history). */
 export const holdsDraft = (ui: MissionUi, draft: Draft): boolean =>

@@ -20,6 +20,13 @@ const mission: Mission = {
 }
 
 describe('.rgcsmission files', () => {
+  it('rgcsmission_reads_a_v1_file_without_surveys', () => {
+    const old = JSON.parse(serializeRgcsMission(mission))
+    delete old.mission.surveys
+    expect(old.version).toBe(1)
+    expect(parseRgcsMission(JSON.stringify(old)).surveys).toEqual([])
+  })
+
   it('rgcsmission_round_trips_and_rejects_bad_json', () => {
     const text = serializeRgcsMission(mission)
     expect(text).toContain('"format": "rgcsmission"')

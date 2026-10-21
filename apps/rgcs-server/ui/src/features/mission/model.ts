@@ -1,15 +1,24 @@
 // The editor's draft: a Mission whose items carry a stable `uid` for React keys and selection.
 // Every function returns a new draft; the input is never mutated.
-import type { Mission, MissionFrame, MissionItem, VehicleKind } from '../../shared/api/types'
+import type { Mission, MissionFrame, MissionItem, SurveyBlock, VehicleKind } from '../../shared/api/types'
+import { surveySpecSchema, type SurveySpec } from '../survey/spec'
 import { CMDS, cmdKeyOf, type FieldSpec } from './cmds'
 
 export interface DraftItem extends MissionItem {
   readonly uid: number
 }
 
+/** A survey grid: a tag over the contiguous items `uids` (in list order) that `spec` generated. */
+export interface DraftSurvey {
+  readonly id: string
+  readonly uids: readonly number[]
+  readonly spec: SurveySpec
+}
+
 export interface Draft {
-  readonly mission: Omit<Mission, 'items'>
+  readonly mission: Omit<Mission, 'items' | 'surveys'>
   readonly items: readonly DraftItem[]
+  readonly surveys: readonly DraftSurvey[]
   readonly nextUid: number
 }
 
@@ -19,19 +28,38 @@ export const NEW_MISSION_NAME = '新しいミッション'
 
 export function emptyDraft(): Draft {
   return {
-    mission: { id: null, name: NEW_MISSION_NAME, sysid: null, default_alt: DEFAULT_ALT, default_frame: 'rel', speed: DEFAULT_SPEED, home: null, fence: [], rally: [], surveys: [] },
+    mission: { id: null, name: NEW_MISSION_NAME, sysid: null, default_alt: DEFAULT_ALT, default_frame: 'rel', speed: DEFAULT_SPEED, home: null, fence: [], rally: [] },
     items: [],
+    surveys: [],
     nextUid: 1,
   }
 }
 
+/** Blocks whose spec does not parse, whose range falls outside the items or overlaps an earlier block are dropped (the items stay). */
+function surveysFromBlocks(blocks: readonly SurveyBlock[], count: number): DraftSurvey[] {
+  const taken = new Set<number>()
+  return blocks.flatMap((b) => {
+    const spec = surveySpecSchema.safeParse(b.spec)
+    const uids = Array.from({ length: b.count }, (_, i) => b.first + i + 1)
+    const inRange = Number.isInteger(b.first) && b.first >= 0 && b.count >= 1 && b.first + b.count <= count
+    if (!spec.success || !inRange || uids.some((u) => taken.has(u))) return []
+    uids.forEach((u) => taken.add(u))
+    return [{ id: b.id, uids, spec: spec.data }]
+  })
+}
+
 export function fromMission(m: Mission): Draft {
-  const { items, ...mission } = m
-  return { mission, items: items.map((it, i) => ({ ...it, uid: i + 1 })), nextUid: items.length + 1 }
+  const { items, surveys, ...mission } = m
+  return { mission, items: items.map((it, i) => ({ ...it, uid: i + 1 })), surveys: surveysFromBlocks(surveys ?? [], items.length), nextUid: items.length + 1 }
 }
 
 export function toMission(d: Draft): Mission {
-  return { ...d.mission, items: d.items.map(({ uid: _uid, ...it }) => it) }
+  const index = new Map(d.items.map((it, i) => [it.uid, i]))
+  const surveys = d.surveys.flatMap((s) => {
+    const first = index.get(s.uids[0] ?? -1)
+    return first === undefined ? [] : [{ id: s.id, first, count: s.uids.length, spec: s.spec }]
+  })
+  return { ...d.mission, items: d.items.map(({ uid: _uid, ...it }) => it), surveys }
 }
 
 /** Default params for a command: param index 1–4 from the field defaults, the rest 0. */
@@ -209,7 +237,7 @@ export function setAltBulk(d: Draft, uids: ReadonlySet<number>, alt: number, fra
   return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt, frame } : it)) }
 }
 
-export function setMeta(d: Draft, patch: Partial<Omit<Mission, 'items'>>): Draft {
+export function setMeta(d: Draft, patch: Partial<Draft['mission']>): Draft {
   return { ...d, mission: { ...d.mission, ...patch } }
 }
 

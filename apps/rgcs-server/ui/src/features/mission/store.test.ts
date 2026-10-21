@@ -1,11 +1,39 @@
 import { describe, expect, it } from 'vitest'
 import type { Mission } from '../../shared/api/types'
+import { ALPHA7R4, defaultSpec } from '../survey/spec'
 import { appendWaypoint, emptyDraft, insertAfter, insertCommandAfter, removeItems, reorder, updateItem } from './model'
 import { INITIAL_MISSION_UI, MissionStore, addToSelection, copySelected, pasteClipboard, clearSelection, edit, loaded, markSaved, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi } from './store'
 
 const threePoints = () => appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
 
+const surveyed = (): Mission => ({
+  ...emptyDraft().mission,
+  items: threePoints().items.map(({ uid: _u, ...it }) => it),
+  surveys: [{ id: 's1', first: 1, count: 2, spec: { ...defaultSpec([], ALPHA7R4, 'copter'), name: 'Field' } }],
+})
+
 describe('mission ui transitions', () => {
+  it('an_edit_inside_a_survey_drops_it_with_a_notice_and_undo_restores_it', () => {
+    const ui = loaded(INITIAL_MISSION_UI, surveyed(), null)
+    expect(ui.surveyNotice).toEqual([])
+    const kept = edit(ui, insertAfter(ui.history.present, 1, 36, 139))
+    expect(kept.history.present.surveys).toHaveLength(1)
+    expect(kept.surveyNotice).toEqual([])
+    const dropped = edit(kept, updateItem(kept.history.present, 3, { alt: 7 }))
+    expect(dropped.history.present.surveys).toEqual([])
+    expect(dropped.surveyNotice).toEqual(['Field'])
+    expect(undoUi(dropped).history.present.surveys).toHaveLength(1)
+    const next = edit(dropped, appendWaypoint(dropped.history.present, 36.5, 139.5))
+    expect(next.surveyNotice).toEqual([])
+  })
+
+  it('paste_inside_a_survey_drops_it', () => {
+    const ui = copySelected(selectOne(loaded(INITIAL_MISSION_UI, surveyed(), null), 1, false))
+    const pasted = pasteClipboard(selectOne(ui, 2, false))
+    expect(pasted.history.present.surveys).toEqual([])
+    expect(pasted.surveyNotice).toEqual(['Field'])
+  })
+
   it('edit_pushes_history_and_marks_dirty', () => {
     const ui0 = INITIAL_MISSION_UI
     expect(ui0.dirty).toBe(false)

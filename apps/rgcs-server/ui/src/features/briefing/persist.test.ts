@@ -52,6 +52,15 @@ describe('briefing persistence', () => {
     expect(ws!.rows.find((r) => r.key === ws!.active)!.hidden).toBe(false)
   })
 
+  it('restore_reads_a_stored_mission_without_surveys', () => {
+    const { b, m } = build()
+    const old = JSON.parse(serialize(b.getState(), m.getState()))
+    for (const r of old.rows) delete r.mission.surveys
+    const ws = restore(JSON.stringify(old))
+    expect(ws!.rows[0].ui.history.present.surveys).toEqual([])
+    expect(JSON.parse(serialize(ws!, ws!.rows[0].ui)).rows[0].mission.surveys).toEqual([])
+  })
+
   it('restore_ignores_corrupt_or_old_payloads', () => {
     for (const t of ['{', '{"v":0}', null, '{"v":1,"rows":[]}', '[]', '{"v":1,"rows":[{}]}']) expect(restore(t)).toBeNull()
   })
