@@ -1,9 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 import { WpGoPopover } from './WpGoPopover'
-import { wpGoCommand } from './wpGo'
+import { popoverPlacement, wpGoCommand } from './wpGo'
 
 const vehicle = (mode: string, link: VehicleState['link'] = 'ok'): VehicleState => ({
   sysid: 3, name: 'UAV-03', kind: 'copter', mode, armed: true, lat: 36.16, lon: 139.37, alt_rel: 50, alt_msl: 0, hdg: 10,
@@ -17,6 +17,8 @@ describe('wpGoCommand', () => {
     expect(wpGoCommand(5)).toEqual({ cmd: 'other', args: { mav_cmd: 224, params: [5, 0, 0, 0, 0, 0, 0] } })
   })
 })
+
+afterEach(() => vi.restoreAllMocks())
 
 describe('WpGoPopover', () => {
   it('names the waypoint and the vehicle; 送信 sends the set-current command for that vehicle and closes', () => {
@@ -63,5 +65,31 @@ describe('WpGoPopover', () => {
     render(<WpGoPopover at={at} vehicle={vehicle('GUIDED')} dict={t('en')} onSend={() => {}} onClose={() => {}} />)
     expect(screen.getByRole('dialog')).toHaveTextContent('Go to WP 5')
     expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
+  })
+
+  it('stays inside the viewport near its edges so 送信 remains reachable', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 220, height: 120 } as DOMRect)
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    render(<WpGoPopover at={{ ...at, x: vw - 5, y: vh - 5 }} vehicle={vehicle('AUTO')} dict={t('ja')} onSend={() => {}} onClose={() => {}} />)
+    const box = screen.getByRole('dialog')
+    expect(parseFloat(box.style.left)).toBe(vw - 220 - 8)
+    expect(parseFloat(box.style.top)).toBe(vh - 5 - 10 - 120)
+  })
+})
+
+describe('popoverPlacement', () => {
+  const size = { w: 200, h: 100 }
+  const view = { w: 1000, h: 800 }
+  it('centres the box under the anchor', () => {
+    expect(popoverPlacement({ x: 500, y: 300 }, size, view)).toEqual({ left: 400, top: 310 })
+  })
+  it('clamps to the left and right edges', () => {
+    expect(popoverPlacement({ x: 10, y: 300 }, size, view).left).toBe(8)
+    expect(popoverPlacement({ x: 995, y: 300 }, size, view).left).toBe(792)
+  })
+  it('opens above the anchor when there is no room below, never off the top', () => {
+    expect(popoverPlacement({ x: 500, y: 750 }, size, view).top).toBe(640)
+    expect(popoverPlacement({ x: 500, y: 50 }, { w: 200, h: 900 }, view).top).toBe(8)
   })
 })

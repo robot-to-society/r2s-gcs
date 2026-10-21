@@ -110,7 +110,7 @@
 .finder-list .ell { max-width: 100%; font-size: 11px; }
 /* 「このWPへ行く」: a click on an ops-map mission badge opens a small popover below it. */
 .wp-mk.go { cursor: pointer; }
-.wp-go { position: fixed; z-index: 30; transform: translate(-50%, 10px); min-width: 200px; max-width: 260px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.wp-go { position: fixed; z-index: 30; min-width: 200px; max-width: 260px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
 .wp-go-title { font-weight: 600; color: var(--text); }
 .wp-go-hint { font-size: 11px; line-height: 1.4; }
 .wp-go-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }

@@ -55,6 +55,14 @@ interface Props {
   readonly onContext?: (p: { lat: number; lon: number; x: number; y: number }) => void
   /** Click on a mission badge (2D and 3D): the mission's vehicle, the badge number and its viewport spot. */
   readonly onWaypoint?: (p: WaypointPick) => void
+  /** Any zoom, or a camera move (pan / rotate / pitch, 2D and 3D) the user started: anchored popovers close. */
+  readonly onViewMove?: () => void
+}
+
+/** Follow / focus moves are programmatic (no originalEvent) and leave anchored popovers alone. */
+function watchViewMoves(m: MlMap, cb: { readonly current: (() => void) | undefined }): void {
+  m.on('zoomstart', () => cb.current?.())
+  for (const ev of ['movestart', 'rotatestart', 'pitchstart'] as const) m.on(ev, (e: { originalEvent?: unknown }) => e.originalEvent && cb.current?.())
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -73,7 +81,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint, onViewMove }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -100,6 +108,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   contextRef.current = onContext
   const waypointRef = useRef(onWaypoint)
   waypointRef.current = onWaypoint
+  const viewMoveRef = useRef(onViewMove)
+  viewMoveRef.current = onViewMove
   const ownerRef = useRef(owner)
   ownerRef.current = owner
   dragRef.current = onDragStart
@@ -161,6 +171,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
       }
     })
     m.on('dragstart', () => dragRef.current())
+    watchViewMoves(m, viewMoveRef)
     m.on('zoomend', () => setZoom(m.getZoom()))
     m.on('click', (e) => clickRef.current({ lat: e.lngLat.lat, lon: e.lngLat.lng }))
     m.on('contextmenu', (e) => {

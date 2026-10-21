@@ -229,6 +229,22 @@ describe('MapView', () => {
     expect(created.markers.some((m) => m.el.className === 'rg-tgt')).toBe(true)
   })
 
+  it('reports zooms and user camera moves (pan, rotate, pitch) but not programmatic ones', () => {
+    const onViewMove = vi.fn()
+    render(
+      <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} onViewMove={onViewMove} />,
+    )
+    const map = created.maps[0]!
+    act(() => map.fire('movestart', {}))
+    act(() => map.fire('rotatestart', {}))
+    expect(onViewMove).not.toHaveBeenCalled()
+    act(() => map.fire('zoomstart', {}))
+    act(() => map.fire('movestart', { originalEvent: new MouseEvent('mousedown') }))
+    act(() => map.fire('rotatestart', { originalEvent: new MouseEvent('mousedown') }))
+    act(() => map.fire('pitchstart', { originalEvent: new MouseEvent('mousedown') }))
+    expect(onViewMove).toHaveBeenCalledTimes(4)
+  })
+
   it('reports drag start so the shell can release follow', () => {
     const onDragStart = vi.fn()
     render(

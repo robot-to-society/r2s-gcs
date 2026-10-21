@@ -264,6 +264,7 @@ export function Shell({ me, lang }: Props) {
               onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
               onContext={view === 'ops' ? setMapMenu : undefined}
               onWaypoint={setWpGo}
+              onViewMove={() => setWpGo(null)}
             />
           )}
           {view === 'ops' && settings && <MapModeToggle mode={mapMode} available={settings.terrain_tiles !== null} dict={dict} onChange={saveMapMode} />}

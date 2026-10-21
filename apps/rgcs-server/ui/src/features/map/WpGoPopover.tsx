@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { wpGoCommand, type WaypointPick } from './wpGo'
+import { popoverPlacement, wpGoCommand, type WaypointPick } from './wpGo'
 
 interface Props {
   readonly at: WaypointPick
@@ -13,8 +13,20 @@ interface Props {
 }
 
 /** Click on a mission badge (ops map): continue the mission from that waypoint, mode unchanged. */
+/** Where the box goes once measured (it must not hide 送信 past a viewport edge). */
+function usePlacement(at: WaypointPick, box: RefObject<HTMLDivElement | null>) {
+  const viewport = () => ({ w: window.innerWidth, h: window.innerHeight })
+  const [pos, setPos] = useState(() => popoverPlacement(at, { w: 0, h: 0 }, viewport()))
+  useLayoutEffect(() => {
+    const r = box.current?.getBoundingClientRect()
+    if (r) setPos(popoverPlacement(at, { w: r.width, h: r.height }, viewport()))
+  }, [at, box])
+  return pos
+}
+
 export function WpGoPopover({ at, vehicle, dict, onSend, onClose }: Props) {
   const box = useRef<HTMLDivElement>(null)
+  const pos = usePlacement(at, box)
   const close = useRef(onClose)
   close.current = onClose
   useEffect(() => {
@@ -34,7 +46,7 @@ export function WpGoPopover({ at, vehicle, dict, onSend, onClose }: Props) {
     onClose()
   }
   return (
-    <div ref={box} className="wp-go g-strong" role="dialog" aria-label={title} style={{ left: at.x, top: at.y }}>
+    <div ref={box} className="wp-go g-strong" role="dialog" aria-label={title} style={{ left: pos.left, top: pos.top }}>
       <div className="wp-go-title">{title}</div>
       <div className="t2">{vehicle?.name ?? `#${at.sysid}`}</div>
       {vehicle && vehicle.mode !== 'AUTO' && <div className="wp-go-hint t3">{dict.wpGoAutoHint}</div>}
