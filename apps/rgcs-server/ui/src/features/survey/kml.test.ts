@@ -76,7 +76,7 @@ describe('parseKmlPolygons', () => {
   )
 
   it('accepts spaces around commas inside a tuple', () => {
-    const { polygons } = parseKmlPolygons(wrap('137.64, 36.25 , 10 137.65 ,36.26,10 137.66,36.25,10'))
+    const { polygons } = parseKmlPolygons(wrap('137.64, 36.25, 10 137.65, 36.26,10 137.66,36.25,10'))
     expect(polygons[0].ring).toEqual([
       { lat: 36.25, lon: 137.64 },
       { lat: 36.26, lon: 137.65 },
@@ -88,9 +88,25 @@ describe('parseKmlPolygons', () => {
     expect(codeOf(' '.repeat(MAX_KML_CHARS + 1))).toBe('too_large')
   })
 
-  it('rejects a ring with more than MAX_RING_VERTICES vertices', () => {
-    const ring = Array.from({ length: MAX_RING_VERTICES + 2 }, (_, i) => `137.${i % 900},36.25`).join(' ')
-    expect(codeOf(wrap(ring))).toBe('too_large')
+  it.each(['137.6,36.2 ,36.3 137.7,36.3 137.8,36.2', '137.6,36.2 , 36.3 137.7,36.3 137.8,36.2'])(
+    'does not absorb a stray vertex as altitude: %s',
+    (coords) => {
+      expect(codeOf(wrap(coords))).toBe('bad_coordinates')
+    },
+  )
+
+  it('rejects a bad vertex in the middle of a valid list', () => {
+    expect(codeOf(wrap('137.6,36.2 137.7,36.3 abc,36 137.8,36.2'))).toBe('bad_coordinates')
+  })
+
+  const distinct = (n: number): string[] =>
+    Array.from({ length: n }, (_, i) => `${(137 + i * 1e-5).toFixed(5)},36.25`)
+
+  it('accepts exactly MAX_RING_VERTICES vertices plus the closing one, rejects one more', () => {
+    const ok = distinct(MAX_RING_VERTICES)
+    expect(parseKmlPolygons(wrap([...ok, ok[0]].join(' '))).polygons[0].ring).toHaveLength(MAX_RING_VERTICES)
+    const over = distinct(MAX_RING_VERTICES + 1)
+    expect(codeOf(wrap([...over, over[0]].join(' ')))).toBe('too_large')
   })
 
   it('rejects more than MAX_POLYGONS polygons', () => {

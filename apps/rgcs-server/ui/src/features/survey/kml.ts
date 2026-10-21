@@ -42,7 +42,7 @@ function parseVertex(tuple: string): LatLon {
 
 function parseCoordinates(text: string): LatLon[] {
   const trimmed = text.trim()
-  const tuples = trimmed === '' ? [] : trimmed.replace(/\s*,\s*/g, ',').split(/\s+/)
+  const tuples = trimmed === '' ? [] : trimmed.replace(/,\s+/g, ',').split(/\s+/)
   if (tuples.length > MAX_RING_VERTICES + 1) throw new KmlError('too_large')
   const ring = tuples.map(parseVertex)
   const first = ring[0]
