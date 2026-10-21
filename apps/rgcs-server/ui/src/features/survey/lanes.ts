@@ -16,6 +16,8 @@ const MIN_AREA_M2 = 1
 /** Keeps the scan line strictly inside the polygon at its extreme lanes. */
 const EDGE_INSET_M = 0.01
 const ORDER_TOL_M = 0.01
+/** An exact multiple of the spacing (up to float noise) does not gain a lane. */
+const CEIL_EPS = 1e-9
 
 function ring(polygon: readonly LatLon[]): readonly Xy[] {
   return polygon.map((p) => toLocal(polygon[0], p))
@@ -88,7 +90,7 @@ export function buildLanes(
   const ys = rot.map((p) => p.y)
   const yMin = Math.min(...ys)
   const yMax = Math.max(...ys)
-  const n = Math.max(1, Math.ceil((yMax - yMin + 2 * marginAcrossM) / spacingM))
+  const n = Math.max(1, Math.ceil((yMax - yMin + 2 * marginAcrossM) / spacingM - CEIL_EPS))
   const mid = (yMin + yMax) / 2
   const toLatLon = (x: number, y: number) => fromLocal(o, { x: x * u.x + y * v.x, y: x * u.y + y * v.y })
   const lanes: Lane[] = []

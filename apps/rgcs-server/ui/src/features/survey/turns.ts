@@ -36,6 +36,10 @@ function onArc(arc: TurnArc, deg: number): Xy {
   return { x: arc.center.x + arc.r * Math.cos(deg * RAD), y: arc.center.y + arc.r * Math.sin(deg * RAD) }
 }
 
+export function arcStart(arc: TurnArc): Xy {
+  return onArc(arc, arc.from)
+}
+
 export function arcEnd(arc: TurnArc): Xy {
   return onArc(arc, arc.from - arc.sweepDeg)
 }

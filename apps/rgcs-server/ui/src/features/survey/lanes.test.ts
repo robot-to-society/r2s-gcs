@@ -40,6 +40,11 @@ describe('buildLanes', () => {
     expect(top).toHaveLength(2)
     expect(len(top[0])).toBeCloseTo(100, 0)
   })
+  it('an exact multiple of the spacing does not gain a lane', () => {
+    const strip = [at(0, 0), at(300, 0), at(300, 100), at(0, 100)]
+    expect(buildLanes(strip, 90, 50, 0, 0)).toHaveLength(2)
+    expect(buildLanes(strip, 90, 25, 0, 0)).toHaveLength(4)
+  })
   it('null for invalid polygons', () => {
     expect(buildLanes([], 0, 50, 0, 0)).toBeNull()
     expect(buildLanes([at(0, 0), at(10, 10)], 0, 50, 0, 0)).toBeNull()
