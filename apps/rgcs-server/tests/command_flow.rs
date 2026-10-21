@@ -184,3 +184,23 @@ async fn unknown_vehicle_is_404() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(error_code(&body), "not_found");
 }
+
+#[tokio::test]
+async fn mode_change_rtl_and_land_need_no_confirm_token() {
+    let (app, state) = spawn_app().await;
+    seed_vehicle(&state, 1, true, false).await;
+    let cookie = login(&app).await;
+    for body in [
+        json!({ "cmd": "rtl" }),
+        json!({ "cmd": "land" }),
+        json!({ "cmd": "set_mode", "args": { "mode": "LOITER" } }),
+    ] {
+        let (status, resp, _) = call(
+            &app,
+            req(Method::POST, "/api/vehicles/1/command", Some(&cookie), Some(body.clone())),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body} -> {resp}");
+        assert!(resp["data"]["id"].is_u64(), "{resp}");
+    }
+}

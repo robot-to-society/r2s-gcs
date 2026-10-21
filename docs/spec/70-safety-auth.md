@@ -6,8 +6,8 @@
 
 | 区分 | コマンド | 要件 |
 |---|---|---|
-| 要確認 | `arm`, `disarm`, `rtl`, `land`, `set_mode`, `mission_start`, Guided 移動(初回)、パラメータ書込、校正開始 | UI の確認ダイアログ → `POST …/confirm {cmd}` で 30 s 有効の `confirm_token` → コマンドに添付。無い / 期限切れ / 別 cmd のトークンは `409 confirm_required` |
-| 即時 | `pause`, `resume`, `change_alt`, `change_speed`, `mission_resume` | 確認不要。ただし未ログインは不可 |
+| 要確認 | `arm`, `disarm`, `mission_start`, Guided 移動(初回)、パラメータ書込、校正開始 | UI の確認ダイアログ → `POST …/confirm {cmd}` で 30 s 有効の `confirm_token` → コマンドに添付。無い / 期限切れ / 別 cmd のトークンは `409 confirm_required` |
+| 即時 | `pause`, `resume`, `rtl`, `land`, `set_mode`, `change_alt`, `change_speed`, `mission_resume` | 確認不要(2026-10-21 変更: モード変更・RTL・着陸は確認ポップアップなしで送る)。ただし未ログインは不可 |
 | 禁止 | MT11 `0x48`(SD フォーマット) | ドライバ最下層で拒否。API にも存在しない |
 
 - サーバーは UI の状態を信用しない: ARM 済み機体への `arm` は `rejected`、DISARM 済みへの `disarm` も同様。

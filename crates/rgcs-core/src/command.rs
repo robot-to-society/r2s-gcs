@@ -34,12 +34,9 @@ pub enum VehicleCommand {
 }
 
 impl VehicleCommand {
-    /// Commands that need a confirm token (spec 70 §1).
+    /// Commands that need a confirm token (spec 70 §1). Mode change, RTL and land do not.
     pub fn requires_confirm(&self) -> bool {
-        matches!(
-            self,
-            Self::Arm | Self::Disarm | Self::Rtl | Self::Land | Self::SetMode { .. } | Self::MissionStart
-        )
+        matches!(self, Self::Arm | Self::Disarm | Self::MissionStart)
     }
 
     /// Stable name used in the audit log and in `CommandResult.cmd`.
@@ -82,7 +79,11 @@ mod tests {
     #[test]
     fn dangerous_commands_require_confirmation() {
         assert!(VehicleCommand::Arm.requires_confirm());
-        assert!(VehicleCommand::SetMode { mode: "AUTO".into() }.requires_confirm());
+        assert!(VehicleCommand::Disarm.requires_confirm());
+        assert!(VehicleCommand::MissionStart.requires_confirm());
+        assert!(!VehicleCommand::SetMode { mode: "AUTO".into() }.requires_confirm());
+        assert!(!VehicleCommand::Rtl.requires_confirm());
+        assert!(!VehicleCommand::Land.requires_confirm());
         assert!(!VehicleCommand::Pause.requires_confirm());
         assert!(!VehicleCommand::ChangeAlt { alt_rel: 50.0 }.requires_confirm());
     }

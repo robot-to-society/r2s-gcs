@@ -10,7 +10,7 @@ const v = (armed: boolean): VehicleState => ({
 
 describe('command catalog', () => {
   it('confirm set matches the server (rgcs-core VehicleCommand::requires_confirm)', () => {
-    expect([...REQUIRES_CONFIRM].sort()).toEqual(['arm', 'disarm', 'land', 'mission_start', 'rtl', 'set_mode'])
+    expect([...REQUIRES_CONFIRM].sort()).toEqual(['arm', 'disarm', 'mission_start'])
   })
 
   it('every item is a known VehicleCommand name or opens a modal', () => {

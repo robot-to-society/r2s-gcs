@@ -1,7 +1,7 @@
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 
 /** Mirror of `rgcs-core::VehicleCommand::requires_confirm` (spec 70 §1); pinned by catalog.test. */
-export const REQUIRES_CONFIRM: ReadonlySet<string> = new Set(['arm', 'disarm', 'rtl', 'land', 'set_mode', 'mission_start'])
+export const REQUIRES_CONFIRM: ReadonlySet<string> = new Set(['arm', 'disarm', 'mission_start'])
 
 /** Commands whose confirm button is rendered as danger. */
 export const DESTRUCTIVE: ReadonlySet<string> = new Set(['arm', 'disarm', 'rtl', 'land'])
