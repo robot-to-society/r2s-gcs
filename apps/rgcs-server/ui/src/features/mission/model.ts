@@ -39,10 +39,11 @@ export function emptyDraft(): Draft {
 function surveysFromBlocks(blocks: readonly SurveyBlock[], count: number): DraftSurvey[] {
   const taken = new Set<number>()
   return blocks.flatMap((b) => {
+    const inRange = Number.isInteger(b.first) && Number.isInteger(b.count) && b.first >= 0 && b.count >= 1 && b.first + b.count <= count
+    if (!inRange) return []
     const spec = surveySpecSchema.safeParse(b.spec)
     const uids = Array.from({ length: b.count }, (_, i) => b.first + i + 1)
-    const inRange = Number.isInteger(b.first) && b.first >= 0 && b.count >= 1 && b.first + b.count <= count
-    if (!spec.success || !inRange || uids.some((u) => taken.has(u))) return []
+    if (!spec.success || uids.some((u) => taken.has(u))) return []
     uids.forEach((u) => taken.add(u))
     return [{ id: b.id, uids, spec: spec.data }]
   })

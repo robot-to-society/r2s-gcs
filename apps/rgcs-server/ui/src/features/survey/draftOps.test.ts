@@ -34,6 +34,16 @@ describe('surveys in the draft', () => {
     expect(d.surveys.map((s) => s.id)).toEqual(['a', 'b'])
   })
 
+  it('a_huge_count_is_dropped_without_allocating', () => {
+    for (const count of [5e9, 3e7]) {
+      const started = performance.now()
+      const d = fromMission({ ...mission(), surveys: [{ id: 'h', first: 0, count, spec: spec('H') }] })
+      expect(performance.now() - started).toBeLessThan(100)
+      expect(d.surveys).toEqual([])
+      expect(d.items).toHaveLength(7)
+    }
+  })
+
   it('inserting_a_waypoint_before_a_survey_keeps_it_and_shifts_first', () => {
     const prev = fromMission(mission())
     const next = insertAfter(prev, 1, 36, 139)

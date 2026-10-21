@@ -66,13 +66,13 @@ export const edit = (ui: MissionUi, next: Draft): MissionUi => (next === ui.hist
 export const undoUi = (ui: MissionUi): MissionUi => {
   if (!canUndo(ui.history)) return ui
   const history = undo(ui.history)
-  return { ...ui, history, dirty: true, selected: prune(ui.selected, history.present) }
+  return { ...ui, history, dirty: true, selected: prune(ui.selected, history.present), surveyNotice: NO_NOTICE }
 }
 
 export const redoUi = (ui: MissionUi): MissionUi => {
   if (!canRedo(ui.history)) return ui
   const history = redo(ui.history)
-  return { ...ui, history, dirty: true, selected: prune(ui.selected, history.present) }
+  return { ...ui, history, dirty: true, selected: prune(ui.selected, history.present), surveyNotice: NO_NOTICE }
 }
 
 /** Plain click = only this one; ⌘/Ctrl (additive) toggles it. Both move the anchor. */

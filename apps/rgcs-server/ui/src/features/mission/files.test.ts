@@ -25,6 +25,8 @@ describe('.rgcsmission files', () => {
     delete old.mission.surveys
     expect(old.version).toBe(1)
     expect(parseRgcsMission(JSON.stringify(old)).surveys).toEqual([])
+    const huge = JSON.parse(serializeRgcsMission({ ...mission, surveys: [{ id: 'h', first: 0, count: 5e9, spec: {} }] }))
+    expect(() => parseRgcsMission(JSON.stringify(huge))).toThrow()
   })
 
   it('rgcsmission_round_trips_and_rejects_bad_json', () => {
