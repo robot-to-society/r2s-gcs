@@ -2,7 +2,7 @@
 import { useSyncExternalStore } from 'react'
 import type { Finding, Mission, MissionItem, UploadReport } from '../../shared/api/types'
 import { canRedo, canUndo, initHistory, push, redo, undo, type History } from './history'
-import { reconcileSurveys } from '../survey/draftOps'
+import { insertAnchor, reconcileSurveys } from '../survey/draftOps'
 import { emptyDraft, fromMission, insertItemsAfter, remapJumps, removeItems, type Draft } from './model'
 
 export type Tool = 'select' | 'add'
@@ -125,7 +125,8 @@ export function pasteClipboard(ui: MissionUi): MissionUi {
   if (ui.clipboard.length === 0) return ui
   const d = ui.history.present
   const last = [...d.items].reverse().find((it) => ui.selected.has(it.uid))
-  const { draft, uids } = insertItemsAfter(d, last?.uid ?? null, ui.clipboard)
+  // with a survey item selected the paste lands after the whole survey
+  const { draft, uids } = insertItemsAfter(d, insertAnchor(d, last?.uid ?? null), ui.clipboard)
   const alias = new Map(ui.clipboardUids.map((from, i) => [from, uids[i]!]))
   return { ...commit(ui, remapJumps(d, draft, alias, new Set(uids))), selected: new Set(uids), anchor: uids.at(-1) ?? ui.anchor }
 }

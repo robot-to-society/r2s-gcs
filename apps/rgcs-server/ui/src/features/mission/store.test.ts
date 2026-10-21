@@ -50,11 +50,20 @@ describe('mission ui transitions', () => {
     expect(next.surveyNotice).toEqual([])
   })
 
-  it('paste_inside_a_survey_drops_it', () => {
+  it('paste_with_a_survey_item_selected_lands_after_the_survey_and_keeps_it', () => {
     const ui = copySelected(selectOne(loaded(INITIAL_MISSION_UI, surveyed(), null), 1, false))
     const pasted = pasteClipboard(selectOne(ui, 2, false))
-    expect(pasted.history.present.surveys).toEqual([])
-    expect(pasted.surveyNotice).toEqual(['Field'])
+    const d = pasted.history.present
+    expect(d.surveys.map((s) => s.uids)).toEqual([[2, 3]])
+    expect(d.items.map((it) => it.uid)).toEqual([1, 2, 3, 4])
+    expect(pasted.surveyNotice).toEqual([])
+  })
+
+  it('a_non_insert_edit_inside_a_survey_still_drops_it', () => {
+    const ui = loaded(INITIAL_MISSION_UI, surveyed(), null)
+    const dropped = edit(ui, updateItem(ui.history.present, 2, { alt: 7 }))
+    expect(dropped.history.present.surveys).toEqual([])
+    expect(dropped.surveyNotice).toEqual(['Field'])
   })
 
   it('edit_pushes_history_and_marks_dirty', () => {
