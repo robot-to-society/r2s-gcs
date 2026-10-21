@@ -1,5 +1,5 @@
 // Regression against an ArduPlane SITL flight (QuadPlane, no wind, 2026-10-21): the predicted path
-// must follow the flown track through the 173° corner at WP8.
+// must follow the flown track through the 173° corner at WP8 and home again after the mission.
 import { describe, expect, it } from 'vitest'
 import type { Home, MissionItem } from '../../shared/api/types'
 import sitl from './__fixtures__/sitlPlane.json'
@@ -40,5 +40,9 @@ describe('predicted plane path against the SITL flight', () => {
   it('the WP3 / WP4 corners stay as close as before (14.1 / 18.5 m before the fix)', () => {
     expect(Math.max(...flown(sitl.flown.seq3).map(off))).toBeLessThan(14.5)
     expect(Math.max(...flown(sitl.flown.seq4).map(off))).toBeLessThan(19)
+  })
+
+  it('returns home after the last waypoint (mission end switches to RTL)', () => {
+    expect(mean(flown(sitl.flown.rtl).map(off))).toBeLessThan(25)
   })
 })

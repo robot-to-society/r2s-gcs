@@ -19,6 +19,8 @@ const STEP_DEG = 10
 /** LOITER_TO_ALT is done within this many metres (navigation.cpp). */
 const TO_ALT_TOLERANCE_M = 5
 const MAX_TURNS = 50
+/** The L1 capture ended this close to the circle (else it timed out far away). */
+const CAPTURED_M = 5
 /** Pure-pursuit step when converging onto a line after a loiter (L1 tracking). */
 const PURSUIT_STEP_M = 10
 const PURSUIT_MAX_STEPS = 300
@@ -237,14 +239,22 @@ function land(ctx: Ctx, it: MissionItem): void {
   track.leg([at], 0)
 }
 
+/**
+ * RTL (do_RTL, then update_loiter about home with crosstrack off): L1 captures the home circle
+ * straight from where the plane is, and circles it at the altitude it has.
+ */
 function rtl(ctx: Ctx): void {
   const { track, p } = ctx
   const home = { x: 0, y: 0 }
   if (track.vtol) return track.leg([home], track.cur.alt)
   const r = loiterDefault(p) * track.scale() ** 2
   const cw = p.loiterRad >= 0
-  const join = entryTangent(track.cur, home, r, cw) ?? onCircle(home, r, polar(home, track.cur))
-  track.leg([join], track.cur.alt)
+  const heading = track.heading()
+  const capture = heading ? captureLoiter(track.cur, heading, home, r, cw, track.tas(), gains(p)).pts.slice(1) : []
+  const end = capture.at(-1) ?? track.cur
+  const captured = Math.abs(dist(end, home) - r) < CAPTURED_M
+  const join = captured ? end : (entryTangent(end, home, r, cw) ?? onCircle(home, r, polar(home, end)))
+  track.leg(captured ? capture : [...capture, join], track.cur.alt)
   const phi = polar(home, join)
   walk(ctx, home, r, arcAngles(phi, phi, cw, 1, STEP_DEG), track.cur.alt)
 }
@@ -268,6 +278,8 @@ function fly(ctx: Ctx, i: number, it: MissionItem): boolean {
 
 export function predictPlane(items: readonly MissionItem[], home: Home, p: PlaneParams): PathPoint[] {
   const ctx: Ctx = { items, home, p, track: new Track(p, home.alt) }
-  for (let i = 0; i < items.length; i++) if (!fly(ctx, i, items[i]!)) break
+  const ended = items.every((it, i) => fly(ctx, i, it))
+  // the mission ran out: ArduPlane switches to RTL (exit_mission_callback)
+  if (ended && items.length > 0) rtl(ctx)
   return ctx.track.pts.map((q) => ({ ...toLatLon(home, q), alt: q.alt }))
 }

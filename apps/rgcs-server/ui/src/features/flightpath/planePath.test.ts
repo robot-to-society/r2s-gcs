@@ -19,8 +19,9 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
   it('a QuadPlane NAV_TAKEOFF climbs straight up (VTOL takeoff unless Q_OPTIONS allows a fixed-wing one)', () => {
     const path = local([item(22, null, 40)])
     expect(path[0]).toMatchObject({ alt: 0 })
-    expect(r(path.at(-1)!, { x: 0, y: 0 })).toBeLessThan(0.01)
-    expect(path.at(-1)!.alt).toBeCloseTo(40)
+    // the climb is one vertical piece; the RTL at the mission end follows
+    expect(r(path[1]!, { x: 0, y: 0 })).toBeLessThan(0.01)
+    expect(path[1]!.alt).toBeCloseTo(40)
   })
 
   it('a plain plane takes off along the way to the next waypoint at its climb rate', () => {
@@ -47,7 +48,7 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
     }
     expect(onCircle.at(-1)!.alt).toBeGreaterThanOrEqual(245)
     expect(onCircle[0]!.alt).toBeLessThan(200)
-    // on to the waypoint, accepted turn-distance out (the mission ends: no turn, so 90°)
+    // on to the waypoint, accepted turn-distance out (the RTL at the mission end follows)
     expect(Math.min(...path.map((pt) => r(pt, { x: 0, y: 1500 })))).toBeLessThan(100)
   })
 
@@ -66,12 +67,10 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
   it('LOITER_TIME always uses WP_LOITER_RAD (param3 only gives the direction)', () => {
     const c = { x: 0, y: 600 }
     const path = local([item(22, null, 100), item(19, c, 100, [30, 0, 200, 0])])
-    // the last item: the vehicle stays on the circle, so the tail of the path is the circle itself
-    const radii = path.slice(-20).map((pt) => r(pt, c))
     // L1 flies R·EAS2TAS² (AP_L1_Control::loiter_radius): thinner air at 1600 m widens the circle
     const want = 60 * eas2tas(1600) ** 2
-    expect(Math.min(...radii)).toBeCloseTo(want, 0)
-    expect(Math.max(...radii)).toBeCloseTo(want, 0)
+    expect(path.filter((pt) => Math.abs(r(pt, c) - want) < 0.5).length).toBeGreaterThan(20)
+    expect(path.some((pt) => Math.abs(r(pt, c) - 200 * eas2tas(1600) ** 2) < 0.5)).toBe(false)
   })
 
   it('a fixed wing cuts the corner of a waypoint it turns at', () => {
@@ -85,7 +84,7 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
   it('after DO_VTOL_TRANSITION to multicopter a loiter is a hover at the point, not a circle', () => {
     const c = { x: 0, y: 600 }
     const path = local([item(22, null, 60), item(3000, null, 0, [3, 0, 0, 0]), item(18, c, 60, [3, 0, 80, 0])])
-    expect(r(path.at(-1)!, c)).toBeLessThan(0.01)
+    expect(path.some((pt) => r(pt, c) < 0.01)).toBe(true)
     // the straight approach may cross the 80 m radius once; a circle would put dozens of points on it
     expect(path.filter((pt) => Math.abs(r(pt, c) - 80 * eas2tas(1560) ** 2) < 0.5).length).toBeLessThanOrEqual(1)
   })
@@ -137,10 +136,11 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
     const path = local([item(22, null, 100), item(18, c, 100, [3, 0, 150, 0])])
     const radius = 150 * eas2tas(1600) ** 2
     // the approach stays on the line toward the centre until the turn, and never crosses deep inside
-    const before = path.filter((pt) => r(pt, c) > radius + 60)
+    const joined = path.findIndex((pt) => Math.abs(r(pt, c) - radius) < 0.5)
+    const before = path.slice(0, joined).filter((pt) => r(pt, c) > radius + 60)
     expect(Math.max(...before.map((pt) => Math.abs(pt.x)))).toBeLessThan(0.01)
     // it joins on the near side (south here); L1's ~10 m cut inside the circle is not modelled
-    const join = path.find((pt) => Math.abs(r(pt, c) - radius) < 0.5)!
+    const join = path[joined]!
     expect(join.y).toBeLessThan(c.y - radius * 0.9)
     expect(Math.min(...path.map((pt) => r(pt, c)))).toBeGreaterThan(radius - 1)
   })
@@ -156,6 +156,22 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
     // the leg ends turn-distance before WP2 (min(WP_RADIUS·EAS2TAS², L1 distance) for a turn ≥ 90°)
     const closest = Math.min(...path.map((pt) => r(pt, wp2)))
     expect(closest).toBeGreaterThan(20)
+  })
+
+  it('after the last waypoint the mission ends in RTL: the plane flies home and circles it at the last altitude', () => {
+    const path = local([item(22, null, 80), item(16, { x: 0, y: 1500 }, 80), item(16, { x: 1500, y: 1500 }, 120)], PLANE_DEFAULTS)
+    const radius = 60 * eas2tas(1620) ** 2
+    const circling = path.filter((pt) => Math.abs(r(pt, { x: 0, y: 0 }) - radius) < 1)
+    expect(circling.length).toBeGreaterThan(30)
+    expect(circling.at(-1)!.alt).toBeCloseTo(120, 0)
+  })
+
+  it('no RTL is added after a mission that ends with a landing or a RTL of its own', () => {
+    const landed = local([item(22, null, 50), item(16, { x: 0, y: 1500 }, 50), item(21, { x: 600, y: 1500 }, 0)])
+    expect(r(landed.at(-1)!, { x: 600, y: 1500 })).toBeLessThan(0.01)
+    const rtl = local([item(22, null, 50), item(16, { x: 0, y: 1500 }, 50), item(20, null, 0)], PLANE_DEFAULTS)
+    const once = local([item(22, null, 50), item(16, { x: 0, y: 1500 }, 50)], PLANE_DEFAULTS)
+    expect(rtl).toEqual(once)
   })
 
   it('a 700-waypoint survey predicts within 150 ms', () => {
