@@ -79,3 +79,9 @@
 .insp-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 18px; overflow-y: auto; }
 .insp-kv { margin-top: 12px; }
 .insp-kv .contents-row { display: contents; }
+.insp-rate { display: flex; flex-direction: column; gap: 4px; padding: 6px 0 8px; }
+.insp-rate-row { gap: 8px; align-items: center; flex-wrap: wrap; }
+.insp-rate-row .in { width: 72px; }
+.insp-rate-row .in[aria-invalid='true'] { border-color: var(--danger, #ff6b6b); }
+.insp-rate-invalid { color: var(--danger, #ff6b6b); }
+.insp-rate-note { padding: 6px 0 8px; }

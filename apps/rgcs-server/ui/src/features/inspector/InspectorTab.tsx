@@ -1,9 +1,12 @@
 // メンテナンス › MAVLink インスペクター (user request 2026-10-19): every message the link received and
 // every message RGCS sent, per system / component, with rate and the last message's fields.
 import { useEffect, useState } from 'react'
-import type { InspectorDetail, InspectorList, InspectorRow } from '../../shared/api/types'
+import type { CommandResult, InspectorDetail, InspectorList, InspectorRow, SysId, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconPause, IconPlay } from '../../shared/ui/icons'
+import type { SendFn } from '../commands/useCommand'
+import { useVehicles } from '../vehicles/store'
+import { RateControls } from './RateControls'
 import { fetchInspector, fetchInspectorDetail } from './api'
 import { fieldText } from './fields'
 import { componentName, groupRows, rowKey } from './tree'
@@ -63,7 +66,16 @@ function Tree({ list, filter, selected, dict, onSelect }: { list: InspectorList;
   )
 }
 
-export function InspectorTab({ dict }: { readonly dict: Dict }) {
+interface TabProps {
+  readonly dict: Dict
+  /** Defaults to the live store; tests inject them. */
+  readonly vehicles?: ReadonlyMap<SysId, VehicleState>
+  readonly results?: readonly CommandResult[]
+  readonly send?: SendFn
+}
+
+export function InspectorTab({ dict, vehicles, results, send }: TabProps) {
+  const live = useVehicles()
   const [filter, setFilter] = useState('')
   const [paused, setPaused] = useState(false)
   const [selected, setSelected] = useState<InspectorRow | null>(null)
@@ -86,6 +98,7 @@ export function InspectorTab({ dict }: { readonly dict: Dict }) {
             <div className="t3 num">
               {detail.row.dir === 'rx' ? dict.inspRx : dict.inspTx} · SYSID {detail.row.sysid} · {componentName(detail.row.compid)} · ID {detail.row.msg_id} · {detail.row.count} · {(detail.row.age_ms / 1000).toFixed(1)} s
             </div>
+            <RateControls key={rowKey(detail.row)} row={detail.row} vehicle={(vehicles ?? live.vehicles).get(detail.row.sysid)} results={results ?? live.results} dict={dict} send={send} />
             <div className="kv insp-kv">
               {Object.entries(detail.fields).map(([k, v]) => (
                 <div key={k} className="contents-row">
