@@ -51,11 +51,13 @@
   | Constant | Value | Meaning |
   |---|---|---|
   | `ARC_SPLIT_DEG` | 30 | Largest angle of one split-WP arc segment |
-  | Auto lead-in | ceil5(R) | |
+  | Auto lead-in | ceil5(max(R, 8 × (speed + wind))) | Plane only; at least 8 s on the line after the turn (final review I1, 2026-10-21) |
   | Auto overshoot | ceil5(R / 2) | `ceil5` rounds up to a multiple of 5 m |
   | `ENTRY_TOL_M` | 5 | Predicted path deviation that warns |
   | `MAX_SURVEY_ITEMS` | 700 | Warns `too_many` |
-  | Terrain samples | ≤ 2000 per survey | |
+  | Terrain samples | ≤ 2000 per survey | Grid sized on the bounding box (final review I4) |
+  | Size caps | 1,000 lanes / 5,000 items; polygon ≤ 10,000 vertices | Above them generation answers `too_large` (final review I4) |
+  | Low clearance | 30 m | Warns `terrain` (final review I5) |
 
   Also fixed by this plan:
   - **Speed after a survey:** not restored (it carries over until the next `DO_CHANGE_SPEED`).
