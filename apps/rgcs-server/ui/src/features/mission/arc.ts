@@ -15,7 +15,7 @@ const M_PER_DEG_LAT = 110_540
 const M_PER_DEG_LON = 111_320
 const RAD = Math.PI / 180
 
-interface Xy {
+export interface Xy {
   readonly x: number
   readonly y: number
 }
@@ -25,7 +25,7 @@ export function toLocal(o: LatLon, p: LatLon): Xy {
   return { x: (p.lon - o.lon) * M_PER_DEG_LON * Math.cos(o.lat * RAD), y: (p.lat - o.lat) * M_PER_DEG_LAT }
 }
 
-function fromLocal(o: LatLon, v: Xy): LatLon {
+export function fromLocal(o: LatLon, v: Xy): LatLon {
   return { lat: o.lat + v.y / M_PER_DEG_LAT, lon: o.lon + v.x / (M_PER_DEG_LON * Math.cos(o.lat * RAD)) }
 }
 
