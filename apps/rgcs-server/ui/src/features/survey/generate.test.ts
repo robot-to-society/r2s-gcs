@@ -5,6 +5,7 @@ import type { LatLon } from '../mission/geo'
 import { generateSurvey, surveyGeometry, surveyNumbers, type SurveyGeometry } from './generate'
 import { turnRadiusM } from './photo'
 import { ALPHA7R4, defaultSpec, type SurveySpec } from './spec'
+import { planTurn } from './turns'
 
 const O: LatLon = { lat: 36.25, lon: 139.0 }
 const M_LAT = 110_540
@@ -136,6 +137,27 @@ describe('generateSurvey', () => {
     })
     expect(signs).toHaveLength(13)
     signs.slice(1).forEach((s, i) => expect(s).toBe(-signs[i]))
+  })
+
+  it('arc turns: param1 is the whole-degree sweep of each planned arc', () => {
+    const { items, geometry } = gen(spec({ turn: 'arc' }))
+    const offs = items.flatMap((it, i) => (it.command === TRIG && it.params[0] === 0 ? [i] : []))
+    const ons = items.flatMap((it, i) => (it.command === TRIG && it.params[0] > 0 ? [i] : []))
+    offs.slice(0, -1).forEach((off, k) => {
+      const shootStart = toLocal(O, pos(items[off - 3]))
+      const shootEnd = toLocal(O, pos(items[off - 1]))
+      const heading = (Math.atan2(shootEnd.x - shootStart.x, shootEnd.y - shootStart.y) * 180) / Math.PI
+      const nextOn = ons[k + 1]
+      const over = toLocal(O, pos(items[off + 1]))
+      const lead = toLocal(O, pos(items[nextOn - 2]))
+      const planned = planTurn(over, lead, heading, geometry.turnRadiusM).arcs.filter((a) => Math.abs(a.sweepDeg) >= 1).map((a) => Math.round(a.sweepDeg))
+      const emitted = items.slice(off + 1, nextOn).filter((it) => it.command === ARC).map((it) => it.params[0])
+      for (const p1 of emitted) {
+        expect(Number.isInteger(p1)).toBe(true)
+        expect(p1).not.toBe(0)
+      }
+      expect(emitted).toEqual(planned)
+    })
   })
 
   it('copter: no lead-in, overshoot or turn items', () => {

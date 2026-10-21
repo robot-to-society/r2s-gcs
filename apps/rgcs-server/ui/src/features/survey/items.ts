@@ -36,14 +36,15 @@ interface Step {
   readonly at: Xy | null
 }
 
-/** Turn arcs shorter than this are skipped (near-degenerate Ω). */
+/** Turn arcs shorter than this are skipped (near-degenerate Ω); the next WP still reaches their end. */
 const MIN_ARC_DEG = 1
 /** A WP closer than this to the previous position is dropped. */
 const SAME_WP_M = 0.5
 const NO_PARAMS: Params = [0, 0, 0, 0]
 
 const wp = (at: Xy): Step => ({ command: CMDS.WAYPOINT.id, params: NO_PARAMS, at })
-const arcTo = (arc: TurnArc): Step => ({ command: MAV_CMD_NAV_ARC_WAYPOINT, params: [arc.sweepDeg, 0, 0, 0], at: arcEnd(arc) })
+/** ArduPilot stores NAV_ARC_WAYPOINT param1 as whole degrees; arcs below MIN_ARC_DEG never get here, so it is ≥ 1. */
+const arcTo = (arc: TurnArc): Step => ({ command: MAV_CMD_NAV_ARC_WAYPOINT, params: [Math.round(arc.sweepDeg), 0, 0, 0], at: arcEnd(arc) })
 const doCmd = (command: number, params: Params): Step => ({ command, params, at: null })
 
 function laneSteps(run: Run, ctx: ItemContext): Step[] {
