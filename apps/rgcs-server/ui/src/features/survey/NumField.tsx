@@ -16,16 +16,19 @@ interface Props {
   readonly children?: React.ReactNode
 }
 
-export const fmtNum = (n: number, digits: number): string => (Number.isFinite(n) ? n.toFixed(digits) : '')
+/** A number for display; one that is not finite (a footprint shrunk to nothing) reads —. */
+export const fmtNum = (n: number, digits: number): string => (Number.isFinite(n) ? n.toFixed(digits) : '—')
+/** The same for a number input, which can only show digits (blank instead of —). */
+const fmtInput = (n: number, digits: number): string => (Number.isFinite(n) ? n.toFixed(digits) : '')
 
 export function NumField({ id, label, value, digits, valid, onCommit, disabled, step = 'any', children }: Props) {
   const [text, setText] = useState<string | null>(null)
-  const shown = text ?? fmtNum(value, digits)
+  const shown = text ?? fmtInput(value, digits)
   const n = text === null || text.trim() === '' ? NaN : Number(text)
   const bad = text !== null && !(Number.isFinite(n) && valid(n))
   const commit = () => {
     if (text === null || bad) return
-    if (text !== fmtNum(value, digits)) onCommit(n)
+    if (text !== fmtInput(value, digits)) onCommit(n)
     setText(null)
   }
   const onKeyDown = (e: React.KeyboardEvent) => {

@@ -21,6 +21,8 @@ export interface WorstCase {
   /** Overlaps at the lowest AGL (highest ground), with the fixed trigger distance and lane spacing. */
   readonly frontPct: number
   readonly sidePct: number
+  /** Clearance over the highest ground (flight AMSL − highest ground); negative = the ground is above. */
+  readonly lowAglM: number
 }
 
 const MAX_SAMPLES = 2000
@@ -86,5 +88,6 @@ export function worstCase(spec: SurveySpec, geometry: SurveyGeometry, range: Gro
     minGsdCm: gsdCm(spec.camera, Math.max(lowAgl, 0)),
     frontPct: overlapPct(geometry.triggerDistM, fp.alongM),
     sidePct: overlapPct(geometry.spacingM, fp.acrossM),
+    lowAglM: lowAgl,
   }
 }

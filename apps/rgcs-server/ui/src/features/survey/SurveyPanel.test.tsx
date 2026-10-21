@@ -168,10 +168,11 @@ describe('SurveyPanel', () => {
     expect(screen.getByText(dict.svWarnArc)).toHaveClass('hint', 'caution')
   })
 
-  it('the_wp_radius_warning_names_the_value', () => {
+  it('the_wp_radius_and_l1_warnings_name_their_values', () => {
     setup()
     expect(screen.getByText(dict.svWarnWpRadius.replace('{n}', '90'))).toBeInTheDocument()
-    expect(screen.getByText(dict.svWarnWpRadiusShots)).toBeInTheDocument()
+    // no vehicle: ArduPlane's NAVL1 defaults, 17 × 0.75 × 18 / π = 73 m against R 57 m
+    expect(screen.getByText(dict.svWarnL1.replace('{r}', '57').replace('{l1}', '73'))).toBeInTheDocument()
   })
 
   it('expand_removes_the_panel_and_leaves_the_items', () => {

@@ -11,6 +11,7 @@ import { expandSurvey, regenerateSurvey, surveyAt } from './draftOps'
 import { generateSurvey, surveyNumbers, type SurveyGeometry, type SurveyNumbers } from './generate'
 import { surveySpecSchema, type SurveySpec } from './spec'
 import { useFramePreview } from './useFramePreview'
+import { surveyVehicle, type SurveyVehicle } from './vehicleParams'
 import { surveyWarnings, type SurveyWarning } from './warnings'
 import { groundRange, worstCase, type GroundRange, type WorstCase } from './worst'
 
@@ -39,6 +40,8 @@ export interface SurveyMetrics {
   readonly warnings: readonly SurveyWarning[]
   /** ROLL_LIMIT_DEG of the connected vehicle, when read. */
   readonly rollLimitDeg?: number
+  /** The other parameters the warnings read from the vehicle. */
+  readonly vehicle: SurveyVehicle
 }
 
 /** `live`: a drag in progress (preview, once per frame); `done`: its release (commit); none: a typed value (commit). */
@@ -55,6 +58,7 @@ interface MetricsCtx {
   readonly home: LatLon | null
   readonly elevAt: ElevAt | null
   readonly rollLimitDeg?: number
+  readonly vehicle: SurveyVehicle
   readonly predict?: (d: Draft) => Predicted | null
   /** A drag preview: no predictor run; the committed survey's `entry` result is carried over. */
   readonly carryEntry?: boolean
@@ -69,9 +73,9 @@ function computeMetrics(spec: SurveySpec, c: MetricsCtx): SurveyMetrics | null {
   const homeAmsl = c.elevAt && c.home ? c.elevAt(c.home.lon, c.home.lat) : null
   const worst = ground && homeAmsl !== null ? worstCase(spec, geometry, ground, homeAmsl) : null
   const predicted = spec.airframe === 'plane' && c.predict ? c.predict(regenerateSurvey(c.draft, c.id, spec, items))?.points : undefined
-  const checked = surveyWarnings({ spec, geometry, numbers, worst, items, home: c.home, predicted, rollLimitDeg: c.rollLimitDeg })
+  const checked = surveyWarnings({ spec, geometry, numbers, worst, items, home: c.home, predicted, rollLimitDeg: c.rollLimitDeg, vehicle: c.vehicle })
   const warnings = c.carryEntry && !checked.includes('entry') ? [...checked, 'entry' as const] : checked
-  return { spec, items, geometry, numbers, ground, worst, warnings, rollLimitDeg: c.rollLimitDeg }
+  return { spec, items, geometry, numbers, ground, worst, warnings, rollLimitDeg: c.rollLimitDeg, vehicle: c.vehicle }
 }
 
 /** Why the last change was not applied: no lanes fit, or the spec is out of range. */
@@ -92,10 +96,13 @@ export function useSurvey({ draft, change, home, elevAt, vehicleParams, predict,
   const frames = useFramePreview<Preview>()
   const [rejected, setRejected] = useState<SurveyRejection | null>(null)
   const rollLimitDeg = vehicleParams.has('ROLL_LIMIT_DEG') ? planeParams(vehicleParams).params.rollLimitDeg : undefined
+  // by value: a fresh parameter map with the same values keeps the cached metrics
+  const vehicleKey = JSON.stringify(surveyVehicle(vehicleParams))
+  const vehicle = useMemo<SurveyVehicle>(() => JSON.parse(vehicleKey), [vehicleKey])
   const [hLat, hLon] = [home?.lat, home?.lon]
   // memoised on the spec object; a new cache whenever the inputs besides the spec change
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const cache = useMemo(() => new WeakMap<SurveySpec, SurveyMetrics | null>(), [hLat, hLon, elevAt, terrainTick, rollLimitDeg, predict])
+  const cache = useMemo(() => new WeakMap<SurveySpec, SurveyMetrics | null>(), [hLat, hLon, elevAt, terrainTick, rollLimitDeg, vehicle, predict])
   const shown = (id: string): SurveySpec | undefined => (frames.preview?.id === id ? frames.preview.spec : draft.surveys.find((s) => s.id === id)?.spec)
 
   const update = useCallback(
@@ -126,7 +133,7 @@ export function useSurvey({ draft, change, home, elevAt, vehicleParams, predict,
 
   const metricsOf = (id: string, spec: SurveySpec, carryEntry?: boolean): SurveyMetrics | null => {
     const live = carryEntry !== undefined
-    if (!cache.has(spec)) cache.set(spec, computeMetrics(spec, { draft, id, home, elevAt, rollLimitDeg, predict: live ? undefined : predict, carryEntry }))
+    if (!cache.has(spec)) cache.set(spec, computeMetrics(spec, { draft, id, home, elevAt, rollLimitDeg, vehicle, predict: live ? undefined : predict, carryEntry }))
     return cache.get(spec) ?? null
   }
   /** A drag preview skips the predictor (once per frame is too slow) and keeps the committed entry check. */

@@ -1,6 +1,7 @@
 // Survey warnings shown in the panel: pure checks over the spec, the generated geometry and
 // items, the terrain worst case and (when available) the predicted path.
 import type { MissionItem } from '../../shared/api/types'
+import { PLANE_DEFAULTS } from '../flightpath/params'
 import type { PathPoint } from '../flightpath/planePath'
 import { toLocal, type Xy } from '../mission/arc'
 import { CMDS } from '../mission/cmds'
@@ -8,9 +9,10 @@ import type { LatLon } from '../mission/geo'
 import type { SurveyGeometry, SurveyNumbers } from './generate'
 import type { SurveySpec } from './spec'
 import { ARC_SPLIT_DEG } from './turns'
+import type { SurveyVehicle } from './vehicleParams'
 import type { WorstCase } from './worst'
 
-export type SurveyWarning = 'blur' | 'interval' | 'skip' | 'bank' | 'overlap' | 'arc' | 'entry' | 'wp_radius' | 'too_many' | 'no_home'
+export type SurveyWarning = 'blur' | 'interval' | 'skip' | 'bank' | 'overlap' | 'arc' | 'entry' | 'wp_radius' | 'l1' | 'terrain' | 'assist' | 'cam_roll' | 'too_many' | 'no_home'
 
 export interface WarningInput {
   readonly spec: SurveySpec
@@ -23,6 +25,8 @@ export interface WarningInput {
   readonly predicted?: readonly PathPoint[]
   /** ROLL_LIMIT_DEG of the connected vehicle. */
   readonly rollLimitDeg?: number
+  /** Other parameters read from the connected vehicle (none: NAVL1 defaults, the rest skipped). */
+  readonly vehicle?: SurveyVehicle
 }
 
 /** Motion blur above this many pixels warns. */
@@ -32,6 +36,10 @@ const OVERLAP_SLACK_PCT = 10
 /** Predicted path deviation from a shooting-start WP that warns. */
 export const ENTRY_TOL_M = 5
 export const MAX_SURVEY_ITEMS = 700
+/** Ground closer than this under the flight altitude warns. */
+export const MIN_CLEARANCE_M = 30
+/** A survey speed this close above AIRSPEED_MIN warns. */
+const AIRSPEED_MARGIN_MS = 2
 const RAD = Math.PI / 180
 
 /** Lanes to skip so that consecutive lanes are at least 2R apart. */
@@ -48,16 +56,28 @@ function overlapLow(i: WarningInput): boolean {
   return i.worst.frontPct < i.spec.frontPct - OVERLAP_SLACK_PCT || i.worst.sidePct < i.spec.sidePct - OVERLAP_SLACK_PCT
 }
 
+/** ArduPlane's L1 distance (m) flying the survey: NAVL1_PERIOD · NAVL1_DAMPING · (speed + wind) / π. */
+export function l1DistanceM(spec: SurveySpec, v: SurveyVehicle = {}): number {
+  const period = v.navL1Period ?? PLANE_DEFAULTS.navL1Period
+  const damping = v.navL1Damping ?? PLANE_DEFAULTS.navL1Damping
+  return (period * damping * (spec.speedMs + spec.windMs)) / Math.PI
+}
+
 /**
- * ArduPlane counts a WP reached WP_RADIUS early: (a) split turns get cut when it exceeds half
- * a split chord, (b) photos start on the lead-in / turn when it exceeds the lead-in, (c) the
- * trigger stops before the shooting end when it exceeds the overshoot plus the along-track margin.
+ * ArduPlane accepts a WP at min(WP_RADIUS, L1) × |turn| / 90 before it (commands_logic.cpp
+ * verify_nav_wp): collinear lead-in / start / end / overshoot WPs are reached at their finish line,
+ * but each 30° split WP of a turn is let go that early, cutting the turn when it exceeds R·sin 15°.
  */
 function wpRadiusTooBig(i: WarningInput): boolean {
-  const g = i.geometry
-  const r = i.spec.wpRadiusM
-  const halfChord = g.turnRadiusM * Math.sin((ARC_SPLIT_DEG / 2) * RAD)
-  return (i.spec.turn === 'split' && r > halfChord) || r > g.leadInM || r > g.overshootM + g.marginAlongM
+  const accept = (Math.min(i.spec.wpRadiusM, l1DistanceM(i.spec, i.vehicle)) * ARC_SPLIT_DEG) / 90
+  return i.spec.turn === 'split' && accept > i.geometry.turnRadiusM * Math.sin((ARC_SPLIT_DEG / 2) * RAD)
+}
+
+/** Q_ASSIST_SPEED (when on) at or above the survey speed, or the speed within 2 m/s of AIRSPEED_MIN. */
+function nearStall(i: WarningInput): boolean {
+  const { assistSpeed, airspeedMin } = i.vehicle ?? {}
+  const assist = assistSpeed !== undefined && assistSpeed > 0 && i.spec.speedMs <= assistSpeed
+  return assist || (airspeedMin !== undefined && i.spec.speedMs < airspeedMin + AIRSPEED_MARGIN_MS)
 }
 
 /** The WAYPOINT before each trigger-on (DO_SET_CAM_TRIGG_DIST with a distance). */
@@ -101,6 +121,10 @@ const CHECKS: readonly (readonly [SurveyWarning, boolean, (i: WarningInput) => b
   ['arc', false, (i) => i.spec.turn === 'arc'],
   ['entry', true, entryMissed],
   ['wp_radius', true, wpRadiusTooBig],
+  ['l1', true, (i) => i.geometry.turnRadiusM < l1DistanceM(i.spec, i.vehicle)],
+  ['terrain', false, (i) => i.worst !== null && i.worst.lowAglM < MIN_CLEARANCE_M],
+  ['assist', true, nearStall],
+  ['cam_roll', false, (i) => i.vehicle?.camMaxRoll === 0],
   ['too_many', false, (i) => i.items.length > MAX_SURVEY_ITEMS],
   ['no_home', false, (i) => i.home === null],
 ]

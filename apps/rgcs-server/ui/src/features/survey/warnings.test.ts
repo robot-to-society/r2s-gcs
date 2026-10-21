@@ -28,11 +28,14 @@ const spec = (o: Partial<SurveySpec> = {}): SurveySpec => ({
   ...o,
 })
 
+/** NAVL1_PERIOD 12: L1 = 12 × 0.75 × 18 / π = 51.6 m, under R 57.2 m (no `l1`). */
+const TIGHT_L1 = { navL1Period: 12, navL1Damping: 0.75 }
+
 function input(s: SurveySpec, o: Partial<WarningInput> = {}): WarningInput {
   const r = generateSurvey(s, HOME)
   if ('error' in r) throw new Error(r.error)
   const numbers = surveyNumbers(s, r.geometry, r.items)
-  return { spec: s, geometry: r.geometry, numbers, worst: null, items: r.items, home: HOME, ...o }
+  return { spec: s, geometry: r.geometry, numbers, worst: null, items: r.items, home: HOME, vehicle: TIGHT_L1, ...o }
 }
 const warn = (s: SurveySpec, o: Partial<WarningInput> = {}): SurveyWarning[] => surveyWarnings(input(s, o))
 const predicted = (s: SurveySpec, wpRadius: number): PathPoint[] => {
@@ -51,7 +54,7 @@ describe('surveyWarnings', () => {
     // 0.9 cm: fine at 100 m AGL (0.84 px), blurred where the ground rises to 70 m AGL (1.2 px)
     const s = spec()
     expect(warn(s)).not.toContain('blur')
-    const worst: WorstCase = { gsdCm: 2, minGsdCm: gsdCm(CAM, 70), frontPct: 80, sidePct: 70 }
+    const worst: WorstCase = { gsdCm: 2, minGsdCm: gsdCm(CAM, 70), frontPct: 80, sidePct: 70, lowAglM: 70 }
     expect(warn(s, { worst })).toContain('blur')
   })
 
@@ -74,7 +77,7 @@ describe('surveyWarnings', () => {
   })
 
   it('overlap: worst front or side more than 10 points under the set value', () => {
-    const w = (frontPct: number, sidePct: number): WorstCase => ({ gsdCm: 1, minGsdCm: 1, frontPct, sidePct })
+    const w = (frontPct: number, sidePct: number): WorstCase => ({ gsdCm: 1, minGsdCm: 1, frontPct, sidePct, lowAglM: 100 })
     const s = spec()
     expect(warn(s, { worst: w(70, 60) })).not.toContain('overlap')
     expect(warn(s, { worst: w(69.9, 70) })).toContain('overlap')
@@ -85,26 +88,55 @@ describe('surveyWarnings', () => {
     expect(warn(spec({ turn: 'arc' }))).toContain('arc')
   })
 
-  it('wp_radius (a): split turns and WP_RADIUS > half the 30° chord', () => {
-    // R 57.2: chord 29.6 m, half 14.8 m (lead-in 60, overshoot 30 + margin 34 do not bind)
-    expect(warn(spec({ wpRadiusM: 15 }))).toContain('wp_radius')
-    expect(warn(spec({ wpRadiusM: 14 }))).not.toContain('wp_radius')
-    expect(warn(spec({ wpRadiusM: 15, turn: 'arc' }))).not.toContain('wp_radius')
+  it('wp_radius: split turns and min(WP_RADIUS, L1) × 30/90 > R·sin 15° (the split WPs are accepted early)', () => {
+    // R 57.2: R·sin 15° = 14.8 m; with L1 73 m (defaults), WP_RADIUS 45 → 15 m warns, 44 → 14.7 m does not
+    const defaults = { vehicle: {} }
+    expect(warn(spec({ wpRadiusM: 45 }), defaults)).toContain('wp_radius')
+    expect(warn(spec({ wpRadiusM: 44 }), defaults)).not.toContain('wp_radius')
+    expect(warn(spec({ wpRadiusM: 45, turn: 'arc' }), defaults)).not.toContain('wp_radius')
+    // L1 51.6 m caps WP_RADIUS 90: 17.2 m still warns; L1 40 m (period 9.3): 13.3 m does not
+    expect(warn(spec({ wpRadiusM: 90 }))).toContain('wp_radius')
+    expect(warn(spec({ wpRadiusM: 90 }), { vehicle: { navL1Period: 9.3, navL1Damping: 0.75 } })).not.toContain('wp_radius')
   })
 
-  it('wp_radius (b): WP_RADIUS beyond the lead-in (photos would start in the turn)', () => {
-    expect(warn(spec({ turn: 'arc', wpRadiusM: 50, leadInM: 49 }))).toContain('wp_radius')
-    expect(warn(spec({ turn: 'arc', wpRadiusM: 50, leadInM: 50 }))).not.toContain('wp_radius')
-  })
-
-  it('wp_radius (c): WP_RADIUS beyond overshoot + along-track margin (trigger off before the shooting end)', () => {
-    const s = (overshootM: number) => spec({ turn: 'arc', wpRadiusM: 50, leadInM: 60, marginM: 20, overshootM })
-    expect(warn(s(29))).toContain('wp_radius')
-    expect(warn(s(30))).not.toContain('wp_radius')
+  it('wp_radius: a WP_RADIUS beyond the lead-in or overshoot no longer warns (collinear WPs are accepted at the finish line)', () => {
+    expect(warn(spec({ turn: 'arc', wpRadiusM: 50, leadInM: 10, overshootM: 0, marginM: 0 }))).not.toContain('wp_radius')
   })
 
   it('wp_radius never for copter', () => {
     expect(warn(spec({ airframe: 'copter', speedMs: 8, wpRadiusM: 200 }))).not.toContain('wp_radius')
+  })
+
+  it('l1: plane turn radius under the L1 distance (NAVL1_PERIOD · NAVL1_DAMPING · (speed + wind) / π)', () => {
+    // defaults 17 × 0.75 × 18 / π = 73 m > R 57.2 m
+    expect(warn(spec(), { vehicle: {} })).toContain('l1')
+    expect(warn(spec())).not.toContain('l1')
+    // wind widens both: L1 = 12 × 0.75 × 28 / π = 80 m, R(28 m/s) = 138 m
+    expect(warn(spec({ windMs: 10 }))).not.toContain('l1')
+    expect(warn(spec({ airframe: 'copter', speedMs: 8 }), { vehicle: {} })).not.toContain('l1')
+  })
+
+  it('terrain: the lowest clearance (alt + home ground − highest ground) under 30 m', () => {
+    const w = (lowAglM: number): WorstCase => ({ gsdCm: 1, minGsdCm: 1, frontPct: 80, sidePct: 70, lowAglM })
+    expect(warn(spec(), { worst: w(29.9) })).toContain('terrain')
+    expect(warn(spec(), { worst: w(-5) })).toContain('terrain')
+    expect(warn(spec(), { worst: w(30) })).not.toContain('terrain')
+    expect(warn(spec())).not.toContain('terrain')
+  })
+
+  it('assist: plane speed at or under Q_ASSIST_SPEED, or under AIRSPEED_MIN + 2 (skipped when unknown)', () => {
+    expect(warn(spec(), { vehicle: { ...TIGHT_L1, assistSpeed: 18 } })).toContain('assist')
+    expect(warn(spec(), { vehicle: { ...TIGHT_L1, assistSpeed: 17.9 } })).not.toContain('assist')
+    expect(warn(spec(), { vehicle: { ...TIGHT_L1, assistSpeed: -1 } })).not.toContain('assist')
+    expect(warn(spec(), { vehicle: { ...TIGHT_L1, airspeedMin: 16.1 } })).toContain('assist')
+    expect(warn(spec(), { vehicle: { ...TIGHT_L1, airspeedMin: 16 } })).not.toContain('assist')
+    expect(warn(spec({ airframe: 'copter', speedMs: 8 }), { vehicle: { airspeedMin: 16 } })).not.toContain('assist')
+  })
+
+  it('cam_roll: the vehicle shoots while banked (CAM_MAX_ROLL 0); skipped when unknown', () => {
+    expect(warn(spec(), { vehicle: { ...TIGHT_L1, camMaxRoll: 0 } })).toContain('cam_roll')
+    expect(warn(spec(), { vehicle: { ...TIGHT_L1, camMaxRoll: 20 } })).not.toContain('cam_roll')
+    expect(warn(spec())).not.toContain('cam_roll')
   })
 
   it('too_many: more than 700 items', () => {
@@ -120,7 +152,10 @@ describe('surveyWarnings', () => {
 
   it('order follows the code list', () => {
     const s = spec({ skip: 0, turn: 'arc', camera: { ...CAM, minIntervalS: 2 }, bankDeg: 50, wpRadiusM: 90 })
-    expect(warn(s, { home: null, rollLimitDeg: 45 })).toEqual(['interval', 'skip', 'bank', 'arc', 'wp_radius', 'no_home'] satisfies SurveyWarning[])
+    expect(warn(s, { home: null, rollLimitDeg: 45 })).toEqual(['interval', 'skip', 'bank', 'arc', 'l1', 'no_home'] satisfies SurveyWarning[])
+    const t = spec({ skip: 0, wpRadiusM: 90 })
+    const w: WorstCase = { gsdCm: 1, minGsdCm: 1, frontPct: 80, sidePct: 70, lowAglM: 10 }
+    expect(warn(t, { worst: w, vehicle: { camMaxRoll: 0, assistSpeed: 20 } })).toEqual(['skip', 'wp_radius', 'l1', 'terrain', 'assist', 'cam_roll'] satisfies SurveyWarning[])
   })
 })
 

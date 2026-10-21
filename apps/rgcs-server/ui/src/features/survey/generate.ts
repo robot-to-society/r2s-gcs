@@ -39,6 +39,9 @@ const RAD = Math.PI / 180
 /** Corner preference as (north sign, east sign). */
 const CORNERS = { nw: [1, -1], ne: [1, 1], sw: [-1, -1], se: [-1, 1] } as const
 
+/** The auto lead-in is at least this many seconds of flight: time to settle on the lane after the turn. */
+const LEAD_IN_S = 8
+
 /** Rounds up to a multiple of 5 m. */
 const ceil5 = (m: number) => Math.ceil(m / 5 - 1e-9) * 5
 const unit = (headingDeg: number): Xy => ({ x: Math.sin(headingDeg * RAD), y: Math.cos(headingDeg * RAD) })
@@ -86,14 +89,15 @@ function chooseStart(spec: SurveySpec, built: readonly Lane[], base: Base, home:
 
 function baseGeometry(spec: SurveySpec): Base {
   const fp = footprint(spec.camera, spec.altM, spec.orientation)
-  const radius = turnRadiusM(spec.speedMs + spec.windMs, spec.bankDeg)
+  const groundMs = spec.speedMs + spec.windMs
+  const radius = turnRadiusM(groundMs, spec.bankDeg)
   const plane = spec.airframe === 'plane'
   return {
     turnRadiusM: radius,
     triggerDistM: triggerDistM(fp, spec.frontPct),
     spacingM: laneSpacingM(fp, spec.sidePct),
     footprint: fp,
-    leadInM: plane ? (spec.leadInM ?? ceil5(radius)) : 0,
+    leadInM: plane ? (spec.leadInM ?? ceil5(Math.max(radius, LEAD_IN_S * groundMs))) : 0,
     overshootM: plane ? (spec.overshootM ?? ceil5(radius / 2)) : 0,
     marginAlongM: spec.marginM ?? fp.alongM / 2,
     marginAcrossM: spec.marginM ?? fp.acrossM / 2,

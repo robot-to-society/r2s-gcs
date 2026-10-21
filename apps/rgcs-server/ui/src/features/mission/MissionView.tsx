@@ -9,7 +9,8 @@ import { useBriefing } from '../briefing/useBriefing'
 import { useBriefingWrite } from '../briefing/BatchWrite'
 import { useBriefingIo } from '../briefing/BriefingIo'
 import { useBriefingMap } from '../briefing/useBriefingMap'
-import { pathModel, pathParamNames, predictFor } from '../flightpath/predict'
+import { pathModel, predictFor } from '../flightpath/predict'
+import { vehicleParamNames } from '../survey/vehicleParams'
 import { usePathParams } from '../flightpath/usePathParams'
 import { CommandPalette } from './CommandPalette'
 import { ContextMenu } from './ContextMenu'
@@ -93,7 +94,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const placed = useMemo(() => ({ ...draft, items: placeTakeoffs(draft.items, takeoffAnchor(draft.mission.home, vehicle)) }), [draft, vehicle])
   // A plane / QuadPlane / copter gets its expected flight drawn over the plan from its own parameters (2026-10-20).
   const kind = vehicle?.kind ?? null
-  const pathValues = usePathParams(sysid, pathParamNames(kind))
+  const pathValues = usePathParams(sysid, vehicleParamNames(kind))
   // telemetry replaces the home object every update: depend on its values, not its identity
   const [hLat, hLon, hAlt] = [vehicle?.home?.lat, vehicle?.home?.lon, vehicle?.home?.alt]
   const predict = useMemo(() => {

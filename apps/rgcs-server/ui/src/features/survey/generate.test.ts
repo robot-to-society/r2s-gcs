@@ -63,7 +63,8 @@ describe('generateSurvey', () => {
   it('geometry: auto lead-in, overshoot and margins', () => {
     const g = gen(spec()).geometry
     expect(g.turnRadiusM).toBeCloseTo(57.22, 1)
-    expect(g.leadInM).toBe(60)
+    // ceil5(max(R, 8 s × (18 + 0) m/s)) = 145
+    expect(g.leadInM).toBe(145)
     expect(g.overshootM).toBe(30)
     expect(g.marginAlongM).toBeCloseTo(34, 6)
     expect(g.marginAcrossM).toBeCloseTo(51, 6)
@@ -71,6 +72,15 @@ describe('generateSurvey', () => {
     expect(g.triggerDistM).toBeCloseTo(13.6, 6)
     expect(g.lanes).toHaveLength(14)
     expect([...g.order].sort((a, b) => a - b)).toEqual(g.lanes.map((_, i) => i))
+  })
+
+  it('auto lead-in is ceil5(max(R, 8 × (speed + wind))) for plane, 0 for copter', () => {
+    expect(gen(spec({ windMs: 5 })).geometry.leadInM).toBe(185)
+    // 60° bank at 5 m/s: R 1.5 m, so the 8 s term (40 m) decides
+    expect(gen(spec({ speedMs: 5, bankDeg: 60 })).geometry.leadInM).toBe(40)
+    // a slow, shallow turn: R 102 m beats 8 × 12 = 96 m
+    expect(gen(spec({ speedMs: 12, bankDeg: 8 })).geometry.leadInM).toBe(105)
+    expect(gen(spec({ airframe: 'copter', speedMs: 8 })).geometry.leadInM).toBe(0)
   })
 
   it('explicit margin, lead-in and overshoot; wind widens the radius', () => {

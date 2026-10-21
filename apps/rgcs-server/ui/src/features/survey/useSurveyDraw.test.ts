@@ -96,6 +96,29 @@ describe('useSurveyDraw', () => {
     expect(copter.draft().surveys[0]!.spec).toMatchObject({ airframe: 'copter', bankDeg: 30, wpRadiusM: 90 })
   })
 
+  it('a plane survey starts with the suggested lane skip (2R apart); a copter one with none', () => {
+    const plane = setup()
+    plane.drawRect()
+    act(() => plane.hook.result.current.finish())
+    // α7R IV at 100 m, 70 % side: 30.6 m spacing; 18 m/s at 30°: R 57.2 m → skip 3
+    expect(plane.draft().surveys[0]!.spec.skip).toBe(3)
+    const copter = setup({ vehicle: { kind: 'copter', params: new Map() } })
+    copter.drawRect()
+    act(() => copter.hook.result.current.finish())
+    expect(copter.draft().surveys[0]!.spec.skip).toBe(0)
+  })
+
+  it('a connected plane flies the survey at its AIRSPEED_CRUISE (the parameter is only read)', () => {
+    const plane = setup({ vehicle: { kind: 'plane', params: new Map([['AIRSPEED_CRUISE', 22]]) } })
+    plane.drawRect()
+    act(() => plane.hook.result.current.finish())
+    expect(plane.draft().surveys[0]!.spec.speedMs).toBe(22)
+    const unknown = setup({ vehicle: { kind: 'plane', params: new Map() } })
+    unknown.drawRect()
+    act(() => unknown.hook.result.current.finish())
+    expect(unknown.draft().surveys[0]!.spec.speedMs).toBe(18)
+  })
+
   it('uses the first built-in camera when the list has one', () => {
     const cam: SurveyCamera = { id: 7, name: 'Builtin', sensor_w_mm: 13.2, sensor_h_mm: 8.8, image_w_px: 5472, image_h_px: 3648, focal_mm: 8.8, shutter_s: 0.001, min_interval_s: 2, builtin: true }
     const { hook, drawRect, draft } = setup({ cameras: [{ ...cam, id: 3, name: 'Mine', builtin: false }, cam] })
