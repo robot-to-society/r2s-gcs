@@ -34,3 +34,19 @@ export const fromValues = (v: SurveyCameraValues): SurveyCamera => ({
   min_interval_s: v.minIntervalS,
   builtin: false,
 })
+
+const positive = (n: number) => Number.isFinite(n) && n > 0
+
+/** Whether a camera can be sent to the server: finite positive numbers, whole pixel counts, shutter of 1 s or faster. */
+export const validCameraValues = (v: SurveyCameraValues): boolean =>
+  positive(v.sensorWmm) &&
+  positive(v.sensorHmm) &&
+  Number.isInteger(v.imageWpx) &&
+  v.imageWpx > 0 &&
+  Number.isInteger(v.imageHpx) &&
+  v.imageHpx > 0 &&
+  positive(v.focalMm) &&
+  positive(v.shutterS) &&
+  v.shutterS <= 1 &&
+  Number.isFinite(v.minIntervalS) &&
+  v.minIntervalS >= 0

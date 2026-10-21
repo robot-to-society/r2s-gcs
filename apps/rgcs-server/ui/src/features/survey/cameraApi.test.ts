@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ALPHA7R4 } from './spec'
-import { createCamera, deleteCamera, fromValues, listCameras, toValues, updateCamera } from './cameraApi'
+import { validCameraValues, createCamera, deleteCamera, fromValues, listCameras, toValues, updateCamera } from './cameraApi'
 
 const fetchMock = vi.fn()
 vi.mock('../../shared/api/client', () => ({ apiFetch: (...a: unknown[]) => fetchMock(...a) }))
@@ -27,5 +27,12 @@ describe('cameraApi', () => {
     expect(fetchMock).toHaveBeenLastCalledWith('/api/survey-cameras/3', { method: 'PUT', body: row })
     await deleteCamera(3)
     expect(fetchMock).toHaveBeenLastCalledWith('/api/survey-cameras/3', { method: 'DELETE' })
+  })
+
+  it('validCameraValues_rejects_non_finite_non_positive_fractional_pixels_and_slow_shutter', () => {
+    expect(validCameraValues(ALPHA7R4)).toBe(true)
+    for (const bad of [{ focalMm: 0 }, { sensorWmm: -1 }, { sensorHmm: NaN }, { imageWpx: 1.5 }, { imageHpx: Infinity }, { shutterS: 2 }, { shutterS: 0 }, { minIntervalS: -1 }]) {
+      expect(validCameraValues({ ...ALPHA7R4, ...bad })).toBe(false)
+    }
   })
 })

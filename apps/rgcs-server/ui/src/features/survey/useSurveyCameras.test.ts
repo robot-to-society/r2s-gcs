@@ -36,4 +36,53 @@ describe('useSurveyCameras', () => {
     const { result } = renderHook(() => useSurveyCameras())
     await waitFor(() => expect(result.current.error).toBe('boom'))
   })
+
+  const ready = async () => {
+    const h = renderHook(() => useSurveyCameras())
+    await waitFor(() => expect(h.result.current.cameras).toHaveLength(1))
+    return h
+  }
+
+  it('update_and_remove_call_the_api_and_reload', async () => {
+    vi.mocked(api.updateCamera).mockResolvedValue(built)
+    vi.mocked(api.deleteCamera).mockResolvedValue({})
+    const { result } = await ready()
+    await act(async () => {
+      expect(await result.current.update(5, ALPHA7R4)).toEqual(built)
+      expect(await result.current.remove(5)).toBe(true)
+    })
+    expect(api.updateCamera).toHaveBeenCalledWith(5, expect.objectContaining({ id: 5, builtin: false }))
+    expect(api.deleteCamera).toHaveBeenCalledWith(5)
+    expect(api.listCameras).toHaveBeenCalledTimes(3)
+  })
+
+  it('create_update_remove_failures_set_error_and_return_null', async () => {
+    vi.mocked(api.createCamera).mockRejectedValue(new Error('c'))
+    vi.mocked(api.updateCamera).mockRejectedValue(new Error('u'))
+    vi.mocked(api.deleteCamera).mockRejectedValue(new Error('d'))
+    const { result } = await ready()
+    for (const [run, msg] of [
+      [() => result.current.saveAs(ALPHA7R4, 'n'), 'c'],
+      [() => result.current.update(5, ALPHA7R4), 'u'],
+      [() => result.current.remove(5), 'd'],
+    ] as const) {
+      let out: unknown = 'x'
+      await act(async () => {
+        out = await run()
+      })
+      expect(out).toBeNull()
+      expect(result.current.error).toBe(msg)
+    }
+  })
+
+  it('refuses_invalid_values_without_calling_the_api', async () => {
+    const { result } = await ready()
+    await act(async () => {
+      expect(await result.current.saveAs({ ...ALPHA7R4, focalMm: 0 }, 'n')).toBeNull()
+      expect(await result.current.update(5, { ...ALPHA7R4, imageWpx: 1.5 })).toBeNull()
+    })
+    expect(api.createCamera).not.toHaveBeenCalled()
+    expect(api.updateCamera).not.toHaveBeenCalled()
+    expect(result.current.error).not.toBeNull()
+  })
 })

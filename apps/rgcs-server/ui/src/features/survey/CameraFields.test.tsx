@@ -65,4 +65,45 @@ describe('CameraFields', () => {
     fireEvent.click(screen.getByRole('button', { name: dict.svCamDeleteConfirm }))
     expect(p.onDelete).toHaveBeenCalledWith(2)
   })
+
+  it.each([['sensor', 'svSensorW'], ['shutter', 'svShutter'], ['pixels', 'svImageW'], ['interval', 'svMinInterval']] as const)('%s_rejects_empty_zero_negative_and_text', (_n, key) => {
+    const p = setup()
+    for (const bad of ['', '0', '-3', 'abc']) {
+      fireEvent.change(screen.getByLabelText(dict[key]), { target: { value: bad } })
+    }
+    if (key === 'svMinInterval') expect(p.onChange).toHaveBeenCalledTimes(1)
+    else expect(p.onChange).not.toHaveBeenCalled()
+  })
+
+  it('rejects_fractional_pixels_and_marks_the_field_invalid', () => {
+    const p = setup()
+    fireEvent.change(screen.getByLabelText(dict.svImageW), { target: { value: '12.5' } })
+    expect(p.onChange).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(dict.svImageW)).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('shutter_can_be_cleared_and_retyped', () => {
+    const p = setup()
+    const input = screen.getByLabelText(dict.svShutter)
+    fireEvent.change(input, { target: { value: '' } })
+    expect(input).toHaveValue(null)
+    fireEvent.change(input, { target: { value: '500' } })
+    expect(p.onChange).toHaveBeenCalledWith({ ...ALPHA7R4, shutterS: 0.002 })
+  })
+
+  it('save_and_update_are_disabled_while_a_field_is_invalid', () => {
+    setup()
+    fireEvent.change(screen.getByLabelText(dict.svCameraPick), { target: { value: '2' } })
+    fireEvent.change(screen.getByLabelText(dict.svSaveName), { target: { value: 'n' } })
+    expect(screen.getByRole('button', { name: dict.svSaveAs })).toBeEnabled()
+    fireEvent.change(screen.getByLabelText(dict.svFocal), { target: { value: '' } })
+    expect(screen.getByRole('button', { name: dict.svSaveAs })).toBeDisabled()
+    expect(screen.getByRole('button', { name: dict.svCamUpdate })).toBeDisabled()
+  })
+
+  it('save_and_update_are_disabled_for_invalid_values_prop', () => {
+    setup({ values: { ...ALPHA7R4, focalMm: 0 } })
+    fireEvent.change(screen.getByLabelText(dict.svSaveName), { target: { value: 'n' } })
+    expect(screen.getByRole('button', { name: dict.svSaveAs })).toBeDisabled()
+  })
 })

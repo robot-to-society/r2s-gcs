@@ -1,9 +1,10 @@
 // The shared survey camera list: loaded once, reloaded after every change.
 import { useCallback, useEffect, useState } from 'react'
 import type { SurveyCamera } from '../../shared/api/types'
-import { createCamera, deleteCamera, fromValues, listCameras, updateCamera } from './cameraApi'
+import { createCamera, deleteCamera, fromValues, listCameras, updateCamera, validCameraValues } from './cameraApi'
 import type { SurveyCameraValues } from './spec'
 
+const INVALID = 'invalid camera values'
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export interface SurveyCameras {
@@ -11,8 +12,8 @@ export interface SurveyCameras {
   readonly error: string | null
   readonly reload: () => Promise<void>
   readonly saveAs: (values: SurveyCameraValues, name: string) => Promise<SurveyCamera | null>
-  readonly update: (id: number, values: SurveyCameraValues) => Promise<void>
-  readonly remove: (id: number) => Promise<void>
+  readonly update: (id: number, values: SurveyCameraValues) => Promise<SurveyCamera | null>
+  readonly remove: (id: number) => Promise<true | null>
 }
 
 export function useSurveyCameras(): SurveyCameras {
@@ -47,9 +48,20 @@ export function useSurveyCameras(): SurveyCameras {
     [reload],
   )
 
-  const saveAs = useCallback((values: SurveyCameraValues, name: string) => change(() => createCamera(fromValues({ ...values, name }))), [change])
-  const update = useCallback(async (id: number, values: SurveyCameraValues) => void (await change(() => updateCamera(id, { ...fromValues(values), id }))), [change])
-  const remove = useCallback(async (id: number) => void (await change(() => deleteCamera(id))), [change])
+  const guarded = useCallback(
+    async (values: SurveyCameraValues, run: () => Promise<SurveyCamera>) => {
+      if (!validCameraValues(values)) {
+        setError(INVALID)
+        return null
+      }
+      return change(run)
+    },
+    [change],
+  )
+
+  const saveAs = useCallback((values: SurveyCameraValues, name: string) => guarded(values, () => createCamera(fromValues({ ...values, name }))), [guarded])
+  const update = useCallback((id: number, values: SurveyCameraValues) => guarded(values, () => updateCamera(id, { ...fromValues(values), id })), [guarded])
+  const remove = useCallback((id: number) => change(async () => (await deleteCamera(id), true as const)), [change])
 
   return { cameras, error, reload, saveAs, update, remove }
 }
