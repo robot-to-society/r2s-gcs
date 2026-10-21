@@ -28,7 +28,6 @@ const WHOLE: readonly DraftKey[] = ['imageWpx', 'imageHpx']
 function parseDraft(key: DraftKey, text: string): number | null {
   const n = text.trim() === '' ? NaN : Number(text)
   if (!Number.isFinite(n)) return null
-  if (key === 'minIntervalS') return n >= 0 ? n : null
   if (key === 'shutter') return n >= 1 ? n : null
   if (n <= 0 || (WHOLE.includes(key) && !Number.isInteger(n))) return null
   return n

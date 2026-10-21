@@ -71,8 +71,7 @@ describe('CameraFields', () => {
     for (const bad of ['', '0', '-3', 'abc']) {
       fireEvent.change(screen.getByLabelText(dict[key]), { target: { value: bad } })
     }
-    if (key === 'svMinInterval') expect(p.onChange).toHaveBeenCalledTimes(1)
-    else expect(p.onChange).not.toHaveBeenCalled()
+    expect(p.onChange).not.toHaveBeenCalled()
   })
 
   it('rejects_fractional_pixels_and_marks_the_field_invalid', () => {

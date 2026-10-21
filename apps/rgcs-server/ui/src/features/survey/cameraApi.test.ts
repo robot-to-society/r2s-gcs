@@ -31,7 +31,7 @@ describe('cameraApi', () => {
 
   it('validCameraValues_rejects_non_finite_non_positive_fractional_pixels_and_slow_shutter', () => {
     expect(validCameraValues(ALPHA7R4)).toBe(true)
-    for (const bad of [{ focalMm: 0 }, { sensorWmm: -1 }, { sensorHmm: NaN }, { imageWpx: 1.5 }, { imageHpx: Infinity }, { shutterS: 2 }, { shutterS: 0 }, { minIntervalS: -1 }]) {
+    for (const bad of [{ focalMm: 0 }, { sensorWmm: -1 }, { sensorHmm: NaN }, { imageWpx: 1.5 }, { imageHpx: Infinity }, { shutterS: 2 }, { shutterS: 0 }, { minIntervalS: -1 }, { minIntervalS: 0 }]) {
       expect(validCameraValues({ ...ALPHA7R4, ...bad })).toBe(false)
     }
   })

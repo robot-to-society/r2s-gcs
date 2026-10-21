@@ -48,5 +48,4 @@ export const validCameraValues = (v: SurveyCameraValues): boolean =>
   positive(v.focalMm) &&
   positive(v.shutterS) &&
   v.shutterS <= 1 &&
-  Number.isFinite(v.minIntervalS) &&
-  v.minIntervalS >= 0
+  positive(v.minIntervalS)
