@@ -40,6 +40,7 @@
 
 /* Surveys on the map: polygon vertex and rotate handles, and the footprint button. */
 .sv-vtx { width: 12px; height: 12px; border-radius: 3px; background: var(--caution); border: 2px solid var(--on-accent); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); cursor: grab; }
+.maplibregl-marker:has(.sv-vtx), .maplibregl-marker:has(.sv-rot) { z-index: 4; }
 .sv-rot { width: 16px; height: 16px; border-radius: 50%; background: var(--on-accent); border: 2px solid var(--caution); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); cursor: grab; }
 .sv-foot-btn { width: 40px; height: 40px; z-index: 3; border: 1px solid var(--line); }
 .survey-panel .sv-detail { font-size: 11px; margin-top: 2px; word-break: break-word; }

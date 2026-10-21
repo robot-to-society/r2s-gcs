@@ -9,4 +9,8 @@ describe('survey.css (final review M6)', () => {
   it('uses the Glass tokens, no hard-coded colours', () => {
     expect(css.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([])
   })
+
+  it('lifts the vertex and rotate handles above the waypoint badges', () => {
+    expect(css).toMatch(/\.maplibregl-marker:has\(\.sv-vtx\),\s*\.maplibregl-marker:has\(\.sv-rot\)\s*\{\s*z-index:\s*4;\s*\}/)
+  })
 })

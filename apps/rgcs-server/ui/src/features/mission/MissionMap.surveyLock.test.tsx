@@ -51,13 +51,20 @@ describe('MissionMap and survey items', () => {
     expect(live('rg-wp').map((m) => m.draggable)).toEqual([true])
   })
 
-  it('a selected survey shows its badges, none of them draggable', () => {
+  it('a selected survey item shows only its own badge, not draggable, so the vertex handles stay reachable', () => {
     const { d, survey } = planned()
-    renderMap({ draft: d, selected: new Set([survey[3]!]) })
+    const positioned = survey.find((uid) => d.items.find((it) => it.uid === uid)!.lat !== 0)!
+    renderMap({ draft: d, selected: new Set([positioned]) })
     const badges = live('rg-wp')
-    expect(badges.length).toBeGreaterThan(2)
-    expect(badges.slice(0, -1).every((m) => !m.draggable)).toBe(true)
-    expect(badges.at(-1)!.draggable).toBe(true)
+    expect(badges).toHaveLength(2)
+    expect(badges[0]!.draggable).toBe(false)
+    expect(badges[1]!.draggable).toBe(true)
+  })
+
+  it('selecting the survey row (its first, unpositioned item) shows no survey badges', () => {
+    const { d, survey } = planned()
+    renderMap({ draft: d, selected: new Set([survey[0]!]) })
+    expect(live('rg-wp').map((m) => m.draggable)).toEqual([true])
   })
 
   it('a "+" only on the leg leaving the survey', () => {
