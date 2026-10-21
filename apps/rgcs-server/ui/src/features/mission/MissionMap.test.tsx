@@ -631,6 +631,30 @@ describe('MissionMap survey drawing', () => {
     expect(created.markers.filter((m) => m.el.classList.contains('sv-draw-close') && !m.removed)).toHaveLength(0)
   })
 
+  it('while drawing every vertex is a draggable handle: a drag moves it, a click on it adds no vertex', () => {
+    const onClick = vi.fn()
+    const onClose = vi.fn()
+    const onMove = vi.fn()
+    const ring = [
+      { lat: 36, lon: 139 },
+      { lat: 36, lon: 139.01 },
+      { lat: 36.01, lon: 139.01 },
+    ]
+    renderMap({ surveyDraw: { ring, onClick, onClose, onMove } })
+    const vtx = created.markers.filter((m) => m.el.classList.contains('sv-vtx') && !m.removed)
+    expect(vtx).toHaveLength(3)
+    expect(vtx.every((m) => m.draggable)).toBe(true)
+    vtx[1]!.setLngLat([139.02, 36.005])
+    act(() => vtx[1]!.fire('drag'))
+    expect(onMove).toHaveBeenLastCalledWith(1, 36.005, 139.02)
+    act(() => vtx[1]!.el.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    expect(onClick).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+    // the first one still closes the ring when clicked
+    act(() => vtx[0]!.el.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('while drawing: no mid-leg handles, a badge click is a vertex at the waypoint, badges do not drag, no box select', () => {
     const onClick = vi.fn()
     const { props, container } = renderMap({ tool: 'add', surveyDraw: { ring: [], onClick, onClose: vi.fn() } })

@@ -1,4 +1,4 @@
-// Drawing a survey area on the map (click vertices, Enter / first vertex to finish, Esc to cancel)
+// Drawing a survey area on the map (click vertices, drag them, Enter / first vertex to finish, Esc to cancel)
 // or taking one from a KML file: either way the survey is generated with the defaults and inserted
 // after the selected item as one undo step, then selected.
 import { useState } from 'react'
@@ -56,6 +56,7 @@ export function useSurveyDraw({ change, afterUid, home, cameras, vehicle, select
     setDrawing([])
   }
   const addVertex = (p: LatLon) => setDrawing((ring) => (ring ? [...ring, { lat: p.lat, lon: p.lon }] : ring))
+  const moveVertex = (i: number, p: LatLon) => setDrawing((ring) => (ring ? ring.map((v, j) => (j === i ? { lat: p.lat, lon: p.lon } : v)) : ring))
   const cancel = () => {
     setError(null)
     setDrawing(null)
@@ -70,5 +71,5 @@ export function useSurveyDraw({ change, afterUid, home, cameras, vehicle, select
 
   const dismissError = () => setError(null)
 
-  return { drawing, error, start, addVertex, finish, cancel, fromKml, dismissError }
+  return { drawing, error, start, addVertex, moveVertex, finish, cancel, fromKml, dismissError }
 }

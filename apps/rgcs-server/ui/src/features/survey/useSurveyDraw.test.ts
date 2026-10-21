@@ -32,6 +32,14 @@ describe('useSurveyDraw', () => {
     expect(hook.result.current.drawing).toEqual([RECT[0]])
   })
 
+  it('moveVertex moves one vertex of the area being drawn, leaving the others', () => {
+    const { hook, drawRect, change } = setup()
+    drawRect()
+    act(() => hook.result.current.moveVertex(1, { lat: 36.3, lon: 139.3 }))
+    expect(hook.result.current.drawing).toEqual([RECT[0], { lat: 36.3, lon: 139.3 }, ...RECT.slice(2)])
+    expect(change).not.toHaveBeenCalled()
+  })
+
   it('finish creates the survey after the selected item and selects its first item', () => {
     const { hook, drawRect, draft, select } = setup({ afterUid: 2 })
     drawRect()

@@ -104,7 +104,7 @@ export function useSurveyWiring({ store, draft, change, afterUid, home, kind, pa
     draw.fromKml(ring, name)
     onFit(ring)
   }
-  const mapDraw: SurveyDrawMap | null = draw.drawing ? { ring: draw.drawing, onClick: (lat, lon) => draw.addVertex({ lat, lon }), onClose: draw.finish } : null
+  const mapDraw: SurveyDrawMap | null = draw.drawing ? { ring: draw.drawing, onClick: (lat, lon) => draw.addVertex({ lat, lon }), onClose: draw.finish, onMove: (i, lat, lon) => draw.moveVertex(i, { lat, lon }) } : null
 
   const side = useMapSide({ draft, change, home, params, terrainTiles, predict, tab })
 
