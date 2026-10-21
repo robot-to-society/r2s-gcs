@@ -44,7 +44,7 @@ function Row({ e, dict, onAck }: { readonly e: LogEntry; readonly dict: Dict; re
   )
 }
 
-/** メッセージ (prototype detail panel): the vehicle's newest entry (DETAIL_MESSAGES); alerts carry 確認. */
+/** メッセージ (prototype detail panel): the newest pending alert, else the newest entry (lastForVehicle); alerts carry 確認. */
 export function DetailMessages({ sysid, entries, dict, onAck, onOpenLog }: Props) {
   const list = lastForVehicle(entries, sysid)
   const pending = pendingAlerts(entries, sysid)
