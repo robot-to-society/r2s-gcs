@@ -1,0 +1,43 @@
+// Copy for the survey (photogrammetry grid) feature; camera keys first, the rest arrives with the survey panel.
+
+export const surveyJa = {
+  svCameraPick: 'カメラ',
+  svCameraCustom: '(手入力)',
+  svSensorW: 'センサー幅 (mm)',
+  svSensorH: 'センサー高さ (mm)',
+  svImageW: '画素数 横',
+  svImageH: '画素数 縦',
+  svFocal: '焦点距離 (mm)',
+  svShutter: 'シャッター (1/x s)',
+  svMinInterval: '最短撮影間隔 (s)',
+  svOrientation: '向き',
+  svLandscape: '横',
+  svPortrait: '縦',
+  svSaveName: '保存名',
+  svSaveAs: '名前を付けて保存',
+  svCamUpdate: '更新',
+  svCamDelete: '削除',
+  svCamDeleteConfirm: '削除を確定',
+  svCamLoadFailed: 'カメラ一覧を取得できません',
+}
+
+export const surveyEn: Record<keyof typeof surveyJa, string> = {
+  svCameraPick: 'Camera',
+  svCameraCustom: '(manual)',
+  svSensorW: 'Sensor width (mm)',
+  svSensorH: 'Sensor height (mm)',
+  svImageW: 'Pixels (width)',
+  svImageH: 'Pixels (height)',
+  svFocal: 'Focal length (mm)',
+  svShutter: 'Shutter (1/x s)',
+  svMinInterval: 'Min. shot interval (s)',
+  svOrientation: 'Orientation',
+  svLandscape: 'Landscape',
+  svPortrait: 'Portrait',
+  svSaveName: 'Name to save as',
+  svSaveAs: 'Save as',
+  svCamUpdate: 'Update',
+  svCamDelete: 'Delete',
+  svCamDeleteConfirm: 'Confirm delete',
+  svCamLoadFailed: 'Could not load the camera list',
+}
