@@ -11,6 +11,7 @@ import { firstView, follow3dCamera, followTarget, needsRecenter, type Padding } 
 import { useBasemapSwap } from './basemaps'
 import { KEEP_ELEVATION, type MapMode } from './mapMode'
 import { useVehicleAir } from './vehicleAir'
+import { useArrival } from './useArrival'
 import { MODE_EASE_MS } from './air3d'
 import { courseGeoJson, metresPerPixel } from './course'
 import { footprintsGeoJson, projectedIds } from './footprints'
@@ -52,6 +53,8 @@ interface Props {
   /** Right-click: the map point and the viewport position for a menu. */
   /** One-shot centre on a vehicle (from the message log). */
   readonly focus?: { readonly sysid: number; readonly n: number } | null
+  /** Bumped when the operations view is entered: the camera goes to the selected or nearest vehicle. */
+  readonly arrival?: number
   readonly onContext?: (p: { lat: number; lon: number; x: number; y: number }) => void
   /** Click on a mission badge (2D and 3D): the mission's vehicle, the badge number and its viewport spot. */
   readonly onWaypoint?: (p: WaypointPick) => void
@@ -81,7 +84,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint, onViewMove }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint, onViewMove, arrival = 0 }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -367,6 +370,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     m.easeTo({ center: [v.lon, v.lat], duration: 600, ...KEEP_ELEVATION })
   }, [focus, vehicles])
 
+  useArrival(map, arrival, vehicles, selected, follow)
+
   useEffect(() => {
     send(COURSE, courseGeoJson(vehicles, selected, metresPerPixel(zoom, map.current?.getCenter().lat ?? 36)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -412,3 +417,4 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
 
   return <div ref={container} className="map" data-testid="map" />
 }
+

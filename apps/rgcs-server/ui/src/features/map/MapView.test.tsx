@@ -487,6 +487,20 @@ describe('MapView', () => {
     rerender(<MapView {...props} focus={{ sysid: 2, n: 1 }} vehicles={new Map([[2, v(2, 3, 139.4, 36.2)]])} />)
     expect(m.eased.length).toBe(before + 1)
   })
+  it('entering the operations view (arrival) moves the camera to the vehicle nearest the map centre', () => {
+    const vehicles = new Map([[1, v(1, 3, 130, 30)], [2, v(2, 3, 139.39, 36.17)]])
+    const props = { vehicles, tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} arrival={0} />)
+    const m = created.maps.at(-1)!
+    const before = m.eased.length
+    rerender(<MapView {...props} arrival={1} />)
+    expect(m.eased.at(-1)).toMatchObject({ center: [139.39, 36.17] })
+    rerender(<MapView {...props} arrival={1} vehicles={new Map([[2, v(2, 3, 139.4, 36.2)]])} />)
+    expect(m.eased.length).toBe(before + 1)
+    // while following, the follow camera owns the view
+    rerender(<MapView {...props} follow={2} arrival={2} />)
+    expect(m.eased.filter((e) => (e as { center?: number[] }).center?.[0] === 130)).toHaveLength(0)
+  })
   it('following does not cancel the 2D → 3D camera tilt; it resumes once the tilt is done', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     try {

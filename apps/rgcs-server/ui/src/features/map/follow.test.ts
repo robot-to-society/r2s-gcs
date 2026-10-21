@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
-import { FOLLOW_DEADBAND_PX, firstView, follow3dCamera, followTarget, needsRecenter, padding } from './follow'
+import { FOLLOW_DEADBAND_PX, arrivalTarget, firstView, follow3dCamera, followTarget, needsRecenter, padding } from './follow'
 
 describe('map padding (spec 20 §4)', () => {
   it('matches the panel widths', () => {
@@ -23,6 +23,29 @@ describe('followTarget', () => {
     expect(followTarget(vehicles, 2)).toBeNull()
     expect(followTarget(vehicles, 9)).toBeNull()
     expect(followTarget(vehicles, null)).toBeNull()
+  })
+})
+
+describe('arrivalTarget (entering the operations view)', () => {
+  const at = (sysid: number, lat: number, lon: number, link: VehicleState['link'] = 'ok'): VehicleState => ({
+    sysid, name: 'x', kind: 'plane', mode: '', armed: false, lat, lon, alt_rel: 0, alt_msl: 0, hdg: null,
+    ground_speed: 0, climb: 0, battery: { pct: null, volt: 0, current: null }, link, last_rx_ms: 0,
+    gps: { fix: 3, sats: 10, hdop: null }, warn: false, unread: 0,
+  })
+  const centre: [number, number] = [139, 36]
+  it('one connected vehicle: that vehicle', () => {
+    expect(arrivalTarget(new Map([[1, at(1, 35, 138)]]), null, centre)).toBe(1)
+  })
+  it('several: the selected one when it is connected, else the one nearest the map centre', () => {
+    const vs = new Map([[1, at(1, 30, 130)], [2, at(2, 36.01, 139.01)], [3, at(3, 36.5, 139.5)]])
+    expect(arrivalTarget(vs, 3, centre)).toBe(3)
+    expect(arrivalTarget(vs, null, centre)).toBe(2)
+    expect(arrivalTarget(vs, 9, centre)).toBe(2)
+  })
+  it('skips lost links and vehicles without a position; none left gives null', () => {
+    const vs = new Map([[1, at(1, 36, 139, 'lost')], [2, at(2, 0, 0)], [3, at(3, 37, 140)]])
+    expect(arrivalTarget(vs, 1, centre)).toBe(3)
+    expect(arrivalTarget(new Map([[1, at(1, 36, 139, 'lost')]]), null, centre)).toBeNull()
   })
 })
 

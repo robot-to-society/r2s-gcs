@@ -8,6 +8,7 @@ import { DetailPanel, ackMessage } from '../features/detail'
 import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
+import { useOpsArrival } from './opsArrival'
 import { MaintView } from '../features/params'
 import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks, NO_PADDING, WpGoPopover, type WaypointPick } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
@@ -64,6 +65,7 @@ export function Shell({ me, lang }: Props) {
   // 詳細パネルのピン: the panel stays on this vehicle while the selection moves
   const [pinned, setPinned] = useState<number | null>(null)
   const [view, setView] = useState<View>('ops')
+  const arrival = useOpsArrival(view)
   // 全機体映像: the vehicle in the camera cockpit (null = the grid)
   const [maxVideo, setMaxVideo] = useState<number | null>(null)
   const [modal, setModal] = useState<Modal>(NO_MODAL)
@@ -254,6 +256,7 @@ export function Shell({ me, lang }: Props) {
               terrainTiles={settings.terrain_tiles}
               target={mapUi.target}
               focus={mapUi.focus}
+              arrival={arrival}
               mission={currentMission}
               predicted={predicted}
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}

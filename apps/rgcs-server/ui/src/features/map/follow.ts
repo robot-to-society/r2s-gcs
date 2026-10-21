@@ -37,6 +37,18 @@ export function firstView(vehicles: ReadonlyMap<number, VehicleState>): FirstVie
   return { bounds: [[w, s], [e, n]] }
 }
 
+/**
+ * The vehicle the camera goes to when the operations view is entered: the selected one when it is
+ * connected with a position, else the connected one nearest the map centre (`[lon, lat]`).
+ */
+export function arrivalTarget(vehicles: ReadonlyMap<number, VehicleState>, selected: number | null, centre: readonly [number, number]): number | null {
+  const live = [...vehicles.values()].filter((v) => v.link !== 'lost' && hasPosition(v))
+  if (live.some((v) => v.sysid === selected)) return selected
+  const k = Math.cos((centre[1] * Math.PI) / 180)
+  const d2 = (v: VehicleState) => ((v.lon - centre[0]) * k) ** 2 + (v.lat - centre[1]) ** 2
+  return live.reduce<VehicleState | null>((best, v) => (best === null || d2(v) < d2(best) ? v : best), null)?.sysid ?? null
+}
+
 /** `[lon, lat]` of the followed vehicle, or null when nothing to centre on. */
 export function followTarget(vehicles: ReadonlyMap<number, VehicleState>, follow: number | null): [number, number] | null {
   if (follow === null) return null
