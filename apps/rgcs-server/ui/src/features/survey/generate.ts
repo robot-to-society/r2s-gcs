@@ -4,7 +4,7 @@ import type { MissionItem } from '../../shared/api/types'
 import { toLocal, type Xy } from '../mission/arc'
 import { legDistanceM, positioned, type LatLon } from '../mission/geo'
 import { buildItems, type Run } from './items'
-import { buildLanes, orderLanes, polygonAreaM2, type Lane } from './lanes'
+import { buildLanes, laneRows, MAX_LANES, orderLanes, polygonAreaM2, type Lane } from './lanes'
 import { blur, footprint, gsdCm, laneSpacingM, triggerDistM, turnRadiusM, type Footprint } from './photo'
 import type { SurveySpec } from './spec'
 
@@ -112,12 +112,23 @@ export function surveyGeometry(spec: SurveySpec, home: LatLon | null): SurveyGeo
   return { ...base, ...chooseStart(spec, built, base, home) }
 }
 
-export function generateSurvey(
-  spec: SurveySpec,
-  home: LatLon | null,
-): { items: MissionItem[]; geometry: SurveyGeometry } | { error: 'invalid_polygon' } {
+/** More items than this are refused (the editor and the 3D map stay responsive). */
+export const MAX_GENERATED_ITEMS = 5000
+
+export type GenerateError = 'invalid_polygon' | 'too_large'
+
+/** The lane rows the spec needs exceed MAX_LANES: answered before any lane is built. */
+function tooManyRows(spec: SurveySpec): boolean {
+  const base = baseGeometry(spec)
+  return laneRows(spec.polygon, spec.angleDeg, base.spacingM, base.marginAcrossM) > MAX_LANES
+}
+
+export function generateSurvey(spec: SurveySpec, home: LatLon | null): { items: MissionItem[]; geometry: SurveyGeometry } | { error: GenerateError } {
+  if (tooManyRows(spec)) return { error: 'too_large' }
   const geometry = surveyGeometry(spec, home)
   if (!geometry) return { error: 'invalid_polygon' }
+  // a concave area can split rows into more lanes than rows
+  if (geometry.lanes.length > MAX_LANES) return { error: 'too_large' }
   const origin = spec.polygon[0]
   const ctx = {
     origin,
@@ -128,7 +139,8 @@ export function generateSurvey(
     turn: spec.turn,
     airframe: spec.airframe,
   }
-  return { items: buildItems(toRuns(geometry, origin, spec.angleDeg), ctx), geometry }
+  const items = buildItems(toRuns(geometry, origin, spec.angleDeg), ctx)
+  return items.length > MAX_GENERATED_ITEMS ? { error: 'too_large' } : { items, geometry }
 }
 
 /** Metres flown from the first to the last positioned item (arcs along the arc). */

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { toLocal } from '../mission/arc'
 import type { LatLon } from '../mission/geo'
 import type { ElevAt } from '../map/air'
@@ -24,6 +24,17 @@ const eastOf = (lon: number, lat: number) => toLocal(O, { lat, lon }).x
 const ramp: ElevAt = (lon, lat) => Math.min(100, Math.max(0, ((eastOf(lon, lat) - 50) / 300) * 100))
 
 describe('groundRange', () => {
+  it('a thin diagonal sliver samples at most 2000 points (the grid is sized on its bounding box)', () => {
+    // 20 km diagonal, 2 m wide: tiny area, huge bounding box
+    const sliver = [at(0, 0), at(20_000, 20_000), at(20_002, 20_000), at(2, 0)]
+    const elevAt = vi.fn<ElevAt>(() => 7)
+    const started = performance.now()
+    expect(groundRange(sliver, elevAt)).toEqual({ min: 7, max: 7 })
+    // a 10 m grid over the 20 km box would test 4 million cells first
+    expect(performance.now() - started).toBeLessThan(1500)
+    expect(elevAt.mock.calls.length).toBeLessThanOrEqual(2000)
+  })
+
   it('min and max of the ground inside the polygon', () => {
     expect(groundRange(RECT, ramp)).toEqual({ min: 0, max: 100 })
     expect(groundRange(RECT, () => 42)).toEqual({ min: 42, max: 42 })

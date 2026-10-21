@@ -75,6 +75,18 @@ describe('useSurveyDraw', () => {
     expect(hook.result.current.drawing).toHaveLength(3)
   })
 
+  it('an area too large to generate is refused at once with too_large: nothing inserted, no freeze', () => {
+    const { hook, change } = setup()
+    act(() => hook.result.current.start())
+    ;[at(0, 0), at(40_000, 0), at(40_000, 40_000), at(0, 40_000)].forEach((p) => act(() => hook.result.current.addVertex(p)))
+    const started = performance.now()
+    act(() => hook.result.current.finish())
+    expect(performance.now() - started).toBeLessThan(500)
+    expect(change).not.toHaveBeenCalled()
+    expect(hook.result.current.error).toBe('too_large')
+    expect(hook.result.current.drawing).toHaveLength(4)
+  })
+
   it('without a vehicle: plane, bank 30, WP_RADIUS 90, the α7R IV', () => {
     const { hook, drawRect, draft } = setup()
     drawRect()

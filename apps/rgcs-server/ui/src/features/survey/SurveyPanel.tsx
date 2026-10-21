@@ -5,8 +5,15 @@ import { CameraFields } from './CameraFields'
 import { SurveyFields } from './SurveyFields'
 import { SurveyNumbers } from './SurveyNumbers'
 import { SurveyWarnings } from './SurveyWarnings'
+import type { SurveyRejection } from './useSurvey'
 import type { SurveyEditor } from './useSurveyEditor'
 import { useSurveyCameras } from './useSurveyCameras'
+
+const REJECTION_TEXT: Readonly<Record<SurveyRejection, keyof Dict>> = {
+  invalid_polygon: 'svInvalidPolygon',
+  invalid_spec: 'svInvalidSpec',
+  too_large: 'svTooLarge',
+}
 
 interface Props {
   /** A selected item of the survey. */
@@ -22,6 +29,7 @@ export function SurveyPanel({ uid, dict, sv }: Props) {
   if (!survey) return null
   const { id, spec } = survey
   const m = sv.metrics(id)
+  const rejected = sv.rejectedFor(id)
   const set = (patch: Parameters<typeof sv.update>[1], phase?: Parameters<typeof sv.update>[2]) => sv.update(id, patch, phase)
   return (
     <div className="sec survey-panel" data-testid="survey-panel">
@@ -46,8 +54,8 @@ export function SurveyPanel({ uid, dict, sv }: Props) {
         />
       </div>
       <SurveyFields spec={spec} metrics={m} dict={dict} onChange={set} />
-      {sv.rejected && <div className="hint caution sv-warn">{sv.rejected === 'invalid_polygon' ? dict.svInvalidPolygon : dict.svInvalidSpec}</div>}
-      {m ? <SurveyNumbers spec={spec} metrics={m} dict={dict} /> : !sv.rejected && <div className="hint caution sv-warn">{dict.svInvalidPolygon}</div>}
+      {rejected && <div className="hint caution sv-warn">{dict[REJECTION_TEXT[rejected]]}</div>}
+      {m ? <SurveyNumbers spec={spec} metrics={m} dict={dict} /> : !rejected && <div className="hint caution sv-warn">{dict.svInvalidPolygon}</div>}
       {m && <SurveyWarnings spec={spec} metrics={m} dict={dict} />}
       <button type="button" className="btn sv-expand" onClick={() => sv.expand(id)}>
         {dict.svExpand}

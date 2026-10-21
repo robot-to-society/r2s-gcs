@@ -3,6 +3,8 @@ import { z } from 'zod'
 import type { LatLon } from '../mission/geo'
 
 const latLon = z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) })
+/** As many vertices as a KML ring may bring (kml.ts MAX_RING_VERTICES). */
+export const MAX_POLYGON_VERTICES = 10_000
 
 const cameraSchema = z.object({
   name: z.string(),
@@ -18,7 +20,7 @@ const cameraSchema = z.object({
 export const surveySpecSchema = z.object({
   version: z.literal(1),
   name: z.string(),
-  polygon: z.array(latLon),
+  polygon: z.array(latLon).max(MAX_POLYGON_VERTICES),
   camera: cameraSchema,
   orientation: z.enum(['landscape', 'portrait']),
   altM: z.number().min(5).max(1000),

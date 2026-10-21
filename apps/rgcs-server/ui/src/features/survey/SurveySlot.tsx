@@ -37,9 +37,9 @@ export function SurveySlot({ dict, drawing, error, onFinish, onCancel, onDismiss
           </div>
         </div>
       )}
-      {error === 'invalid_polygon' && (
+      {error && (
         <div className="hint caution sv-draw row" role="alert" style={{ gap: 8 }}>
-          <span className="grow">{dict.svInvalidPolygon}</span>
+          <span className="grow">{error === 'too_large' ? dict.svTooLarge : dict.svInvalidPolygon}</span>
           <button type="button" className="btn-icon sm" aria-label={dict.close} onClick={onDismiss}>
             <IconClose size={14} />
           </button>

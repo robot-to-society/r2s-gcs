@@ -7,7 +7,7 @@ import type { LatLon } from '../mission/geo'
 import type { Draft } from '../mission/model'
 import { creationSpec, type DrawVehicle } from './creationSpec'
 import { addSurvey } from './draftOps'
-import { generateSurvey } from './generate'
+import { generateSurvey, type GenerateError } from './generate'
 
 export type { DrawVehicle } from './creationSpec'
 
@@ -25,7 +25,7 @@ interface Args {
 
 const MIN_VERTICES = 3
 
-export type DrawError = 'invalid_polygon'
+export type DrawError = GenerateError
 
 export function useSurveyDraw({ change, afterUid, home, cameras, vehicle, select }: Args) {
   const [drawing, setDrawing] = useState<readonly LatLon[] | null>(null)

@@ -47,6 +47,8 @@ describe('buildLanes', () => {
   })
   it('null for invalid polygons', () => {
     expect(buildLanes([], 0, 50, 0, 0)).toBeNull()
+    // a guard: more rows than MAX_LANES are never built
+    expect(buildLanes(RECT, 90, 0.01, 0, 0)).toBeNull()
     expect(buildLanes([at(0, 0), at(10, 10)], 0, 50, 0, 0)).toBeNull()
     expect(buildLanes([at(0, 0), at(100, 100), at(100, 0), at(0, 100)], 0, 50, 0, 0)).toBeNull()
     expect(buildLanes([at(0, 0), at(0.5, 0), at(0, 0.5)], 0, 50, 0, 0)).toBeNull()

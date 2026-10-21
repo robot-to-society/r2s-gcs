@@ -4,7 +4,6 @@ import type { ElevAt } from '../map/air'
 import { fromLocal, toLocal, type Xy } from '../mission/arc'
 import type { LatLon } from '../mission/geo'
 import type { SurveyGeometry } from './generate'
-import { polygonAreaM2 } from './lanes'
 import { footprint, gsdCm } from './photo'
 import type { SurveySpec } from './spec'
 
@@ -52,17 +51,27 @@ function gridInside(pts: readonly Xy[], step: number): Xy[] {
   return cells.filter((c) => inside(pts, c))
 }
 
-/** Grid samples inside the polygon: at most MAX_SAMPLES, at least MIN_STEP_M apart. */
+/** The grid step whose cells over the bounding box number at most MAX_SAMPLES (≥ MIN_STEP_M). */
+function boxStep(pts: readonly Xy[]): number {
+  const w = Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x))
+  const h = Math.max(...pts.map((p) => p.y)) - Math.min(...pts.map((p) => p.y))
+  let step = Math.max(Math.sqrt((w * h) / MAX_SAMPLES), w / MAX_SAMPLES, h / MAX_SAMPLES, MIN_STEP_M)
+  while (Math.ceil(w / step) * Math.ceil(h / step) > MAX_SAMPLES) step *= 1.01
+  return step
+}
+
+/** Every k-th vertex, at most MAX_SAMPLES of them. */
+const someVertices = (polygon: readonly LatLon[]): LatLon[] => polygon.filter((_, i) => i % Math.ceil(polygon.length / MAX_SAMPLES) === 0)
+
+/**
+ * Grid samples inside the polygon: at most MAX_SAMPLES (the grid is sized on the bounding box, so a
+ * thin diagonal sliver never scans millions of cells); a sliver the grid misses samples its vertices.
+ */
 function samplePoints(polygon: readonly LatLon[]): LatLon[] {
   const origin = polygon[0]
   const pts = polygon.map((p) => toLocal(origin, p))
-  let step = Math.max(Math.sqrt(polygonAreaM2(polygon) / MAX_SAMPLES), MIN_STEP_M)
-  let cells = gridInside(pts, step)
-  while (cells.length > MAX_SAMPLES) {
-    step *= Math.sqrt(cells.length / MAX_SAMPLES) * 1.01
-    cells = gridInside(pts, step)
-  }
-  return cells.map((c) => fromLocal(origin, c))
+  const cells = gridInside(pts, boxStep(pts))
+  return cells.length > 0 ? cells.map((c) => fromLocal(origin, c)) : someVertices(polygon)
 }
 
 /** Lowest and highest ground (AMSL) inside the polygon; null when no sample has data. */

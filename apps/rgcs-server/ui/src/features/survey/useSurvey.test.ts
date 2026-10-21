@@ -56,6 +56,22 @@ describe('useSurvey', () => {
     expect(s.hook.result.current.rejected).toBe('invalid_spec')
   })
 
+  it('a_change_making_the_survey_too_large_is_rejected_and_nothing_is_committed', () => {
+    const s = setup()
+    const poly = s.draft().surveys[0]!.spec.polygon
+    // stretched about 33 km north at 95 % side overlap (5 m spacing): thousands of lanes
+    act(() => s.hook.result.current.update(s.id, { polygon: poly.map((p, i) => (i >= 2 ? { ...p, lat: p.lat + 0.3 } : p)), sidePct: 95 }))
+    expect(s.commits).not.toHaveBeenCalled()
+    expect(s.hook.result.current.rejected).toBe('too_large')
+  })
+
+  it('rejected_belongs_to_the_survey_it_was_raised_for', () => {
+    const s = setup()
+    act(() => s.hook.result.current.update(s.id, { altM: 2 }))
+    expect(s.hook.result.current.rejectedFor(s.id)).toBe('invalid_spec')
+    expect(s.hook.result.current.rejectedFor('another')).toBeNull()
+  })
+
   it('live_updates_preview_once_per_frame_and_done_commits_once', () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
     const s = setup()

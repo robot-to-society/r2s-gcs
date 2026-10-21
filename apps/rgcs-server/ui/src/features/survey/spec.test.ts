@@ -37,5 +37,6 @@ describe('surveySpecSchema', () => {
     ['alt 1001', { altM: 1001 }],
     ['side 96', { sidePct: 96 }],
     ['polygon without lat', { polygon: [{ lon: 1 }] }],
+    ['polygon of 10 001 vertices', { polygon: Array.from({ length: 10_001 }, (_, i) => ({ lat: 35, lon: 139 + i * 1e-6 })) }],
   ])('rejects %s', (_n, patch) => expect(surveySpecSchema.safeParse({ ...ok, ...patch }).success).toBe(false))
 })

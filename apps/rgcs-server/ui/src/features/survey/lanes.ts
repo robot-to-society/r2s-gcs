@@ -12,6 +12,8 @@ export interface Lane {
 }
 
 const RAD = Math.PI / 180
+/** More lanes than this are never built (a survey that big is refused as too large). */
+export const MAX_LANES = 1000
 const MIN_AREA_M2 = 1
 /** Keeps the scan line strictly inside the polygon at its extreme lanes. */
 const EDGE_INSET_M = 0.01
@@ -69,9 +71,18 @@ function crossingsAt(pts: readonly Xy[], y: number): readonly number[] {
   return xs.sort((a, b) => a - b)
 }
 
+/** The lane rows across `polygon` at this spacing (cheap: what buildLanes would scan). */
+export function laneRows(polygon: readonly LatLon[], angleDeg: number, spacingM: number, marginAcrossM: number): number {
+  if (polygon.length < 3 || !(spacingM > 0)) return 0
+  const v = { x: Math.cos(angleDeg * RAD), y: -Math.sin(angleDeg * RAD) }
+  const ys = ring(polygon).map((p) => p.x * v.x + p.y * v.y)
+  return Math.max(1, Math.ceil((Math.max(...ys) - Math.min(...ys) + 2 * marginAcrossM) / spacingM - CEIL_EPS))
+}
+
 /**
  * Lanes covering `polygon`, sorted by y then x; null when the polygon is invalid (< 3 vertices,
- * area < 1 m², self-intersecting). `marginAcrossM` widens the covered band on both sides.
+ * area < 1 m², self-intersecting) or needs more than MAX_LANES rows. `marginAcrossM` widens the
+ * covered band on both sides.
  */
 export function buildLanes(
   polygon: readonly LatLon[],
@@ -80,7 +91,7 @@ export function buildLanes(
   marginAlongM: number,
   marginAcrossM: number,
 ): Lane[] | null {
-  if (polygon.length < 3 || !(spacingM > 0)) return null
+  if (polygon.length < 3 || !(spacingM > 0) || laneRows(polygon, angleDeg, spacingM, marginAcrossM) > MAX_LANES) return null
   const local = ring(polygon)
   if (shoelace(local) < MIN_AREA_M2 || selfIntersects(local)) return null
   const o = polygon[0]

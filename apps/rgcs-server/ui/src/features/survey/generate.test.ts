@@ -244,3 +244,17 @@ describe('surveyNumbers', () => {
     expect(n.blur.cm).toBeCloseTo(2.0, 6)
   })
 })
+
+describe('size caps (final review I4)', () => {
+  const square = (m: number) => [at(0, 0), at(m, 0), at(m, m), at(0, m)]
+  it('more than 1000 lanes is too_large, answered without building them', () => {
+    // 40 km at 30.6 m spacing: about 1300 lanes
+    const started = performance.now()
+    expect(generateSurvey(spec({ polygon: square(40_000) }), null)).toEqual({ error: 'too_large' })
+    expect(performance.now() - started).toBeLessThan(500)
+  })
+  it('more than 5000 items is too_large', () => {
+    // 15 km: about 490 lanes of about a dozen items each
+    expect(generateSurvey(spec({ polygon: square(15_000) }), null)).toEqual({ error: 'too_large' })
+  })
+})
