@@ -1,6 +1,6 @@
 // Survey editing for the panel: reads a survey (with its live preview), regenerates its items on a
 // change (one undo step), and derives the numbers, terrain worst case and warnings per spec.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { MissionItem } from '../../shared/api/types'
 import { planeParams } from '../flightpath/params'
 import type { ElevAt } from '../map/air'
@@ -10,6 +10,7 @@ import type { Draft, DraftSurvey } from '../mission/model'
 import { expandSurvey, regenerateSurvey, surveyAt } from './draftOps'
 import { generateSurvey, surveyNumbers, type SurveyGeometry, type SurveyNumbers } from './generate'
 import { surveySpecSchema, type SurveySpec } from './spec'
+import { useFramePreview } from './useFramePreview'
 import { surveyWarnings, type SurveyWarning } from './warnings'
 import { groundRange, worstCase, type GroundRange, type WorstCase } from './worst'
 
@@ -48,9 +49,6 @@ interface Preview {
   readonly spec: SurveySpec
 }
 
-const frame = (cb: () => void): number => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(cb) : window.setTimeout(cb, 16))
-const cancelFrame = (h: number) => (typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame(h) : window.clearTimeout(h))
-
 interface MetricsCtx {
   readonly draft: Draft
   readonly id: string
@@ -73,67 +71,58 @@ function computeMetrics(spec: SurveySpec, c: MetricsCtx): SurveyMetrics | null {
   return { spec, items, geometry, numbers, ground, worst, warnings, rollLimitDeg: c.rollLimitDeg }
 }
 
-export function useSurvey({ draft, change, home, elevAt, vehicleParams, predict, terrainTick = 0 }: SurveyArgs) {
-  const [preview, setPreview] = useState<Preview | null>(null)
-  const pending = useRef<Preview | null>(null)
-  const scheduled = useRef<number | null>(null)
-  useEffect(() => () => void (scheduled.current !== null && cancelFrame(scheduled.current)), [])
+/** Why the last change was not applied: no lanes fit, or the spec is out of range. */
+export type SurveyRejection = 'invalid_polygon' | 'invalid_spec'
 
+/** Validates and regenerates; returns the regenerated draft updater, or why it cannot be applied. */
+function regenerate(id: string, spec: SurveySpec, home: LatLon | null): ((d: Draft) => Draft) | SurveyRejection {
+  if (!surveySpecSchema.safeParse(spec).success) return 'invalid_spec'
+  const gen = generateSurvey(spec, home)
+  if ('error' in gen) return gen.error
+  return (d) => regenerateSurvey(d, id, spec, gen.items)
+}
+
+/** A release without a drag, or a value typed back unchanged, is not an edit. */
+const isNoop = (base: SurveySpec, patch: Partial<SurveySpec>): boolean => (Object.keys(patch) as (keyof SurveySpec)[]).every((k) => patch[k] === base[k])
+
+export function useSurvey({ draft, change, home, elevAt, vehicleParams, predict, terrainTick = 0 }: SurveyArgs) {
+  const frames = useFramePreview<Preview>()
+  const [rejected, setRejected] = useState<SurveyRejection | null>(null)
   const rollLimitDeg = vehicleParams.has('ROLL_LIMIT_DEG') ? planeParams(vehicleParams).params.rollLimitDeg : undefined
   const [hLat, hLon] = [home?.lat, home?.lon]
   // memoised on the spec object; a new cache whenever the inputs besides the spec change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const cache = useMemo(() => new WeakMap<SurveySpec, SurveyMetrics | null>(), [hLat, hLon, elevAt, terrainTick, rollLimitDeg, predict])
-
-  const specOf = useCallback(
-    (id: string): SurveySpec | null => (pending.current?.id === id ? pending.current.spec : (draft.surveys.find((s) => s.id === id)?.spec ?? null)),
-    [draft],
-  )
-
-  const commit = useCallback(
-    (id: string, spec: SurveySpec) => {
-      if (!surveySpecSchema.safeParse(spec).success) return
-      const gen = generateSurvey(spec, home)
-      if ('error' in gen) return
-      change((d) => regenerateSurvey(d, id, spec, gen.items))
-    },
-    [change, home],
-  )
+  const shown = (id: string): SurveySpec | undefined => (frames.preview?.id === id ? frames.preview.spec : draft.surveys.find((s) => s.id === id)?.spec)
 
   const update = useCallback(
     (id: string, patch: Partial<SurveySpec>, phase?: UpdatePhase) => {
-      const base = specOf(id)
+      const held = frames.pending()
+      const base = held?.id === id ? held.spec : draft.surveys.find((s) => s.id === id)?.spec
       if (!base) return
       const spec = { ...base, ...patch }
-      // a release without a drag, or a value typed back unchanged, is not an edit
-      const unchanged = (Object.keys(patch) as (keyof SurveySpec)[]).every((k) => patch[k] === base[k])
-      if (phase !== 'live' && unchanged && pending.current?.id !== id) return
       if (phase === 'live') {
-        pending.current = { id, spec }
-        if (scheduled.current === null) {
-          scheduled.current = frame(() => {
-            scheduled.current = null
-            setPreview(pending.current)
-          })
-        }
+        setRejected(null)
+        frames.live({ id, spec })
         return
       }
-      if (scheduled.current !== null) cancelFrame(scheduled.current)
-      scheduled.current = null
-      pending.current = null
-      setPreview(null)
-      commit(id, spec)
+      if (held?.id !== id && isNoop(base, patch)) return
+      frames.take()
+      const next = regenerate(id, spec, home)
+      setRejected(typeof next === 'string' ? next : null)
+      if (typeof next !== 'string') change(next)
     },
-    [specOf, commit],
+    [frames, draft, home, change],
   )
 
   const surveyFor = (uid: number): DraftSurvey | null => {
     const s = surveyAt(draft, uid)
-    return s && preview?.id === s.id ? { ...s, spec: preview.spec } : s
+    const spec = s ? shown(s.id) : undefined
+    return s && spec ? { ...s, spec } : s
   }
 
   const metrics = (id: string): SurveyMetrics | null => {
-    const spec = preview?.id === id ? preview.spec : draft.surveys.find((s) => s.id === id)?.spec
+    const spec = shown(id)
     if (!spec) return null
     if (!cache.has(spec)) cache.set(spec, computeMetrics(spec, { draft, id, home, elevAt, rollLimitDeg, predict }))
     return cache.get(spec) ?? null
@@ -141,5 +130,5 @@ export function useSurvey({ draft, change, home, elevAt, vehicleParams, predict,
 
   const expand = (id: string) => change((d) => expandSurvey(d, id))
 
-  return { surveyFor, update, expand, metrics }
+  return { surveyFor, update, expand, metrics, rejected }
 }

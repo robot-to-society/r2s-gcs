@@ -37,6 +37,25 @@ describe('useSurvey', () => {
     expect(s.commits).not.toHaveBeenCalled()
   })
 
+  it('a_commit_that_yields_no_lanes_keeps_the_items_and_reports_rejected_until_the_next_good_commit', () => {
+    const s = setup()
+    const items = s.draft().items
+    const poly = s.draft().surveys[0]!.spec.polygon
+    act(() => s.hook.result.current.update(s.id, { polygon: poly.slice(0, 2) }))
+    expect(s.commits).not.toHaveBeenCalled()
+    expect(s.draft().items).toBe(items)
+    s.rerender()
+    expect(s.hook.result.current.rejected).toBe('invalid_polygon')
+    act(() => s.hook.result.current.update(s.id, { altM: 120 }))
+    expect(s.hook.result.current.rejected).toBeNull()
+  })
+
+  it('a_spec_failing_the_schema_is_rejected_as_invalid_spec', () => {
+    const s = setup()
+    act(() => s.hook.result.current.update(s.id, { altM: 2 }))
+    expect(s.hook.result.current.rejected).toBe('invalid_spec')
+  })
+
   it('live_updates_preview_once_per_frame_and_done_commits_once', () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
     const s = setup()

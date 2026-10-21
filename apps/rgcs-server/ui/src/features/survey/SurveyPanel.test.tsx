@@ -12,6 +12,12 @@ import { ALPHA7R4, type SurveySpec } from './spec'
 import { HOME, surveyDraft } from './surveyFixture'
 
 vi.mock('../../shared/api/client', () => ({ apiFetch: vi.fn(() => Promise.resolve([])) }))
+/** Front overlap 77 stands for a change after which no lane fits (as a polygon edit can do). */
+const NO_LANES = 77
+vi.mock('./generate', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./generate')>()
+  return { ...real, generateSurvey: (spec: SurveySpec, home: Parameters<typeof real.generateSurvey>[1]) => (spec.frontPct === NO_LANES ? { error: 'invalid_polygon' as const } : real.generateSurvey(spec, home)) }
+})
 
 const TRIG = 206
 
@@ -98,6 +104,17 @@ describe('SurveyPanel', () => {
     expect(s.present().items.length).not.toBe(n)
   })
 
+  it('a_change_that_yields_no_lanes_keeps_the_items_and_says_so', () => {
+    const s = setup()
+    const items = s.present().items
+    expect(screen.queryByText(dict.svInvalidPolygon)).toBeNull()
+    typeIn(dict.svFront, String(NO_LANES))
+    expect(s.present().items).toBe(items)
+    expect(screen.getByText(dict.svInvalidPolygon)).toHaveClass('hint', 'caution')
+    typeIn(dict.svFront, '75')
+    expect(screen.queryByText(dict.svInvalidPolygon)).toBeNull()
+  })
+
   it('typing_gsd_2_shows_altitude_186', () => {
     setup()
     typeIn(dict.svGsd, '2.0')
@@ -152,6 +169,7 @@ describe('SurveyPanel', () => {
   it('the_wp_radius_warning_names_the_value', () => {
     setup()
     expect(screen.getByText(dict.svWarnWpRadius.replace('{n}', '90'))).toBeInTheDocument()
+    expect(screen.getByText(dict.svWarnWpRadiusShots)).toBeInTheDocument()
   })
 
   it('expand_removes_the_panel_and_leaves_the_items', () => {

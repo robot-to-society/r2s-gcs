@@ -71,7 +71,8 @@ export function SurveyPanel({ uid, draft, dict, change, home, terrainTiles, vehi
         />
       </div>
       <SurveyFields spec={spec} metrics={m} dict={dict} onChange={set} />
-      {m ? <SurveyNumbers spec={spec} metrics={m} dict={dict} /> : <div className="hint caution sv-warn">{dict.svInvalidPolygon}</div>}
+      {sv.rejected && <div className="hint caution sv-warn">{sv.rejected === 'invalid_polygon' ? dict.svInvalidPolygon : dict.svInvalidSpec}</div>}
+      {m ? <SurveyNumbers spec={spec} metrics={m} dict={dict} /> : !sv.rejected && <div className="hint caution sv-warn">{dict.svInvalidPolygon}</div>}
       {m && <SurveyWarnings spec={spec} metrics={m} dict={dict} />}
       <button type="button" className="btn sv-expand" onClick={() => sv.expand(id)}>
         {dict.svExpand}
