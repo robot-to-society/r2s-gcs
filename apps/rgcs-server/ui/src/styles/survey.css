@@ -1,0 +1,17 @@
+/* Survey panel (right side): reuses the Glass .form / .seg / .hint / .btn; only layout tweaks here. */
+.survey-panel .sv-form { margin-top: 12px; }
+.survey-panel .sv-field { gap: 8px; min-width: 0; }
+.survey-panel .sv-field .in { flex: 1; min-width: 0; }
+.survey-panel .sv-field .in:disabled { opacity: 0.6; }
+.survey-panel .sv-slider { flex: 2; min-width: 0; accent-color: var(--accent); }
+.survey-panel .sv-note { font-size: 11px; white-space: nowrap; }
+.survey-panel .sv-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.survey-panel .sv-sub { margin: 16px 0 8px; }
+.survey-panel .sv-numbers .summary-grid + .summary-grid,
+.survey-panel .sv-numbers .summary-grid + .sv-note { margin-top: 10px; }
+.survey-panel .sv-worst { font-weight: 600; }
+.survey-panel .sv-worst.low { color: var(--caution); }
+.survey-panel .sv-warns { display: grid; gap: 6px; margin-top: 12px; }
+.survey-panel .sv-warn { display: block; text-align: left; border-radius: 10px; pointer-events: auto; line-height: 1.5; }
+.survey-panel .sv-expand { width: 100%; margin-top: 14px; }
+.survey-panel input[aria-invalid] { border-color: var(--caution-line); }

@@ -2,6 +2,8 @@ import type { Finding, MissionFrame, MissionStats, MissionTransfer, VehicleKind,
 import type { Dict } from '../../shared/i18n'
 import { FRAMES } from './cmds'
 import { ItemEditor } from './ItemEditor'
+import { surveyAt } from '../survey/draftOps'
+import { SurveyPanel, type SurveyContext } from '../survey/SurveyPanel'
 import { km, mmss } from './labels'
 import type { Draft, DraftItem } from './model'
 import { findingText, type LocalWarning } from './summary'
@@ -41,6 +43,8 @@ interface Props {
   readonly onCollapse?: () => void
   /** Several missions open: the vehicle is the row's assignment, which may be none (未割当). */
   readonly multi?: boolean
+  /** Survey editing: a selected item inside a survey opens its panel instead of the item editor. */
+  readonly survey?: SurveyContext
 }
 
 /** Right panel after the prototype: ミッション settings, selection editor, サマリ, write / save buttons. */
@@ -48,6 +52,7 @@ export function MissionSidebar(p: Props) {
   const { draft, selectedItems, dict } = p
   const m = draft.mission
   const only = selectedItems.length === 1 ? selectedItems[0] : undefined
+  const hostSurvey = only ? surveyAt(draft, only.uid) : null
   const posCount = draft.items.filter((it) => it.command >= 16 && it.command <= 22).length
   return (
     <aside className="g panel float float-r mission-right" aria-label="editor">
@@ -134,7 +139,8 @@ export function MissionSidebar(p: Props) {
             </button>
           </div>
         )}
-        {only && (
+        {only && hostSurvey && p.survey && <SurveyPanel key={hostSurvey.id} uid={only.uid} draft={draft} dict={dict} {...p.survey} />}
+        {only && !(hostSurvey && p.survey) && (
           <ItemEditor item={only} uid={only.uid} seq={draft.items.indexOf(only) + 1} kind={p.kind} dict={dict} onChange={p.onItemChange} onCommand={p.onItemCommand} onDelete={() => p.onDeleteSelected()} />
         )}
         {p.compare}

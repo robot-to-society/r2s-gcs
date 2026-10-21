@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Mission } from '../../shared/api/types'
+import { regenerateSurvey } from '../survey/draftOps'
 import { ALPHA7R4, defaultSpec } from '../survey/spec'
 import { appendWaypoint, emptyDraft, insertAfter, insertCommandAfter, removeItems, reorder, updateItem } from './model'
 import { INITIAL_MISSION_UI, MissionStore, addToSelection, copySelected, pasteClipboard, clearSelection, edit, loaded, markSaved, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi } from './store'
@@ -13,6 +14,25 @@ const surveyed = (): Mission => ({
 })
 
 describe('mission ui transitions', () => {
+  it('regenerating_a_selected_survey_keeps_it_selected_and_undo_too', () => {
+    const ui = selectOne(loaded(INITIAL_MISSION_UI, surveyed(), null), 3, false)
+    const d = ui.history.present
+    const s = d.surveys[0]!
+    const items = d.items.slice(1).map(({ uid: _u, ...it }) => it)
+    const next = edit(ui, regenerateSurvey(d, s.id, { ...s.spec, altM: 120 }, items))
+    const fresh = next.history.present.surveys[0]!.uids
+    expect(fresh).not.toContain(3)
+    expect([...next.selected]).toEqual([fresh[0]])
+    const undone = undoUi(next)
+    expect([...undone.selected]).toEqual([2])
+    expect([...redoUi(undone).selected]).toEqual([fresh[0]])
+  })
+
+  it('removing_selected_plain_items_still_clears_the_selection', () => {
+    const ui = selectOne(loaded(INITIAL_MISSION_UI, surveyed(), null), 1, false)
+    expect(edit(ui, removeItems(ui.history.present, new Set([1]))).selected.size).toBe(0)
+  })
+
   it('an_edit_inside_a_survey_drops_it_with_a_notice_and_undo_restores_it', () => {
     const ui = loaded(INITIAL_MISSION_UI, surveyed(), null)
     expect(ui.surveyNotice).toEqual([])

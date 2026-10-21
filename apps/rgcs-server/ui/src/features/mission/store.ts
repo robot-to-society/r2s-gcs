@@ -52,12 +52,24 @@ function prune(selected: ReadonlySet<number>, draft: Draft): ReadonlySet<number>
   return kept.length === selected.size ? selected : new Set(kept)
 }
 
+/**
+ * Prunes the selection; when it lay inside one survey whose items were all replaced (regenerated,
+ * or swapped by undo / redo), the survey stays selected through its first item so its panel stays open.
+ */
+function reselect(selected: ReadonlySet<number>, prev: Draft, next: Draft): ReadonlySet<number> {
+  const kept = prune(selected, next)
+  if (kept.size > 0 || selected.size === 0) return kept
+  const host = prev.surveys.find((s) => [...selected].every((uid) => s.uids.includes(uid)))
+  const first = host && next.surveys.find((s) => s.id === host.id)?.uids[0]
+  return first === undefined ? kept : new Set([first])
+}
+
 /** Pushes `next` after dropping the surveys it touched outside the survey ops (named in `surveyNotice`). */
 const commit = (ui: MissionUi, next: Draft): MissionUi => {
   if (next === ui.history.present) return ui
   const { draft, dropped } = reconcileSurveys(ui.history.present, next)
   const surveyNotice = dropped.length > 0 ? dropped : NO_NOTICE
-  return { ...ui, history: push(ui.history, draft), dirty: true, selected: prune(ui.selected, draft), findings: [], surveyNotice }
+  return { ...ui, history: push(ui.history, draft), dirty: true, selected: reselect(ui.selected, ui.history.present, draft), findings: [], surveyNotice }
 }
 
 /** Records an edit: new present (DO_JUMPs kept on their targets), redo cleared, mission dirty. */
@@ -66,13 +78,13 @@ export const edit = (ui: MissionUi, next: Draft): MissionUi => (next === ui.hist
 export const undoUi = (ui: MissionUi): MissionUi => {
   if (!canUndo(ui.history)) return ui
   const history = undo(ui.history)
-  return { ...ui, history, dirty: true, selected: prune(ui.selected, history.present), surveyNotice: NO_NOTICE }
+  return { ...ui, history, dirty: true, selected: reselect(ui.selected, ui.history.present, history.present), surveyNotice: NO_NOTICE }
 }
 
 export const redoUi = (ui: MissionUi): MissionUi => {
   if (!canRedo(ui.history)) return ui
   const history = redo(ui.history)
-  return { ...ui, history, dirty: true, selected: prune(ui.selected, history.present), surveyNotice: NO_NOTICE }
+  return { ...ui, history, dirty: true, selected: reselect(ui.selected, ui.history.present, history.present), surveyNotice: NO_NOTICE }
 }
 
 /** Plain click = only this one; ⌘/Ctrl (additive) toggles it. Both move the anchor. */

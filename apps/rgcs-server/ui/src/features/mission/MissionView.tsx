@@ -357,6 +357,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onSaveFile={() => void io.saveWaypointsFile()}
         onSaveRgcs={io.saveRgcsFile}
         compare={batch.compare}
+        survey={{ change, home: fileHome, terrainTiles, vehicleParams: pathValues, predict }}
         onCollapse={panel.collapse}
       />
       )}
