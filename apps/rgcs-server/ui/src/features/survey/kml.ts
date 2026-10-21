@@ -1,6 +1,6 @@
 import type { LatLon } from '../mission/geo'
 
-export type KmlErrorCode = 'not_kml' | 'no_polygon'
+export type KmlErrorCode = 'not_kml' | 'no_polygon' | 'bad_coordinates' | 'too_large'
 
 export class KmlError extends Error {
   readonly code: KmlErrorCode
@@ -23,13 +23,28 @@ export interface KmlResult {
 
 const NS = '*'
 
+export const MAX_KML_CHARS = 5_000_000
+export const MAX_RING_VERTICES = 10_000
+export const MAX_POLYGONS = 50
+
+const DECIMAL = /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/
+
+function parseVertex(tuple: string): LatLon {
+  const fields = tuple.split(',')
+  if (fields.length < 2 || fields.length > 3 || !fields.every((f) => DECIMAL.test(f))) {
+    throw new KmlError('bad_coordinates')
+  }
+  const lon = Number(fields[0])
+  const lat = Number(fields[1])
+  if (!(Math.abs(lat) <= 90) || !(Math.abs(lon) <= 180)) throw new KmlError('bad_coordinates')
+  return { lat, lon }
+}
+
 function parseCoordinates(text: string): LatLon[] {
-  const ring = text
-    .trim()
-    .split(/\s+/)
-    .map((tuple) => tuple.split(',').map(Number))
-    .filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat))
-    .map(([lon, lat]) => ({ lat, lon }))
+  const trimmed = text.trim()
+  const tuples = trimmed === '' ? [] : trimmed.replace(/\s*,\s*/g, ',').split(/\s+/)
+  if (tuples.length > MAX_RING_VERTICES + 1) throw new KmlError('too_large')
+  const ring = tuples.map(parseVertex)
   const first = ring[0]
   const last = ring[ring.length - 1]
   const closed = ring.length > 1 && first.lat === last.lat && first.lon === last.lon
@@ -55,14 +70,17 @@ function findAncestor(el: Element, localName: string): Element | null {
 }
 
 export function parseKmlPolygons(text: string): KmlResult {
+  if (text.length > MAX_KML_CHARS) throw new KmlError('too_large')
   const doc = new DOMParser().parseFromString(text, 'application/xml')
   const root = doc.documentElement
   if (!root || doc.getElementsByTagName('parsererror').length > 0 || root.localName !== 'kml') {
     throw new KmlError('not_kml')
   }
+  const nodes = Array.from(doc.getElementsByTagNameNS(NS, 'Polygon'))
+  if (nodes.length > MAX_POLYGONS) throw new KmlError('too_large')
   const polygons: KmlPolygon[] = []
   let holesIgnored = false
-  Array.from(doc.getElementsByTagNameNS(NS, 'Polygon')).forEach((polygon) => {
+  nodes.forEach((polygon) => {
     const ring = outerRing(polygon)
     if (ring.length < 3) return
     if (polygon.getElementsByTagNameNS(NS, 'innerBoundaryIs').length > 0) holesIgnored = true

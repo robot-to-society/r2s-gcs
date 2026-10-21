@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { KmlError, parseKmlPolygons } from './kml'
+import { KmlError, MAX_KML_CHARS, MAX_POLYGONS, MAX_RING_VERTICES, parseKmlPolygons, type KmlErrorCode } from './kml'
 
 const fixture = (name: string): string =>
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../../../../../tests/fixtures/survey', name), 'utf8')
@@ -55,5 +55,48 @@ describe('parseKmlPolygons', () => {
       expect(e).toBeInstanceOf(KmlError)
       expect((e as KmlError).code).toBe('no_polygon')
     }
+  })
+
+  const wrap = (coords: string): string =>
+    `<kml xmlns="http://www.opengis.net/kml/2.2"><Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></kml>`
+  const codeOf = (text: string): KmlErrorCode | null => {
+    try {
+      parseKmlPolygons(text)
+      return null
+    } catch (e) {
+      return e instanceof KmlError ? e.code : null
+    }
+  }
+
+  it.each([',36.2', '137.6,', 'abc,36', 'NaN,36', '137.6,999', '200,36', 'Infinity,36', '0x10,36'])(
+    'rejects bad vertex %s with bad_coordinates',
+    (bad) => {
+      expect(codeOf(wrap(`${bad} 137.64,36.25 137.65,36.26 137.66,36.25`))).toBe('bad_coordinates')
+    },
+  )
+
+  it('accepts spaces around commas inside a tuple', () => {
+    const { polygons } = parseKmlPolygons(wrap('137.64, 36.25 , 10 137.65 ,36.26,10 137.66,36.25,10'))
+    expect(polygons[0].ring).toEqual([
+      { lat: 36.25, lon: 137.64 },
+      { lat: 36.26, lon: 137.65 },
+      { lat: 36.25, lon: 137.66 },
+    ])
+  })
+
+  it('rejects text longer than MAX_KML_CHARS with too_large', () => {
+    expect(codeOf(' '.repeat(MAX_KML_CHARS + 1))).toBe('too_large')
+  })
+
+  it('rejects a ring with more than MAX_RING_VERTICES vertices', () => {
+    const ring = Array.from({ length: MAX_RING_VERTICES + 2 }, (_, i) => `137.${i % 900},36.25`).join(' ')
+    expect(codeOf(wrap(ring))).toBe('too_large')
+  })
+
+  it('rejects more than MAX_POLYGONS polygons', () => {
+    const one = '<Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>137.6,36.2 137.7,36.2 137.7,36.3</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>'
+    const many = (n: number): string => `<kml>${one.repeat(n)}</kml>`
+    expect(parseKmlPolygons(many(MAX_POLYGONS)).polygons).toHaveLength(MAX_POLYGONS)
+    expect(codeOf(many(MAX_POLYGONS + 1))).toBe('too_large')
   })
 })
