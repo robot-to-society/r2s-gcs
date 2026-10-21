@@ -200,6 +200,23 @@ export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elev
   return { lines: [...lines, ...walls.lines, ...surveys], posts: [...posts, ...walls.posts, ...predictedLine(predicted, elevAt)], discs, alts, mids }
 }
 
+type Badges = ReadonlyMap<number, { marker: Marker }>
+type Handles = readonly { readonly marker: Marker; readonly toUid: number }[]
+
+/** The plan's markers at their altitudes, each with its ground (sampled once here, not per frame). */
+function planFloats(draft: Draft, d: MissionAir, badges: Badges, handles: Handles, elevAt: ElevAt): Floating[] {
+  const byUid = new Map(draft.items.map((it) => [it.uid, it]))
+  const badgeFloats = [...badges.entries()].flatMap(([uid, { marker }]) => {
+    const it = byUid.get(uid)
+    return it ? [{ marker, lon: it.lon, lat: it.lat, amsl: d.alts.get(uid) ?? null, base: [0, 0] as const, ground: elevAt(it.lon, it.lat) }] : []
+  })
+  const handleFloats = handles.map(({ marker, toUid }) => {
+    const p = marker.getLngLat()
+    return { marker, lon: p.lng, lat: p.lat, amsl: d.mids.get(toUid) ?? null, base: [0, 0] as const, ground: elevAt(p.lng, p.lat) }
+  })
+  return [...badgeFloats, ...handleFloats]
+}
+
 interface Args {
   readonly map: RefObject<MlMap | null>
   readonly loaded: RefObject<boolean>
@@ -207,9 +224,9 @@ interface Args {
   readonly terrainTiles: string | null
   readonly draft: Draft
   readonly selected: ReadonlySet<number>
-  readonly badges: RefObject<ReadonlyMap<number, { marker: Marker }>>
+  readonly badges: RefObject<Badges>
   /** The mid-leg "+" markers, each with the uid ending its leg. */
-  readonly handles: RefObject<readonly { readonly marker: Marker; readonly toUid: number }[]>
+  readonly handles: RefObject<Handles>
   /** FENCE_ALT_MAX: the fence zones rise to it in 3D (above `vehicleHome` when the plan has no home). */
   readonly ceiling?: number | null
   readonly vehicleHome?: LatLon | null
@@ -246,33 +263,22 @@ export interface MissionAir3d {
 }
 
 export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected, badges, handles, ceiling = null, vehicleHome = null, predicted = null, others = NO_OTHERS, color = null }: Args): MissionAir3d {
-  const { sampler, ready, is3d, tick, layer, models, floats, matrix } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
+  const { sampler, ready, is3d, tick, layer, models, floats, live, matrix } = useAir3d({ map, loaded, mode, terrainTiles, layerId: AIR, setup, modeLayers: MISSION_3D_LAYERS })
   const latest = useRef({ draft, alts: new Map<number, number | null>() as ReadonlyMap<number, number | null> })
-  const planFloats = useRef<readonly Floating[]>([])
-  const vehicleFloat = useRef<Floating | null>(null)
-  const compose = () => {
-    floats.current = vehicleFloat.current ? [...planFloats.current, vehicleFloat.current] : planFloats.current
-  }
+  // the vehicle's home matters only as the fence ceiling's base under a plan with no home or items: a
+  // vehicle without a home reports its position here, which must not rebuild the plan every update
+  const floorBase = ceiling !== null && !draft.mission.home && !draft.items.some(hasPosition) ? vehicleHome : null
   useEffect(() => {
     const m = map.current
     if (!m || !ready || !sampler || !is3d) return
-    const d = missionAirData(draft, selected, sampler.elevAt, ceiling, vehicleHome, predicted, color)
+    const d = missionAirData(draft, selected, sampler.elevAt, ceiling, floorBase, predicted, color)
     latest.current = { draft, alts: d.alts }
-    const byUid = new Map(draft.items.map((it) => [it.uid, it]))
-    const badgeFloats = [...badges.current.entries()].flatMap(([uid, { marker }]) => {
-      const it = byUid.get(uid)
-      return it ? [{ marker, lon: it.lon, lat: it.lat, amsl: d.alts.get(uid) ?? null, base: [0, 0] as const }] : []
-    })
-    const handleFloats = handles.current.map(({ marker, toUid }) => {
-      const p = marker.getLngLat()
-      return { marker, lon: p.lng, lat: p.lat, amsl: d.mids.get(toUid) ?? null, base: [0, 0] as const }
-    })
-    planFloats.current = [...badgeFloats, ...handleFloats]
-    compose()
+    floats.current = planFloats(draft, d, badges.current, handles.current, sampler.elevAt)
     layer.setLines([...d.lines, ...othersAirLines(others, sampler.elevAt)], d.posts)
     const src = m.getSource(GROUND) as { setData: (x: unknown) => void } | undefined
     src?.setData(d.discs)
-  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats, ceiling, vehicleHome?.lat, vehicleHome?.lon, predicted, others, color])
+  }, [map, ready, is3d, sampler, draft, selected, badges, handles, tick, layer, floats, ceiling, floorBase?.lat, floorBase?.lon, predicted, others, color])
+
 
   const pxPerMetre = (uid: number): number | null => {
     const m = map.current
@@ -287,13 +293,13 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     const { marker, v, base } = lastVehicle.current
     // DEM home ground + alt_rel matches how the plan's altitudes are drawn; alt_msl until the DEM is in
     const amsl = v ? ((sampler ? vehicleAmsl(v, vehicleHome, sampler.elevAt)?.amsl : undefined) ?? v.alt_msl) : null
-    vehicleFloat.current = marker && v && amsl !== null ? { marker, lon: v.lon, lat: v.lat, amsl, base } : null
-    compose()
+    live.current = marker && v && amsl !== null ? [{ marker, lon: v.lon, lat: v.lat, amsl, base, ground: sampler?.elevAt(v.lon, v.lat) ?? null }] : []
     // in 3D the model stands for the vehicle; the marker keeps its name pill
     marker?.getElement().classList.toggle('model3d', is3d && ready)
     models.setModels(v && amsl !== null ? [{ sysid: v.sysid, kind: v.kind, at: { lon: v.lon, lat: v.lat, amsl }, hdg: v.hdg ?? 0, accent: VEHICLE_ACCENT, attitude: v.attitude ?? null }] : [])
     const m = map.current
-    if (m && matrix.current && is3d) floatMarkers(m, matrix.current, floats.current)
+    // a telemetry update moves the vehicle only: the plan's markers float with the camera
+    if (m && matrix.current && is3d) floatMarkers(m, matrix.current, live.current)
   }
   const placeRef = useRef(placeVehicle)
   placeRef.current = placeVehicle

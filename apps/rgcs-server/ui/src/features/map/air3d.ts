@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import type { Map as MlMap } from 'maplibre-gl'
 import { AirPathLayer } from './airLayer'
 import { VehicleModelLayer } from './models/modelLayer'
-import { floatMarkers, type Floating } from './float'
+import { floatMarkers, sameMatrix, type Floating } from './float'
 import { applyMapMode, DEM_SOURCE, type MapMode, type ModeLayers } from './mapMode'
 import { TerrainSampler, terrainSource } from './terrain'
 
@@ -31,8 +31,13 @@ export interface Air3d {
   readonly layer: AirPathLayer
   /** Low-poly vehicle models, drawn in 3D only (the DOM disc hides then). */
   readonly models: VehicleModelLayer
-  /** The markers to float; set by the caller whenever its data changes. */
+  /**
+   * The markers to float; set by the caller (a new array) whenever its data changes. A frame with
+   * the camera of the last one leaves them alone unless the array changed.
+   */
   readonly floats: { current: readonly Floating[] }
+  /** Markers that move on their own (vehicles): floated every frame. */
+  readonly live: { current: readonly Floating[] }
   /** When the last 2D / 3D camera animation started (ms); camera moves should not cut it short. */
   readonly modeSwitchAt: { readonly current: number }
   /** The last 3D frame's matrix (`null` before the first one): screen maths for drags. */
@@ -49,6 +54,9 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
   const layer = useRef(new AirPathLayer(layerId)).current
   const models = useRef(new VehicleModelLayer(`${layerId}-models`)).current
   const floats = useRef<readonly Floating[]>([])
+  const live = useRef<readonly Floating[]>([])
+  /** What the last frame floated: its matrix (copied) and the `floats` array. */
+  const floated = useRef<{ mx: ArrayLike<number> | null; of: readonly Floating[] | null }>({ mx: null, of: null })
   const modeSwitchAt = useRef(0)
   const matrix = useRef<ArrayLike<number> | null>(null)
   const setupRef = useRef({ setup, order })
@@ -68,7 +76,11 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
       setupRef.current.order?.(m)
       layer.onFrame = (mx) => {
         matrix.current = mx
-        floatMarkers(m, mx, floats.current)
+        if (floats.current !== floated.current.of || !sameMatrix(mx, floated.current.mx)) {
+          floatMarkers(m, mx, floats.current)
+          floated.current = { mx: Array.from(mx), of: floats.current }
+        }
+        floatMarkers(m, mx, live.current)
       }
       setReady(true)
     }
@@ -83,8 +95,9 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
     models.visible = is3d
     modeSwitchAt.current = Date.now()
     applyMapMode(m, is3d ? '3d' : '2d', modeRef.current)
-    if (!is3d) floatMarkers(m, null, floats.current)
+    floated.current = { mx: null, of: null }
+    if (!is3d) floatMarkers(m, null, [...floats.current, ...live.current])
   }, [map, ready, is3d, layer, models])
 
-  return { sampler, ready, is3d, tick, layer, models, floats, modeSwitchAt, matrix }
+  return { sampler, ready, is3d, tick, layer, models, floats, live, modeSwitchAt, matrix }
 }

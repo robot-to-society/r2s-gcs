@@ -43,6 +43,8 @@ export interface Floating {
   readonly amsl: number | null
   /** The marker's 2D offset (e.g. the `.vmk` disc correction). */
   readonly base: readonly [number, number]
+  /** Ground AMSL under the marker (the DEM sampler's): projected with the frame matrix instead of `map.project`, a terrain lookup per call. */
+  readonly ground?: number | null
 }
 
 /** Below this a float offset counts as unchanged. */
@@ -58,16 +60,31 @@ function offsetTo(marker: Marker, x: number, y: number): void {
   marker.setOffset([x, y])
 }
 
+/** Where the marker's ground point is on screen (null: behind the camera). */
+function groundPoint(map: MlMap, matrix: Mat, size: Size, f: Floating): Pt | null {
+  if (f.ground === undefined || f.ground === null) return map.project([f.lon, f.lat])
+  return projectToScreen(matrix, size, toMercator(f.lon, f.lat, f.ground))
+}
+
 /** Applies the float offsets; `matrix: null` (2D) restores the base offsets. */
 export function floatMarkers(map: MlMap, matrix: Mat | null, entries: readonly Floating[]): void {
+  if (entries.length === 0) return
   const el = map.getContainer()
   const size = { w: el.clientWidth, h: el.clientHeight }
   for (const f of entries) {
-    if (!matrix || f.amsl === null) {
+    const ground = matrix && f.amsl !== null ? groundPoint(map, matrix, size, f) : null
+    if (!matrix || f.amsl === null || !ground) {
       offsetTo(f.marker, f.base[0], f.base[1])
       continue
     }
-    const [dx, dy] = floatOffset(matrix, size, toMercator(f.lon, f.lat, f.amsl), map.project([f.lon, f.lat]))
+    const [dx, dy] = floatOffset(matrix, size, toMercator(f.lon, f.lat, f.amsl), ground)
     offsetTo(f.marker, f.base[0] + dx, f.base[1] + dy)
   }
+}
+
+/** Two frame matrices are equal (MapLibre may reuse the array, so compare a copy). */
+export function sameMatrix(a: Mat | null, b: Mat | null): boolean {
+  if (!a || !b || a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
 }
