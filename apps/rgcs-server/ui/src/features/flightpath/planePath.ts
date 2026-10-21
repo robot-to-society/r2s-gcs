@@ -173,11 +173,16 @@ function lineStart(ctx: Ctx, i: number): Xy | null {
   return null
 }
 
+/** NAV_WAYPOINT param2: AP_Mission keeps the acceptance radius in a byte (whole metres, at most 255). */
+const acceptRadius = (it: MissionItem): number => Math.min(255, Math.max(0, Math.trunc(it.params[1])))
+
 /**
- * verify_nav_wp accepts `wp` turn_distance out: min(WP_RADIUS·EAS2TAS², L1 distance), scaled down
- * for turns under 90°; with nothing to fly next (the mission ends) the turn counts as 90°.
+ * verify_nav_wp accepts `wp` at the item's acceptance radius (param2) when set, else turn_distance
+ * out: min(WP_RADIUS·EAS2TAS², L1 distance), scaled down for turns under 90°; with nothing to fly
+ * next (the mission ends) the turn counts as 90°.
  */
-function acceptDistance(ctx: Ctx, a: Xy, wp: Xy, next: Xy | null): number {
+function acceptDistance(ctx: Ctx, a: Xy, wp: Xy, next: Xy | null, radius: number): number {
+  if (radius > 0) return radius
   const { track, p } = ctx
   const l1Dist = ((p.navL1Damping * p.navL1Period) / Math.PI) * track.tas()
   const d90 = Math.min(p.wpRadius * track.scale() ** 2, l1Dist)
@@ -190,9 +195,9 @@ function acceptDistance(ctx: Ctx, a: Xy, wp: Xy, next: Xy | null): number {
  * A fixed-wing leg to `wp` (AP_L1_Control::update_waypoint on the line `a` → `wp`): the turn onto
  * the line simulated from the current heading, then straight on until the waypoint is accepted.
  */
-function l1Leg(ctx: Ctx, a: Xy, wp: Xy, next: Xy | null): Xy[] {
+function l1Leg(ctx: Ctx, a: Xy, wp: Xy, next: Xy | null, radius: number): Xy[] {
   const { track } = ctx
-  const accept = acceptDistance(ctx, dist(a, wp) > 0 ? a : track.cur, wp, next)
+  const accept = acceptDistance(ctx, dist(a, wp) > 0 ? a : track.cur, wp, next, radius)
   const heading = track.heading()
   const turn = heading ? trackLine(track.cur, heading, a, wp, track.tas(), gains(ctx.p), accept).slice(1) : []
   const end = turn.at(-1) ?? track.cur
@@ -208,7 +213,7 @@ function waypoint(ctx: Ctx, i: number, it: MissionItem): void {
   const next = nextTarget(ctx, i)
   const alt = relAlt(ctx, it)
   if (track.vtol) track.leg([wp], alt)
-  else if (it.command === CMD.WAYPOINT) track.leg(l1Leg(ctx, lineStart(ctx, i) ?? track.cur, wp, next), alt)
+  else if (it.command === CMD.WAYPOINT) track.leg(l1Leg(ctx, lineStart(ctx, i) ?? track.cur, wp, next, acceptRadius(it)), alt)
   // arc and spline waypoints keep the geometric corner
   else track.leg(next ? fillet(track.cur, wp, next, turnRadius(ctx)) : [wp], alt)
 }

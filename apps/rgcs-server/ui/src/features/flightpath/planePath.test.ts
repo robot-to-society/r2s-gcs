@@ -81,6 +81,18 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
     expect(closest).toBeLessThan(30)
   })
 
+  it('NAV_WAYPOINT param2 > 0 is the acceptance radius, used instead of the turn distance', () => {
+    const corner = { x: 0, y: 800 }
+    const closest = (radius: number) => {
+      const path = local([item(22, null, 100), item(16, corner, 100, [0, radius, 0, 0]), item(16, { x: 800, y: 800 }, 100)])
+      return Math.min(...path.map((pt) => r(pt, corner)))
+    }
+    expect(closest(150)).toBeGreaterThan(80)
+    expect(closest(1)).toBeLessThan(closest(0))
+    // AP_Mission keeps it in a byte: at most 255 m
+    expect(closest(1000)).toBeCloseTo(closest(255), 5)
+  })
+
   it('after DO_VTOL_TRANSITION to multicopter a loiter is a hover at the point, not a circle', () => {
     const c = { x: 0, y: 600 }
     const path = local([item(22, null, 60), item(3000, null, 0, [3, 0, 0, 0]), item(18, c, 60, [3, 0, 80, 0])])
