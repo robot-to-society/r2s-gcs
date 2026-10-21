@@ -47,7 +47,8 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
     }
     expect(onCircle.at(-1)!.alt).toBeGreaterThanOrEqual(245)
     expect(onCircle[0]!.alt).toBeLessThan(200)
-    expect(path.at(-1)!.y).toBeCloseTo(1500, 0)
+    // on to the waypoint, accepted turn-distance out (the mission ends: no turn, so 90°)
+    expect(Math.min(...path.map((pt) => r(pt, { x: 0, y: 1500 })))).toBeLessThan(100)
   })
 
   it('a negative radius loiters counter-clockwise, a positive one clockwise', () => {
@@ -155,5 +156,14 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
     // the leg ends turn-distance before WP2 (min(WP_RADIUS·EAS2TAS², L1 distance) for a turn ≥ 90°)
     const closest = Math.min(...path.map((pt) => r(pt, wp2)))
     expect(closest).toBeGreaterThan(20)
+  })
+
+  it('a 700-waypoint survey predicts within 150 ms', () => {
+    const lanes = Array.from({ length: 700 }, (_, k) => item(16, { x: Math.floor(k / 2) * 40, y: k % 4 === 1 || k % 4 === 2 ? 1200 : 0 }, 100))
+    const p: PlaneParams = { ...PLANE_DEFAULTS, airspeed: 18, rollLimitDeg: 35, wpRadius: 60 }
+    local([item(22, null, 100), ...lanes], p)
+    const t0 = performance.now()
+    local([item(22, null, 100), ...lanes], p)
+    expect(performance.now() - t0).toBeLessThan(150)
   })
 })

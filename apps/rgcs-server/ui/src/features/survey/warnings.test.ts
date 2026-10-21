@@ -160,14 +160,16 @@ describe('surveyWarnings', () => {
 })
 
 describe('entry warning (predicted path)', () => {
-  // split survey, R 57 (18 m/s, 30° bank). predictPlane flies waypoint corners as fillets of the
-  // turn radius (capped at half the leg) and uses WP_RADIUS only for loiters, so the collinear
-  // shooting-start WP is always on the predicted path with the auto 60 m lead-in, whatever WP_RADIUS.
-  it('auto lead-in: the predicted path passes every shooting start (WP_RADIUS 90 and 5)', () => {
-    for (const r of [90, 5]) {
-      const s = spec({ wpRadiusM: r })
-      expect(warn(s, { predicted: predicted(s, r) })).not.toContain('entry')
-    }
+  // split survey, R 57 (18 m/s, 30° bank). predictPlane follows each leg like L1 and accepts a
+  // waypoint turn-distance out (min(WP_RADIUS, L1 distance) for a 90° turn).
+  it('auto lead-in: the predicted path passes every shooting start with WP_RADIUS 90', () => {
+    const s = spec({ wpRadiusM: 90 })
+    expect(warn(s, { predicted: predicted(s, 90) })).not.toContain('entry')
+  })
+
+  it('WP_RADIUS 5: the plane turns into the first lane only at its lead-in point and overshoots the lane (15 m at its start)', () => {
+    const s = spec({ wpRadiusM: 5 })
+    expect(warn(s, { predicted: predicted(s, 5) })).toContain('entry')
   })
 
   it('no lead-in: the turn from home into the first lane misses its shooting start (8.8 m)', () => {

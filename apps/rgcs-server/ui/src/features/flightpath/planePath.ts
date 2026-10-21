@@ -4,7 +4,7 @@
 import type { Home, MissionItem } from '../../shared/api/types'
 import type { LatLon } from '../mission/geo'
 import { arcAngles, dist, entryTangent, exitTangent, fillet, onCircle, polar, toLatLon, toXy, travelDir, type Xy } from './geom'
-import { captureLoiter } from './l1'
+import { captureLoiter, trackLine, type L1Gains } from './l1'
 import type { PlaneParams } from './params'
 import { Track } from './track'
 
@@ -31,6 +31,7 @@ const CMD = { WAYPOINT: 16, LOITER_UNLIM: 17, LOITER_TURNS: 18, LOITER_TIME: 19,
 const WAYPOINTS: readonly number[] = [CMD.WAYPOINT, CMD.ARC, CMD.SPLINE]
 const LOITERS: readonly number[] = [CMD.LOITER_UNLIM, CMD.LOITER_TURNS, CMD.LOITER_TIME, CMD.LOITER_TO_ALT]
 const FLOWN_TO: readonly number[] = [...WAYPOINTS, ...LOITERS, CMD.LAND, CMD.VTOL_LAND]
+const TAKEOFFS: readonly number[] = [CMD.TAKEOFF, CMD.VTOL_TAKEOFF]
 const MAV_VTOL_STATE_MC = 3
 const MAV_VTOL_STATE_FW = 4
 
@@ -128,8 +129,7 @@ function loiter(ctx: Ctx, i: number, it: MissionItem): boolean {
   }
   const { r, cw } = loiterShape(p, it, track.scale(target))
   const heading = track.heading()
-  const l1 = { period: p.navL1Period, damping: p.navL1Damping, rollLimitDeg: p.rollLimitDeg }
-  const capture = heading ? captureLoiter(track.cur, heading, c, r, cw, track.tas(), l1).pts.slice(1) : captureLeg(ctx, c, r, cw)
+  const capture = heading ? captureLoiter(track.cur, heading, c, r, cw, track.tas(), gains(p)).pts.slice(1) : captureLeg(ctx, c, r, cw)
   if (capture.length === 0) capture.push(onCircle(c, r, polar(c, track.cur)))
   // the altitude slope of the leg runs to the centre (altitude.cpp), so the circle comes first
   track.leg(capture, target, dist(track.cur, c))
@@ -160,30 +160,55 @@ function loiter(ctx: Ctx, i: number, it: MissionItem): boolean {
   return true
 }
 
+/** The navigation gains the L1 simulations fly with. */
+const gains = (p: PlaneParams): L1Gains => ({ period: p.navL1Period, damping: p.navL1Damping, rollLimitDeg: p.rollLimitDeg })
+
+/** Where the leg to item `i` starts (set_next_WP): the previous waypoint, a loiter centre left with xtrack 0, else here. */
+function lineStart(ctx: Ctx, i: number): Xy | null {
+  const prev = ctx.items.slice(0, i).findLast((it) => (FLOWN_TO.includes(it.command) && located(it)) || TAKEOFFS.includes(it.command))
+  if (!prev || TAKEOFFS.includes(prev.command)) return null
+  if (WAYPOINTS.includes(prev.command) || (LOITERS.includes(prev.command) && prev.params[3] <= 0)) return xyOf(ctx, prev)
+  return null
+}
+
 /**
- * Where the leg to `wp` ends when a loiter follows: verify_nav_wp accepts the waypoint
- * turn_distance out, min(WP_RADIUS·EAS2TAS², L1 distance), scaled down for turns under 90°.
+ * verify_nav_wp accepts `wp` turn_distance out: min(WP_RADIUS·EAS2TAS², L1 distance), scaled down
+ * for turns under 90°; with nothing to fly next (the mission ends) the turn counts as 90°.
  */
-function acceptPoint(ctx: Ctx, wp: Xy, next: Xy): Xy {
+function acceptDistance(ctx: Ctx, a: Xy, wp: Xy, next: Xy | null): number {
   const { track, p } = ctx
-  const cur = track.cur
-  const len = dist(cur, wp)
-  if (len === 0) return wp
-  const turn = Math.abs(Math.atan2((wp.x - cur.x) * (next.y - wp.y) - (wp.y - cur.y) * (next.x - wp.x), (wp.x - cur.x) * (next.x - wp.x) + (wp.y - cur.y) * (next.y - wp.y)))
   const l1Dist = ((p.navL1Damping * p.navL1Period) / Math.PI) * track.tas()
   const d90 = Math.min(p.wpRadius * track.scale() ** 2, l1Dist)
-  const accept = Math.min(len, d90 * Math.min(1, turn / (Math.PI / 2)))
-  return { x: wp.x + ((cur.x - wp.x) / len) * accept, y: wp.y + ((cur.y - wp.y) / len) * accept }
+  if (!next) return d90
+  const turn = Math.abs(Math.atan2((wp.x - a.x) * (next.y - wp.y) - (wp.y - a.y) * (next.x - wp.x), (wp.x - a.x) * (next.x - wp.x) + (wp.y - a.y) * (next.y - wp.y)))
+  return d90 * Math.min(1, turn / (Math.PI / 2))
+}
+
+/**
+ * A fixed-wing leg to `wp` (AP_L1_Control::update_waypoint on the line `a` → `wp`): the turn onto
+ * the line simulated from the current heading, then straight on until the waypoint is accepted.
+ */
+function l1Leg(ctx: Ctx, a: Xy, wp: Xy, next: Xy | null): Xy[] {
+  const { track } = ctx
+  const accept = acceptDistance(ctx, dist(a, wp) > 0 ? a : track.cur, wp, next)
+  const heading = track.heading()
+  const turn = heading ? trackLine(track.cur, heading, a, wp, track.tas(), gains(ctx.p), accept).slice(1) : []
+  const end = turn.at(-1) ?? track.cur
+  const len = dist(end, wp)
+  const along = (wp.x - a.x) * (end.x - a.x) + (wp.y - a.y) * (end.y - a.y)
+  if (len <= accept || along >= dist(a, wp) ** 2) return turn
+  return [...turn, { x: wp.x + ((end.x - wp.x) / len) * accept, y: wp.y + ((end.y - wp.y) / len) * accept }]
 }
 
 function waypoint(ctx: Ctx, i: number, it: MissionItem): void {
   const { track } = ctx
   const wp = xyOf(ctx, it)
-  const nextItem = nextFlown(ctx, i)
   const next = nextTarget(ctx, i)
-  // into a loiter the L1 capture simulation flies the turn; elsewhere the corner is a fillet
-  if (next && nextItem && LOITERS.includes(nextItem.command) && !track.vtol) track.leg([acceptPoint(ctx, wp, next)], relAlt(ctx, it))
-  else track.leg(next && !track.vtol ? fillet(track.cur, wp, next, turnRadius(ctx)) : [wp], relAlt(ctx, it))
+  const alt = relAlt(ctx, it)
+  if (track.vtol) track.leg([wp], alt)
+  else if (it.command === CMD.WAYPOINT) track.leg(l1Leg(ctx, lineStart(ctx, i) ?? track.cur, wp, next), alt)
+  // arc and spline waypoints keep the geometric corner
+  else track.leg(next ? fillet(track.cur, wp, next, turnRadius(ctx)) : [wp], alt)
 }
 
 function takeoff(ctx: Ctx, i: number, it: MissionItem): void {
