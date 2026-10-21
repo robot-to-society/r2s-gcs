@@ -1,18 +1,24 @@
 // The mission screen's survey hooks in one place: palette entries, keys and map clicks while an
-// area is drawn, the KML file input, and the camera list (fetched the first time it is needed).
-import { useEffect, useRef, useState } from 'react'
+// area is drawn, the KML file input, the camera list (fetched the first time it is needed), and the
+// one survey editor the panel and the map share (map drags preview in both).
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SurveyCamera, VehicleKind } from '../../shared/api/types'
 import { SURVEY_KEY, SURVEY_KML_KEY } from '../mission/cmds'
 import type { LatLon } from '../mission/geo'
+import type { Predicted } from '../mission/missionAir'
 import type { Draft } from '../mission/model'
 import type { PlanTab } from '../mission/fenceMap'
 import { selectOne, type MissionStore } from '../mission/store'
 import { listCameras } from './cameraApi'
 import type { SurveyDrawMap } from './surveyDrawLayer'
+import type { SurveyMapProps } from './surveyMap'
+import { useFootToggle } from './useFootToggle'
 import { useSurveyDraw } from './useSurveyDraw'
+import { previewDraft, useSurveyEditor } from './useSurveyEditor'
 
 interface Args {
   readonly store: MissionStore
+  readonly draft: Draft
   readonly change: (fn: (d: Draft) => Draft) => void
   /** The last selected item: a new survey goes after it. */
   readonly afterUid: number | null
@@ -23,6 +29,8 @@ interface Args {
   readonly tab: PlanTab
   /** Frames a polygon read from KML. */
   readonly onFit: (points: readonly LatLon[]) => void
+  readonly terrainTiles: string | null
+  readonly predict?: (d: Draft) => Predicted | null
 }
 
 /** The camera list, fetched once on first use rather than every time the planner opens. */
@@ -42,7 +50,25 @@ function useLazyCameras() {
   return { cameras, load }
 }
 
-export function useSurveyWiring({ store, change, afterUid, home, kind, params, tab, onFit }: Args) {
+type MapSideArgs = Pick<Args, 'draft' | 'change' | 'home' | 'params' | 'terrainTiles' | 'predict' | 'tab'>
+
+/** The shared survey editor, the draft the map shows (a drag preview applied), the map's survey props and the footprint button. */
+function useMapSide({ draft, change, home, params, terrainTiles, predict, tab }: MapSideArgs) {
+  const editor = useSurveyEditor({ draft, change, home, terrainTiles, vehicleParams: params, predict })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const mapDraft = useMemo(() => previewDraft(draft, editor), [draft, editor.preview])
+  const foot = useFootToggle()
+  const mapSurvey: SurveyMapProps = {
+    metrics: editor.metrics,
+    onPolygon: (id, polygon, done) => editor.update(id, { polygon: [...polygon] }, done ? 'done' : 'live'),
+    onAngle: (id, angleDeg, done) => editor.update(id, { angleDeg }, done ? 'done' : 'live'),
+    showFootprints: foot.on,
+  }
+  const footButton = { visible: draft.surveys.length > 0 && tab === 'mission', on: foot.on, onToggle: foot.toggle }
+  return { editor, mapDraft, mapSurvey, footButton }
+}
+
+export function useSurveyWiring({ store, draft, change, afterUid, home, kind, params, tab, onFit, terrainTiles, predict }: Args) {
   const cams = useLazyCameras()
   const kmlInput = useRef<HTMLInputElement>(null)
   const select = (uid: number) => store.update((u) => selectOne(u, uid, false))
@@ -76,5 +102,7 @@ export function useSurveyWiring({ store, change, afterUid, home, kind, params, t
   }
   const mapDraw: SurveyDrawMap | null = draw.drawing ? { ring: draw.drawing, onClick: (lat, lon) => draw.addVertex({ lat, lon }), onClose: draw.finish } : null
 
-  return { onPalette, onKey, mapDraw, slot: { drawing: draw.drawing, error: draw.error, onFinish: draw.finish, onCancel: draw.cancel, onDismiss: draw.dismissError, kmlInput, onKml } }
+  const side = useMapSide({ draft, change, home, params, terrainTiles, predict, tab })
+
+  return { ...side, onPalette, onKey, mapDraw, slot: { drawing: draw.drawing, error: draw.error, onFinish: draw.finish, onCancel: draw.cancel, onDismiss: draw.dismissError, kmlInput, onKml } }
 }

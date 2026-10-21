@@ -10,6 +10,7 @@ import { stats } from '../mission/summary'
 import { blur, footprint, gsdCm, triggerDistM } from './photo'
 import { ALPHA7R4, type SurveySpec } from './spec'
 import { HOME, surveyDraft } from './surveyFixture'
+import { useSurveyEditor } from './useSurveyEditor'
 
 vi.mock('../../shared/api/client', () => ({ apiFetch: vi.fn(() => Promise.resolve([])) }))
 /** Front overlap 77 stands for a change after which no lane fits (as a polygon edit can do). */
@@ -25,6 +26,7 @@ function Harness({ store, dict, kind }: { store: MissionStore; dict: Dict; kind:
   const ui = useMissionUi(store)
   const draft = ui.history.present
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
+  const sv = useSurveyEditor({ draft, change, home: HOME, terrainTiles: null, vehicleParams: new Map() })
   const noop = () => {}
   return (
     <MissionSidebar
@@ -53,7 +55,7 @@ function Harness({ store, dict, kind }: { store: MissionStore; dict: Dict; kind:
       onUpload={noop}
       onSaveFile={noop}
       onSaveRgcs={noop}
-      survey={{ change, home: HOME, terrainTiles: null, vehicleParams: new Map() }}
+      survey={sv}
     />
   )
 }

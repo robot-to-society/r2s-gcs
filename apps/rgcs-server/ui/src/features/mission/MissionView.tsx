@@ -15,7 +15,9 @@ import { CommandPalette } from './CommandPalette'
 import { ContextMenu } from './ContextMenu'
 import { MissionList } from './MissionList'
 import { MissionListHeader } from './MissionListHeader'
+import { SurveyFootToggle } from '../survey/SurveyFootToggle'
 import { SurveySlot } from '../survey/SurveySlot'
+import { predictSurvey } from '../survey/surveyPredict'
 import { insertAnchor } from '../survey/draftOps'
 import { useSurveyWiring } from '../survey/useSurveyWiring'
 import { UploadTargets } from './UploadTargets'
@@ -95,7 +97,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const [hLat, hLon, hAlt] = [vehicle?.home?.lat, vehicle?.home?.lon, vehicle?.home?.alt]
   const predict = useMemo(() => {
     const model = pathModel(kind, pathValues)
-    if (!model) return undefined
+    // no vehicle: a plane survey is flown with its own speed, bank and WP radius
+    if (!model) return kind === null ? predictSurvey : undefined
     const vHome = hLat !== undefined && hLon !== undefined && hAlt !== undefined ? { lat: hLat, lon: hLon, alt: hAlt } : null
     return (d: Draft) => predictFor(d, model, vHome)
   }, [kind, pathValues, hLat, hLon, hAlt])
@@ -108,7 +111,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const planIo = { sysid, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f), onCollapse: panel.collapse }
   const selectedItems = draft.items.filter((it) => ui.selected.has(it.uid))
   const lastSelected = selectedItems[selectedItems.length - 1]
-  const sv = useSurveyWiring({ store, change, afterUid: lastSelected?.uid ?? null, home: fileHome, kind, params: pathValues, tab: plan.tab, onFit })
+  const sv = useSurveyWiring({ store, draft, change, afterUid: lastSelected?.uid ?? null, home: fileHome, kind, params: pathValues, tab: plan.tab, onFit, terrainTiles, predict })
   const st = stats(draft.items, draft.mission.home, draft.mission.speed)
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -149,7 +152,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   return (
     <div className={`mission-view${panel.collapsed ? ' panel-collapsed' : ''}`} style={{ position: 'absolute', inset: 0 }} tabIndex={-1} onKeyDown={onKeyDown} data-testid="mission-view">
       <MissionMap
-        draft={draft}
+        draft={sv.mapDraft}
         selected={ui.selected}
         tool={ui.tool}
         style={style}
@@ -164,6 +167,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         pathColor={brief.pathColor}
         panelCollapsed={panel.collapsed}
         surveyDraw={sv.mapDraw}
+        survey={sv.mapSurvey}
         onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, { takeoff: takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1) }))}
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}
         onMove={(uid, lat, lon) => change((d) => moveItem(d, uid, lat, lon))}
@@ -196,6 +200,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         ?
       </button>
       {help && <HelpPanel dict={dict} onClose={() => setHelp(false)} />}
+      <SurveyFootToggle {...sv.footButton} dict={dict} />
       <div className="g-ctl float map-c num mission-pill" aria-hidden="true">
         <span>
           <span className="t3">{dict.mDistance}</span>
@@ -346,7 +351,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onSaveFile={() => void io.saveWaypointsFile()}
         onSaveRgcs={io.saveRgcsFile}
         compare={batch.compare}
-        survey={{ change, home: fileHome, terrainTiles, vehicleParams: pathValues, predict }}
+        survey={sv.editor}
         onCollapse={panel.collapse}
       />
       )}

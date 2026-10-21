@@ -1,6 +1,6 @@
 // 3D mission path (prototype updateMissionAir): one altitude polyline per leg coloured by
 // its climb angle (steep climbs turn red), a post per positioned item (amber when selected), ground discs, and the altitude of
-// every badge and mid-leg handle so the DOM markers can float to it.
+// every badge and mid-leg handle so the DOM markers can float to it; survey outlines draped on the ground.
 import { useEffect, useRef, type RefObject } from 'react'
 import type { FeatureCollection, Point } from 'geojson'
 import type { Map as MlMap, Marker } from 'maplibre-gl'
@@ -15,6 +15,7 @@ import { haversineM, hasPosition, type LatLon } from './geo'
 import type { Draft, DraftItem } from './model'
 import type { PathPoint } from '../flightpath/planePath'
 import type { OtherMission } from '../briefing/overlay'
+import { surveyOutlines } from '../survey/surveyAir'
 
 const POST: Rgb = [0xbf / 255, 0xe0 / 255, 1]
 const AMBER: Rgb = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
@@ -193,7 +194,8 @@ export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elev
   })
   const floor = home ? homeGround : vehicleHome ? elevAt(vehicleHome.lon, vehicleHome.lat) : null
   const walls = ceiling !== null && floor !== null ? fenceWalls(draft.mission.fence, floor + ceiling, (lon, lat) => elevAt(lon, lat) ?? floor) : { lines: [], posts: [] }
-  return { lines: [...lines, ...walls.lines], posts: [...posts, ...walls.posts, ...predictedLine(predicted, elevAt)], discs, alts, mids }
+  const surveys = surveyOutlines(draft.surveys, elevAt, homeGround)
+  return { lines: [...lines, ...walls.lines, ...surveys], posts: [...posts, ...walls.posts, ...predictedLine(predicted, elevAt)], discs, alts, mids }
 }
 
 interface Args {

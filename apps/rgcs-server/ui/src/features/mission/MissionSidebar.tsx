@@ -3,7 +3,8 @@ import type { Dict } from '../../shared/i18n'
 import { FRAMES } from './cmds'
 import { ItemEditor } from './ItemEditor'
 import { surveyAt } from '../survey/draftOps'
-import { SurveyPanel, type SurveyContext } from '../survey/SurveyPanel'
+import { SurveyPanel } from '../survey/SurveyPanel'
+import type { SurveyEditor } from '../survey/useSurveyEditor'
 import { km, mmss } from './labels'
 import type { Draft, DraftItem } from './model'
 import { findingText, type LocalWarning } from './summary'
@@ -44,7 +45,7 @@ interface Props {
   /** Several missions open: the vehicle is the row's assignment, which may be none (未割当). */
   readonly multi?: boolean
   /** Survey editing: a selected item inside a survey opens its panel instead of the item editor. */
-  readonly survey?: SurveyContext
+  readonly survey?: SurveyEditor
 }
 
 /** Right panel after the prototype: ミッション settings, selection editor, サマリ, write / save buttons. */
@@ -139,7 +140,7 @@ export function MissionSidebar(p: Props) {
             </button>
           </div>
         )}
-        {only && hostSurvey && p.survey && <SurveyPanel key={hostSurvey.id} uid={only.uid} draft={draft} dict={dict} {...p.survey} />}
+        {only && hostSurvey && p.survey && <SurveyPanel key={hostSurvey.id} uid={only.uid} dict={dict} sv={p.survey} />}
         {only && !(hostSurvey && p.survey) && (
           <ItemEditor item={only} uid={only.uid} seq={draft.items.indexOf(only) + 1} kind={p.kind} dict={dict} onChange={p.onItemChange} onCommand={p.onItemCommand} onDelete={() => p.onDeleteSelected()} />
         )}

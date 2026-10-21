@@ -87,6 +87,7 @@ export const surveyJa = {
   svKmlNoPolygon: 'ファイルにポリゴンがありません',
   svKmlBadCoordinates: 'ファイルの座標が正しくありません',
   svKmlTooLarge: 'ファイルが大きすぎます',
+  svFootToggle: '撮影範囲を表示',
 }
 
 export const surveyEn: Record<keyof typeof surveyJa, string> = {
@@ -176,4 +177,5 @@ export const surveyEn: Record<keyof typeof surveyJa, string> = {
   svKmlNoPolygon: 'The file has no polygon',
   svKmlBadCoordinates: 'The file has invalid coordinates',
   svKmlTooLarge: 'The file is too large',
+  svFootToggle: 'Show the photo footprints',
 }

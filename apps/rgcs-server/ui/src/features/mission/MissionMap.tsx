@@ -20,6 +20,7 @@ import { useFenceRally, type FenceEdit, type PlanTab } from './fenceMap'
 import type { OtherMission } from '../briefing/overlay'
 import { useBriefingOverlay } from '../briefing/useBriefingOverlay'
 import { useSurveyDrawLayer, type SurveyDrawMap } from '../survey/surveyDrawLayer'
+import { useSurveyMap, type SurveyMapProps } from '../survey/surveyMap'
 
 interface Props {
   readonly draft: Draft
@@ -69,6 +70,8 @@ interface Props {
   readonly panelCollapsed?: boolean
   /** A survey area is being drawn: map clicks add its vertices instead of waypoints. */
   readonly surveyDraw?: SurveyDrawMap | null
+  /** The surveys' layers and their vertex / rotate drags. */
+  readonly survey?: SurveyMapProps | null
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -82,6 +85,7 @@ const VEHICLE_OFFSET = [-17, 0] as const
 const PATH = 'mission-path'
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 const NO_OTHERS: readonly OtherMission[] = []
+const NO_SURVEY: SurveyMapProps = { metrics: () => null, onPolygon: () => {}, onAngle: () => {}, showFootprints: false }
 /** `--accent` → `--alt-hi` (spec 10 §6: the path is coloured by altitude). */
 const ALT_COLOR: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'alt_t'], 0, '#9cc9ff', 1, '#d8a8ff']
 
@@ -90,7 +94,7 @@ interface Badge {
   readonly el: HTMLDivElement
 }
 
-type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus' | 'fitTo' | 'others' | 'pathColor' | 'panelCollapsed'>
+type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus' | 'fitTo' | 'others' | 'pathColor' | 'panelCollapsed' | 'survey'>
 
 /** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
@@ -265,6 +269,7 @@ export function MissionMap(props: Props) {
   useBoxSelect(container, badges, onBox, boxActive)
   useBriefingOverlay({ map, loaded, others: props.others ?? NO_OTHERS, is3d })
   useSurveyDrawLayer({ map, loaded, draw: props.surveyDraw ?? null })
+  useSurveyMap({ map, loaded, draft: shown, is3d, editable: tab === 'mission' && !drawing, ...(props.survey ?? NO_SURVEY) })
 
   // The selected vehicle, for context
   useEffect(() => {

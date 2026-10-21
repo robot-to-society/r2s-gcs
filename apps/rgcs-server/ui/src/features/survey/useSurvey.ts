@@ -130,5 +130,7 @@ export function useSurvey({ draft, change, home, elevAt, vehicleParams, predict,
 
   const expand = (id: string) => change((d) => expandSurvey(d, id))
 
-  return { surveyFor, update, expand, metrics, rejected }
+  /** The survey being dragged (its spec as of the last frame); null when no drag is in progress. */
+  const preview = frames.preview
+  return { surveyFor, update, expand, metrics, rejected, preview }
 }

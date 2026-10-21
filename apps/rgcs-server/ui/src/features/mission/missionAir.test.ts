@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { toMercator } from '../map/air'
 import type { DraftItem } from './model'
 import { missionAirData, othersAirLines } from './missionAir'
+import { RECT, surveyDraft } from '../survey/surveyFixture'
+import { SURVEY_LIFT_M } from '../survey/surveyAir'
 
 const it_ = (uid: number, lat: number, alt: number, frame: DraftItem['frame'] = 'rel', command = 16): DraftItem => ({ uid, command, frame, params: [0, 0, 0, 0], lat, lon: 139.37, alt, autocontinue: true })
-const draft = (items: DraftItem[], home: { lat: number; lon: number; alt: number } | null = null) => ({ mission: { id: null, name: 'm', sysid: null, default_alt: 60, default_frame: 'rel' as const, speed: 8, home, items: [] }, items, nextUid: 99 })
+const draft = (items: DraftItem[], home: { lat: number; lon: number; alt: number } | null = null) => ({ mission: { id: null, name: 'm', sysid: null, default_alt: 60, default_frame: 'rel' as const, speed: 8, home, items: [] }, items, nextUid: 99, surveys: [] })
 const POST: readonly number[] = [0xbf / 255, 0xe0 / 255, 1]
 const AMBER: readonly number[] = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
 
@@ -89,6 +91,16 @@ describe('missionAirData', () => {
     expect(d.posts).toHaveLength(1)
     expect(d.posts[0]!.map((v) => v.z)).toEqual(points.map((p) => toMercator(p.lon, p.lat, 100 + p.alt).z))
     expect(missionAirData(draft([]) as never, new Set(), () => null, null, null, { home, points }).posts).toHaveLength(0)
+  })
+  it('drapes each survey area outline on the ground: a closed line just above the DEM', () => {
+    const { draft: sd } = surveyDraft()
+    const d = missionAirData(sd, new Set(), () => 100)
+    const base = missionAirData({ ...sd, surveys: [] }, new Set(), () => 100)
+    expect(d.lines).toHaveLength(base.lines.length + 1)
+    const outline = d.lines.at(-1)!
+    expect(outline.length).toBeGreaterThan(RECT.length + 1)
+    expect([outline[0]!.x, outline[0]!.y]).toEqual([outline.at(-1)!.x, outline.at(-1)!.y])
+    expect(outline[0]!.z).toBeCloseTo(toMercator(RECT[0]!.lon, RECT[0]!.lat, 100 + SURVEY_LIFT_M).z, 12)
   })
 })
 

@@ -15,7 +15,8 @@ export interface SurveyDrawMap {
 }
 
 const SOURCE = 'survey-draw'
-const COLOR = '#ffd166'
+/** Surveys on the map (the area being drawn, then the survey layers). */
+export const SURVEY_COLOR = '#ffd166'
 
 export function drawGeoJson(ring: readonly LatLon[] | null): FeatureCollection {
   if (!ring || ring.length === 0) return { type: 'FeatureCollection', features: [] }
@@ -28,9 +29,9 @@ export function drawGeoJson(ring: readonly LatLon[] | null): FeatureCollection {
 
 function setup(m: MlMap): void {
   m.addSource(SOURCE, { type: 'geojson', data: drawGeoJson(null) })
-  m.addLayer({ id: 'survey-draw-fill', type: 'fill', source: SOURCE, filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': COLOR, 'fill-opacity': 0.12 } })
-  m.addLayer({ id: 'survey-draw-line', type: 'line', source: SOURCE, filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': COLOR, 'line-width': 2, 'line-dasharray': [2, 1.5] } })
-  m.addLayer({ id: 'survey-draw-pt', type: 'circle', source: SOURCE, filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 4, 'circle-color': COLOR, 'circle-stroke-color': '#0b1b2e', 'circle-stroke-width': 1.5 } })
+  m.addLayer({ id: 'survey-draw-fill', type: 'fill', source: SOURCE, filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': SURVEY_COLOR, 'fill-opacity': 0.12 } })
+  m.addLayer({ id: 'survey-draw-line', type: 'line', source: SOURCE, filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': SURVEY_COLOR, 'line-width': 2, 'line-dasharray': [2, 1.5] } })
+  m.addLayer({ id: 'survey-draw-pt', type: 'circle', source: SOURCE, filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 4, 'circle-color': SURVEY_COLOR, 'circle-stroke-color': '#0b1b2e', 'circle-stroke-width': 1.5 } })
 }
 
 interface Args {

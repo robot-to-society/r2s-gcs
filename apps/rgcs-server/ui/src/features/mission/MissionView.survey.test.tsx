@@ -2,15 +2,43 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
-import { at } from '../survey/surveyFixture'
+import { at, surveyDraft } from '../survey/surveyFixture'
 
 // map clicks go where the real map sends them: the survey drawing first, else "add a waypoint"
 const POINTS = [at(-300, -300), at(-300, -200), at(-300, -100), at(0, 0), at(600, 0), at(600, 500)]
 let clicks = 0
 let contextUid = 0
+type Ring = readonly { lat: number; lon: number }[]
+interface MapProps {
+  onAdd: (lat: number, lon: number) => void
+  onContext: (m: { uid: number; x: number; y: number }) => void
+  surveyDraw?: { ring: readonly unknown[]; onClick: (lat: number, lon: number) => void } | null
+  draft: { surveys: readonly { id: string; spec: { polygon: Ring } }[] }
+  predict?: (d: never) => { points: readonly unknown[] } | null
+  survey?: { onPolygon: (id: string, ring: Ring, done: boolean) => void; showFootprints: boolean } | null
+}
+/** The ring a map vertex drag sends: vertex 2 moved 0.001° east of where the drag started. */
+let dragged: Ring = []
+const dragVertex = (p: MapProps, done: boolean) => {
+  const s = p.draft.surveys[0]!
+  if (!done) dragged = s.spec.polygon.map((q, i) => (i === 2 ? { lat: q.lat, lon: q.lon + 0.001 } : q))
+  p.survey?.onPolygon(s.id, dragged, done)
+}
 vi.mock('./MissionMap', () => ({
-  MissionMap: (p: { onAdd: (lat: number, lon: number) => void; onContext: (m: { uid: number; x: number; y: number }) => void; surveyDraw?: { ring: readonly unknown[]; onClick: (lat: number, lon: number) => void } | null }) => (
-    <div data-testid="mission-map" data-drawing={p.surveyDraw ? p.surveyDraw.ring.length : -1}>
+  MissionMap: (p: MapProps) => (
+    <div
+      data-testid="mission-map"
+      data-drawing={p.surveyDraw ? p.surveyDraw.ring.length : -1}
+      data-lon2={p.draft.surveys[0]?.spec.polygon[2]?.lon ?? ''}
+      data-predicted={p.predict ? (p.predict(p.draft as never)?.points.length ?? 0) : -1}
+      data-foot={String(p.survey?.showFootprints ?? '')}
+    >
+      <button type="button" onClick={() => dragVertex(p, false)}>
+        vertex-drag
+      </button>
+      <button type="button" onClick={() => dragVertex(p, true)}>
+        vertex-drop
+      </button>
       <button
         type="button"
         onClick={() => {
@@ -29,7 +57,7 @@ vi.mock('./MissionMap', () => ({
 }))
 
 const { MissionView } = await import('./MissionView')
-const { MissionStore } = await import('./store')
+const { MissionStore, edit, selectOne } = await import('./store')
 const { BriefingStore } = await import('../briefing/store')
 const { rasterStyle } = await import('../map/style')
 
@@ -161,5 +189,52 @@ describe('MissionView survey drawing', () => {
     fireEvent.click(screen.getByText('map-context'))
     fireEvent.click(screen.getByRole('menuitem', { name: dict.mInsertAfter }))
     expect(intactAfter(store, uids).uid).toBe(nextUid)
+  })
+})
+
+describe('MissionView survey on the map', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const frame = () => act(async () => void (await new Promise((r) => setTimeout(r, 40))))
+
+  /** A plane survey (with a home) in the store and selected; no vehicle unless given. */
+  function seeded(vehicles: ReadonlyMap<number, VehicleState> = new Map()) {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => envelope([])))
+    const store = new MissionStore()
+    const { draft } = surveyDraft()
+    store.update((u) => selectOne(edit(u, draft), draft.surveys[0]!.uids[0]!, false))
+    render(<MissionView vehicles={vehicles} dict={dict} style={rasterStyle('https://t/{z}/{x}/{y}.png', 'x')} store={store} briefing={new BriefingStore()} />)
+    return store
+  }
+  const lon2 = () => Number(screen.getByTestId('mission-map').dataset.lon2)
+
+  it('a vertex drag previews on the map (no commit) and its release is one undo step', async () => {
+    const store = seeded()
+    const start = store.getState().history
+    const before = start.present.surveys[0]!.spec.polygon[2]!.lon
+    expect(lon2()).toBe(before)
+    fireEvent.click(screen.getByText('vertex-drag'))
+    await frame()
+    expect(lon2()).toBeCloseTo(before + 0.001, 9)
+    expect(store.getState().history).toBe(start)
+    fireEvent.click(screen.getByText('vertex-drop'))
+    const h = store.getState().history
+    expect(h.past).toHaveLength(start.past.length + 1)
+    expect(h.present.surveys[0]!.spec.polygon[2]!.lon).toBeCloseTo(before + 0.001, 9)
+    expect(lon2()).toBeCloseTo(before + 0.001, 9)
+    // the panel and the map share the survey: the panel still shows it after the commit
+    expect(screen.getByTestId('survey-panel')).toBeInTheDocument()
+  })
+
+  it('without a vehicle the predicted line flies the survey at its own speed / bank / WP radius', () => {
+    seeded()
+    expect(Number(screen.getByTestId('mission-map').dataset.predicted)).toBeGreaterThan(1)
+  })
+
+  it('the footprint button shows with a survey and switches the map footprints', () => {
+    localStorage.removeItem('rgcs.surveyFoot')
+    seeded()
+    expect(screen.getByTestId('mission-map').dataset.foot).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: dict.svFootToggle }))
+    expect(screen.getByTestId('mission-map').dataset.foot).toBe('true')
   })
 })
