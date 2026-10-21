@@ -106,6 +106,8 @@ function fenceWalls(zones: readonly FenceZone[], ceilingAmsl: number, ground: (l
 export interface Predicted {
   readonly home: LatLon
   readonly points: readonly PathPoint[]
+  /** How many points are the mission itself; the plane's RTL tail follows (absent: all of them). */
+  readonly missionEnd?: number
 }
 
 /** Thin and translucent (the posts pass) so the planned legs stay the main line; climb-coloured. */

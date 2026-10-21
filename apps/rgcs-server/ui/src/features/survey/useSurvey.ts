@@ -72,8 +72,8 @@ function computeMetrics(spec: SurveySpec, c: MetricsCtx): SurveyMetrics | null {
   const ground = c.elevAt ? groundRange(spec.polygon, c.elevAt) : null
   const homeAmsl = c.elevAt && c.home ? c.elevAt(c.home.lon, c.home.lat) : null
   const worst = ground && homeAmsl !== null ? worstCase(spec, geometry, ground, homeAmsl) : null
-  const predicted = spec.airframe === 'plane' && c.predict ? c.predict(regenerateSurvey(c.draft, c.id, spec, items))?.points : undefined
-  const checked = surveyWarnings({ spec, geometry, numbers, worst, items, home: c.home, predicted, rollLimitDeg: c.rollLimitDeg, vehicle: c.vehicle })
+  const pred = spec.airframe === 'plane' && c.predict ? c.predict(regenerateSurvey(c.draft, c.id, spec, items)) : null
+  const checked = surveyWarnings({ spec, geometry, numbers, worst, items, home: c.home, predicted: pred?.points, predictedMissionEnd: pred?.missionEnd, rollLimitDeg: c.rollLimitDeg, vehicle: c.vehicle })
   const warnings = c.carryEntry && !checked.includes('entry') ? [...checked, 'entry' as const] : checked
   return { spec, items, geometry, numbers, ground, worst, warnings, rollLimitDeg: c.rollLimitDeg, vehicle: c.vehicle }
 }

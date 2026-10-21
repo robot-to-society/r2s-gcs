@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Home, MissionItem } from '../../shared/api/types'
 import { toLatLon, toXy, type Xy } from './geom'
 import { PLANE_DEFAULTS, type PlaneParams } from './params'
-import { predictPlane } from './planePath'
+import { predictPlane, predictPlaneParts } from './planePath'
 import { eas2tas } from './track'
 
 const home: Home = { lat: 36.25, lon: 137.6, alt: 1500 }
@@ -184,6 +184,20 @@ describe('predicted ArduPlane / QuadPlane path (AUTO)', () => {
     const rtl = local([item(22, null, 50), item(16, { x: 0, y: 1500 }, 50), item(20, null, 0)], PLANE_DEFAULTS)
     const once = local([item(22, null, 50), item(16, { x: 0, y: 1500 }, 50)], PLANE_DEFAULTS)
     expect(rtl).toEqual(once)
+  })
+
+  it('tells where the mission part ends and the RTL tail begins', () => {
+    const items = [item(22, null, 80), item(16, { x: 0, y: 1500 }, 80), item(16, { x: 1500, y: 1500 }, 120)]
+    const parts = predictPlaneParts(items, home, PLANE_DEFAULTS)
+    expect(parts.points).toEqual(predictPlane(items, home, PLANE_DEFAULTS))
+    expect(parts.missionEnd).toBeGreaterThan(1)
+    expect(parts.missionEnd).toBeLessThan(parts.points.length)
+    // the mission part ends near the last waypoint, the tail goes home
+    const lastMission = toXy(home, parts.points[parts.missionEnd - 1]!)
+    expect(r(lastMission, { x: 1500, y: 1500 })).toBeLessThan(150)
+    const landed = [item(22, null, 50), item(16, { x: 0, y: 1500 }, 50), item(21, { x: 600, y: 1500 }, 0)]
+    const whole = predictPlaneParts(landed, home, qp)
+    expect(whole.missionEnd).toBe(whole.points.length)
   })
 
   it('a 700-waypoint survey predicts within 150 ms', () => {

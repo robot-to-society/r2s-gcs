@@ -3,7 +3,7 @@ import type { Predicted } from '../mission/missionAir'
 import { COPTER_PARAM_NAMES, copterParams, type CopterParams } from './copterParams'
 import { predictCopter } from './copterPath'
 import { PLANE_PARAM_NAMES, planeParams, type PlaneParams } from './params'
-import { predictPlane } from './planePath'
+import { predictPlaneParts } from './planePath'
 
 interface Plan {
   readonly items: readonly MissionItem[]
@@ -29,6 +29,8 @@ export function pathModel(kind: VehicleKind | null, values: ReadonlyMap<string, 
 export function predictFor(plan: Plan, model: PathModel, vehicleHome: GeoPoint | null): Predicted | null {
   const home: Home | null = plan.mission.home ?? (vehicleHome ? { lat: vehicleHome.lat, lon: vehicleHome.lon, alt: vehicleHome.alt } : null)
   if (!home) return null
-  const points = model.kind === 'plane' ? predictPlane(plan.items, home, model.params) : predictCopter(plan.items, home, model.params)
-  return { home: { lat: home.lat, lon: home.lon }, points }
+  const at = { lat: home.lat, lon: home.lon }
+  if (model.kind === 'plane') return { home: at, ...predictPlaneParts(plan.items, home, model.params) }
+  const points = predictCopter(plan.items, home, model.params)
+  return { home: at, points, missionEnd: points.length }
 }

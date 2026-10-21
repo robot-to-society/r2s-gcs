@@ -281,10 +281,21 @@ function fly(ctx: Ctx, i: number, it: MissionItem): boolean {
   return true
 }
 
-export function predictPlane(items: readonly MissionItem[], home: Home, p: PlaneParams): PathPoint[] {
+/** The predicted path and how many of its points are the mission itself (the rest is the RTL tail). */
+export interface PlaneParts {
+  readonly points: PathPoint[]
+  readonly missionEnd: number
+}
+
+export function predictPlaneParts(items: readonly MissionItem[], home: Home, p: PlaneParams): PlaneParts {
   const ctx: Ctx = { items, home, p, track: new Track(p, home.alt) }
   const ended = items.every((it, i) => fly(ctx, i, it))
+  const missionEnd = ctx.track.pts.length
   // the mission ran out: ArduPlane switches to RTL (exit_mission_callback)
   if (ended && items.length > 0) rtl(ctx)
-  return ctx.track.pts.map((q) => ({ ...toLatLon(home, q), alt: q.alt }))
+  return { points: ctx.track.pts.map((q) => ({ ...toLatLon(home, q), alt: q.alt })), missionEnd }
+}
+
+export function predictPlane(items: readonly MissionItem[], home: Home, p: PlaneParams): PathPoint[] {
+  return predictPlaneParts(items, home, p).points
 }

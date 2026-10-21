@@ -23,6 +23,8 @@ export interface WarningInput {
   readonly items: readonly MissionItem[]
   readonly home: LatLon | null
   readonly predicted?: readonly PathPoint[]
+  /** How many predicted points are the mission (the plane's RTL tail follows); absent: all. */
+  readonly predictedMissionEnd?: number
   /** ROLL_LIMIT_DEG of the connected vehicle. */
   readonly rollLimitDeg?: number
   /** Other parameters read from the connected vehicle (none: NAVL1 defaults, the rest skipped). */
@@ -106,7 +108,7 @@ function pathDistM(p: LatLon, path: readonly PathPoint[]): number {
 }
 
 function entryMissed(i: WarningInput): boolean {
-  const path = i.predicted
+  const path = i.predicted?.slice(0, i.predictedMissionEnd ?? i.predicted.length)
   if (!path || path.length === 0) return false
   return shootingStarts(i.items).some((wp) => pathDistM(wp, path) > ENTRY_TOL_M)
 }

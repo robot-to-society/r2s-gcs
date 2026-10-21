@@ -184,6 +184,14 @@ describe('entry warning (predicted path)', () => {
     expect(warn(s, { predicted: far })).toContain('entry')
     expect(warn(spec({ airframe: 'copter', speedMs: 8 }), { predicted: far })).not.toContain('entry')
   })
+
+  it('only the mission part counts: the RTL tail passing a shooting start does not hide a miss', () => {
+    const s = spec({ wpRadiusM: 90 })
+    const tail: PathPoint[] = shootingStarts(input(s).items).map((wp) => ({ lat: wp.lat, lon: wp.lon, alt: 100 }))
+    const path: PathPoint[] = [{ ...at(5000, 5000), alt: 100 }, ...tail]
+    expect(warn(s, { predicted: path })).not.toContain('entry')
+    expect(warn(s, { predicted: path, predictedMissionEnd: 1 })).toContain('entry')
+  })
 })
 
 describe('shootingStarts', () => {

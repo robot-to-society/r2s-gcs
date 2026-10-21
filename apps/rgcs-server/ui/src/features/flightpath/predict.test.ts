@@ -25,6 +25,18 @@ describe('predictFor', () => {
   })
 })
 
+describe('predictFor missionEnd', () => {
+  it('marks where the mission part ends: before the plane RTL tail, the whole copter path', () => {
+    const home = { lat: 36.25, lon: 137.6, alt: 1500 }
+    const wp: MissionItem = { ...takeoff, command: 16, lat: 36.26, lon: 137.6, alt: 40 }
+    const plane = predictFor({ items: [takeoff, wp], mission: { home } }, { kind: 'plane', params: PLANE_DEFAULTS }, null)!
+    expect(plane.missionEnd).toBeGreaterThan(1)
+    expect(plane.missionEnd).toBeLessThan(plane.points.length)
+    const copter = predictFor({ items: [takeoff, wp], mission: { home } }, pathModel('copter', new Map())!, null)!
+    expect(copter.missionEnd).toBe(copter.points.length)
+  })
+})
+
 describe('pathModel', () => {
   it('planes and copters have a model (each asks for its own parameters); rovers and unknown vehicles none', () => {
     expect(pathModel('plane', new Map([['AIRSPEED_CRUISE', 20]]))).toMatchObject({ kind: 'plane', params: { airspeed: 20 } })
