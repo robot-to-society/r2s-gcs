@@ -1,14 +1,18 @@
-import { useRef, useState, type DragEvent } from 'react'
+import { useRef, useState, type DragEvent, type HTMLAttributes, type MouseEvent } from 'react'
 import type { VehicleKind } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { CMDS, mavFontSize } from './cmds'
-import { haversineM, hasPosition } from './geo'
-import { itemSummary, km, wpLabel } from './labels'
-import { badgeText } from './mapEdit'
-import { cmdKey, type DraftItem } from './model'
+import { listSegments, SurveyRow } from '../survey/SurveyRow'
+import { haversineM, hasPosition, type LatLon } from './geo'
+import { itemSummary, km } from './labels'
+import type { DraftItem, DraftSurvey } from './model'
+import { WpRow } from './MissionRow'
 
 interface Props {
   readonly items: readonly DraftItem[]
+  /** Surveys: each shows as one collapsible group row over its read-only items. */
+  readonly surveys?: readonly DraftSurvey[]
+  /** For the survey rows' photo counts (start corner "home"). */
+  readonly home?: LatLon | null
   readonly selected: ReadonlySet<number>
   readonly kind: VehicleKind | null
   readonly dict: Dict
@@ -18,6 +22,8 @@ interface Props {
   readonly onMove: (uids: ReadonlySet<number>, before: number) => void
   readonly onContext: (uid: number, x: number, y: number) => void
 }
+
+const NO_SURVEYS: readonly DraftSurvey[] = []
 
 /** Metres from the previous positioned item (0 for the first and for non-positioned items). */
 function legDistances(items: readonly DraftItem[]): readonly number[] {
@@ -34,88 +40,92 @@ function legDistances(items: readonly DraftItem[]): readonly number[] {
   return out
 }
 
-/** The slot a drop over row `i` means: before it in the upper half, after it in the lower. */
-function slotAt(e: DragEvent<HTMLElement>, i: number): number {
+/** The slot a drop over a row spanning [first, last] means: before it in the upper half, after it in the lower. */
+function slotAt(e: DragEvent<HTMLElement>, first: number, last: number): number {
   const r = e.currentTarget.getBoundingClientRect()
-  return e.clientY < r.top + r.height / 2 ? i : i + 1
+  return e.clientY < r.top + r.height / 2 ? first : last + 1
 }
 
-/** Prototype `.wrow` list: badge, Japanese command name + MAV id, summary line, ▲▼. */
-export function MissionList({ items, selected, kind, dict, onSelect, onReorder, onMove, onContext }: Props) {
-  const legs = legDistances(items)
+/** Drag state and the handlers of a row (or survey group) spanning items [first, last]. */
+function useDrag(total: number, onMove: Props['onMove']) {
   const dragging = useRef<ReadonlySet<number> | null>(null)
   const [slot, setSlot] = useState<number | null>(null)
   const end = () => {
     dragging.current = null
     setSlot(null)
   }
+  const attrs = (carried: () => ReadonlySet<number>, first: number, last: number): HTMLAttributes<HTMLDivElement> => ({
+    draggable: true,
+    onDragStart: (e) => {
+      const uids = carried()
+      dragging.current = uids
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/plain', [...uids].join(','))
+    },
+    onDragOver: (e) => {
+      if (!dragging.current) return
+      e.preventDefault()
+      const next = slotAt(e, first, last)
+      // "after row i" and "before row i + 1" are one slot: mark it on the lower row
+      if (next !== slot) setSlot(next)
+    },
+    onDrop: (e) => {
+      e.preventDefault()
+      if (dragging.current) onMove(dragging.current, slotAt(e, first, last))
+      end()
+    },
+    onDragEnd: end,
+  })
+  const marks = (first: number, last: number) => `${slot === first ? ' drop-before' : ''}${slot === total && last === total - 1 ? ' drop-after' : ''}`
+  return { attrs, marks }
+}
+
+/** Prototype `.wrow` list: badge, Japanese command name + MAV id, summary line, ▲▼; surveys grouped. */
+export function MissionList({ items, surveys = NO_SURVEYS, home = null, selected, kind, dict, onSelect, onReorder, onMove, onContext }: Props) {
+  const legs = legDistances(items)
+  const drag = useDrag(items.length, onMove)
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   if (items.length === 0) return <div className="t3 wp-empty">{dict.mNoWp}</div>
+  const click = (uid: number) => (e: MouseEvent) => onSelect(uid, e.metaKey || e.ctrlKey, e.shiftKey)
+  const sub = (it: DraftItem, i: number) => `${legs[i]! > 0 ? `${km(legs[i]!)} · ` : ''}${itemSummary(it, kind, dict) || '—'}`
+  const toggle = (id: string) => setOpen((o) => (o.has(id) ? new Set([...o].filter((x) => x !== id)) : new Set([...o, id])))
+
+  const plainRow = (i: number) => {
+    const it = items[i]!
+    const sel = selected.has(it.uid)
+    const attrs: HTMLAttributes<HTMLDivElement> = {
+      ...drag.attrs(() => (sel ? selected : new Set([it.uid])), i, i),
+      onContextMenu: (e) => {
+        e.preventDefault()
+        onContext(it.uid, e.clientX, e.clientY)
+      },
+    }
+    const reorder = { canUp: i > 0, canDown: i < items.length - 1, onReorder: (dir: -1 | 1) => onReorder(it.uid, dir) }
+    return <WpRow key={it.uid} item={it} seq={i + 1} sel={sel} sub={sub(it, i)} dict={dict} className={drag.marks(i, i)} attrs={attrs} reorder={reorder} onClick={click(it.uid)} />
+  }
+  const surveyGroup = (s: DraftSurvey, first: number) => {
+    const last = first + s.uids.length - 1
+    const kids = items.slice(first, last + 1)
+    return (
+      <SurveyRow
+        key={s.id}
+        survey={s}
+        items={kids}
+        home={home}
+        dict={dict}
+        sel={kids.some((it) => selected.has(it.uid))}
+        open={open.has(s.id)}
+        onToggle={() => toggle(s.id)}
+        headAttrs={drag.attrs(() => new Set(s.uids), first, last)}
+        headClass={drag.marks(first, last)}
+        onHeadClick={click(s.uids[0]!)}
+        renderItem={(it, k) => <WpRow key={it.uid} item={it} seq={first + k + 1} sel={selected.has(it.uid)} sub={sub(it, first + k)} dict={dict} className=" sv-child" onClick={click(it.uid)} />}
+      />
+    )
+  }
   return (
     <div className="wp-list" role="listbox" aria-label={dict.mWaypoints}>
-      {items.map((it, i) => {
-        const key = cmdKey(it)
-        const spec = CMDS[key]
-        const pos = spec?.pos === true
-        const roi = key === 'DO_SET_ROI'
-        const sel = selected.has(it.uid)
-        const sub = `${legs[i]! > 0 ? `${km(legs[i]!)} · ` : ''}${itemSummary(it, kind, dict) || '—'}`
-        return (
-          <div
-            key={it.uid}
-            className={`wrow${sel ? ' sel' : ''}${slot === i ? ' drop-before' : ''}${slot === items.length && i === items.length - 1 ? ' drop-after' : ''}`}
-            draggable
-            onDragStart={(e) => {
-              dragging.current = sel ? selected : new Set([it.uid])
-              e.dataTransfer.effectAllowed = 'move'
-              e.dataTransfer.setData('text/plain', String(it.uid))
-            }}
-            onDragOver={(e) => {
-              if (!dragging.current) return
-              e.preventDefault()
-              const next = slotAt(e, i)
-              // "after row i" and "before row i + 1" are one slot: mark it on the lower row
-              if (next !== slot) setSlot(next)
-            }}
-            onDrop={(e) => {
-              e.preventDefault()
-              if (dragging.current) onMove(dragging.current, slotAt(e, i))
-              end()
-            }}
-            onDragEnd={end}
-            role="option"
-            aria-selected={sel}
-            style={{ paddingLeft: pos ? 12 : 28 }}
-            onClick={(e) => onSelect(it.uid, e.metaKey || e.ctrlKey, e.shiftKey)}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              onContext(it.uid, e.clientX, e.clientY)
-            }}
-          >
-            <span className={`wbadge${sel ? ' sel' : pos ? ' pos' : ''}${roi ? ' roi' : key === 'RTL' ? ' rtl' : ''}`} style={{ borderRadius: pos ? '50%' : 6 }}>
-              {badgeText(i + 1, key)}
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <div className="row" style={{ alignItems: 'baseline', gap: 8 }}>
-                <span className="ell cmd-label">{wpLabel(key, dict)}</span>
-                <span className="mono t3 mav" title={`${spec?.mav ?? key} (#${it.command})`} style={{ flex: 'none', fontSize: mavFontSize(spec?.mav ?? key), lineHeight: 1 }}>
-                  {spec?.mav ?? `#${it.command}`}
-                </span>
-              </div>
-              <div className="t3 num ell sub" style={{ fontSize: 11 }}>
-                {sub}
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <button type="button" className="updown" aria-label={dict.mUp} disabled={i === 0} onClick={(e) => (e.stopPropagation(), onReorder(it.uid, -1))}>
-                ▲
-              </button>
-              <button type="button" className="updown" aria-label={dict.mDown} disabled={i === items.length - 1} onClick={(e) => (e.stopPropagation(), onReorder(it.uid, 1))}>
-                ▼
-              </button>
-            </div>
-          </div>
-        )
-      })}
+      {listSegments(items, surveys).map((seg) => (seg.kind === 'item' ? plainRow(seg.index) : surveyGroup(seg.survey, seg.first)))}
     </div>
   )
 }

@@ -136,8 +136,14 @@ export const CMDS: Readonly<Record<string, CmdSpec>> = {
   DO_JUMP: { id: 177, mav: 'MAV_CMD_DO_JUMP', pos: false, alt: false, fields: [num(1, 'seq', 1, { min: 1, step: 1 }), num(2, 'repeat', 1, { min: -1, step: 1 })] },
 }
 
+/** Palette pseudo keys (not in CMDS): draw a survey area / take it from a KML file. */
+export const SURVEY_KEY = 'SURVEY'
+export const SURVEY_KML_KEY = 'SURVEY_KML'
+/** Palette keys that are not mission commands. */
+export const isSurveyKey = (k: string): k is typeof SURVEY_KEY | typeof SURVEY_KML_KEY => k === SURVEY_KEY || k === SURVEY_KML_KEY
+
 export const PALETTE = {
-  pos: ['WAYPOINT', 'ARC_WAYPOINT', 'SPLINE_WAYPOINT', 'TAKEOFF', 'LAND', 'LOITER_TIME', 'LOITER_TURNS', 'LOITER_UNLIM', 'LOITER_TO_ALT', 'VTOL_TAKEOFF', 'VTOL_LAND', 'DO_SET_ROI'],
+  pos: ['WAYPOINT', 'ARC_WAYPOINT', 'SPLINE_WAYPOINT', 'TAKEOFF', 'LAND', 'LOITER_TIME', 'LOITER_TURNS', 'LOITER_UNLIM', 'LOITER_TO_ALT', 'VTOL_TAKEOFF', 'VTOL_LAND', 'DO_SET_ROI', SURVEY_KEY, SURVEY_KML_KEY],
   do: [
     'DO_CHANGE_SPEED',
     'DO_SET_CAM_TRIGG_DIST',

@@ -1,6 +1,6 @@
 import type { Dict } from '../../shared/i18n'
-import { IconClose } from '../../shared/ui/icons'
-import { CMDS, PALETTE } from './cmds'
+import { IconClose, IconFileUp, IconSurvey } from '../../shared/ui/icons'
+import { CMDS, PALETTE, SURVEY_KEY, isSurveyKey } from './cmds'
 import { wpLabel } from './labels'
 
 interface Props {
@@ -37,21 +37,36 @@ export function CommandPalette({ where, dict, onInsert, onClose }: Props) {
               {dict[g.label]}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              {PALETTE[g.key].map((k) => (
-                <button key={k} type="button" className="cmd-btn pal" title={CMDS[k]?.mav} onClick={() => onInsert(k)}>
-                  <span style={{ width: 16, height: 16, borderRadius: g.radius, background: k === 'DO_SET_ROI' ? 'var(--ok)' : g.color, flex: 'none' }} />
-                  <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span className="ell">{wpLabel(k, dict)}</span>
-                    <span className="mono t4 ell" style={{ fontSize: 9 }}>
-                      {(CMDS[k]?.mav ?? '').replace('MAV_CMD_', '')}
-                    </span>
-                  </span>
-                </button>
-              ))}
+              {PALETTE[g.key].map((k) => (isSurveyKey(k) ? <SurveyButton key={k} k={k} dict={dict} onInsert={onInsert} /> : <CmdButton key={k} k={k} radius={g.radius} color={g.color} dict={dict} onInsert={onInsert} />))}
             </div>
           </div>
         ))}
       </div>
     </div>
+  )
+}
+
+function CmdButton({ k, radius, color, dict, onInsert }: { k: string; radius: string; color: string; dict: Dict; onInsert: (key: string) => void }) {
+  return (
+    <button type="button" className="cmd-btn pal" title={CMDS[k]?.mav} onClick={() => onInsert(k)}>
+      <span style={{ width: 16, height: 16, borderRadius: radius, background: k === 'DO_SET_ROI' ? 'var(--ok)' : color, flex: 'none' }} />
+      <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span className="ell">{wpLabel(k, dict)}</span>
+        <span className="mono t4 ell" style={{ fontSize: 9 }}>
+          {(CMDS[k]?.mav ?? '').replace('MAV_CMD_', '')}
+        </span>
+      </span>
+    </button>
+  )
+}
+
+/** サーベイ (draw an area) / KML から読み込む: not commands, so nothing here reads CMDS. */
+function SurveyButton({ k, dict, onInsert }: { k: string; dict: Dict; onInsert: (key: string) => void }) {
+  const draw = k === SURVEY_KEY
+  return (
+    <button type="button" className="cmd-btn pal sv-pal" onClick={() => onInsert(k)}>
+      {draw ? <IconSurvey size={16} /> : <IconFileUp size={16} />}
+      <span className="ell">{draw ? dict.svPalSurvey : dict.svPalKml}</span>
+    </button>
   )
 }

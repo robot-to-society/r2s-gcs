@@ -1,6 +1,6 @@
 import type { MissionFrame, MissionItem, VehicleKind } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { CMDS, FRAMES, PALETTE, fieldsOf, type FieldSpec } from './cmds'
+import { CMDS, FRAMES, PALETTE, fieldsOf, isSurveyKey, type FieldSpec } from './cmds'
 import { fieldLabel, fieldUnit, frameDesc, optionLabel, wpLabel } from './labels'
 import { cmdKey } from './model'
 
@@ -63,7 +63,7 @@ export function ItemEditor({ item, seq, kind, dict, onChange, onCommand, onDelet
             {!spec && <option value="">{key}</option>}
             {GROUPS.map((g) => (
               <optgroup key={g.key} label={dict[g.label]}>
-                {PALETTE[g.key].map((k) => (
+                {PALETTE[g.key].filter((k) => !isSurveyKey(k)).map((k) => (
                   <option key={k} value={k}>
                     {wpLabel(k, dict)}
                   </option>

@@ -14,6 +14,9 @@ import { usePathParams } from '../flightpath/usePathParams'
 import { CommandPalette } from './CommandPalette'
 import { ContextMenu } from './ContextMenu'
 import { MissionList } from './MissionList'
+import { MissionListHeader } from './MissionListHeader'
+import { SurveySlot } from '../survey/SurveySlot'
+import { useSurveyWiring } from '../survey/useSurveyWiring'
 import { UploadTargets } from './UploadTargets'
 import { MapFinder } from './MapFinder'
 import { placeTakeoffs, takeoffAnchor } from './geo'
@@ -104,10 +107,11 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const planIo = { sysid, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f), onCollapse: panel.collapse }
   const selectedItems = draft.items.filter((it) => ui.selected.has(it.uid))
   const lastSelected = selectedItems[selectedItems.length - 1]
+  const sv = useSurveyWiring({ store, change, afterUid: lastSelected?.uid ?? null, home: fileHome, kind, params: pathValues, tab: plan.tab, onFit })
   const st = stats(draft.items, draft.mission.home, draft.mission.speed)
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (isEditable(e.target)) return
+    if (isEditable(e.target) || sv.onKey(e)) return
     const meta = e.metaKey || e.ctrlKey
     // fence / rally tabs: only undo / redo and finishing or cancelling a zone; waypoints stay put
     if (plan.tab !== 'mission' && !(meta && e.key.toLowerCase() === 'z')) {
@@ -137,7 +141,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
     if (!Number.isNaN(alt)) change((d) => setAltBulk(d, ui.selected, alt, bulk.frame))
   }
   const insertFromPalette = (key: string) => {
-    change((d) => insertCommandAfter(d, lastSelected?.uid ?? null, key))
+    if (!sv.onPalette(key)) change((d) => insertCommandAfter(d, lastSelected?.uid ?? null, key))
     setPalette(false)
   }
 
@@ -158,6 +162,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         fitTo={fitTo}
         pathColor={brief.pathColor}
         panelCollapsed={panel.collapsed}
+        surveyDraw={sv.mapDraw}
         onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, { takeoff: takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1) }))}
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}
         onMove={(uid, lat, lon) => change((d) => moveItem(d, uid, lat, lon))}
@@ -229,27 +234,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       {plan.tab === 'mission' && (
         <aside className="g panel float float-l mission-left" aria-label={dict.navMission}>
           <BriefingList {...brief.list} header={briefIo.header} liveDirty={ui.dirty} busy={ui.busy !== 'idle'} vehicles={list} dict={dict} />
-          <div className="panel-h" style={{ gap: 6 }}>
-            <span className="h1" style={{ whiteSpace: 'nowrap' }}>
-              {dict.mItemsTitle}
-            </span>
-            <span className="h1 t2" style={{ fontWeight: 300 }}>
-              {draft.items.length}
-            </span>
-            <div className="grow" />
-            <button type="button" className="btn-icon" title={`${dict.mUndo} (⌘Z)`} aria-label={dict.mUndo} disabled={!canUndo(ui.history)} onClick={() => store.update(undoUi)}>
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
-            </button>
-            <button type="button" className="btn-icon" title={`${dict.mRedo} (⇧⌘Z)`} aria-label={dict.mRedo} disabled={!canRedo(ui.history)} onClick={() => store.update(redoUi)}>
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 14l5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg>
-            </button>
-            <button type="button" className="btn-icon" title={dict.mReverse} aria-label={dict.mReverse} onClick={() => change(reverseItems)}>
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 7h11l-3-3M17 17H6l3 3" /></svg>
-            </button>
-            <button type="button" className="btn-icon" title={dict.mClearAll} aria-label={dict.mClearAll} onClick={() => change(clearItems)}>
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></svg>
-            </button>
-          </div>
+          <MissionListHeader count={draft.items.length} dict={dict} canUndo={canUndo(ui.history)} canRedo={canRedo(ui.history)} onUndo={() => store.update(undoUi)} onRedo={() => store.update(redoUi)} onReverse={() => change(reverseItems)} onClear={() => change(clearItems)} />
           <div className="hair mission-tools">
             <div className="seg" style={{ height: 36 }} role="group" aria-label="tool">
               <span className="lens" style={{ transform: `translateX(${ui.tool === 'add' ? 0 : 100}%)` }} />
@@ -265,9 +250,12 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
               {dict.mInsertCmd}
             </button>
           </div>
+          <SurveySlot {...sv.slot} dict={dict} />
           <div className="wp-scroll">
             <MissionList
               items={draft.items}
+              surveys={draft.surveys}
+              home={fileHome}
               selected={ui.selected}
               kind={vehicle?.kind ?? null}
               dict={dict}

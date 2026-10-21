@@ -19,6 +19,7 @@ import { attachArcDrag } from './arcDrag'
 import { useFenceRally, type FenceEdit, type PlanTab } from './fenceMap'
 import type { OtherMission } from '../briefing/overlay'
 import { useBriefingOverlay } from '../briefing/useBriefingOverlay'
+import { useSurveyDrawLayer, type SurveyDrawMap } from '../survey/surveyDrawLayer'
 
 interface Props {
   readonly draft: Draft
@@ -66,6 +67,8 @@ interface Props {
   readonly pathColor?: string
   /** The right panel is folded to its rail: fits use the space it freed. */
   readonly panelCollapsed?: boolean
+  /** A survey area is being drawn: map clicks add its vertices instead of waypoints. */
+  readonly surveyDraw?: SurveyDrawMap | null
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -142,6 +145,7 @@ export function MissionMap(props: Props) {
     m.on('click', (e) => {
       const t = tabRef.current
       if (t !== 'mission') return cb.current.onPlanClick(t, e.lngLat.lat, e.lngLat.lng)
+      if (cb.current.surveyDraw) return cb.current.surveyDraw.onClick(e.lngLat.lat, e.lngLat.lng)
       if (toolRef.current === 'add') cb.current.onAdd(e.lngLat.lat, e.lngLat.lng)
       else cb.current.onBackgroundClick()
       cb.current.onContext(null)
@@ -258,6 +262,7 @@ export function MissionMap(props: Props) {
   boxActive.current = tab === 'mission'
   useBoxSelect(container, badges, onBox, boxActive)
   useBriefingOverlay({ map, loaded, others: props.others ?? NO_OTHERS, is3d })
+  useSurveyDrawLayer({ map, loaded, draw: props.surveyDraw ?? null })
 
   // The selected vehicle, for context
   useEffect(() => {

@@ -724,3 +724,42 @@ describe('MissionMap', () => {
     })
   })
 })
+
+describe('MissionMap survey drawing', () => {
+  beforeEach(() => {
+    created.maps = []
+    created.markers = []
+    created.deferLoad = false
+  })
+
+  it('routes map clicks to the drawing instead of adding a waypoint, and draws the ring', () => {
+    const onClick = vi.fn()
+    const onClose = vi.fn()
+    const ring = [
+      { lat: 36, lon: 139 },
+      { lat: 36, lon: 139.01 },
+      { lat: 36.01, lon: 139.01 },
+    ]
+    const { props, rerender } = renderMap({ surveyDraw: { ring, onClick, onClose } })
+    const map = created.maps[0]!
+    act(() => map.fire('click', { lngLat: { lat: 36.5, lng: 139.5 } }))
+    expect(onClick).toHaveBeenCalledWith(36.5, 139.5)
+    expect(props.onAdd).not.toHaveBeenCalled()
+    expect(map.layers.filter((id) => id.startsWith('survey-draw-')).length).toBeGreaterThan(0)
+    const data = map.sources.get('survey-draw')!.setData.mock.calls.at(-1)![0] as { features: { geometry: { type: string } }[] }
+    expect(data.features.map((f) => f.geometry.type)).toContain('LineString')
+    // the first vertex closes the ring
+    const first = created.markers.find((m) => m.el.classList.contains('sv-draw-close') && !m.removed)!
+    first.el.click()
+    expect(onClose).toHaveBeenCalled()
+    rerender(<MissionMap {...props} surveyDraw={null} />)
+    const cleared = map.sources.get('survey-draw')!.setData.mock.calls.at(-1)![0] as { features: unknown[] }
+    expect(cleared.features).toEqual([])
+    expect(created.markers.filter((m) => m.el.classList.contains('sv-draw-close') && !m.removed)).toHaveLength(0)
+  })
+
+  it('adds no survey layers until a drawing starts', () => {
+    renderMap()
+    expect(created.maps[0]!.layers.some((id) => id.startsWith('survey-draw-'))).toBe(false)
+  })
+})

@@ -18,7 +18,9 @@ import {
   Ellipsis,
   Eye,
   EyeOff,
+  FileUp,
   Gauge,
+  Grid3x3,
   Grip,
   History,
   House,
@@ -107,6 +109,8 @@ export const IconPlus = ({ size = 16, className }: IconProps) => <Lucide icon={P
 
 export const IconLayers = ({ size = 18, className }: IconProps) => <Lucide icon={Layers} size={size} className={className} />
 export const IconBits = ({ size = 16, className }: IconProps) => <Lucide icon={ListChecks} size={size} className={className} />
+export const IconSurvey = ({ size = 16, className }: IconProps) => <Lucide icon={Grid3x3} size={size} className={className} />
+export const IconFileUp = ({ size = 16, className }: IconProps) => <Lucide icon={FileUp} size={size} className={className} />
 
 // Severity (spec 10 §1): info / ok / warn / error.
 export const IconInfo = ({ size = 16, className }: IconProps) => <Lucide icon={Info} size={size} className={className} />
