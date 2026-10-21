@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { LogEntry, VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
@@ -21,19 +21,42 @@ const entries: LogEntry[] = [
 const base = { vehicle: v, entries, onAck: () => {}, onOpenLog: () => {}, onClose: () => {}, onOpenCommands: () => {}, dict: t('ja') }
 
 describe('DetailPanel', () => {
-  it('shows the video placeholder, the three big values and the last three messages of the vehicle', () => {
+  it('shows the video placeholder, the three big values and the newest message of the vehicle', () => {
     render(<DetailPanel {...base} />)
     expect(screen.getByText('映像未接続')).toBeInTheDocument()
     expect(screen.getByTestId('alt')).toHaveTextContent('82')
     expect(screen.getByTestId('speed')).toHaveTextContent('7.3')
     expect(screen.getByTestId('batt')).toHaveTextContent('64')
     const rows = screen.getAllByTestId('msg')
-    expect(rows).toHaveLength(3)
-    expect(rows[1]).toHaveTextContent('通信遅延')
-    expect(rows[1]).toHaveTextContent('通信の応答が遅延しています。')
+    expect(rows).toHaveLength(1)
     expect(rows[0]).toHaveTextContent('10:05')
+    expect(rows[0]).toHaveTextContent('EKF failure')
     expect(screen.queryByText('older')).toBeNull()
     expect(screen.queryByText('other vehicle')).toBeNull()
+  })
+
+  it('the newest message row still shows the comms delay body', () => {
+    render(<DetailPanel {...base} entries={entries.slice(1)} />)
+    const rows = screen.getAllByTestId('msg')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent('通信遅延')
+    expect(rows[0]).toHaveTextContent('通信の応答が遅延しています。')
+  })
+
+  it('shows the attitude indicator and compass above the messages with a numeric line', () => {
+    render(<DetailPanel {...base} vehicle={{ ...v, attitude: { roll: -12.3, pitch: 4.4 }, hdg: 87 }} />)
+    const row = screen.getByTestId('instruments')
+    expect(within(row).getByRole('img', { name: /姿勢/ })).toBeInTheDocument()
+    expect(within(row).getByRole('img', { name: /方位/ })).toBeInTheDocument()
+    expect(screen.getByTestId('instruments-values')).toHaveTextContent('R −12°P +4°HDG 087°')
+    const msg = screen.getAllByTestId('msg')[0]!
+    expect(row.compareDocumentPosition(msg) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('instruments show dashes when attitude and heading are unknown', () => {
+    render(<DetailPanel {...base} vehicle={{ ...v, hdg: null }} />)
+    expect(screen.getByTestId('instruments-values')).toHaveTextContent('R —P —HDG —')
+    expect(screen.getByTestId('instruments').innerHTML).not.toContain('NaN')
   })
 
   it('only_alerts_have_an_ack_button', () => {
@@ -46,14 +69,15 @@ describe('DetailPanel', () => {
     const onAck = vi.fn()
     render(<DetailPanel {...base} onAck={onAck} />)
     const buttons = screen.getAllByRole('button', { name: '確認' })
-    expect(buttons).toHaveLength(2)
+    expect(buttons).toHaveLength(1)
     expect(buttons[0]).toHaveClass('ackbtn', 'err')
-    expect(buttons[1]).not.toHaveClass('err')
     fireEvent.click(buttons[0]!)
     expect(onAck).toHaveBeenCalledWith(1, 5)
+    cleanup()
+    render(<DetailPanel {...base} entries={entries.slice(2)} />)
     const rows = screen.getAllByTestId('msg')
-    expect(rows[2]).toHaveClass('msg', 'warn', 'done')
-    expect(rows[2]).toHaveTextContent('確認済み')
+    expect(rows[0]).toHaveClass('msg', 'warn', 'done')
+    expect(rows[0]).toHaveTextContent('確認済み')
   })
 
   it('header_counts_pending_alerts', () => {

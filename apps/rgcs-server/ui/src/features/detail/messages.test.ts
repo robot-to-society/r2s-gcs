@@ -5,9 +5,9 @@ import { lastForVehicle, pendingAlerts } from './messages'
 const e = (id: number, over: Partial<LogEntry> = {}): LogEntry => ({ id, ts: id, sysid: 1, source: 'vehicle', severity: 'warn', text: `m${id}`, ackable: true, acked_by: null, acked_at: null, ...over })
 
 describe('detail messages', () => {
-  it('takes the newest three of one vehicle', () => {
-    const list = [e(5), e(4, { sysid: 2 }), e(3), e(2), e(1)]
-    expect(lastForVehicle(list, 1).map((x) => x.id)).toEqual([5, 3, 2])
+  it('takes the newest one of the vehicle', () => {
+    const list = [e(5, { sysid: 2 }), e(4), e(3), e(2), e(1)]
+    expect(lastForVehicle(list, 1).map((x) => x.id)).toEqual([4])
   })
 
   it('counts ackable alerts that nobody acknowledged', () => {

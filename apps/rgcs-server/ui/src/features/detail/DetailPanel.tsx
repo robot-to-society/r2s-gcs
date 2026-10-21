@@ -8,11 +8,12 @@ import { DetailMessages } from './DetailMessages'
 import { EmergencyRow } from './EmergencyRow'
 import { pendingAlerts } from './messages'
 import { DetailTiles } from './DetailTiles'
+import { InstrumentsRow } from './InstrumentsRow'
 import { MissionProgressRow } from './MissionProgressRow'
 
 interface Props {
   readonly vehicle: VehicleState
-  /** The message log (newest first); the panel shows this vehicle's newest three. */
+  /** The message log (newest first); the panel shows this vehicle's newest one. */
   readonly entries: readonly LogEntry[]
   readonly onAck: (sysid: SysId, id: number) => void
   /** Opens メッセージ履歴 filtered to the vehicle. */
@@ -125,6 +126,7 @@ export function DetailPanel(p: Props) {
           onOpenLog={p.onOpenLog}
           onOpenCommands={onOpenCommands}
         />
+        <InstrumentsRow vehicle={v} dict={dict} />
         <DetailMessages sysid={v.sysid} entries={p.entries} dict={dict} onAck={p.onAck} onOpenLog={p.onOpenLog} />
       </div>
     </aside>

@@ -1,7 +1,7 @@
 import type { LogEntry, SysId } from '../../shared/api/types'
 
-/** The detail panel shows the vehicle's newest three log entries (prototype `selMsgs`). */
-export const DETAIL_MESSAGES = 3
+/** The detail panel shows the vehicle's newest log entry; the header's > opens the full log. */
+export const DETAIL_MESSAGES = 1
 
 export function lastForVehicle(entries: readonly LogEntry[], sysid: SysId): readonly LogEntry[] {
   return entries.filter((e) => e.sysid === sysid).slice(0, DETAIL_MESSAGES)
