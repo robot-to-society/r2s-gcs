@@ -19,6 +19,8 @@ export function optionLabel(f: FieldSpec, value: number, dict: Dict): string {
 export const frameDesc = (frame: MissionFrame, dict: Dict): string => (frame === 'rel' ? dict.mFrameRel : frame === 'abs' ? dict.mFrameAbs : dict.mFrameTer)
 
 export const km = (m: number): string => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`)
+/** A parameter value in a row summary: whole numbers as they are, others to at most two decimals. */
+export const shortNum = (v: number): string => (Number.isInteger(v) ? String(v) : String(Number(v.toFixed(2))))
 export const mmss = (s: number): string => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
 
 function fieldValue(it: MissionItem, f: FieldSpec): number {
@@ -36,7 +38,7 @@ export function itemSummary(it: MissionItem, kind: Parameters<typeof fieldsOf>[1
     if (f.unused) continue
     const v = fieldValue(it, f)
     const label = fieldLabel(f.key, dict)
-    if (f.type === 'num') parts.push(`${label} ${v}${fieldUnit(f.key)}`)
+    if (f.type === 'num') parts.push(`${label} ${shortNum(v)}${fieldUnit(f.key)}`)
     else if (f.type === 'tog') parts.push(`${label} ${v ? dict.optOn : dict.optOff}`)
     else parts.push(`${label} ${optionLabel(f, v, dict)}`)
   }

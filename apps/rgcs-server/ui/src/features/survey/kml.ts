@@ -12,7 +12,8 @@ export class KmlError extends Error {
 }
 
 export interface KmlPolygon {
-  name: string
+  /** The placemark's name; null when it has none (the UI names it by its place in the file). */
+  name: string | null
   ring: LatLon[]
 }
 
@@ -84,7 +85,7 @@ export function parseKmlPolygons(text: string): KmlResult {
     const ring = outerRing(polygon)
     if (ring.length < 3) return
     if (polygon.getElementsByTagNameNS(NS, 'innerBoundaryIs').length > 0) holesIgnored = true
-    polygons.push({ name: placemarkName(polygon) ?? `エリア ${polygons.length + 1}`, ring })
+    polygons.push({ name: placemarkName(polygon), ring })
   })
   if (polygons.length === 0) throw new KmlError('no_polygon')
   return { polygons, holesIgnored }

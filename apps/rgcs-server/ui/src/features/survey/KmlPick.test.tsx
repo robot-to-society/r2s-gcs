@@ -9,10 +9,12 @@ const placemark = (name: string, lat: number) =>
   `<Placemark><name>${name}</name><Polygon><outerBoundaryIs><LinearRing><coordinates>139,${lat} 139.01,${lat} 139.01,${lat + 0.01} 139,${lat}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`
 const kml = (...marks: string[]) => `<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>${marks.join('')}</Document></kml>`
 
-async function pick(text: string) {
+const unnamed = (lat: number) => placemark('', lat).replace('<name></name>', '')
+
+async function pick(text: string, d = dict) {
   const onPolygon = vi.fn()
   const input = createRef<HTMLInputElement>()
-  render(<KmlPick inputRef={input} dict={dict} onPolygon={onPolygon} />)
+  render(<KmlPick inputRef={input} dict={d} onPolygon={onPolygon} />)
   await act(async () => {
     fireEvent.change(screen.getByTestId('survey-kml-file'), { target: { files: [new File([text], 'area.kml')] } })
   })
@@ -64,5 +66,18 @@ describe('KmlPick', () => {
     const { onPolygon } = await pick(kml())
     expect(screen.getByRole('alert').textContent).toBe(dict.svKmlNoPolygon)
     expect(onPolygon).not.toHaveBeenCalled()
+  })
+
+  it('the error hint can be closed', async () => {
+    await pick('not xml at all')
+    fireEvent.click(screen.getByRole('button', { name: dict.close }))
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('an unnamed polygon is named from the dictionary by its place in the file', async () => {
+    const en = t('en')
+    const { onPolygon } = await pick(kml(placemark('North', 36), unnamed(35)), en)
+    fireEvent.click(screen.getByRole('button', { name: /Area 2/ }))
+    expect(onPolygon).toHaveBeenCalledWith(expect.anything(), 'Area 2')
   })
 })

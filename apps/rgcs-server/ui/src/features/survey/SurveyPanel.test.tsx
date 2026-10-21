@@ -12,7 +12,8 @@ import { ALPHA7R4, type SurveySpec } from './spec'
 import { HOME, surveyDraft } from './surveyFixture'
 import { useSurveyEditor } from './useSurveyEditor'
 
-vi.mock('../../shared/api/client', () => ({ apiFetch: vi.fn(() => Promise.resolve([])) }))
+const apiFetch = vi.fn(() => Promise.resolve([] as unknown))
+vi.mock('../../shared/api/client', () => ({ apiFetch: () => apiFetch() }))
 /** Front overlap 77 stands for a change after which no lane fits (as a polygon edit can do). */
 const NO_LANES = 77
 vi.mock('./generate', async (importOriginal) => {
@@ -190,5 +191,13 @@ describe('SurveyPanel', () => {
     const text = screen.getByTestId('survey-panel').textContent ?? ''
     expect(text).not.toMatch(/[぀-ヿ一-鿿]/)
     expect(text).toContain(t('en').svExpand)
+  })
+
+  it('a camera list failure reads from the dictionary, the server message only as a detail', async () => {
+    apiFetch.mockImplementationOnce(() => Promise.reject(new Error('HTTP 500 internal')))
+    setup()
+    const hint = await screen.findByText(dict.svCamLoadFailed)
+    expect(hint.textContent).toBe(dict.svCamLoadFailed)
+    expect(screen.getByText('HTTP 500 internal')).toHaveClass('t3')
   })
 })

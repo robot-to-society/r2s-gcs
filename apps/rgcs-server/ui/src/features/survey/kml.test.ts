@@ -23,9 +23,9 @@ describe('parseKmlPolygons', () => {
     expect(polygons[0].ring[2]).toEqual({ lat: 36.254, lon: 137.646 })
   })
 
-  it('reads several placemarks and falls back to エリア N', () => {
+  it('reads several placemarks; an unnamed one has no name (the UI names it)', () => {
     const { polygons } = parseKmlPolygons(twoKml)
-    expect(polygons.map((p) => p.name)).toEqual(['北エリア', 'エリア 2'])
+    expect(polygons.map((p) => p.name)).toEqual(['北エリア', null])
     expect(polygons[1].ring).toHaveLength(4)
   })
 

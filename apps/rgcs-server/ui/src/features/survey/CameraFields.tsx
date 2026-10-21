@@ -1,6 +1,6 @@
 // Camera picker + editable camera values for a survey. Picking copies the values into the spec
 // (the spec never holds a camera id); user cameras can be updated or deleted, built-ins cannot.
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import type { SurveyCamera } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { toValues, validCameraValues } from './cameraApi'
@@ -33,23 +33,10 @@ function parseDraft(key: DraftKey, text: string): number | null {
   return n
 }
 
-export function CameraFields({ values, orientation, cameras, dict, onChange, onOrientation, onPick, onSaveAs, onUpdate, onDelete }: Props) {
-  const [pickedId, setPickedId] = useState<number | null>(null)
-  const [confirming, setConfirming] = useState(false)
+/** The typed text per field: shown while invalid or still matching the value; a valid one goes out at once. */
+function useCameraDrafts(values: SurveyCameraValues, onChange: Props['onChange']) {
   const [drafts, setDrafts] = useState<Readonly<Partial<Record<DraftKey, string>>>>({})
-  const [saveName, setSaveName] = useState('')
-  const picked = cameras.find((c) => c.id === pickedId)
-  const userCamera = picked && !picked.builtin && picked.id !== null ? picked : undefined
-
-  const pick = (raw: string) => {
-    const cam = cameras.find((c) => String(c.id) === raw)
-    setPickedId(cam?.id ?? null)
-    setConfirming(false)
-    setDrafts({})
-    if (cam) onPick(toValues(cam))
-  }
   const canonical = (key: DraftKey): number => (key === 'shutter' ? (values.shutterS > 0 ? Math.round(1 / values.shutterS) : 0) : values[key])
-  /** What the field shows: the user's text while it is invalid or still matches the value, else the value. */
   const shown = (key: DraftKey): string => {
     const draft = drafts[key]
     if (draft === undefined) return String(canonical(key))
@@ -63,40 +50,18 @@ export function CameraFields({ values, orientation, cameras, dict, onChange, onO
     onChange(key === 'shutter' ? { ...values, shutterS: 1 / n } : { ...values, [key]: n })
   }
   const invalid = (key: DraftKey) => drafts[key] !== undefined && parseDraft(key, drafts[key]) === null
-  const field = (key: DraftKey, label: string, step: string) => (
-    <>
-      <label htmlFor={`sv-${key}`}>{label}</label>
-      <input id={`sv-${key}`} className="in" type="number" step={step} value={shown(key)} aria-invalid={invalid(key) || undefined} onChange={(e) => edit(key, e.target.value)} />
-    </>
-  )
   const valid = validCameraValues(values) && !(Object.keys(drafts) as DraftKey[]).some(invalid)
+  return { shown, edit, invalid, valid, reset: () => setDrafts({}) }
+}
 
+/** 名前を付けて保存, and 更新 / 削除 (with a confirm step) for a picked user camera. */
+function CameraSave({ dict, valid, userCamera, onSaveAs, onUpdate, onDelete }: Pick<Props, 'dict' | 'onSaveAs' | 'onUpdate' | 'onDelete'> & { valid: boolean; userCamera: SurveyCamera | undefined }) {
+  const [saveName, setSaveName] = useState('')
+  // the camera a delete waits to be confirmed for: picking another one drops the confirm step
+  const [confirmFor, setConfirmFor] = useState<number | null>(null)
+  const confirming = userCamera !== undefined && confirmFor === userCamera.id
   return (
-    <div className="lb-form" data-testid="camera-fields">
-      <label htmlFor="sv-pick">{dict.svCameraPick}</label>
-      <select id="sv-pick" className="in" value={pickedId ?? ''} onChange={(e) => pick(e.target.value)}>
-        <option value="">{dict.svCameraCustom}</option>
-        {cameras.map((c) => (
-          <option key={c.id} value={c.id ?? ''}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-      {field('sensorWmm', dict.svSensorW, '0.1')}
-      {field('sensorHmm', dict.svSensorH, '0.1')}
-      {field('imageWpx', dict.svImageW, '1')}
-      {field('imageHpx', dict.svImageH, '1')}
-      {field('focalMm', dict.svFocal, '0.1')}
-      {field('shutter', dict.svShutter, '1')}
-      {field('minIntervalS', dict.svMinInterval, '0.1')}
-      <span>{dict.svOrientation}</span>
-      <div className="seg sm" role="group" aria-label={dict.svOrientation}>
-        {(['landscape', 'portrait'] as const).map((o) => (
-          <button key={o} type="button" className={orientation === o ? 'on' : ''} aria-pressed={orientation === o} onClick={() => onOrientation(o)}>
-            {o === 'landscape' ? dict.svLandscape : dict.svPortrait}
-          </button>
-        ))}
-      </div>
+    <>
       <label htmlFor="sv-save-name">{dict.svSaveName}</label>
       <div className="row">
         <input id="sv-save-name" className="in" value={saveName} onChange={(e) => setSaveName(e.target.value)} />
@@ -111,18 +76,63 @@ export function CameraFields({ values, orientation, cameras, dict, onChange, onO
             <button type="button" className="btn" disabled={!valid} onClick={() => onUpdate(userCamera.id!)}>
               {dict.svCamUpdate}
             </button>
-            {confirming ? (
-              <button type="button" className="btn btn-danger" onClick={() => onDelete(userCamera.id!)}>
-                {dict.svCamDeleteConfirm}
-              </button>
-            ) : (
-              <button type="button" className="btn" onClick={() => setConfirming(true)}>
-                {dict.svCamDelete}
-              </button>
-            )}
+            <button type="button" className={`btn${confirming ? ' btn-danger' : ''}`} onClick={() => (confirming ? onDelete(userCamera.id!) : setConfirmFor(userCamera.id))}>
+              {confirming ? dict.svCamDeleteConfirm : dict.svCamDelete}
+            </button>
           </div>
         </>
       )}
+    </>
+  )
+}
+
+const FIELDS: readonly (readonly [DraftKey, keyof Dict, string])[] = [
+  ['sensorWmm', 'svSensorW', '0.1'],
+  ['sensorHmm', 'svSensorH', '0.1'],
+  ['imageWpx', 'svImageW', '1'],
+  ['imageHpx', 'svImageH', '1'],
+  ['focalMm', 'svFocal', '0.1'],
+  ['shutter', 'svShutter', '1'],
+  ['minIntervalS', 'svMinInterval', '0.1'],
+]
+
+export function CameraFields({ values, orientation, cameras, dict, onChange, onOrientation, onPick, onSaveAs, onUpdate, onDelete }: Props) {
+  const [pickedId, setPickedId] = useState<number | null>(null)
+  const drafts = useCameraDrafts(values, onChange)
+  const picked = cameras.find((c) => c.id === pickedId)
+  const userCamera = picked && !picked.builtin && picked.id !== null ? picked : undefined
+  const pick = (raw: string) => {
+    const cam = cameras.find((c) => String(c.id) === raw)
+    setPickedId(cam?.id ?? null)
+    drafts.reset()
+    if (cam) onPick(toValues(cam))
+  }
+  return (
+    <div className="lb-form" data-testid="camera-fields">
+      <label htmlFor="sv-pick">{dict.svCameraPick}</label>
+      <select id="sv-pick" className="in" value={pickedId ?? ''} onChange={(e) => pick(e.target.value)}>
+        <option value="">{dict.svCameraCustom}</option>
+        {cameras.map((c) => (
+          <option key={c.id} value={c.id ?? ''}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+      {FIELDS.map(([key, label, step]) => (
+        <Fragment key={key}>
+          <label htmlFor={`sv-${key}`}>{dict[label]}</label>
+          <input id={`sv-${key}`} className="in" type="number" step={step} value={drafts.shown(key)} aria-invalid={drafts.invalid(key) || undefined} onChange={(e) => drafts.edit(key, e.target.value)} />
+        </Fragment>
+      ))}
+      <span>{dict.svOrientation}</span>
+      <div className="seg sm" role="group" aria-label={dict.svOrientation}>
+        {(['landscape', 'portrait'] as const).map((o) => (
+          <button key={o} type="button" className={orientation === o ? 'on' : ''} aria-pressed={orientation === o} onClick={() => onOrientation(o)}>
+            {o === 'landscape' ? dict.svLandscape : dict.svPortrait}
+          </button>
+        ))}
+      </div>
+      <CameraSave dict={dict} valid={drafts.valid} userCamera={userCamera} onSaveAs={onSaveAs} onUpdate={onUpdate} onDelete={onDelete} />
     </div>
   )
 }

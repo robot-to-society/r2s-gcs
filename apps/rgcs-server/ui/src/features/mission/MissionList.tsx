@@ -80,13 +80,9 @@ function useDrag(total: number, onMove: Props['onMove']) {
   return { attrs, marks }
 }
 
-/** Prototype `.wrow` list: badge, Japanese command name + MAV id, summary line, ▲▼; surveys grouped. */
-export function MissionList({ items, surveys = NO_SURVEYS, home = null, selected, kind, dict, onSelect, onReorder, onMove, onContext }: Props) {
+/** The rows' sub-lines, the list split into items and survey groups, and ▲▼ that jump over a group. */
+function rowModel({ items, surveys = NO_SURVEYS, kind, dict, onReorder, onMove }: Props) {
   const legs = legDistances(items)
-  const drag = useDrag(items.length, onMove)
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
-  if (items.length === 0) return <div className="t3 wp-empty">{dict.mNoWp}</div>
-  const click = (uid: number) => (e: MouseEvent) => onSelect(uid, e.metaKey || e.ctrlKey, e.shiftKey)
   const sub = (it: DraftItem, i: number) => `${legs[i]! > 0 ? `${km(legs[i]!)} · ` : ''}${itemSummary(it, kind, dict) || '—'}`
   const segments = listSegments(items, surveys)
   const groups = segments.flatMap((seg) => (seg.kind === 'survey' ? [{ first: seg.first, last: seg.first + seg.survey.uids.length - 1 }] : []))
@@ -96,6 +92,17 @@ export function MissionList({ items, surveys = NO_SURVEYS, home = null, selected
     if (g) onMove(new Set([uid]), dir < 0 ? g.first : g.last + 1)
     else onReorder(uid, dir)
   }
+  return { sub, segments, step }
+}
+
+/** Prototype `.wrow` list: badge, Japanese command name + MAV id, summary line, ▲▼; surveys grouped. */
+export function MissionList(props: Props) {
+  const { items, home = null, selected, dict, onSelect, onMove, onContext } = props
+  const drag = useDrag(items.length, onMove)
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
+  if (items.length === 0) return <div className="t3 wp-empty">{dict.mNoWp}</div>
+  const click = (uid: number) => (e: MouseEvent) => onSelect(uid, e.metaKey || e.ctrlKey, e.shiftKey)
+  const { sub, segments, step } = rowModel(props)
   const toggle = (id: string) => setOpen((o) => (o.has(id) ? new Set([...o].filter((x) => x !== id)) : new Set([...o, id])))
 
   const plainRow = (i: number) => {

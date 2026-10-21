@@ -4,12 +4,18 @@ import type { SurveyCamera } from '../../shared/api/types'
 import { createCamera, deleteCamera, fromValues, listCameras, updateCamera, validCameraValues } from './cameraApi'
 import type { SurveyCameraValues } from './spec'
 
-const INVALID = 'invalid camera values'
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
+/** Why the last camera action failed; `detail` is the server's message, shown only as a secondary note. */
+export interface SurveyCameraError {
+  readonly code: 'load_failed' | 'save_failed' | 'invalid'
+  readonly detail: string | null
+}
+
+const failed = (code: SurveyCameraError['code'], e: unknown): SurveyCameraError => ({ code, detail: e instanceof Error ? e.message : String(e) })
+const INVALID: SurveyCameraError = { code: 'invalid', detail: null }
 
 export interface SurveyCameras {
   readonly cameras: readonly SurveyCamera[]
-  readonly error: string | null
+  readonly error: SurveyCameraError | null
   readonly reload: () => Promise<void>
   readonly saveAs: (values: SurveyCameraValues, name: string) => Promise<SurveyCamera | null>
   readonly update: (id: number, values: SurveyCameraValues) => Promise<SurveyCamera | null>
@@ -18,14 +24,14 @@ export interface SurveyCameras {
 
 export function useSurveyCameras(): SurveyCameras {
   const [cameras, setCameras] = useState<readonly SurveyCamera[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<SurveyCameraError | null>(null)
 
   const reload = useCallback(async () => {
     try {
       setCameras(await listCameras())
       setError(null)
     } catch (e) {
-      setError(message(e))
+      setError(failed('load_failed', e))
     }
   }, [])
 
@@ -41,7 +47,7 @@ export function useSurveyCameras(): SurveyCameras {
         await reload()
         return out
       } catch (e) {
-        setError(message(e))
+        setError(failed('save_failed', e))
         return null
       }
     },

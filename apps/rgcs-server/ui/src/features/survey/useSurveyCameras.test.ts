@@ -34,7 +34,7 @@ describe('useSurveyCameras', () => {
   it('reports_a_failed_load', async () => {
     vi.mocked(api.listCameras).mockRejectedValue(new Error('boom'))
     const { result } = renderHook(() => useSurveyCameras())
-    await waitFor(() => expect(result.current.error).toBe('boom'))
+    await waitFor(() => expect(result.current.error).toEqual({ code: 'load_failed', detail: 'boom' }))
   })
 
   const ready = async () => {
@@ -71,7 +71,7 @@ describe('useSurveyCameras', () => {
         out = await run()
       })
       expect(out).toBeNull()
-      expect(result.current.error).toBe(msg)
+      expect(result.current.error).toEqual({ code: 'save_failed', detail: msg })
     }
   })
 
@@ -83,6 +83,6 @@ describe('useSurveyCameras', () => {
     })
     expect(api.createCamera).not.toHaveBeenCalled()
     expect(api.updateCamera).not.toHaveBeenCalled()
-    expect(result.current.error).not.toBeNull()
+    expect(result.current.error).toEqual({ code: 'invalid', detail: null })
   })
 })

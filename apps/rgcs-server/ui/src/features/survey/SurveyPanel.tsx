@@ -7,12 +7,28 @@ import { SurveyNumbers } from './SurveyNumbers'
 import { SurveyWarnings } from './SurveyWarnings'
 import type { SurveyRejection } from './useSurvey'
 import type { SurveyEditor } from './useSurveyEditor'
-import { useSurveyCameras } from './useSurveyCameras'
+import { useSurveyCameras, type SurveyCameraError } from './useSurveyCameras'
 
 const REJECTION_TEXT: Readonly<Record<SurveyRejection, keyof Dict>> = {
   invalid_polygon: 'svInvalidPolygon',
   invalid_spec: 'svInvalidSpec',
   too_large: 'svTooLarge',
+}
+
+const CAMERA_ERROR_TEXT: Readonly<Record<SurveyCameraError['code'], keyof Dict>> = {
+  load_failed: 'svCamLoadFailed',
+  save_failed: 'svCamSaveFailed',
+  invalid: 'svCamInvalid',
+}
+
+/** The dictionary's reason; the server's own message only as a small secondary line. */
+function CameraError({ error, dict }: { error: SurveyCameraError; dict: Dict }) {
+  return (
+    <div className="hint caution sv-warn">
+      <div>{dict[CAMERA_ERROR_TEXT[error.code]]}</div>
+      {error.detail && <div className="t3 sv-detail">{error.detail}</div>}
+    </div>
+  )
 }
 
 interface Props {
@@ -37,7 +53,7 @@ export function SurveyPanel({ uid, dict, sv }: Props) {
         <span className="h1">{dict.svPanelTitle}</span>
         <span className="t2 sv-name">{spec.name}</span>
       </div>
-      {cams.error && <div className="hint caution sv-warn">{`${dict.svCamLoadFailed}: ${cams.error}`}</div>}
+      {cams.error && <CameraError error={cams.error} dict={dict} />}
       {/* camera values are typed per keystroke: previewed live, committed on blur / Enter */}
       <div onBlur={() => set({}, 'done')} onKeyDown={(e) => e.key === 'Enter' && set({}, 'done')}>
         <CameraFields

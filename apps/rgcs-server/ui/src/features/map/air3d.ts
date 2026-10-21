@@ -44,6 +44,23 @@ export interface Air3d {
   readonly matrix: { readonly current: ArrayLike<number> | null }
 }
 
+/** What the last frame floated: its matrix (copied: MapLibre may reuse the array) and the `floats` array. */
+interface Floated {
+  readonly mx: ArrayLike<number> | null
+  readonly of: readonly Floating[] | null
+}
+
+type Refs = { readonly floats: { current: readonly Floating[] }; readonly live: { current: readonly Floating[] }; readonly floated: { current: Floated } }
+
+/** One frame: the live markers always; the others only when the camera or their list changed. */
+function floatFrame(m: MlMap, mx: ArrayLike<number>, { floats, live, floated }: Refs): void {
+  if (floats.current !== floated.current.of || !sameMatrix(mx, floated.current.mx)) {
+    floatMarkers(m, mx, floats.current)
+    floated.current = { mx: Array.from(mx), of: floats.current }
+  }
+  floatMarkers(m, mx, live.current)
+}
+
 /** The 2D / 3D camera animation (applyMapMode) plus a margin. */
 export const MODE_EASE_MS = 950
 
@@ -55,8 +72,7 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
   const models = useRef(new VehicleModelLayer(`${layerId}-models`)).current
   const floats = useRef<readonly Floating[]>([])
   const live = useRef<readonly Floating[]>([])
-  /** What the last frame floated: its matrix (copied) and the `floats` array. */
-  const floated = useRef<{ mx: ArrayLike<number> | null; of: readonly Floating[] | null }>({ mx: null, of: null })
+  const floated = useRef<Floated>({ mx: null, of: null })
   const modeSwitchAt = useRef(0)
   const matrix = useRef<ArrayLike<number> | null>(null)
   const setupRef = useRef({ setup, order })
@@ -76,11 +92,7 @@ export function useAir3d({ map, loaded, mode, terrainTiles, layerId, setup, mode
       setupRef.current.order?.(m)
       layer.onFrame = (mx) => {
         matrix.current = mx
-        if (floats.current !== floated.current.of || !sameMatrix(mx, floated.current.mx)) {
-          floatMarkers(m, mx, floats.current)
-          floated.current = { mx: Array.from(mx), of: floats.current }
-        }
-        floatMarkers(m, mx, live.current)
+        floatFrame(m, mx, { floats, live, floated })
       }
       setReady(true)
     }
