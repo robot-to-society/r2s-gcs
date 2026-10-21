@@ -88,6 +88,9 @@ export const surveyJa = {
   svKmlBadCoordinates: 'ファイルの座標が正しくありません',
   svKmlTooLarge: 'ファイルが大きすぎます',
   svFootToggle: '撮影範囲を表示',
+  svNotice: 'サーベイ「{names}」の項目を編集したため通常の WP にしました(⌘Z で戻せます)',
+  svNoticeJoin: '、',
+  svNoticeUndo: '元に戻す',
 }
 
 export const surveyEn: Record<keyof typeof surveyJa, string> = {
@@ -178,4 +181,7 @@ export const surveyEn: Record<keyof typeof surveyJa, string> = {
   svKmlBadCoordinates: 'The file has invalid coordinates',
   svKmlTooLarge: 'The file is too large',
   svFootToggle: 'Show the photo footprints',
+  svNotice: 'Items of survey "{names}" were edited, so they are now plain WPs (⌘Z to undo)',
+  svNoticeJoin: ', ',
+  svNoticeUndo: 'Undo',
 }

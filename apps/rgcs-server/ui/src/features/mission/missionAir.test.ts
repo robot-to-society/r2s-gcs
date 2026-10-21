@@ -56,9 +56,9 @@ describe('missionAirData', () => {
     expect(d.posts).toHaveLength(0)
     expect(d.alts.get(1)).toBeNull()
   })
-  it('knows the altitude at each mid-leg handle', () => {
-    const d = missionAirData(draft([it_(1, 36.16, 30), it_(2, 36.161, 80)]) as never, new Set(), () => 100)
-    expect(d.mids).toEqual([155])
+  it('knows the altitude at each mid-leg handle, by the uid ending its leg (handles inside a survey are skipped)', () => {
+    const d = missionAirData(draft([it_(1, 36.16, 30), it_(2, 36.161, 80), it_(3, 36.162, 40)]) as never, new Set(), () => 100)
+    expect(d.mids).toEqual(new Map([[2, 155], [3, 160]]))
   })
 
   it('raises each fence zone as a wall up to the FENCE_ALT_MAX ceiling (green inclusion, red exclusion)', () => {

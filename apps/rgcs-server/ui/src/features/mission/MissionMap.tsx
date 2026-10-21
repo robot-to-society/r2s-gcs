@@ -14,6 +14,7 @@ import { KEEP_ELEVATION, type MapMode } from '../map/mapMode'
 import { altChip, useMissionAir, type MissionAir3d, type Predicted } from './missionAir'
 import { attachAltDrag } from './altDrag'
 import { useMissionFeet, type FeetCallbacks } from './missionFeet'
+import { surveyBadges } from './surveyBadges'
 import { useBoxSelect } from './boxSelect'
 import { attachArcDrag } from './arcDrag'
 import { useFenceRally, type FenceEdit, type PlanTab } from './fenceMap'
@@ -111,7 +112,7 @@ export function MissionMap(props: Props) {
   const loaded = useRef(false)
   useBasemapSwap(map, loaded, props.basemap)
   const badges = useRef(new Map<number, Badge>())
-  const handles = useRef<Marker[]>([])
+  const handles = useRef<{ marker: Marker; toUid: number }[]>([])
   const vehicleMarker = useRef<Badge | null>(null)
   /** The vehicle the view last opened over (null: none yet / the map was rebuilt). */
   const centredOn = useRef<number | null>(null)
@@ -204,10 +205,11 @@ export function MissionMap(props: Props) {
     const m = map.current
     if (!m) return
     const seen = new Set<number>()
-    // 3D moves position with the ground foot; the TAKEOFF never moves (ArduCopter climbs in place)
-    const movable = (it: DraftItem) => tab === 'mission' && !is3d && !drawing && !isTakeoff(it)
+    // 3D moves position with the ground foot; the TAKEOFF never moves (ArduCopter climbs in place); survey items only through the survey
+    const sv = surveyBadges(shown, selected)
+    const movable = (it: DraftItem) => tab === 'mission' && !is3d && !drawing && !isTakeoff(it) && !sv.locked.has(it.uid)
     shown.items.forEach((it, i) => {
-      if (!hasPosition(it)) return
+      if (!hasPosition(it) || sv.hidden.has(it.uid)) return
       seen.add(it.uid)
       const seq = i + 1
       const existing = badges.current.get(it.uid)
@@ -235,7 +237,7 @@ export function MissionMap(props: Props) {
   useEffect(() => {
     const m = map.current
     if (!m) return
-    handles.current.forEach((h) => h.remove())
+    handles.current.forEach((h) => h.marker.remove())
     handles.current = (drawing || previewing ? [] : midHandles(draft)).map((h) => {
       const el = handleEl()
       el.addEventListener('click', (e) => {
@@ -243,7 +245,7 @@ export function MissionMap(props: Props) {
         cb.current.onInsertAfter(h.afterUid, h.lat, h.lon)
       })
       attachArcDrag(el, h, arcDeps)
-      return new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([h.lon, h.lat]).addTo(m)
+      return { marker: new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([h.lon, h.lat]).addTo(m), toUid: h.toUid }
     })
     // arcDeps only reads refs and setPreview: the handles need rebuilding for a new draft only
     // eslint-disable-next-line react-hooks/exhaustive-deps

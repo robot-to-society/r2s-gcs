@@ -4,7 +4,7 @@ import maplibregl, { type Map as MlMap, type Marker } from 'maplibre-gl'
 import { useEffect, useRef, type RefObject } from 'react'
 import { dragDelta } from './mapEdit'
 import { hasPosition, type LatLon } from './geo'
-import { isTakeoff, type Draft } from './model'
+import { isTakeoff, surveyLocked, type Draft } from './model'
 
 export interface FeetCallbacks {
   /** Live position while dragging; `onEnd` follows the drop. */
@@ -64,14 +64,16 @@ function attachFoot(marker: Marker, el: HTMLElement, uid: number, { selected, cb
   })
 }
 
-/** One draggable foot per positioned item in 3D, none in 2D; reconciled in place. */
+/** One draggable foot per positioned item outside the surveys in 3D, none in 2D; reconciled in place. */
 export function useMissionFeet({ map, is3d, draft, selected, cb }: Args): void {
   const feet = useRef(new Map<number, Marker>())
   const dragging = useRef(new Set<number>())
   useEffect(() => {
     const m = map.current
     if (!m) return
-    const want = is3d ? draft.items.filter((it) => hasPosition(it) && !isTakeoff(it)) : []
+    // survey items move only with their survey
+    const locked = surveyLocked(draft)
+    const want = is3d ? draft.items.filter((it) => hasPosition(it) && !isTakeoff(it) && !locked.has(it.uid)) : []
     const seen = new Set(want.map((it) => it.uid))
     for (const [uid, f] of feet.current) {
       if (!seen.has(uid)) {

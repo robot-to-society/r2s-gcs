@@ -131,12 +131,26 @@ export function updateItem(d: Draft, uid: number, patch: Partial<MissionItem>): 
   return { ...d, items: d.items.map((it) => (it.uid === uid ? { ...it, ...patch } : it)) }
 }
 
+/** The items surveys generated: generic edits (moves, altitudes, arcs) leave them alone; only the survey ops change them. */
+export function surveyLocked(d: Draft): ReadonlySet<number> {
+  return new Set(d.surveys.flatMap((s) => s.uids))
+}
+
+/** `uids` without the survey items. */
+function unlocked(d: Draft, uids: ReadonlySet<number>): ReadonlySet<number> {
+  if (d.surveys.length === 0) return uids
+  const locked = surveyLocked(d)
+  return new Set([...uids].filter((uid) => !locked.has(uid)))
+}
+
 export function moveItem(d: Draft, uid: number, lat: number, lon: number): Draft {
-  return updateItem(d, uid, { lat, lon })
+  return surveyLocked(d).has(uid) ? d : updateItem(d, uid, { lat, lon })
 }
 
 export function moveItems(d: Draft, uids: ReadonlySet<number>, dLat: number, dLon: number): Draft {
-  return { ...d, items: d.items.map((it) => (uids.has(it.uid) && !isTakeoff(it) ? { ...it, lat: it.lat + dLat, lon: it.lon + dLon } : it)) }
+  const free = unlocked(d, uids)
+  if (free.size === 0) return d
+  return { ...d, items: d.items.map((it) => (free.has(it.uid) && !isTakeoff(it) ? { ...it, lat: it.lat + dLat, lon: it.lon + dLon } : it)) }
 }
 
 /** Inserts copies of `items` (new uids) after `afterUid`, or at the end when it is null / gone. */
@@ -154,7 +168,7 @@ const ARC_CMD = 36
 /** A WAYPOINT / ARC_WAYPOINT becomes an arc of `angle`° (+ clockwise); 0 makes it a plain waypoint again. */
 export function setArc(d: Draft, uid: number, angle: number): Draft {
   const it = d.items.find((x) => x.uid === uid)
-  if (!it || (it.command !== WAYPOINT_CMD && it.command !== ARC_CMD)) return d
+  if (!it || (it.command !== WAYPOINT_CMD && it.command !== ARC_CMD) || surveyLocked(d).has(uid)) return d
   const command = angle === 0 ? WAYPOINT_CMD : ARC_CMD
   return updateItem(d, uid, { command, params: [angle, it.params[1], it.params[2], it.params[3]] })
 }
@@ -188,7 +202,9 @@ export function remapJumps(prev: Draft, next: Draft, alias: ReadonlyMap<number, 
 /** Adds `dAlt` metres; Rel / Ter items stop at 0 m so a quick drag never puts a waypoint underground. */
 export function shiftAlts(d: Draft, uids: ReadonlySet<number>, dAlt: number): Draft {
   const alt = (it: DraftItem) => (it.frame === 'abs' ? it.alt + dAlt : Math.max(0, it.alt + dAlt))
-  return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt: alt(it) } : it)) }
+  const free = unlocked(d, uids)
+  if (free.size === 0) return d
+  return { ...d, items: d.items.map((it) => (free.has(it.uid) ? { ...it, alt: alt(it) } : it)) }
 }
 
 export function reorder(d: Draft, uid: number, dir: -1 | 1): Draft {
@@ -235,7 +251,9 @@ export function setCommand(d: Draft, uid: number, key: string): Draft {
 }
 
 export function setAltBulk(d: Draft, uids: ReadonlySet<number>, alt: number, frame: MissionFrame): Draft {
-  return { ...d, items: d.items.map((it) => (uids.has(it.uid) ? { ...it, alt, frame } : it)) }
+  const free = unlocked(d, uids)
+  if (free.size === 0) return d
+  return { ...d, items: d.items.map((it) => (free.has(it.uid) ? { ...it, alt, frame } : it)) }
 }
 
 export function setMeta(d: Draft, patch: Partial<Draft['mission']>): Draft {

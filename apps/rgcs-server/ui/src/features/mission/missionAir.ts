@@ -32,8 +32,8 @@ export interface MissionAir {
   readonly discs: FeatureCollection<Point, { sel: number }>
   /** AMSL per item uid, `null` while unknown. */
   readonly alts: ReadonlyMap<number, number | null>
-  /** AMSL at each mid-leg handle (same order as `midHandles`). */
-  readonly mids: readonly (number | null)[]
+  /** AMSL at the mid-leg handle of each leg, by the uid that ends the leg (`MidHandle.toUid`). */
+  readonly mids: ReadonlyMap<number, number | null>
 }
 
 type Pt = { lat: number; lon: number; amsl: number }
@@ -186,12 +186,14 @@ export function missionAirData(draft: Draft, selected: ReadonlySet<number>, elev
     discs.features.push({ type: 'Feature', properties: { sel: selected.has(s.item!.uid) ? 1 : 0 }, geometry: { type: 'Point', coordinates: [s.lon, s.lat] } })
     return [mercatorLine([{ lon: s.lon, lat: s.lat, amsl: Math.min(g, s.amsl), color: c }, { lon: s.lon, lat: s.lat, amsl: Math.max(g, s.amsl), color: c }])]
   })
-  // `midHandles` puts one handle between each pair of consecutive positioned items
-  const mids = items.slice(1).map((b, i) => {
-    const za = alts.get(items[i]!.uid)
-    const zb = alts.get(b.uid)
-    return za == null || zb == null ? null : (za + zb) / 2
-  })
+  // `midHandles` puts at most one handle between each pair of consecutive positioned items
+  const mids = new Map(
+    items.slice(1).map((b, i) => {
+      const za = alts.get(items[i]!.uid)
+      const zb = alts.get(b.uid)
+      return [b.uid, za == null || zb == null ? null : (za + zb) / 2] as const
+    }),
+  )
   const floor = home ? homeGround : vehicleHome ? elevAt(vehicleHome.lon, vehicleHome.lat) : null
   const walls = ceiling !== null && floor !== null ? fenceWalls(draft.mission.fence, floor + ceiling, (lon, lat) => elevAt(lon, lat) ?? floor) : { lines: [], posts: [] }
   const surveys = surveyOutlines(draft.surveys, elevAt, homeGround)
@@ -206,7 +208,8 @@ interface Args {
   readonly draft: Draft
   readonly selected: ReadonlySet<number>
   readonly badges: RefObject<ReadonlyMap<number, { marker: Marker }>>
-  readonly handles: RefObject<readonly Marker[]>
+  /** The mid-leg "+" markers, each with the uid ending its leg. */
+  readonly handles: RefObject<readonly { readonly marker: Marker; readonly toUid: number }[]>
   /** FENCE_ALT_MAX: the fence zones rise to it in 3D (above `vehicleHome` when the plan has no home). */
   readonly ceiling?: number | null
   readonly vehicleHome?: LatLon | null
@@ -260,9 +263,9 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
       const it = byUid.get(uid)
       return it ? [{ marker, lon: it.lon, lat: it.lat, amsl: d.alts.get(uid) ?? null, base: [0, 0] as const }] : []
     })
-    const handleFloats = handles.current.map((marker, i) => {
+    const handleFloats = handles.current.map(({ marker, toUid }) => {
       const p = marker.getLngLat()
-      return { marker, lon: p.lng, lat: p.lat, amsl: d.mids[i] ?? null, base: [0, 0] as const }
+      return { marker, lon: p.lng, lat: p.lat, amsl: d.mids.get(toUid) ?? null, base: [0, 0] as const }
     })
     planFloats.current = [...badgeFloats, ...handleFloats]
     compose()

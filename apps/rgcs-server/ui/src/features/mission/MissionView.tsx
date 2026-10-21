@@ -17,8 +17,10 @@ import { MissionList } from './MissionList'
 import { MissionListHeader } from './MissionListHeader'
 import { SurveyFootToggle } from '../survey/SurveyFootToggle'
 import { SurveySlot } from '../survey/SurveySlot'
+import { SurveyNotice } from '../survey/SurveyNotice'
 import { predictSurvey } from '../survey/surveyPredict'
-import { insertAnchor } from '../survey/draftOps'
+import { insertAnchor, removeWithSurveys } from '../survey/draftOps'
+import { isEditable } from './editorKeys'
 import { useSurveyWiring } from '../survey/useSurveyWiring'
 import { UploadTargets } from './UploadTargets'
 import { MapFinder } from './MapFinder'
@@ -38,8 +40,8 @@ import { canRedo, canUndo } from './history'
 import { km, mmss } from './labels'
 import type { ContextMenu as Menu } from './mapEdit'
 import { useMissionIo } from './useMissionIo'
-import { appendWaypoint, moveItemsTo, takeoffFor, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, removeItems, reorder, reverseItems, setAltBulk, setArc, setCommand, setMeta, shiftAlts, updateItem, type Draft } from './model'
-import { MissionStore, addToSelection, clearSelection, copySelected, pasteClipboard, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
+import { appendWaypoint, moveItemsTo, takeoffFor, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, reorder, reverseItems, setAltBulk, setArc, setCommand, setMeta, shiftAlts, updateItem, type Draft } from './model'
+import { MissionStore, addToSelection, clearSelection, copySelected, dismissNotice, pasteClipboard, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
 import { localWarnings, stats } from './summary'
 import { BasemapPicker } from '../map/BasemapPicker'
 import { MapModeToggle } from '../map/MapModeToggle'
@@ -61,7 +63,6 @@ interface Props {
   readonly briefing?: BriefingStore
 }
 
-const isEditable = (t: EventTarget | null): boolean => t instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName)
 const NUDGE = 0.0001
 const NO_TRANSFERS: ReadonlyMap<number, MissionTransfer> = new Map()
 
@@ -257,6 +258,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
             </button>
           </div>
           <SurveySlot {...sv.slot} dict={dict} />
+          <SurveyNotice names={ui.surveyNotice} dict={dict} onUndo={() => store.update(undoUi)} onClose={() => store.update(dismissNotice)} />
           <div className="wp-scroll">
             <MissionList
               items={draft.items}
@@ -380,7 +382,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
             const it = draft.items.find((x) => x.uid === at)
             if (it) change((d) => insertAfter(d, at, it.lat + 0.0005, it.lon + 0.0005))
           }}
-          onDelete={(uid) => change((d) => removeItems(d, new Set([uid])))}
+          onDelete={(uid) => change((d) => removeWithSurveys(d, new Set([uid])))}
           onBulkAlt={() => {
             store.update((u) => (u.selected.has(menu.uid) ? u : selectOne(u, menu.uid, false)))
             setBulk({ alt: String(draft.mission.default_alt), frame: draft.mission.default_frame })

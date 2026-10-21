@@ -2,8 +2,8 @@
 import { useSyncExternalStore } from 'react'
 import type { Finding, Mission, MissionItem, UploadReport } from '../../shared/api/types'
 import { canRedo, canUndo, initHistory, push, redo, undo, type History } from './history'
-import { insertAnchor, reconcileSurveys } from '../survey/draftOps'
-import { emptyDraft, fromMission, insertItemsAfter, remapJumps, removeItems, type Draft } from './model'
+import { insertAnchor, reconcileSurveys, removeWithSurveys } from '../survey/draftOps'
+import { emptyDraft, fromMission, insertItemsAfter, remapJumps, type Draft } from './model'
 
 export type Tool = 'select' | 'add'
 export type Busy = 'idle' | 'saving' | 'uploading' | 'downloading'
@@ -131,9 +131,12 @@ export function pasteClipboard(ui: MissionUi): MissionUi {
   return { ...commit(ui, remapJumps(d, draft, alias, new Set(uids))), selected: new Set(uids), anchor: uids.at(-1) ?? ui.anchor }
 }
 
+/** Hides the survey detach notice (the detach stays; ⌘Z still undoes it). */
+export const dismissNotice = (ui: MissionUi): MissionUi => (ui.surveyNotice.length === 0 ? ui : { ...ui, surveyNotice: NO_NOTICE })
 export const clearSelection = (ui: MissionUi): MissionUi => (ui.selected.size === 0 ? ui : { ...ui, selected: EMPTY, anchor: null })
 export const setTool = (ui: MissionUi, tool: Tool): MissionUi => (ui.tool === tool ? ui : { ...ui, tool })
-export const removeSelected = (ui: MissionUi): MissionUi => (ui.selected.size === 0 ? ui : edit(ui, removeItems(ui.history.present, ui.selected)))
+/** Delete / Backspace: a selected survey item takes its whole survey along (one undo step). */
+export const removeSelected = (ui: MissionUi): MissionUi => (ui.selected.size === 0 ? ui : edit(ui, removeWithSurveys(ui.history.present, ui.selected)))
 
 /** Replaces the draft with a mission from the store / vehicle / file; history starts over. */
 export const loaded = (ui: MissionUi, m: Mission, savedId: number | null): MissionUi => ({

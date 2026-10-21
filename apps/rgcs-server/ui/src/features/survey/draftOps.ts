@@ -38,6 +38,22 @@ export function regenerateSurvey(d: Draft, id: string, spec: SurveySpec, items: 
   }
 }
 
+/** Deletes the survey: its items and its tag, in one edit; unknown ids leave the draft alone. */
+export function removeSurvey(d: Draft, id: string): Draft {
+  const survey = d.surveys.find((s) => s.id === id)
+  if (!survey) return d
+  const gone = new Set(survey.uids)
+  return { ...d, items: d.items.filter((it) => !gone.has(it.uid)), surveys: d.surveys.filter((s) => s !== survey) }
+}
+
+/** Deletes `uids`; a survey any of them belongs to goes as a whole (items and tag). */
+export function removeWithSurveys(d: Draft, uids: ReadonlySet<number>): Draft {
+  if (uids.size === 0) return d
+  const hit = d.surveys.filter((s) => s.uids.some((uid) => uids.has(uid)))
+  const gone = new Set([...uids, ...hit.flatMap((s) => s.uids)])
+  return { ...d, items: d.items.filter((it) => !gone.has(it.uid)), surveys: d.surveys.filter((s) => !hit.includes(s)) }
+}
+
 /** Removes the tag: the items stay as plain mission items. */
 export function expandSurvey(d: Draft, id: string): Draft {
   const surveys = d.surveys.filter((s) => s.id !== id)
