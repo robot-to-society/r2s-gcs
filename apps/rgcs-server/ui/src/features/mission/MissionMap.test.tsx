@@ -758,6 +758,31 @@ describe('MissionMap survey drawing', () => {
     expect(created.markers.filter((m) => m.el.classList.contains('sv-draw-close') && !m.removed)).toHaveLength(0)
   })
 
+  it('while drawing: no mid-leg handles, a badge click is a vertex at the waypoint, badges do not drag, no box select', () => {
+    const onClick = vi.fn()
+    const { props, container } = renderMap({ tool: 'add', surveyDraw: { ring: [], onClick, onClose: vi.fn() } })
+    expect(handles()).toHaveLength(0)
+    const b = badges()[1]!
+    expect(b.draggable).toBe(false)
+    act(() => b.el.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    expect(onClick).toHaveBeenCalledWith(36.2, 139.2)
+    expect(props.onSelect).not.toHaveBeenCalled()
+    expect(props.onInsertAfter).not.toHaveBeenCalled()
+    expect(props.onAdd).not.toHaveBeenCalled()
+    const mapEl = container.querySelector('[data-testid="mission-map"]') as HTMLElement
+    const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true, shiftKey: true, button: 0, clientX: 50, clientY: 50 })
+    mapEl.dispatchEvent(down)
+    expect(down.defaultPrevented).toBe(false)
+  })
+
+  it('handles come back when the drawing ends', () => {
+    const { props, rerender } = renderMap({ surveyDraw: { ring: [], onClick: vi.fn(), onClose: vi.fn() } })
+    expect(handles()).toHaveLength(0)
+    rerender(<MissionMap {...props} surveyDraw={null} />)
+    expect(handles()).toHaveLength(2)
+    expect(badges()[1]!.draggable).toBe(true)
+  })
+
   it('adds no survey layers until a drawing starts', () => {
     renderMap()
     expect(created.maps[0]!.layers.some((id) => id.startsWith('survey-draw-'))).toBe(false)

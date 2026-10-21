@@ -8,11 +8,14 @@ export function surveyAt(d: Draft, uid: number): DraftSurvey | null {
   return d.surveys.find((s) => s.uids.includes(uid)) ?? null
 }
 
+/** Where an insert "after `uid`" goes: after the whole survey when `uid` lies inside one. */
+export function insertAnchor(d: Draft, uid: number | null): number | null {
+  return uid === null ? null : (surveyAt(d, uid)?.uids.at(-1) ?? uid)
+}
+
 /** Inserts the generated `items` (fresh uids) after `afterUid` — after the whole survey when it lies inside one — or at the end. */
 export function addSurvey(d: Draft, afterUid: number | null, spec: SurveySpec, items: readonly MissionItem[]): { draft: Draft; id: string } {
-  const host = afterUid === null ? null : surveyAt(d, afterUid)
-  const anchor = host ? (host.uids.at(-1) ?? afterUid) : afterUid
-  const { draft, uids } = insertItemsAfter(d, anchor, items)
+  const { draft, uids } = insertItemsAfter(d, insertAnchor(d, afterUid), items)
   const id = crypto.randomUUID()
   return { draft: { ...draft, surveys: [...d.surveys, { id, uids, spec }] }, id }
 }

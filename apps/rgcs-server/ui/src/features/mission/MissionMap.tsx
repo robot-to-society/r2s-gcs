@@ -98,6 +98,8 @@ export function MissionMap(props: Props) {
   const tab = props.tab ?? 'mission'
   const tabRef = useRef(tab)
   tabRef.current = tab
+  // while a survey area is drawn the waypoints stay put: no drags, mid-leg inserts or box select
+  const drawing = (props.surveyDraw ?? null) !== null
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -196,7 +198,7 @@ export function MissionMap(props: Props) {
     if (!m) return
     const seen = new Set<number>()
     // 3D moves position with the ground foot; the TAKEOFF never moves (ArduCopter climbs in place)
-    const movable = (it: DraftItem) => tab === 'mission' && !is3d && !isTakeoff(it)
+    const movable = (it: DraftItem) => tab === 'mission' && !is3d && !drawing && !isTakeoff(it)
     shown.items.forEach((it, i) => {
       if (!hasPosition(it)) return
       seen.add(it.uid)
@@ -220,14 +222,14 @@ export function MissionMap(props: Props) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shown, selected, is3d, tab])
+  }, [shown, selected, is3d, tab, drawing])
 
   // Mid-leg handles are rebuilt on every draft change (cheap: ≤ 700)
   useEffect(() => {
     const m = map.current
     if (!m) return
     handles.current.forEach((h) => h.remove())
-    handles.current = midHandles(draft).map((h) => {
+    handles.current = (drawing ? [] : midHandles(draft)).map((h) => {
       const el = handleEl()
       el.addEventListener('click', (e) => {
         e.stopPropagation()
@@ -238,7 +240,7 @@ export function MissionMap(props: Props) {
     })
     // arcDeps only reads refs and setPreview: the handles need rebuilding for a new draft only
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft])
+  }, [draft, drawing])
 
   // After the map, the badges and the handles exist: effects run in declaration order.
   air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle), predicted, others: props.others ?? NO_OTHERS, color: pathColor ?? null })
@@ -253,13 +255,13 @@ export function MissionMap(props: Props) {
   }
   // a drag cut short by the 2D / 3D switch never reports its end
   useEffect(() => setPreview(null), [is3d])
-  useMissionFeet({ map, is3d, draft: shown, selected: selectedRef, cb: feetCb })
+  useMissionFeet({ map, is3d: is3d && !drawing, draft: shown, selected: selectedRef, cb: feetCb })
   const onFenceEdit = useRef((e: FenceEdit) => cb.current.onFenceEdit(e))
   const onRallyMove = useRef((i: number, lat: number, lon: number) => cb.current.onRallyMove(i, lat, lon))
   useFenceRally({ map, loaded, draft: shown, tab, onFenceEdit, onRallyMove })
   const onBox = useRef((uids: number[]) => cb.current.onBoxSelect(uids))
   const boxActive = useRef(tab === 'mission')
-  boxActive.current = tab === 'mission'
+  boxActive.current = tab === 'mission' && !drawing
   useBoxSelect(container, badges, onBox, boxActive)
   useBriefingOverlay({ map, loaded, others: props.others ?? NO_OTHERS, is3d })
   useSurveyDrawLayer({ map, loaded, draw: props.surveyDraw ?? null })
@@ -349,7 +351,7 @@ export function MissionMap(props: Props) {
 
   function altDeps(uid: number) {
     return {
-      active: () => air.current.is3d,
+      active: () => air.current.is3d && !cb.current.surveyDraw,
       targets: () => (selectedRef.current.has(uid) && selectedRef.current.size > 1 ? selectedRef.current : new Set([uid])),
       alt: () => draftRef.current.items.find((x) => x.uid === uid)?.alt ?? 0,
       pxPerMetre: () => air.current.pxPerMetre(uid),
@@ -397,11 +399,14 @@ function attachBadge(marker: Marker, el: HTMLDivElement, uid: number, cb: React.
   })
   el.addEventListener('click', (e) => {
     e.stopPropagation()
+    const p = itemPos(draft.current, uid)
+    // drawing a survey area: a waypoint is a vertex there
+    if (cb.current.surveyDraw) return p && cb.current.surveyDraw.onClick(p.lat, p.lon)
     cb.current.onSelect(uid, e.metaKey || e.ctrlKey, e.shiftKey)
   })
   el.addEventListener('contextmenu', (e) => {
     e.preventDefault()
     e.stopPropagation()
-    cb.current.onContext({ uid, x: e.clientX, y: e.clientY })
+    if (!cb.current.surveyDraw) cb.current.onContext({ uid, x: e.clientX, y: e.clientY })
   })
 }

@@ -1,4 +1,4 @@
-import { createEvent, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { t } from '../../shared/i18n'
 import { hasPosition } from '../mission/geo'
@@ -22,8 +22,9 @@ function setup(d: Draft = fixture(), selected: ReadonlySet<number> = new Set()) 
   const onSelect = vi.fn()
   const onMove = vi.fn()
   const onContext = vi.fn()
-  render(<MissionList items={d.items} surveys={d.surveys} home={HOME} selected={selected} kind="plane" dict={dict} onSelect={onSelect} onReorder={vi.fn()} onMove={onMove} onContext={onContext} />)
-  return { d, onSelect, onMove, onContext }
+  const onReorder = vi.fn()
+  render(<MissionList items={d.items} surveys={d.surveys} home={HOME} selected={selected} kind="plane" dict={dict} onSelect={onSelect} onReorder={onReorder} onMove={onMove} onContext={onContext} />)
+  return { d, onSelect, onMove, onContext, onReorder }
 }
 
 describe('MissionList survey groups', () => {
@@ -85,5 +86,28 @@ describe('MissionList survey groups', () => {
   it('the group row has no reorder buttons', () => {
     setup()
     expect(within(screen.getByTestId('survey-head')).queryByRole('button', { name: dict.mUp })).toBeNull()
+  })
+
+  it('▲ on the row after a survey jumps over the whole group; ▼ on the row before it likewise', () => {
+    const { d, onMove, onReorder } = setup()
+    const n = d.surveys[0]!.uids.length
+    const [first, after] = [d.items[0]!, d.items.at(-1)!]
+    const rows = screen.getAllByRole('option')
+    fireEvent.click(within(rows.at(-1)!).getByRole('button', { name: dict.mUp }))
+    expect(onMove).toHaveBeenLastCalledWith(new Set([after.uid]), 1)
+    fireEvent.click(within(rows[0]!).getByRole('button', { name: dict.mDown }))
+    expect(onMove).toHaveBeenLastCalledWith(new Set([first.uid]), n + 1)
+    expect(onReorder).not.toHaveBeenCalled()
+  })
+
+  it('▲▼ between plain rows still reorders one step', () => {
+    const { d, onReorder } = setup()
+    const extra = appendWaypoint(d, 36.4, 139)
+    cleanup()
+    const { onReorder: again } = setup(extra)
+    const rows = screen.getAllByRole('option')
+    fireEvent.click(within(rows.at(-1)!).getByRole('button', { name: dict.mUp }))
+    expect(again).toHaveBeenCalledWith(extra.items.at(-1)!.uid, -1)
+    expect(onReorder).not.toHaveBeenCalled()
   })
 })

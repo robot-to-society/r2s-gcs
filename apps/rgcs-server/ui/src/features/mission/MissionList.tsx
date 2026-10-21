@@ -88,6 +88,14 @@ export function MissionList({ items, surveys = NO_SURVEYS, home = null, selected
   if (items.length === 0) return <div className="t3 wp-empty">{dict.mNoWp}</div>
   const click = (uid: number) => (e: MouseEvent) => onSelect(uid, e.metaKey || e.ctrlKey, e.shiftKey)
   const sub = (it: DraftItem, i: number) => `${legs[i]! > 0 ? `${km(legs[i]!)} · ` : ''}${itemSummary(it, kind, dict) || '—'}`
+  const segments = listSegments(items, surveys)
+  const groups = segments.flatMap((seg) => (seg.kind === 'survey' ? [{ first: seg.first, last: seg.first + seg.survey.uids.length - 1 }] : []))
+  /** ▲▼ next to a survey jumps over the whole group instead of entering it. */
+  const step = (uid: number, i: number, dir: -1 | 1) => {
+    const g = groups.find((x) => x.first <= i + dir && i + dir <= x.last)
+    if (g) onMove(new Set([uid]), dir < 0 ? g.first : g.last + 1)
+    else onReorder(uid, dir)
+  }
   const toggle = (id: string) => setOpen((o) => (o.has(id) ? new Set([...o].filter((x) => x !== id)) : new Set([...o, id])))
 
   const plainRow = (i: number) => {
@@ -100,7 +108,7 @@ export function MissionList({ items, surveys = NO_SURVEYS, home = null, selected
         onContext(it.uid, e.clientX, e.clientY)
       },
     }
-    const reorder = { canUp: i > 0, canDown: i < items.length - 1, onReorder: (dir: -1 | 1) => onReorder(it.uid, dir) }
+    const reorder = { canUp: i > 0, canDown: i < items.length - 1, onReorder: (dir: -1 | 1) => step(it.uid, i, dir) }
     return <WpRow key={it.uid} item={it} seq={i + 1} sel={sel} sub={sub(it, i)} dict={dict} className={drag.marks(i, i)} attrs={attrs} reorder={reorder} onClick={click(it.uid)} />
   }
   const surveyGroup = (s: DraftSurvey, first: number) => {
@@ -125,7 +133,7 @@ export function MissionList({ items, surveys = NO_SURVEYS, home = null, selected
   }
   return (
     <div className="wp-list" role="listbox" aria-label={dict.mWaypoints}>
-      {listSegments(items, surveys).map((seg) => (seg.kind === 'item' ? plainRow(seg.index) : surveyGroup(seg.survey, seg.first)))}
+      {segments.map((seg) => (seg.kind === 'item' ? plainRow(seg.index) : surveyGroup(seg.survey, seg.first)))}
     </div>
   )
 }

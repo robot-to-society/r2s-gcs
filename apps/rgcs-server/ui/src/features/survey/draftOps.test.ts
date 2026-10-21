@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Mission, MissionItem } from '../../shared/api/types'
 import { emptyDraft, fromMission, insertAfter, remapJumps, toMission, updateItem } from '../mission/model'
-import { addSurvey, expandSurvey, reconcileSurveys, regenerateSurvey, surveyAt } from './draftOps'
+import { addSurvey, expandSurvey, insertAnchor, reconcileSurveys, regenerateSurvey, surveyAt } from './draftOps'
+import { surveyDraft } from './surveyFixture'
 import { ALPHA7R4, defaultSpec, type SurveySpec } from './spec'
 
 const wp = (lat: number): MissionItem => ({ command: 16, frame: 'rel', params: [0, 0, 0, 0], lat, lon: 139, alt: 100, autocontinue: true })
@@ -91,5 +92,15 @@ describe('surveys in the draft', () => {
     expect(e.items).toBe(d.items)
     expect(e.surveys.map((s) => s.id)).toEqual(['a'])
     expect(surveyAt(e, 6)).toBeNull()
+  })
+})
+
+describe('insertAnchor', () => {
+  it('maps an item inside a survey to the survey\'s last item; others and null pass through', () => {
+    const { draft } = surveyDraft()
+    const uids = draft.surveys[0]!.uids
+    expect(insertAnchor(draft, uids[2]!)).toBe(uids.at(-1))
+    expect(insertAnchor(draft, 9999)).toBe(9999)
+    expect(insertAnchor(draft, null)).toBeNull()
   })
 })

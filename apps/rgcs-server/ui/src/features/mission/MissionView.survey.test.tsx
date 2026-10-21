@@ -7,8 +7,9 @@ import { at } from '../survey/surveyFixture'
 // map clicks go where the real map sends them: the survey drawing first, else "add a waypoint"
 const POINTS = [at(-300, -300), at(-300, -200), at(-300, -100), at(0, 0), at(600, 0), at(600, 500)]
 let clicks = 0
+let contextUid = 0
 vi.mock('./MissionMap', () => ({
-  MissionMap: (p: { onAdd: (lat: number, lon: number) => void; surveyDraw?: { ring: readonly unknown[]; onClick: (lat: number, lon: number) => void } | null }) => (
+  MissionMap: (p: { onAdd: (lat: number, lon: number) => void; onContext: (m: { uid: number; x: number; y: number }) => void; surveyDraw?: { ring: readonly unknown[]; onClick: (lat: number, lon: number) => void } | null }) => (
     <div data-testid="mission-map" data-drawing={p.surveyDraw ? p.surveyDraw.ring.length : -1}>
       <button
         type="button"
@@ -19,6 +20,9 @@ vi.mock('./MissionMap', () => ({
         }}
       >
         map-click
+      </button>
+      <button type="button" onClick={() => p.onContext({ uid: contextUid, x: 0, y: 0 })}>
+        map-context
       </button>
     </div>
   ),
@@ -116,5 +120,46 @@ describe('MissionView survey drawing', () => {
     fireEvent.click(within(screen.getByRole('list', { name: dict.svKmlChoose })).getByRole('button', { name: /South/ }))
     const d = store.getState().history.present
     expect(d.surveys.map((s) => s.spec.name)).toEqual(['South'])
+  })
+
+  /** Draws a survey after the first waypoint; returns its uids. */
+  async function drawSurvey(store: InstanceType<typeof MissionStore>) {
+    planWithSelection(store)
+    openPalette()
+    fireEvent.click(within(palette()).getByRole('button', { name: /^サーベイ/ }))
+    mapClick(3)
+    await act(async () => {
+      fireEvent.keyDown(view(), { key: 'Enter' })
+    })
+    return store.getState().history.present.surveys[0]!.uids
+  }
+  const intactAfter = (store: InstanceType<typeof MissionStore>, uids: readonly number[]) => {
+    const d = store.getState().history.present
+    expect(d.surveys).toHaveLength(1)
+    expect(d.surveys[0]!.uids).toEqual(uids)
+    const end = d.items.findIndex((it) => it.uid === uids.at(-1))
+    return d.items[end + 1]!
+  }
+
+  it('group-row click then palette WAYPOINT: the waypoint goes right after the survey, which stays intact', async () => {
+    const store = setup()
+    const uids = await drawSurvey(store)
+    const nextUid = store.getState().history.present.nextUid
+    fireEvent.click(screen.getByTestId('survey-head'))
+    expect([...store.getState().selected]).toEqual([uids[0]])
+    openPalette()
+    fireEvent.click(within(palette()).getAllByRole('button', { name: /^ウェイポイント/ })[0]!)
+    const wp = intactAfter(store, uids)
+    expect([wp.uid, wp.command]).toEqual([nextUid, 16])
+  })
+
+  it('the map context-menu insert on a survey item also goes after the survey', async () => {
+    const store = setup()
+    const uids = await drawSurvey(store)
+    const nextUid = store.getState().history.present.nextUid
+    contextUid = uids[1]!
+    fireEvent.click(screen.getByText('map-context'))
+    fireEvent.click(screen.getByRole('menuitem', { name: dict.mInsertAfter }))
+    expect(intactAfter(store, uids).uid).toBe(nextUid)
   })
 })

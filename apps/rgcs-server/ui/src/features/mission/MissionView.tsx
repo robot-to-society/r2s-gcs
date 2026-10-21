@@ -16,6 +16,7 @@ import { ContextMenu } from './ContextMenu'
 import { MissionList } from './MissionList'
 import { MissionListHeader } from './MissionListHeader'
 import { SurveySlot } from '../survey/SurveySlot'
+import { insertAnchor } from '../survey/draftOps'
 import { useSurveyWiring } from '../survey/useSurveyWiring'
 import { UploadTargets } from './UploadTargets'
 import { MapFinder } from './MapFinder'
@@ -141,7 +142,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
     if (!Number.isNaN(alt)) change((d) => setAltBulk(d, ui.selected, alt, bulk.frame))
   }
   const insertFromPalette = (key: string) => {
-    if (!sv.onPalette(key)) change((d) => insertCommandAfter(d, lastSelected?.uid ?? null, key))
+    if (!sv.onPalette(key)) change((d) => insertCommandAfter(d, insertAnchor(d, lastSelected?.uid ?? null), key))
     setPalette(false)
   }
 
@@ -370,8 +371,9 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           menu={menu}
           dict={dict}
           onInsert={(uid) => {
-            const it = draft.items.find((x) => x.uid === uid)
-            if (it) change((d) => insertAfter(d, uid, it.lat + 0.0005, it.lon + 0.0005))
+            const at = insertAnchor(draft, uid)!
+            const it = draft.items.find((x) => x.uid === at)
+            if (it) change((d) => insertAfter(d, at, it.lat + 0.0005, it.lon + 0.0005))
           }}
           onDelete={(uid) => change((d) => removeItems(d, new Set([uid])))}
           onBulkAlt={() => {
