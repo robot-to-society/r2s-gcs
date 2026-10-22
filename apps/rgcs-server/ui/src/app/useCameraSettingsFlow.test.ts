@@ -68,6 +68,15 @@ describe('useCameraSettingsFlow', () => {
     expect(setModal).toHaveBeenLastCalledWith({ kind: 'none' })
   })
 
+  it('save skips the camera profile PUT when the connection fields did not change (keeps an active ROI)', async () => {
+    api.getCameraProfile.mockResolvedValueOnce({ ...profile, video_source_mode: 'auto' })
+    const { result } = setup()
+    await waitFor(() => expect(result.current.roi).not.toBeNull())
+    await act(() => result.current.save(1, draft))
+    expect(calls).toEqual(['targets', 'control', 'gimbal'])
+    expect(results[0]).toMatchObject({ ok: true })
+  })
+
   it('a failing targets PUT reports one failure and skips the rest', async () => {
     api.putRoiTargets.mockRejectedValueOnce(new Error('targets[0].lat: out of range'))
     const { result } = setup()

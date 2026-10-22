@@ -143,7 +143,7 @@ pub async fn put_profile(
         Ok(p) => p,
         Err(e) => return err(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string()),
     };
-    let profile = merge(base, patch);
+    let profile = merge(base.clone(), patch);
     if let Err(e) = profile.validate() {
         return err(StatusCode::BAD_REQUEST, "validation", e.to_string());
     }
@@ -162,11 +162,21 @@ pub async fn put_profile(
     if let Err(e) = app.store.record_audit(entry).await {
         tracing::error!(error = %e, "audit write failed");
     }
-    // The driver is rebuilt: ROI stops first (with its zeros) so no stale command follows.
-    app.roi.stop(sysid, StopReason::Operator).await;
+    // An unchanged profile (e.g. a settings save that only touched ROI presets) keeps the
+    // driver, the video and an active ROI running.
+    if profile != base {
+        reload_driver(&app, &op.username, sysid).await;
+    }
+    ok(profile)
+}
+
+/// The driver is rebuilt: ROI stops first (with its zeros) so no stale command follows.
+async fn reload_driver(app: &AppState, operator: &str, sysid: SysId) {
+    if app.roi.stop(sysid, StopReason::Operator).await {
+        crate::roi_api::audit_manual_stop(app, operator, sysid, "profile_reload").await;
+    }
     app.cameras.reload(sysid).await;
     app.video.reload(sysid).await;
-    ok(profile)
 }
 
 /// Manual gimbal pointing cancels ROI (spec 40 §4); the stop is audited when ROI was active.

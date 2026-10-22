@@ -54,6 +54,12 @@ async function loadRoi(sysid: number): Promise<RoiSettings | null> {
   }
 }
 
+/** True when the sheet's connection fields differ from the loaded profile (or none loaded). */
+export function cameraChanged(profile: CameraProfile | null, camera: SheetDraft['camera']): boolean {
+  if (profile === null) return true
+  return profile.kind !== camera.kind || profile.host !== camera.host || profile.port !== camera.port || profile.video_source_mode !== camera.video_source_mode
+}
+
 function report(sysid: number, error: unknown): void {
   const reason = error === null ? null : error instanceof Error ? error.message : String(error)
   vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'camera_settings', ok: error === null, reason, ts: Date.now() })
@@ -92,7 +98,9 @@ export function useCameraSettingsFlow({ modal, setModal, terrainTiles, vehicles,
 
   const save = async (sysid: number, d: SheetDraft) => {
     const roiSteps = roi === null ? [] : [async () => roiTargetsStore.set(sysid, await putRoiTargets(sysid, d.roiTargets)), () => putRoiControl(sysid, d.roiControl)]
-    const steps: (() => Promise<unknown>)[] = [() => putCameraProfile(sysid, d.camera), ...roiSteps, async () => setGimbalProfile(await putGimbalProfile(d.input))]
+    // An unchanged profile is not re-PUT: the server would rebuild the driver and stop ROI.
+    const cameraSteps = cameraChanged(profile, d.camera) ? [() => putCameraProfile(sysid, d.camera)] : []
+    const steps: (() => Promise<unknown>)[] = [...cameraSteps, ...roiSteps, async () => setGimbalProfile(await putGimbalProfile(d.input))]
     try {
       for (const step of steps) await step()
       report(sysid, null)

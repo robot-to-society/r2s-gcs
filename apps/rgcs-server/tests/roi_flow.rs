@@ -291,11 +291,28 @@ async fn zoom_command_keeps_roi() {
 }
 
 #[tokio::test]
-async fn profile_put_stops_roi() {
+async fn unchanged_profile_put_keeps_roi_and_driver() {
     let (app, state, sim, cookie) = setup().await;
     state.roi.start(1, "roi_1").await.unwrap();
+    let before = state.cameras.ensure(1).await;
     put_mt11(&app, &cookie, sim.addr.port()).await;
+    assert_eq!(state.roi.active_target(1).as_deref(), Some("roi_1"));
+    let after = state.cameras.ensure(1).await;
+    assert!(std::sync::Arc::ptr_eq(&before, &after), "driver must not be reloaded");
+    let rows = audit_rows(&app, &cookie).await;
+    assert!(!has_roi_row(&rows, "stop", None), "{rows:?}");
+}
+
+#[tokio::test]
+async fn changed_profile_put_stops_roi_with_audit() {
+    let (app, state, _sim, cookie) = setup().await;
+    state.roi.start(1, "roi_1").await.unwrap();
+    let body = json!({ "auto_record": false });
+    let (s, v) = send(&app, &cookie, Method::PUT, "/api/vehicles/1/camera/profile", Some(body)).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
     assert_eq!(state.roi.active_target(1), None);
+    let rows = audit_rows(&app, &cookie).await;
+    assert!(has_roi_row(&rows, "stop", Some("profile_reload")), "{rows:?}");
 }
 
 #[tokio::test]

@@ -111,7 +111,7 @@ CSV 取込は UI が解析して `PUT roi/targets`。
 ROI 開始 / 停止は REST のみ(`CameraCommand` ではない)。手動入力による ROI 解除(spec 40 §4):
 - WS `gimbal_rate` の max(|yaw|, |pitch|) ≥ 5 → 解除してから転送。監査 operator `joystick`、`roi` / `stop`、reason `manual_input`。5 未満と速度 0(デッドマン停止を含む)は追従中は破棄。
 - `camera/command` の `gimbal_center` / `gimbal_angle` / `gimbal_mode` → 送信前に解除。監査 `roi` / `stop`、reason `manual_command`(要求者)。
-- `camera/profile` PUT → ドライバ再生成の前に停止。
+- `camera/profile` PUT → 保存済みプロファイルから変わったときだけ、ドライバ再生成の前に停止。監査 `roi` / `stop`、reason `profile_reload`(要求者)。変わらなければドライバも ROI もそのまま(2026-10-23)。UI の保存も接続欄が変わったときだけ PUT する。
 
 ### 2.4 設定
 | メソッド | パス | 本文 |

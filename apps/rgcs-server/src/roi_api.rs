@@ -39,7 +39,8 @@ pub async fn audit_roi(app: &AppState, a: RoiAudit<'_>) {
     }
 }
 
-/// Audits a stop caused by manual input (`manual_input` / `manual_command`).
+/// Audits a stop the operator did not ask for directly (`manual_input` / `manual_command` /
+/// `profile_reload`).
 pub async fn audit_manual_stop(app: &AppState, operator: &str, sysid: SysId, reason: &str) {
     let a = RoiAudit {
         operator,
