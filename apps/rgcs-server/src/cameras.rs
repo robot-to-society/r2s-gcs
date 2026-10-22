@@ -9,7 +9,8 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use rgcs_camera::camera::GpsTime;
-use rgcs_camera::{Camera, CameraError, NoneCamera, SiyiMt11};
+use rgcs_camera::{Camera, CameraError, MavlinkCamera, NoneCamera, SiyiMt11};
+use rgcs_mavlink::MavPort;
 use rgcs_core::{CameraCommand, CameraKind, CameraProfile, CameraSnapshot, ServerMessage, SysId};
 use rgcs_store::Store;
 use tokio::sync::{broadcast, Mutex};
@@ -47,6 +48,7 @@ pub struct CameraManager {
     entries: Arc<Mutex<HashMap<SysId, Entry>>>,
     owned: Arc<RwLock<Option<GimbalOwned>>>,
     gps_time: Arc<RwLock<Option<GpsTimeFactory>>>,
+    mav: Arc<RwLock<Option<MavPort>>>,
 }
 
 impl CameraManager {
@@ -58,6 +60,7 @@ impl CameraManager {
             entries: Arc::new(Mutex::new(HashMap::new())),
             owned: Arc::new(RwLock::new(None)),
             gps_time: Arc::new(RwLock::new(None)),
+            mav: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -78,6 +81,21 @@ impl CameraManager {
             .and_then(|f| f.as_ref().map(|f| f(profile.sysid)))
     }
 
+    /// Installs the FC link port `mavlink` drivers send and listen on (ruling 1).
+    pub fn set_mav_port(&self, port: MavPort) {
+        if let Ok(mut slot) = self.mav.write() {
+            *slot = Some(port);
+        }
+    }
+
+    fn mav_port(&self) -> MavPort {
+        self.mav
+            .read()
+            .ok()
+            .and_then(|p| p.clone())
+            .unwrap_or_else(MavPort::detached)
+    }
+
     /// Installs the check that suppresses the link-up zero while ROI owns the gimbal.
     pub fn set_gimbal_owned(&self, owned: GimbalOwned) {
         if let Ok(mut slot) = self.owned.write() {
@@ -94,6 +112,14 @@ impl CameraManager {
     }
 
     fn build(&self, profile: &CameraProfile) -> Arc<dyn Camera> {
+        match profile.kind {
+            CameraKind::Mavlink => Arc::new(MavlinkCamera::new(profile.sysid, profile.comp_id, self.mav_port())),
+            CameraKind::SiyiMt11 => self.build_mt11(profile),
+            _ => Arc::new(NoneCamera::default()),
+        }
+    }
+
+    fn build_mt11(&self, profile: &CameraProfile) -> Arc<dyn Camera> {
         let mt11 = match (profile.kind, self.factory) {
             (CameraKind::SiyiMt11, CameraFactory::Real) => {
                 let host = profile.host.parse().unwrap_or(Ipv4Addr::new(192, 168, 144, 25));
@@ -101,7 +127,6 @@ impl CameraManager {
             }
             #[cfg(any(test, feature = "sim"))]
             (CameraKind::SiyiMt11, CameraFactory::Sim(addr)) => SiyiMt11::new(Ipv4Addr::LOCALHOST, addr.port()),
-            // MAVLink cameras arrive with their driver (P3+); until then they behave as none.
             _ => return Arc::new(NoneCamera::default()),
         };
         match self.gps_time_for(profile) {
@@ -133,8 +158,8 @@ impl CameraManager {
         if let Err(e) = camera.connect().await {
             tracing::warn!(sysid, error = %e, "camera connect failed");
         }
-        let forwarder = tokio::spawn(forward(sysid, camera.caps(), camera.state(), self.tx.clone()));
-        let link_zero = tokio::spawn(link_zero(self.clone(), sysid, camera.clone()));
+        let forwarder = tokio::spawn(forward(sysid, camera.clone(), self.tx.clone()));
+        let link_zero = tokio::spawn(link_zero(self.clone(), sysid, profile.kind, camera.clone()));
         let mut entries = self.entries.lock().await;
         if let Some(old) = entries.insert(
             sysid,
@@ -206,8 +231,10 @@ impl CameraManager {
 /// Ruling 18 + I5: every time the link comes up (first connect of a driver and every
 /// reconnect) the gimbal gets speed 0, unless an active ROI owns it. This covers a crash, a
 /// stop while the link was down (its zero failed) and a manual cancel while offline.
-async fn link_zero(manager: CameraManager, sysid: SysId, camera: Arc<dyn Camera>) {
-    if !camera.caps().gimbal.is_some_and(|g| g.rate) {
+/// Rate support is re-read on every edge (caps can change after connect). A `mavlink` camera
+/// rides the FC link: a rate 0 there would end FC-side targeting, so it gets none (ruling 10).
+async fn link_zero(manager: CameraManager, sysid: SysId, kind: CameraKind, camera: Arc<dyn Camera>) {
+    if kind == CameraKind::Mavlink {
         return;
     }
     let mut state = camera.state();
@@ -215,7 +242,8 @@ async fn link_zero(manager: CameraManager, sysid: SysId, camera: Arc<dyn Camera>
         if state.wait_for(|s| s.connected).await.is_err() {
             return;
         }
-        if !manager.gimbal_owned(sysid) {
+        let rate = camera.caps().gimbal.is_some_and(|g| g.rate);
+        if rate && !manager.gimbal_owned(sysid) {
             if let Err(e) = camera.send(CameraCommand::GimbalRate { yaw: 0, pitch: 0 }).await {
                 tracing::warn!(sysid, error = %e, "link-up gimbal zero failed");
             }
@@ -227,19 +255,16 @@ async fn link_zero(manager: CameraManager, sysid: SysId, camera: Arc<dyn Camera>
 }
 
 /// Broadcasts state changes at most every `STATE_MIN_GAP` (a burst collapses into its newest
-/// state) and re-sends the current state each second (with the caps).
-async fn forward(
-    sysid: SysId,
-    caps: rgcs_core::CameraCaps,
-    mut rx: tokio::sync::watch::Receiver<rgcs_core::CameraState>,
-    tx: broadcast::Sender<ServerMessage>,
-) {
+/// state) and re-sends the current state each second. The caps are read for every frame, so
+/// a driver that learns its caps after connecting reaches the UI (ruling 9).
+async fn forward(sysid: SysId, camera: Arc<dyn Camera>, tx: broadcast::Sender<ServerMessage>) {
+    let mut rx = camera.state();
     loop {
         let state = rx.borrow_and_update().clone();
         let sent_at = tokio::time::Instant::now();
         let _ = tx.send(ServerMessage::CameraState {
             sysid,
-            caps: caps.clone(),
+            caps: camera.caps(),
             state,
         });
         tokio::select! {
@@ -267,13 +292,73 @@ mod tests {
         })
     }
 
+    /// A driver whose caps and state the test sets.
+    struct FakeCam {
+        caps: std::sync::Mutex<CameraCaps>,
+        state: tokio::sync::watch::Sender<CameraState>,
+    }
+
+    impl FakeCam {
+        fn new() -> Arc<Self> {
+            let (state, _) = tokio::sync::watch::channel(CameraState::disconnected(1.0));
+            Arc::new(Self {
+                caps: std::sync::Mutex::new(CameraCaps::none()),
+                state,
+            })
+        }
+
+        fn set_caps(&self, caps: CameraCaps) {
+            if let Ok(mut c) = self.caps.lock() {
+                *c = caps;
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Camera for FakeCam {
+        fn caps(&self) -> CameraCaps {
+            self.caps.lock().map(|c| c.clone()).unwrap_or_else(|_| CameraCaps::none())
+        }
+        async fn send(&self, _cmd: CameraCommand) -> Result<(), CameraError> {
+            Ok(())
+        }
+        fn state(&self) -> tokio::sync::watch::Receiver<CameraState> {
+            self.state.subscribe()
+        }
+        async fn connect(&self) -> Result<(), CameraError> {
+            Ok(())
+        }
+        async fn disconnect(&self) {}
+    }
+
+    #[tokio::test]
+    async fn forward_sends_current_caps() {
+        let cam = FakeCam::new();
+        let (tx, mut rx) = broadcast::channel(16);
+        let task = tokio::spawn(forward(1, cam.clone(), tx));
+        let first = rx.recv().await.expect("first frame");
+        cam.set_caps(CameraCaps::siyi_mt11());
+        cam.state.send_modify(|_| {});
+        let second = rx.recv().await.expect("second frame");
+        task.abort();
+        let kinds: Vec<CameraCaps> = [first, second]
+            .into_iter()
+            .filter_map(|m| match m {
+                ServerMessage::CameraState { caps, .. } => Some(caps),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(kinds, vec![CameraCaps::none(), CameraCaps::siyi_mt11()]);
+    }
+
     #[tokio::test]
     async fn forward_caps_bursts_at_10_hz() {
-        let (state_tx, state_rx) = tokio::sync::watch::channel(CameraState::disconnected(1.0));
+        let cam = FakeCam::new();
+        let state_tx = cam.state.clone();
         let (tx, rx) = broadcast::channel(256);
         let start = Instant::now();
         let frames = collect(rx, start);
-        let task = tokio::spawn(forward(1, CameraCaps::none(), state_rx, tx));
+        let task = tokio::spawn(forward(1, cam.clone(), tx));
         for i in 1..=50u16 {
             let next = CameraState {
                 zoom: f32::from(i),

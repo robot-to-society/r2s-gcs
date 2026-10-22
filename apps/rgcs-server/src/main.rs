@@ -50,8 +50,11 @@ async fn main() -> anyhow::Result<()> {
     let (payload_tx, _) = broadcast::channel(rgcs_mavlink::port::PAYLOAD_CAPACITY);
     let (queue_tx, queue_rx) = mpsc::channel(32);
     let gcs_sysid = rgcs_server::settings::load_gcs_sysid(&store).await;
+    // The camera driver rides the FC link (MAVLink camera ruling 1): clone before the moves below.
+    let mav_port = rgcs_mavlink::MavPort::new(outgoing_tx.clone(), acks_tx.clone(), payload_tx.clone());
     let state = AppState::new(router.clone(), tx.clone(), store, queue_tx, dev_mode)
         .with_outgoing(outgoing_tx.clone())
+        .with_mav_port(mav_port)
         .with_map(config.map_tile_url.clone(), config.map_attribution.clone())
         .with_basemaps(config.basemaps())
         .with_terrain(config.terrain())

@@ -16,6 +16,7 @@ use mavlink::dialects::ardupilotmega::{
     MISSION_REQUEST_INT_DATA,
 };
 use mavlink::MavHeader;
+use rgcs_camera::mavlink_cam::fake::{FakeConfig, FakeMav};
 use rgcs_camera::siyi::sim::SimServer;
 use rgcs_core::ParamEntry;
 use rgcs_mavlink::{Clock, Outcome, Outgoing, QueuedCommand, Router};
@@ -59,6 +60,14 @@ pub async fn spawn_app_with_sim() -> (AxumRouter, AppState, SimServer) {
     let sim = SimServer::start().await;
     let (app, state, _rx) = spawn_app_full(Some(sim.addr)).await;
     (app, state, sim)
+}
+
+/// `spawn_app` whose MAVLink camera driver talks to a fake ArduPilot camera / gimbal manager.
+pub async fn spawn_app_with_fake_mav(cfg: FakeConfig) -> (AxumRouter, AppState, FakeMav) {
+    let fake = FakeMav::start(1, cfg);
+    let (_app, state, _rx) = spawn_app_full(None).await;
+    let state = state.with_mav_port(fake.port());
+    (app::build(state.clone(), None), state, fake)
 }
 
 /// `spawn_app` with the WHEP relay pointed at `upstream` (a fake MediaMTX in tests).

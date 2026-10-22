@@ -44,6 +44,9 @@ pub struct AppState {
     pub outgoing: mpsc::Sender<Outgoing>,
     pub params: ParamCache,
     pub cameras: CameraManager,
+    /// The FC link's camera / gimbal port (payload tap, outgoing frames, ACKs); detached
+    /// until `with_mav_port`.
+    pub mav: rgcs_mavlink::MavPort,
     /// GPS ROI tasks (spec 40 §4); always built on `cameras`.
     pub roi: crate::roi::RoiHub,
     pub video: VideoHub,
@@ -116,6 +119,7 @@ impl AppState {
             outgoing,
             params,
             cameras,
+            mav: rgcs_mavlink::MavPort::detached(),
             roi,
             video,
             whep,
@@ -158,8 +162,15 @@ impl AppState {
     /// Swaps the camera manager; the ROI hub is rebuilt so it drives the same drivers.
     pub fn with_cameras(self, cameras: CameraManager) -> Self {
         cameras.set_gps_time(crate::gps_time::factory(self.router.clone()));
+        cameras.set_mav_port(self.mav.clone());
         let roi = crate::roi::RoiHub::new(self.store.clone(), cameras.clone(), self.router.clone(), self.tx.clone());
         Self { cameras, roi, ..self }
+    }
+
+    /// Installs the FC link's MAVLink port; `mavlink` camera drivers built from now on use it.
+    pub fn with_mav_port(self, port: rgcs_mavlink::MavPort) -> Self {
+        self.cameras.set_mav_port(port.clone());
+        Self { mav: port, ..self }
     }
 
     /// Points the WHEP relay at another MediaMTX (`config.toml` or a test fake).
