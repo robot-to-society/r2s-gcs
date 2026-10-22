@@ -1,7 +1,9 @@
 //! When the driver asks for info and streams (plan rulings 11, 12): `REQUEST_MESSAGE` 259 / 280
 //! to every component every 2 s while unbound and once more on each reconnect edge;
-//! `SET_MESSAGE_INTERVAL` for 260 / 262 / 285 only while connected and the message is more than
-//! 3 s stale, at most every 5 s per message.
+//! `SET_MESSAGE_INTERVAL` for 260 / 262 / 285 to the bound components when the message is more
+//! than 3 s stale, at most every 5 s per message. This also runs while bound but disconnected:
+//! ArduPilot sends the info once and streams nothing until asked (and an FC reboot drops the
+//! rates), so the requested streams are what (re)connects the driver.
 
 use std::collections::BTreeMap;
 
@@ -46,11 +48,7 @@ pub fn due_requests(m: &Model, last: &Requests, sysid: SysId, now_ms: u64) -> (R
         ..last.clone()
     };
     let (after_info, info) = info_requests(m, &edges, sysid, now_ms, reconnect);
-    let (next, streams) = if connected {
-        stream_requests(m, &after_info, sysid, now_ms)
-    } else {
-        (after_info, Vec::new())
-    };
+    let (next, streams) = stream_requests(m, &after_info, sysid, now_ms);
     (next, info.into_iter().chain(streams).collect())
 }
 
@@ -197,10 +195,14 @@ mod tests {
 
     #[test]
     fn info_asks_only_for_what_is_missing() {
-        let m = apply(
-            &Model::new(),
-            &frame(MavMessage::CAMERA_INFORMATION(cam_info(1, 0xC3, 1))),
-            100,
+        // As in the actor: liveness runs before the requests, so the stream grace applies.
+        let m = liveness(
+            &apply(
+                &Model::new(),
+                &frame(MavMessage::CAMERA_INFORMATION(cam_info(1, 0xC3, 1))),
+                100,
+                0,
+            ),
             0,
         );
         let (_, msgs) = due_requests(&m, &Requests::default(), 1, 0);
@@ -254,13 +256,28 @@ mod tests {
         assert!(msgs.is_empty());
     }
 
+    /// ArduPilot answers REQUEST_MESSAGE once and streams nothing until asked: the info frames
+    /// age out after 3 s, so the streams must still be requested while bound but silent, or
+    /// the driver never connects (live SITL, 2026-10-23). An FC reboot also drops the rates.
     #[test]
-    fn no_streams_while_disconnected() {
+    fn streams_requested_while_bound_but_silent() {
         let (r, _) = due_requests(&bound(0), &Requests::default(), 1, 0);
-        let m = liveness(&bound(0), 10_000);
+        let m = liveness(&bound(0), 3_250);
         assert!(!m.state.connected);
-        let (_, msgs) = due_requests(&m, &r, 1, 10_000);
-        assert!(msgs.is_empty());
+        let (r, msgs) = due_requests(&m, &r, 1, 3_250);
+        assert_eq!(
+            params(&msgs),
+            vec![(INTERVAL, 260.0, 1), (INTERVAL, 262.0, 1), (INTERVAL, 285.0, 1)]
+        );
+        let (_, msgs) = due_requests(&m, &r, 1, 8_250);
+        assert_eq!(msgs.len(), 3, "retried every 5 s while still silent");
+    }
+
+    #[test]
+    fn no_streams_while_unbound() {
+        let (r, _) = due_requests(&Model::new(), &Requests::default(), 1, 0);
+        let (_, msgs) = due_requests(&Model::new(), &r, 1, 10_000);
+        assert!(params(&msgs).iter().all(|(c, ..)| *c == REQ));
     }
 
     #[test]

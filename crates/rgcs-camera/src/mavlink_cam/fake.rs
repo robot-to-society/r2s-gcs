@@ -1,7 +1,8 @@
 //! An ArduPilot-like camera (compid 1, device 1) and gimbal manager (compid 1, device 1) on
 //! the `MavPort` channels, for driver and server tests. It answers `REQUEST_MESSAGE` 259 / 280,
-//! ACKs every command (DENIED for `reject`, silence for `mute`), streams 260 / 262 at 1 Hz and
-//! 285 at 10 Hz (after a `SET_MESSAGE_INTERVAL` unless `stream_unasked`), and applies zoom,
+//! ACKs every command (DENIED for `reject`, silence for `mute`), streams 260 / 262 at 1 Hz (from
+//! the start unless `!camera_streams_unasked`) and 285 at 10 Hz (after a `SET_MESSAGE_INTERVAL`
+//! unless `stream_unasked`), and applies zoom,
 //! recording and gimbal angles.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,6 +23,7 @@ use tokio::task::JoinHandle;
 const GIMBAL_COMPID: u8 = 1;
 const STREAM_TICK: Duration = Duration::from_millis(100);
 const ATTITUDE_ID: f32 = 285.0;
+const CAMERA_STREAM_IDS: [f32; 2] = [260.0, 262.0];
 
 #[derive(Debug, Clone)]
 pub struct FakeConfig {
@@ -39,6 +41,9 @@ pub struct FakeConfig {
     pub mute: Vec<MavCmd>,
     /// Stream 285 from the start instead of after a `SET_MESSAGE_INTERVAL`.
     pub stream_unasked: bool,
+    /// Stream 260 / 262 from the start (default). `false` is ArduPilot-like: only after a
+    /// `SET_MESSAGE_INTERVAL` for 260 / 262.
+    pub camera_streams_unasked: bool,
 }
 
 impl Default for FakeConfig {
@@ -54,6 +59,7 @@ impl Default for FakeConfig {
             reject: Vec::new(),
             mute: Vec::new(),
             stream_unasked: false,
+            camera_streams_unasked: true,
         }
     }
 }
@@ -66,6 +72,7 @@ struct World {
     /// MAVLink yaw (+right) and pitch, radians.
     attitude: (f32, f32),
     attitude_stream: bool,
+    camera_stream: bool,
 }
 
 pub struct FakeMav {
@@ -149,6 +156,7 @@ impl Responder {
             video_status: 0,
             attitude: (0.0, 0.0),
             attitude_stream: self.cfg.stream_unasked,
+            camera_stream: self.cfg.camera_streams_unasked,
         };
         let mut tick = tokio::time::interval(STREAM_TICK);
         let mut ticks: u64 = 0;
@@ -208,6 +216,10 @@ impl Responder {
             }
             MavCmd::MAV_CMD_SET_MESSAGE_INTERVAL if p[0] == ATTITUDE_ID => World {
                 attitude_stream: true,
+                ..world
+            },
+            MavCmd::MAV_CMD_SET_MESSAGE_INTERVAL if CAMERA_STREAM_IDS.contains(&p[0]) => World {
+                camera_stream: true,
                 ..world
             },
             MavCmd::MAV_CMD_SET_CAMERA_ZOOM if p[0] == 2.0 => World { zoom: p[1], ..world },
@@ -274,7 +286,7 @@ impl Responder {
         })
     }
 
-    /// 285 every tick (10 Hz) once enabled; 260 / 262 every 10th tick (1 Hz).
+    /// 285 every tick (10 Hz) once enabled; 260 / 262 every 10th tick (1 Hz) once enabled.
     fn stream(&self, world: &World, ticks: u64) {
         if self.paused() {
             return;
@@ -282,7 +294,7 @@ impl Responder {
         if world.attitude_stream {
             self.emit(GIMBAL_COMPID, self.attitude(world));
         }
-        if ticks % 10 == 0 {
+        if world.camera_stream && ticks % 10 == 0 {
             self.emit(self.cfg.cam_compid, self.settings(world));
             self.emit(self.cfg.cam_compid, self.capture_status(world));
         }

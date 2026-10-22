@@ -157,8 +157,9 @@ fn state(m: &Model, state: CameraState) -> Model {
 
 /// A new camera binding also sets the firmware text (ruling 17).
 fn with_camera(m: &Model, camera: Option<CameraBinding>) -> Model {
-    let firmware = match camera.as_ref().and_then(|c| c.firmware.clone()) {
-        Some(fw) => Some(Firmware {
+    // A bound camera's own firmware wins, including "unknown" (a swapped camera reports 0).
+    let firmware = match camera.as_ref() {
+        Some(c) => c.firmware.clone().map(|fw| Firmware {
             camera: fw,
             gimbal: String::new(),
             zoom: String::new(),
@@ -217,7 +218,8 @@ mod tests {
     use super::*;
     use crate::mavlink_cam::binding::tests::{cam_info, header, manager_info};
     use mavlink::dialects::ardupilotmega::{
-        MavMessage, CAMERA_CAPTURE_STATUS_DATA, CAMERA_SETTINGS_DATA, GIMBAL_DEVICE_ATTITUDE_STATUS_DATA,
+        MavMessage, CAMERA_CAPTURE_STATUS_DATA, CAMERA_INFORMATION_DATA, CAMERA_SETTINGS_DATA,
+        GIMBAL_DEVICE_ATTITUDE_STATUS_DATA,
     };
     use rgcs_core::{Firmware, GimbalAttitude, RecordingState};
 
@@ -268,6 +270,24 @@ mod tests {
                 gimbal: None
             }
         );
+    }
+
+    /// A camera swapped after an FC reboot (live SITL: Siyi ZT30 → servo camera) reports
+    /// firmware 0: the old camera's firmware text must not stay on screen.
+    #[test]
+    fn rebinding_without_firmware_clears_it() {
+        let swapped = CAMERA_INFORMATION_DATA {
+            firmware_version: 0,
+            ..cam_info(1, 0x02, 1)
+        };
+        let m = apply(
+            &bound(),
+            &frame(1, MavMessage::CAMERA_INFORMATION(swapped)),
+            100,
+            2_000,
+        );
+        assert_eq!(m.camera.as_ref().map(|c| c.flags), Some(0x02));
+        assert_eq!(m.state.firmware, None);
     }
 
     #[test]

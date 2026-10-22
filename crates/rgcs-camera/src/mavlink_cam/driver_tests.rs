@@ -110,6 +110,24 @@ async fn requests_attitude_stream_when_missing() {
     assert!(interval_requests(&fake, 285.0).is_empty());
 }
 
+/// ArduPilot (SITL, 2026-10-23) answers REQUEST_MESSAGE once and streams 260 / 262 / 285 only
+/// when asked: the driver must keep asking after the info frames age out, or it never connects.
+#[tokio::test(start_paused = true)]
+async fn connects_when_streams_come_only_on_request() {
+    let cfg = FakeConfig {
+        camera_streams_unasked: false,
+        ..FakeConfig::default()
+    };
+    let (fake, cam) = started(cfg).await;
+    sleep(Duration::from_secs(12)).await;
+    assert!(!interval_requests(&fake, 260.0).is_empty());
+    assert!(!interval_requests(&fake, 285.0).is_empty());
+    let st = cam.state();
+    assert!(st.borrow().connected);
+    sleep(Duration::from_secs(5)).await;
+    assert!(st.borrow().connected, "stays connected on the requested streams");
+}
+
 #[tokio::test(start_paused = true)]
 async fn photo_once() {
     let (fake, cam) = bound(FakeConfig::default()).await;
