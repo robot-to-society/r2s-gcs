@@ -6,6 +6,7 @@
 pub mod briefing;
 pub mod calibration;
 pub mod camera;
+pub mod camera_media;
 pub mod command;
 pub mod gcs;
 pub mod geofence;
@@ -30,6 +31,12 @@ pub use camera::{
     CameraProfile, CameraSnapshot, CameraState, CenterMode, Deadman, Firmware, GimbalAttitude, GimbalCaps,
     GimbalInputProfile, GimbalMode, ProfileError, RecordingState, VideoMode, VideoSource, VideoSourceMode,
     VideoSourceStatus, ZoomCaps,
+};
+pub use camera_media::{
+    mt11_encoding_presets, AiAck, AiTrackingCaps, CameraClock, Detection, EncodingInfo, EncodingPreset,
+    NormRect, StorageInfo, StorageStatus, ThermalCaps, ThermalFrame, ThermalGain, ThermalPoint,
+    ThermalState, TrackState, TrackStatus, VideoCodec, AI_BOX_PX_DEFAULT, AI_BOX_PX_RANGE,
+    AI_CENTER_BOX_PX, MT11_PALETTES,
 };
 pub use command::{CommandResult, VehicleCommand};
 pub use gcs::GcsId;

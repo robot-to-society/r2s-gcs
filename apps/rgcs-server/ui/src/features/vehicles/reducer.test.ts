@@ -85,9 +85,9 @@ describe('command results', () => {
 })
 
 describe('camera, video source and input frames', () => {
-  const caps = { kind: 'siyi_mt11' as const, gimbal: null, zoom: null, focus: false, photo: true, record: true, video_modes: ['rgb' as const], hfov_deg: null, roi: 'computed' as const }
+  const caps = { kind: 'siyi_mt11' as const, gimbal: null, zoom: null, focus: false, photo: true, record: true, video_modes: ['rgb' as const], hfov_deg: null, roi: 'computed' as const, thermal: null, ai_tracking: null, encoding_presets: [], storage_info: false, clock_sync: false }
   const state = (zoom: number) => ({
-    connected: true, last_error: null, firmware: null, recording: 'idle' as const, zoom, zoom_max: 165, video_mode: 'rgb' as const, gimbal: null, gimbal_mode: null, stream: null,
+    connected: true, last_error: null, firmware: null, recording: 'idle' as const, zoom, zoom_max: 165, video_mode: 'rgb' as const, gimbal: null, gimbal_mode: null, stream: null, encoding: null, thermal: null, track: null, candidates: [], ai_ack: null, storage: null, clock: null,
   })
 
   it('snapshot cameras populate the map and camera_state replaces one entry immutably', () => {

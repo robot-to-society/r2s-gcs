@@ -32,6 +32,10 @@ export function buttonCommand(fn: ButtonFunction, state: CameraState | null): Ca
       const i = order.indexOf(state?.gimbal_mode ?? 'lock')
       return { cmd: 'gimbal_mode', args: { mode: order[(i + 1) % order.length]! } }
     }
+    case 'thermal_gain_toggle':
+    case 'ai_tracking_toggle':
+    case 'focus_near':
+    case 'focus_far':
     case 'gimbal_stop':
     case 'roi_stop':
     case 'roi_1':

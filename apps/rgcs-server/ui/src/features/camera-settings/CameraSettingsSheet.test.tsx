@@ -10,7 +10,7 @@ const profile = (over: Partial<CameraProfile> = {}): CameraProfile => ({
   sysid: 1, kind: 'none', host: '192.168.144.25', port: 37260, rtsp_url: 'rtsp://{host}:8554/video1', comp_id: 100, video_source_mode: 'auto',
   android_url: '', encoding_preset: 'h264_1080p', thermal_palette: 3, thermal_overlay: true, ai_box_px: 100, clock_sync: true, auto_record: true, ...over,
 })
-const camState: CameraState = { connected: true, last_error: null, firmware: { camera: 'v1.0.1', gimbal: 'v0.1.10', zoom: 'v0.0.0' }, recording: 'idle', zoom: 1, zoom_max: 165, video_mode: 'rgb', gimbal: null, gimbal_mode: 'follow', stream: null }
+const camState: CameraState = { connected: true, last_error: null, firmware: { camera: 'v1.0.1', gimbal: 'v0.1.10', zoom: 'v0.0.0' }, recording: 'idle', zoom: 1, zoom_max: 165, video_mode: 'rgb', gimbal: null, gimbal_mode: 'follow', stream: null, encoding: null, thermal: null, track: null, candidates: [], ai_ack: null, storage: null, clock: null }
 
 const roi = { targets: emptyTargets(), control: DEFAULT_ROI_CONTROL }
 const dict = t('ja')

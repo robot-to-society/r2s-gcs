@@ -5,6 +5,10 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::camera_media::{
+    mt11_encoding_presets, AiAck, AiTrackingCaps, CameraClock, Detection, EncodingInfo, EncodingPreset,
+    StorageInfo, ThermalCaps, ThermalGain, ThermalState, TrackState, AI_BOX_PX_RANGE, MT11_PALETTES,
+};
 use crate::vehicle::SysId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -81,6 +85,11 @@ pub struct CameraCaps {
     pub hfov_deg: Option<f32>,
     /// GPS ROI support: `Computed` = the server aims the gimbal itself (spec 40 §4).
     pub roi: crate::roi::RoiMode,
+    pub thermal: Option<ThermalCaps>,
+    pub ai_tracking: Option<AiTrackingCaps>,
+    pub encoding_presets: Vec<EncodingPreset>,
+    pub storage_info: bool,
+    pub clock_sync: bool,
 }
 
 impl CameraCaps {
@@ -95,6 +104,11 @@ impl CameraCaps {
             video_modes: Vec::new(),
             hfov_deg: None,
             roi: crate::roi::RoiMode::None,
+            thermal: None,
+            ai_tracking: None,
+            encoding_presets: Vec::new(),
+            storage_info: false,
+            clock_sync: false,
         }
     }
 
@@ -123,6 +137,20 @@ impl CameraCaps {
             // The prototype's CAM_HFOV until the MT11 is measured.
             hfov_deg: Some(62.0),
             roi: crate::roi::RoiMode::Computed,
+            thermal: Some(ThermalCaps {
+                gains: vec![ThermalGain::Low, ThermalGain::High],
+                palettes: MT11_PALETTES.to_vec(),
+                point_temp: true,
+                frame_temp: true,
+            }),
+            ai_tracking: Some(AiTrackingCaps {
+                box_select: true,
+                point_select: true,
+                candidates: true,
+            }),
+            encoding_presets: mt11_encoding_presets(),
+            storage_info: true,
+            clock_sync: true,
         }
     }
 
@@ -143,6 +171,14 @@ impl CameraCaps {
             Photo => self.photo,
             RecordStart | RecordStop => self.record,
             VideoMode { mode } => self.video_modes.contains(mode),
+            ThermalGain { gain } => self.thermal.as_ref().is_some_and(|t| t.gains.contains(gain)),
+            ThermalPalette { palette } => self.thermal.as_ref().is_some_and(|t| t.palettes.contains(palette)),
+            MeasurePoint { .. } => self.thermal.as_ref().is_some_and(|t| t.point_temp),
+            AiSelectBox { .. } => self.ai_tracking.as_ref().is_some_and(|a| a.box_select),
+            AiSelectPoint { .. } => self.ai_tracking.as_ref().is_some_and(|a| a.point_select),
+            AiCancel => self.ai_tracking.is_some(),
+            Encoding { preset } => self.encoding_presets.iter().any(|p| &p.id == preset),
+            SyncClock => self.clock_sync,
         }
     }
 }
@@ -187,6 +223,32 @@ pub enum CameraCommand {
     VideoMode {
         mode: VideoMode,
     },
+    ThermalGain {
+        gain: ThermalGain,
+    },
+    ThermalPalette {
+        palette: u8,
+    },
+    /// x / y normalized 0..1 over the main stream.
+    MeasurePoint {
+        x: f32,
+        y: f32,
+    },
+    /// x / y normalized 0..1; `box_px: None` = the profile's `ai_box_px`.
+    AiSelectBox {
+        x: f32,
+        y: f32,
+        box_px: Option<u16>,
+    },
+    AiSelectPoint {
+        x: f32,
+        y: f32,
+    },
+    AiCancel,
+    Encoding {
+        preset: String,
+    },
+    SyncClock,
 }
 
 impl CameraCommand {
@@ -206,6 +268,50 @@ impl CameraCommand {
             Self::RecordStart => "record_start",
             Self::RecordStop => "record_stop",
             Self::VideoMode { .. } => "video_mode",
+            Self::ThermalGain { .. } => "thermal_gain",
+            Self::ThermalPalette { .. } => "thermal_palette",
+            Self::MeasurePoint { .. } => "measure_point",
+            Self::AiSelectBox { .. } => "ai_select_box",
+            Self::AiSelectPoint { .. } => "ai_select_point",
+            Self::AiCancel => "ai_cancel",
+            Self::Encoding { .. } => "encoding",
+            Self::SyncClock => "sync_clock",
+        }
+    }
+
+    /// Range checks on the payload (the server answers 400 with the field name).
+    pub fn validate(&self) -> Result<(), ProfileError> {
+        let unit = |field: &str, v: f32| {
+            if v.is_finite() && (0.0..=1.0).contains(&v) {
+                Ok(())
+            } else {
+                Err(ProfileError {
+                    field: field.into(),
+                    message: "must be 0-1".into(),
+                })
+            }
+        };
+        match self {
+            Self::MeasurePoint { x, y } | Self::AiSelectPoint { x, y } => {
+                unit("x", *x)?;
+                unit("y", *y)
+            }
+            Self::AiSelectBox { x, y, box_px } => {
+                unit("x", *x)?;
+                unit("y", *y)?;
+                match box_px {
+                    Some(b) if !(AI_BOX_PX_RANGE.0..=AI_BOX_PX_RANGE.1).contains(b) => Err(ProfileError {
+                        field: "box_px".into(),
+                        message: "must be 32-600".into(),
+                    }),
+                    _ => Ok(()),
+                }
+            }
+            Self::ThermalPalette { palette } if !MT11_PALETTES.contains(palette) => Err(ProfileError {
+                field: "palette".into(),
+                message: "must be 0 or 2-11".into(),
+            }),
+            _ => Ok(()),
         }
     }
 }
@@ -252,6 +358,13 @@ pub struct CameraState {
     pub gimbal_mode: Option<GimbalMode>,
     /// Main-stream resolution once known (0x20); UI normalises pixel coordinates with it.
     pub stream: Option<(u16, u16)>,
+    pub encoding: Option<EncodingInfo>,
+    pub thermal: Option<ThermalState>,
+    pub track: Option<TrackState>,
+    pub candidates: Vec<Detection>,
+    pub ai_ack: Option<AiAck>,
+    pub storage: Option<StorageInfo>,
+    pub clock: Option<CameraClock>,
 }
 
 impl CameraState {
@@ -267,6 +380,13 @@ impl CameraState {
             gimbal: None,
             gimbal_mode: None,
             stream: None,
+            encoding: None,
+            thermal: None,
+            track: None,
+            candidates: Vec::new(),
+            ai_ack: None,
+            storage: None,
+            clock: None,
         }
     }
 }
@@ -378,6 +498,18 @@ impl CameraProfile {
         }
     }
 
+    /// True when a connection field differs: only those need the driver rebuilt (ruling 7).
+    pub fn needs_reload(&self, other: &Self) -> bool {
+        self.kind != other.kind
+            || self.host != other.host
+            || self.port != other.port
+            || self.rtsp_url != other.rtsp_url
+            || self.comp_id != other.comp_id
+            || self.video_source_mode != other.video_source_mode
+            || self.android_url != other.android_url
+            || self.clock_sync != other.clock_sync
+    }
+
     pub fn rtsp_url_resolved(&self) -> String {
         self.rtsp_url.replace("{host}", &self.host)
     }
@@ -475,6 +607,10 @@ pub enum ButtonFunction {
     #[ts(rename = "roi_10")]
     Roi10,
     RoiStop,
+    ThermalGainToggle,
+    AiTrackingToggle,
+    FocusNear,
+    FocusFar,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -570,207 +706,5 @@ impl GimbalInputProfile {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn mt11_caps_have_a_horizontal_fov() {
-        assert_eq!(CameraCaps::siyi_mt11().hfov_deg, Some(62.0));
-        assert_eq!(CameraCaps::none().hfov_deg, None);
-        let json = serde_json::to_value(CameraCaps::siyi_mt11()).unwrap();
-        assert_eq!(json["hfov_deg"], 62.0);
-    }
-
-    #[test]
-    fn siyi_caps_match_spec() {
-        let c = CameraCaps::siyi_mt11();
-        assert_eq!(c.kind, CameraKind::SiyiMt11);
-        let z = c.zoom.as_ref().unwrap();
-        assert_eq!(z.max, 165.0);
-        assert!(z.absolute && z.step && z.continuous);
-        let g = c.gimbal.as_ref().unwrap();
-        assert_eq!(g.pitch_range, (-90.0, 30.0));
-        assert_eq!(
-            g.modes,
-            vec![GimbalMode::Lock, GimbalMode::Follow, GimbalMode::Fpv]
-        );
-        assert!(g.rate && g.angle && g.center && g.attitude);
-        assert_eq!(
-            c.video_modes,
-            vec![VideoMode::Rgb, VideoMode::Thermal, VideoMode::SideBySide]
-        );
-        assert!(c.photo && c.record && c.focus);
-    }
-
-    #[test]
-    fn none_caps_support_nothing() {
-        let c = CameraCaps::none();
-        assert_eq!(c.kind, CameraKind::None);
-        for cmd in [
-            CameraCommand::Photo,
-            CameraCommand::RecordStart,
-            CameraCommand::ZoomReset,
-            CameraCommand::GimbalRate { yaw: 1, pitch: 1 },
-            CameraCommand::VideoMode { mode: VideoMode::Rgb },
-        ] {
-            assert!(!c.supports(&cmd), "{cmd:?}");
-        }
-    }
-
-    #[test]
-    fn supports_checks_the_right_cap() {
-        let mut c = CameraCaps::siyi_mt11();
-        assert!(c.supports(&CameraCommand::ZoomSpeed { dir: 1 }));
-        c.zoom = Some(ZoomCaps {
-            continuous: false,
-            ..c.zoom.clone().unwrap()
-        });
-        assert!(!c.supports(&CameraCommand::ZoomSpeed { dir: 1 }));
-        assert!(c.supports(&CameraCommand::ZoomStep { steps: 1 }));
-        assert!(c.supports(&CameraCommand::GimbalCenter {
-            mode: CenterMode::OneKeyReset
-        }));
-        c.video_modes = vec![VideoMode::Rgb];
-        assert!(!c.supports(&CameraCommand::VideoMode {
-            mode: VideoMode::Thermal
-        }));
-        assert!(c.supports(&CameraCommand::VideoMode { mode: VideoMode::Rgb }));
-        c.gimbal = None;
-        assert!(!c.supports(&CameraCommand::GimbalRate { yaw: 0, pitch: 0 }));
-    }
-
-    #[test]
-    fn profile_validation_names_the_field() {
-        let ok = CameraProfile::default_for(1);
-        assert_eq!(ok.validate(), Ok(()));
-        let bad_host = CameraProfile {
-            host: "camera.local".into(),
-            ..ok.clone()
-        };
-        assert_eq!(
-            bad_host.validate(),
-            Err(ProfileError {
-                field: "host".into(),
-                message: "must be an IPv4 address".into()
-            })
-        );
-        let bad_port = CameraProfile {
-            port: 0,
-            ..ok.clone()
-        };
-        assert_eq!(bad_port.validate().unwrap_err().field, "port");
-        let bad_rtsp = CameraProfile {
-            rtsp_url: "http://x".into(),
-            ..ok.clone()
-        };
-        assert_eq!(bad_rtsp.validate().unwrap_err().field, "rtsp_url");
-        let bad_box = CameraProfile {
-            ai_box_px: 10,
-            ..ok.clone()
-        };
-        assert_eq!(bad_box.validate().unwrap_err().field, "ai_box_px");
-        let bad_palette = CameraProfile {
-            thermal_palette: 1,
-            ..ok.clone()
-        };
-        assert_eq!(bad_palette.validate().unwrap_err().field, "thermal_palette");
-        assert_eq!(ok.rtsp_url_resolved(), "rtsp://192.168.144.25:8554/video1");
-        // The probe may only ever target the camera itself (no SSRF / port-scan oracle).
-        let other_host = CameraProfile {
-            rtsp_url: "rtsp://10.0.0.9:8554/x".into(),
-            ..ok.clone()
-        };
-        assert_eq!(other_host.validate().unwrap_err().field, "rtsp_url");
-        let same_host = CameraProfile {
-            rtsp_url: "rtsp://192.168.144.25:8554/video1".into(),
-            ..ok.clone()
-        };
-        assert_eq!(same_host.validate(), Ok(()));
-        let named = CameraProfile {
-            rtsp_url: "rtsp://camera.local/video1".into(),
-            ..ok.clone()
-        };
-        assert_eq!(named.validate().unwrap_err().field, "rtsp_url");
-        // Same parser as the probe: userinfo tricks and odd authorities are rejected, not misread.
-        let userinfo = CameraProfile {
-            rtsp_url: "rtsp://192.168.144.25@10.0.0.9:8554/v".into(),
-            ..ok.clone()
-        };
-        assert_eq!(userinfo.validate().unwrap_err().field, "rtsp_url");
-        let creds = CameraProfile {
-            rtsp_url: "rtsp://user:pw@192.168.144.25:8554/v".into(),
-            ..ok.clone()
-        };
-        assert_eq!(creds.validate().unwrap_err().field, "rtsp_url");
-        let spaced = CameraProfile {
-            rtsp_url: "rtsp://192.168.144.25 :8554/v".into(),
-            ..ok.clone()
-        };
-        assert_eq!(spaced.validate().unwrap_err().field, "rtsp_url");
-    }
-
-    #[test]
-    fn gimbal_input_profile_defaults_and_validation() {
-        let d = GimbalInputProfile::default();
-        assert_eq!((d.max_pan_speed, d.max_tilt_speed), (30.0, 20.0));
-        assert_eq!(
-            d.axes[0],
-            AxisMapping {
-                axis: 0,
-                func: AxisFunction::Pan,
-                deadzone: 0.08,
-                invert: false,
-                scale: 1.0
-            }
-        );
-        assert_eq!(d.axes[1].func, AxisFunction::Tilt);
-        assert!(d.axes[1].invert);
-        assert_eq!(
-            d.buttons[0],
-            ButtonMapping {
-                button: 0,
-                func: ButtonFunction::RecordToggle
-            }
-        );
-        assert_eq!(d.validate(), Ok(()));
-        let bad = GimbalInputProfile {
-            max_pan_speed: 500.0,
-            ..d.clone()
-        };
-        assert_eq!(bad.validate().unwrap_err().field, "max_pan_speed");
-        let mut axes = d.axes.clone();
-        axes[0].deadzone = 0.7;
-        let bad = GimbalInputProfile { axes, ..d.clone() };
-        assert_eq!(bad.validate().unwrap_err().field, "axes[0].deadzone");
-        let mut axes = d.axes.clone();
-        axes[1].scale = 5.0;
-        let bad = GimbalInputProfile { axes, ..d.clone() };
-        assert_eq!(bad.validate().unwrap_err().field, "axes[1].scale");
-        let json = serde_json::to_value(&d).unwrap();
-        assert_eq!(json["axes"][0]["fn"], "pan");
-        assert_eq!(json["buttons"][0]["fn"], "record_toggle");
-    }
-
-    #[test]
-    fn command_json_shape() {
-        let rate = CameraCommand::GimbalRate { yaw: 10, pitch: -5 };
-        let json = serde_json::to_string(&rate).unwrap();
-        assert_eq!(json, r#"{"cmd":"gimbal_rate","args":{"yaw":10,"pitch":-5}}"#);
-        assert_eq!(serde_json::from_str::<CameraCommand>(&json).unwrap(), rate);
-        assert_eq!(
-            serde_json::to_string(&CameraCommand::Photo).unwrap(),
-            r#"{"cmd":"photo"}"#
-        );
-        assert_eq!(
-            CameraCommand::VideoMode {
-                mode: VideoMode::SideBySide
-            }
-            .name(),
-            "video_mode"
-        );
-        let state = CameraState::disconnected(165.0);
-        assert!(!state.connected);
-        assert_eq!(state.recording, RecordingState::Idle);
-        assert_eq!(state.zoom_max, 165.0);
-    }
-}
+#[path = "camera_tests.rs"]
+mod tests;

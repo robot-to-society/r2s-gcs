@@ -344,8 +344,8 @@ describe('MapView', () => {
     roiTargetsStore.set(1, presets)
     const cam: CameraSnapshot = {
       sysid: 1,
-      caps: { kind: 'siyi_mt11', gimbal: { rate: true, angle: true, center: true, modes: ['follow'], attitude: true, pitch_range: [-90, 30] }, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: 62, roi: 'computed' },
-      state: { connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 1, video_mode: null, gimbal: { yaw: 10, pitch: 0, roll: 0, age_ms: 0 }, gimbal_mode: 'follow', stream: null },
+      caps: { kind: 'siyi_mt11', gimbal: { rate: true, angle: true, center: true, modes: ['follow'], attitude: true, pitch_range: [-90, 30] }, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: 62, roi: 'computed', thermal: null, ai_tracking: null, encoding_presets: [], storage_info: false, clock_sync: false },
+      state: { connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 1, video_mode: null, gimbal: { yaw: 10, pitch: 0, roll: 0, age_ms: 0 }, gimbal_mode: 'follow', stream: null, encoding: null, thermal: null, track: null, candidates: [], ai_ack: null, storage: null, clock: null },
     }
     const props = { vehicles: new Map([[1, v(1, 3)]]), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, cameras: new Map([[1, cam]]), onDragStart: () => {}, onClick: () => {} }
     const { rerender } = render(<MapView {...props} />)
@@ -378,7 +378,7 @@ describe('MapView', () => {
     const cam = {
       sysid: 1,
       caps: { kind: 'siyi_mt11', gimbal: { rate: true, angle: true, center: true, modes: [], attitude: true, pitch_range: [-90, 30] }, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: 62 },
-      state: { connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 1, video_mode: null, gimbal: { yaw: 0, pitch: -45, roll: 0, age_ms: 0 }, gimbal_mode: null, stream: null },
+      state: { connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 1, video_mode: null, gimbal: { yaw: 0, pitch: -45, roll: 0, age_ms: 0 }, gimbal_mode: null, stream: null, encoding: null, thermal: null, track: null, candidates: [], ai_ack: null, storage: null, clock: null },
     } as unknown as CameraSnapshot
     const vehicles = new Map([[1, { ...v(1, 3), alt_rel: 100 }]])
     const cameras = new Map([[1, cam]])

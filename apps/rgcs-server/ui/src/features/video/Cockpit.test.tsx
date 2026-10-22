@@ -25,11 +25,11 @@ const mt11: CameraCaps = {
   kind: 'siyi_mt11',
   gimbal: { rate: true, angle: true, center: true, modes: ['lock', 'follow', 'fpv'], attitude: true, pitch_range: [-90, 30] },
   zoom: { max: 165, absolute: true, step: true, continuous: true },
-  focus: true, photo: true, record: true, video_modes: ['rgb', 'thermal', 'side_by_side'], hfov_deg: 62, roi: 'computed',
+  focus: true, photo: true, record: true, video_modes: ['rgb', 'thermal', 'side_by_side'], hfov_deg: 62, roi: 'computed', thermal: null, ai_tracking: null, encoding_presets: [], storage_info: false, clock_sync: false,
 }
 const state: CameraState = {
   connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 165, video_mode: 'rgb',
-  gimbal: { yaw: 45, pitch: -90, roll: 0, age_ms: 0 }, gimbal_mode: 'follow', stream: null,
+  gimbal: { yaw: 45, pitch: -90, roll: 0, age_ms: 0 }, gimbal_mode: 'follow', stream: null, encoding: null, thermal: null, track: null, candidates: [], ai_ack: null, storage: null, clock: null,
 }
 const live: VideoSourceStatus = { mode: 'auto', source: 'mt11', scanning: false, probe_ok: true, whep_path: 'mt11' }
 const presets: RoiTarget[] = emptyTargets().map((x, i) => (i === 0 ? { ...x, name: '送電塔 A', lat: 36.1, lon: 139.1 } : i === 1 ? { ...x, name: '橋', lat: 36.2, lon: 139.2 } : x))
@@ -121,7 +121,7 @@ describe('Cockpit (spec 10 §4.2)', () => {
   })
 
   it('has no ROI chips when the camera cannot do ROI', () => {
-    setup({ caps: { ...mt11, roi: 'none' } })
+    setup({ caps: { ...mt11, roi: 'none', thermal: null, ai_tracking: null, encoding_presets: [], storage_info: false, clock_sync: false } })
     expect(document.querySelector('.chips')).toBeNull()
   })
 

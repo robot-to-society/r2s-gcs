@@ -310,6 +310,15 @@ async fn exec(
             link.tcp(0x11, &encode::video_mode(mode)).await?;
             link.tcp(0x10, &[]).await
         }
+        // Wired up by the thermal / AI / encoding / clock tasks (docs/superpowers/plans/2026-10-23-camera-rest.md).
+        ThermalGain { .. }
+        | ThermalPalette { .. }
+        | MeasurePoint { .. }
+        | AiSelectBox { .. }
+        | AiSelectPoint { .. }
+        | AiCancel
+        | Encoding { .. }
+        | SyncClock => Err(CameraError::Unsupported("not yet implemented")),
     }
 }
 

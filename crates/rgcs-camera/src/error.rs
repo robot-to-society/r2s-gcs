@@ -5,6 +5,9 @@ pub enum CameraError {
     Forbidden(u8),
     #[error("{0} is not supported by this camera")]
     Unsupported(&'static str),
+    /// A precondition failed; the code maps to `409 {code}` (rgb_only, stream_unknown, ...).
+    #[error("refused: {0}")]
+    Refused(&'static str),
     #[error("camera is not connected")]
     NotConnected,
     #[error("io: {0}")]

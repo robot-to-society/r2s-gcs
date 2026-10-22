@@ -12,11 +12,11 @@ const v: VehicleState = {
 const caps: CameraCaps = {
   kind: 'siyi_mt11',
   gimbal: { rate: true, angle: true, center: true, modes: ['lock', 'follow', 'fpv'], attitude: true, pitch_range: [-90, 30] },
-  zoom: null, focus: false, photo: true, record: true, video_modes: [], hfov_deg: 62, roi: 'computed',
+  zoom: null, focus: false, photo: true, record: true, video_modes: [], hfov_deg: 62, roi: 'computed', thermal: null, ai_tracking: null, encoding_presets: [], storage_info: false, clock_sync: false,
 }
 const state: CameraState = {
   connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 1, video_mode: 'rgb',
-  gimbal: { yaw: -20, pitch: -10, roll: 0, age_ms: 0 }, gimbal_mode: 'follow', stream: null,
+  gimbal: { yaw: -20, pitch: -10, roll: 0, age_ms: 0 }, gimbal_mode: 'follow', stream: null, encoding: null, thermal: null, track: null, candidates: [], ai_ack: null, storage: null, clock: null,
 }
 const cam: CameraSnapshot = { sysid: 1, caps, state }
 const target: RoiTarget = { id: 'roi_2', name: '送電塔 A', lat: 36.26, lon: 137.63, alt_msl: 1500 }
