@@ -148,6 +148,25 @@ impl ClockSync {
         }
     }
 
+    /// A 0x30 reply. A rejected time fails the sync in flight (or just completed): no offset
+    /// is shown as a success, and a later read-back does not clear the error (final review M3).
+    pub fn on_utc_ack(&self, accepted: bool) -> Self {
+        if accepted || self.status.last_sync_at_us.is_none() {
+            return self.clone();
+        }
+        Self {
+            readback: None,
+            status: ClockStatus {
+                ok: Some(false),
+                offset_ms: None,
+                rtt_ms: None,
+                error: Some("rejected"),
+                ..self.status.clone()
+            },
+            ..self.clone()
+        }
+    }
+
     fn expire_readback(self, now_us: u64) -> Self {
         match self.readback {
             Some((sent, _)) if now_us.saturating_sub(sent) >= READBACK_TIMEOUT_US => Self {

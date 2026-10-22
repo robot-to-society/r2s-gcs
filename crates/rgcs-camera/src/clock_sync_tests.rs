@@ -118,3 +118,27 @@ fn state_is_a_value() {
     let _ = c.tick(s(100.0), true, Some(sample(99.9)));
     assert_eq!(c, ClockSync::new());
 }
+
+#[test]
+fn rejected_utc_is_a_failed_sync() {
+    let (c, _) = ClockSync::new().tick(s(100.0), true, Some(sample(99.5)));
+    assert_eq!(c.on_utc_ack(true), c, "an accepted time changes nothing");
+    let c = c.on_utc_ack(false);
+    let st = c.status();
+    assert_eq!(st.ok, Some(false));
+    assert_eq!(st.error, Some("rejected"));
+    // The read-back that follows does not turn the rejection into a success.
+    let c = c.on_camera_time(GPS_US + 510_000, s(100.02));
+    assert_eq!(c.status().error, Some("rejected"));
+    assert_eq!(c.status().offset_ms, None);
+}
+
+#[test]
+fn rejection_after_the_readback_still_fails_the_sync() {
+    let (c, _) = ClockSync::new().tick(s(100.0), true, Some(sample(99.5)));
+    let c = c.on_camera_time(GPS_US + 510_000, s(100.02)).on_utc_ack(false);
+    assert_eq!(c.status().ok, Some(false));
+    assert_eq!(c.status().error, Some("rejected"));
+    assert_eq!(c.status().offset_ms, None);
+    assert_eq!(ClockSync::new().on_utc_ack(false), ClockSync::new(), "no sync sent: ignored");
+}

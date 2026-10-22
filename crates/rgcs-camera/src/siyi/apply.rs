@@ -59,6 +59,7 @@ pub fn apply_frame(
             ..state.clone()
         })),
         0x40 => apply_camera_time(state, media, p, now, mono_us),
+        0x30 => apply_utc_ack(state, media, p),
         cmd => same(apply_basic(state, cmd, p)),
     };
     (next.filter(|n| n != state), media)
@@ -198,6 +199,26 @@ fn apply_camera_time(state: &CameraState, media: &Media, p: &[u8], now: Instant,
     let synced_at = state.clock.as_ref().and_then(|c| c.synced_at_unix_ms);
     let clock = clock_fields(media.clock.status(), Some(camera_us), Some(0), synced_at);
     (with(state, |s| CameraState { clock: Some(clock), ..s }), media)
+}
+
+/// 0x30: a rejected time fails the sync (final review M3); an accepted one changes nothing.
+fn apply_utc_ack(state: &CameraState, media: &Media, p: &[u8]) -> Applied {
+    let clock = match parse::utc_ack(p) {
+        Some(accepted) => media.clock.on_utc_ack(accepted),
+        None => return (None, media.clone()),
+    };
+    if clock == media.clock {
+        return (None, media.clone());
+    }
+    let old = state.clock.as_ref();
+    let fields = clock_fields(
+        clock.status(),
+        old.and_then(|c| c.camera_unix_us),
+        old.and_then(|c| c.reading_age_ms),
+        old.and_then(|c| c.synced_at_unix_ms),
+    );
+    let next = with(state, |s| CameraState { clock: Some(fields), ..s });
+    (next, Media { clock, ..media.clone() })
 }
 
 fn clock_fields(

@@ -135,7 +135,7 @@ pub trait Camera: Send + Sync {
 
 - 時刻同期(MT11): FC の `SYSTEM_TIME`(無ければ 1 Hz で要求)で 0x30。経過時間を足して送る。タイミング: 初回 GPS 時刻、(再)接続、10 分ごと、「今すぐ同期」。GPS 時刻が無い / 5 s 以上古いときは送らない。同期後に 0x40 で読み返し、RTT/2 補正の差を表示(1 s 超は赤)。
   - 実装(2026-10-23): 状態機械は `clock_sync.rs`(`time_sync.py` の移植)でドライバのアクター内にある。GPS 時刻はサーバーが注入する `GpsTime`(`RouterGpsTime`: ルーターの最新 `SYSTEM_TIME` のうち `time_unix_usec > 0` のもの、リンクの壁時計で受信時刻を付ける)。経過 = 壁時計の現在 − 受信時刻で、負なら古い扱い。プロファイル `clock_sync = false` なら注入せず自動同期は止まり、「今すぐ同期」は 409 `clock_sync_off`(UI のトグルは無く API のみ)。
-  - 表示する差 `clock.offset_ms` は最後の同期の読み返し(カメラ − GPS、RTT 中点補正)。5 s ごとの 0x40 は `camera_unix_us` の更新だけ。赤: |差| > 1000 ms、または `clock.error`(`no_gps_time` / `gps_time_stale` / `no_readback`)。
+  - 表示する差 `clock.offset_ms` は最後の同期の読み返し(カメラ − GPS、RTT 中点補正)。5 s ごとの 0x40 は `camera_unix_us` の更新だけ。赤: |差| > 1000 ms、または `clock.error`(`no_gps_time` / `gps_time_stale` / `no_readback` / `rejected` = 0x30 をカメラが拒否)。
 - SD: 10 s ごと 0x49。空き 10% 未満、または status ≠ OK は赤。
 - 映像ソース: `auto` は MT11 → Android → 無ければ 15 s 後に再スキャン。選択中は 3 s ごと確認、2 回連続失敗で切替。固定(`mt11` / `android`)は疎通に関わらずそのソース。Android 表示中はクリック追跡・検出枠・温度表示を無効。
 

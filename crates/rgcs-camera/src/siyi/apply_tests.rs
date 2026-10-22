@@ -183,6 +183,20 @@ fn apply_tf_and_clock() {
 }
 
 #[test]
+fn apply_0x30_rejection_reports_a_failed_sync() {
+    let now = Instant::now();
+    let gps = crate::clock_sync::GpsSample { unix_us: 1_790_000_000_000_000, received_at_us: 900_000 };
+    let (clock, _) = ClockSync::new().tick(1_000_000, true, Some(gps));
+    let m = Media { clock, ..Media::default() };
+    let (next, m2) = apply_frame(&base(), &m, &frame(0x30, vec![1]), now, 1_010_000);
+    assert!(next.is_none(), "an accepted time changes nothing");
+    assert_eq!(m2.clock, m.clock);
+    let (next, m) = apply_frame(&base(), &m, &frame(0x30, vec![0]), now, 1_010_000);
+    assert_eq!(next.unwrap().clock.unwrap().error.as_deref(), Some("rejected"));
+    assert_eq!(m.clock.status().ok, Some(false));
+}
+
+#[test]
 fn unknown_frames_change_nothing() {
     let (next, _) = apply_frame(&base(), &Media::default(), &frame(0x21, vec![1, 1]), Instant::now(), 0);
     assert!(next.is_none());

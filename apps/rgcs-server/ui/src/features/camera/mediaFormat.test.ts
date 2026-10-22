@@ -57,6 +57,11 @@ describe('clockText / clockDanger', () => {
     expect(clockText(clock({ offset_ms: null }), ja)).toBe('—')
     expect(clockDanger(null)).toBe(false)
   })
+  it('a rejected time is a translated failure in both languages', () => {
+    expect(clockText(clock({ error: 'rejected', offset_ms: null }), ja)).toBe('カメラが時刻を拒否しました')
+    expect(clockText(clock({ error: 'rejected', offset_ms: null }), t('en'))).toBe('The camera rejected the time')
+    expect(clockDanger(clock({ error: 'rejected', offset_ms: null }))).toBe(true)
+  })
 })
 
 describe('encodingLabel', () => {
