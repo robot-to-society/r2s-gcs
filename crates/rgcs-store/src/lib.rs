@@ -18,6 +18,7 @@ pub mod param_history;
 pub mod password;
 pub mod presentation;
 pub mod registry;
+pub mod roi;
 pub mod sessions;
 pub mod survey_cameras;
 pub mod users;
