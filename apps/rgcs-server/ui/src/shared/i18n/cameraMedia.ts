@@ -35,6 +35,7 @@ export const cameraMediaJa = {
   aiAck_super_res_stab_no_ai: '超解像 + 手ぶれ補正中は AI を使えません',
   aiAck_unknown: 'AI 追跡の応答が不明です',
   sd_card_problem: 'SD カードが未挿入またはエラーです(自動録画)',
+  auto_record_failed: '自動録画を開始できませんでした',
 } as const
 
 export const cameraMediaEn: Record<keyof typeof cameraMediaJa, string> = {
@@ -71,4 +72,5 @@ export const cameraMediaEn: Record<keyof typeof cameraMediaJa, string> = {
   aiAck_super_res_stab_no_ai: 'No AI with super resolution and stabilization',
   aiAck_unknown: 'Unknown AI tracking reply',
   sd_card_problem: 'SD card missing or failed (auto record)',
+  auto_record_failed: 'Auto record could not start',
 } as const
