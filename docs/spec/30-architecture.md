@@ -78,6 +78,9 @@ r2s-gcs/
 
 - 既定リンク `udpin:127.0.0.1:15555`(Rpanion の配信先)。`udpout` / `tcp` / `/dev/tty*,baud` も可。`tcpin` は不可。
 - 最初の HEARTBEAT から 10 s 待ち、`GLOBAL_POSITION_INT`(10 Hz)/ `SYSTEM_TIME`(1 Hz)/ `ATTITUDE` が流れていないときだけ `SET_MESSAGE_INTERVAL` を要求する(Python `mavlink_source.py` の方針)。
+  - (2026-10-22)テレメトリを自分から何も送ってこない機体(SRn_ が 0)は、10 s を待たず最初の HEARTBEAT から 3 s で要求する。一部でも流れていれば、Mission Planner などの設定を待つため従来どおり 10 s 待って、足りないものだけを要求する。
+  - HEARTBEAT が 5 s 以上途切れたら(再起動・リンク断)、新しい接続として最初からやり直す(一度だけ要求するものも再要求)。
+  - 一度だけ要求するもの: `POSITION_TARGET_GLOBAL_INT`(GUIDED のときだけ)、`HOME_POSITION`、`NAV_CONTROLLER_OUTPUT`(Plane / Rover は航法中だけ)。`EXTENDED_SYS_STATE`(1 Hz)の `vtol_state` で QuadPlane を通常の固定翼と区別する(QuadPlane の HEARTBEAT は FIXED_WING)。
 - HEARTBEAT 欠落 3 s → `CommsDelay`(黄)、10 s → `LinkLost`(赤)。
 - 未知の sysid は自動登録し `VehicleDiscovered`。スタンドアローンでは通常 1 機。
 - MAVLink 2、署名は M4 で鍵配布方式と共に決定。
