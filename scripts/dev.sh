@@ -11,6 +11,9 @@
 #   scripts/dev.sh --quadplane  # add one ArduPlane QuadPlane SITL after the copters (next SYSID,
 #                             # through the relay; needs build/sitl/bin/arduplane)
 #   scripts/dev.sh --sitl 0 --quadplane  # fixed wing only: the QuadPlane is SYSID 1 (UAV-01)
+#   scripts/dev.sh --plane    # add one plain ArduPlane SITL (after the QuadPlane)
+#   scripts/dev.sh --rover    # add one ArduRover SITL last (needs build/sitl/bin/ardurover)
+#   scripts/dev.sh --sitl 1 --quadplane --plane --rover  # one of each: copter, VTOL, plane, rover
 #
 # Env overrides: ARDUPILOT_DIR, SITL_HOME (lat,lon,alt,yaw), SITL_SPEEDUP, SITL_COUNT, RGCS_PORT, UI_PORT.
 # Everything runtime-related lives in .dev/ (git-ignored). Ctrl-C stops all three processes.
@@ -28,6 +31,9 @@ SITL_BIN="$ARDUPILOT_DIR/build/sitl/bin/arducopter"
 SITL_PARAMS="$ARDUPILOT_DIR/Tools/autotest/default_params/copter.parm"
 PLANE_BIN="$ARDUPILOT_DIR/build/sitl/bin/arduplane"
 QUADPLANE_PARAMS="$ARDUPILOT_DIR/Tools/autotest/default_params/quadplane.parm"
+PLANE_PARAMS="$ARDUPILOT_DIR/Tools/autotest/models/plane.parm"
+ROVER_BIN="$ARDUPILOT_DIR/build/sitl/bin/ardurover"
+ROVER_PARAMS="$ARDUPILOT_DIR/Tools/autotest/default_params/rover.parm"
 SITL_HOME="${SITL_HOME:-36.2509,137.6385,1505,0}"  # 上高地 (河童橋付近): 3D 地図の確認用
 SITL_SPEEDUP="${SITL_SPEEDUP:-1}"
 SITL_PORT=5760
@@ -42,6 +48,8 @@ START_SITL=1
 SIYI_SIM=0
 VIDEO=0
 QUADPLANE=0
+PLANE=0
+ROVER=0
 ARGS=("$@")
 for ((i = 0; i < ${#ARGS[@]}; i++)); do
   arg="${ARGS[$i]}"
@@ -52,12 +60,15 @@ for ((i = 0; i < ${#ARGS[@]}; i++)); do
     --siyi-sim) SIYI_SIM=1 ;;
     --video) VIDEO=1 ;;
     --quadplane) QUADPLANE=1 ;;
-    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    --plane) PLANE=1 ;;
+    --rover) ROVER=1 ;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
 
 export PATH="$HOME/.cargo/bin:$PATH"
+EXTRAS=$((QUADPLANE + PLANE + ROVER))
 mkdir -p "$DEV_DIR/sitl" "$DEV_DIR/data"
 
 PIDS=()
@@ -75,8 +86,8 @@ trap cleanup EXIT INT TERM
 port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
 # --sitl 0 --quadplane: the QuadPlane alone, as SYSID 1 (UAV-01).
-if ! [[ "$SITL_COUNT" =~ ^[0-9]$ ]] || { [ "$SITL_COUNT" = 0 ] && [ "$QUADPLANE" = 0 ]; }; then
-  echo "[dev] --sitl / SITL_COUNT must be 1..9, or 0 with --quadplane (got '$SITL_COUNT')" >&2
+if ! [[ "$SITL_COUNT" =~ ^[0-9]$ ]] || { [ "$SITL_COUNT" = 0 ] && [ "$EXTRAS" = 0 ]; }; then
+  echo "[dev] --sitl / SITL_COUNT must be 1..9, or 0 with --quadplane/--plane/--rover (got '$SITL_COUNT')" >&2
   exit 2
 fi
 
@@ -85,8 +96,25 @@ home_of() {
   awk -v h="$SITL_HOME" -v i="$1" 'BEGIN { split(h, p, ","); printf "%.6f,%s,%s,%s", p[1] + i * 0.0009, p[2], p[3], p[4] }'
 }
 
+# One non-copter SITL after the copters: start_extra <dir> <label> <binary> <model> <params>.
+# Takes the next instance from $n (next SYSID n+1, home n*100 m north) and advances it.
+start_extra() {
+  if [ ! -x "$3" ]; then
+    echo "[dev] $2 SITL not found: $3 (./waf plane / ./waf rover in $ARDUPILOT_DIR)" >&2
+    exit 1
+  fi
+  local dir="$DEV_DIR/sitl/$1"
+  mkdir -p "$dir"
+  echo "[dev] starting $2 SITL (SYSID $((n + 1)), home $(home_of "$n")) -> $DEV_DIR/sitl-$1.log"
+  (cd "$dir" && exec "$3" --model "$4" --speedup "$SITL_SPEEDUP" --defaults "$5" \
+      --home "$(home_of "$n")" -I"$n" --sysid "$((n + 1))" --serial0 "udpclient:127.0.0.1:$RELAY_VEHICLE_PORT" -w) \
+      >"$DEV_DIR/sitl-$1.log" 2>&1 &
+  PIDS+=($!)
+  n=$((n + 1))
+}
+
 # --- 1. SITL -----------------------------------------------------------------
-if [ "$START_SITL" = 1 ] && { [ "$SITL_COUNT" -gt 1 ] || [ "$QUADPLANE" = 1 ]; }; then
+if [ "$START_SITL" = 1 ] && { [ "$SITL_COUNT" -gt 1 ] || [ "$EXTRAS" -gt 0 ]; }; then
   if [ ! -x "$SITL_BIN" ]; then
     echo "[dev] SITL binary not found: $SITL_BIN (build ArduPilot sitl or set ARDUPILOT_DIR)" >&2
     exit 1
@@ -103,20 +131,10 @@ if [ "$START_SITL" = 1 ] && { [ "$SITL_COUNT" -gt 1 ] || [ "$QUADPLANE" = 1 ]; }
         >"$DEV_DIR/sitl-$((i + 1)).log" 2>&1 &
     PIDS+=($!)
   done
-  if [ "$QUADPLANE" = 1 ]; then
-    if [ ! -x "$PLANE_BIN" ]; then
-      echo "[dev] ArduPlane SITL not found: $PLANE_BIN (./waf plane in $ARDUPILOT_DIR)" >&2
-      exit 1
-    fi
-    n=$((SITL_COUNT + 1))
-    dir="$DEV_DIR/sitl/qp"
-    mkdir -p "$dir"
-    echo "[dev] starting QuadPlane SITL (SYSID $n, home $(home_of "$SITL_COUNT")) -> $DEV_DIR/sitl-qp.log"
-    (cd "$dir" && exec "$PLANE_BIN" --model quadplane --speedup "$SITL_SPEEDUP" --defaults "$QUADPLANE_PARAMS" \
-        --home "$(home_of "$SITL_COUNT")" -I"$SITL_COUNT" --sysid "$n" --serial0 "udpclient:127.0.0.1:$RELAY_VEHICLE_PORT" -w) \
-        >"$DEV_DIR/sitl-qp.log" 2>&1 &
-    PIDS+=($!)
-  fi
+  n=$SITL_COUNT
+  [ "$QUADPLANE" = 1 ] && start_extra qp QuadPlane "$PLANE_BIN" quadplane "$QUADPLANE_PARAMS"
+  [ "$PLANE" = 1 ] && start_extra plane Plane "$PLANE_BIN" plane "$PLANE_PARAMS"
+  [ "$ROVER" = 1 ] && start_extra rover Rover "$ROVER_BIN" rover "$ROVER_PARAMS"
 elif [ "$START_SITL" = 1 ]; then
   if port_in_use "$SITL_PORT"; then
     echo "[dev] SITL already listening on tcp:$SITL_PORT, reusing it"
@@ -141,7 +159,7 @@ fi
 CONFIG="$DEV_DIR/config.toml"
 {
   echo "listen = \"127.0.0.1:$RGCS_PORT\""
-  if [ "$SITL_COUNT" -gt 1 ] || [ "$QUADPLANE" = 1 ]; then
+  if [ "$SITL_COUNT" -gt 1 ] || [ "$EXTRAS" -gt 0 ]; then
     echo "mavlink_url = \"udpin:127.0.0.1:$RELAY_SERVER_PORT\""
   else
     echo "mavlink_url = \"tcp:127.0.0.1:$SITL_PORT\""
@@ -198,8 +216,8 @@ fi
 echo
 echo "[dev] UI:      $URL"
 echo "[dev] API:     http://127.0.0.1:$RGCS_PORT/api/health"
-if [ "$SITL_COUNT" -gt 1 ] || [ "$QUADPLANE" = 1 ]; then
-  echo "[dev] SITL:    $SITL_COUNT vehicles$([ "$QUADPLANE" = 1 ] && echo " + QuadPlane") via the relay (logs $DEV_DIR/sitl-N.log, $DEV_DIR/relay.log)"
+if [ "$SITL_COUNT" -gt 1 ] || [ "$EXTRAS" -gt 0 ]; then
+  echo "[dev] SITL:    $SITL_COUNT copters$([ "$QUADPLANE" = 1 ] && echo " + QuadPlane")$([ "$PLANE" = 1 ] && echo " + Plane")$([ "$ROVER" = 1 ] && echo " + Rover") via the relay (logs $DEV_DIR/sitl-N.log, $DEV_DIR/relay.log)"
 else
   echo "[dev] SITL:    tcp:127.0.0.1:$SITL_PORT (telemetry streams start ~10-15 s after link-up)"
   echo "[dev] SITL log: $DEV_DIR/sitl.log"
