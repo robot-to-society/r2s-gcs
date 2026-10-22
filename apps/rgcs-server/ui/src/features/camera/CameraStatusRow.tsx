@@ -1,6 +1,7 @@
 import type { CameraCaps, CameraState, GimbalMode } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { angleText } from './format'
+import { trackLabel } from './mediaFormat'
 
 interface Props {
   readonly caps: CameraCaps
@@ -26,6 +27,7 @@ export function CameraStatusRow({ caps, state, onSetup, dict, roiName }: Props) 
       </div>
     )
   }
+  const track = trackLabel(state.track, dict)
   return (
     <div className="cam-status" data-testid="cam-status">
       {!state.connected && <span className="danger">{dict.disconnected}</span>}
@@ -41,6 +43,12 @@ export function CameraStatusRow({ caps, state, onSetup, dict, roiName }: Props) 
         <>
           <span className="sep" />
           <span>ROI {roiName}</span>
+        </>
+      )}
+      {track && (
+        <>
+          <span className="sep" />
+          <span className={state.track?.status === 'tracking' ? undefined : 'caution'}>{track}</span>
         </>
       )}
     </div>

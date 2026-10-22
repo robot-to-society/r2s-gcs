@@ -14,7 +14,7 @@ const camState: CameraState = { connected: true, last_error: null, firmware: { c
 
 const roi = { targets: emptyTargets(), control: DEFAULT_ROI_CONTROL }
 const dict = t('ja')
-const base = { sysid: 1, inputProfile: DEFAULT_PROFILE, cameraState: camState, gamepadIds: ['Pad A'], roiSupported: true, roi, activeRoi: null, onPickRoi: () => {}, onCancel: () => {}, onCenter: () => {}, dict: t('ja') }
+const base = { sysid: 1, inputProfile: DEFAULT_PROFILE, cameraState: camState, gamepadIds: ['Pad A'], roiSupported: true, roi, activeRoi: null, onPickRoi: () => {}, onCancel: () => {}, onCenter: () => {}, onSyncClock: () => {}, clockSync: true, dict: t('ja') }
 
 describe('CameraSettingsSheet', () => {
   it('kind none hides host/port; choosing MT11 shows them with the rtsp preview', () => {
@@ -107,5 +107,25 @@ describe('CameraSettingsSheet', () => {
     expect(screen.getByLabelText(`${dict.roiName} 1`)).toHaveValue('ROI 1')
     expect(screen.getByText('412 m')).toBeInTheDocument()
     expect(screen.getByText('hint text')).toBeInTheDocument()
+  })
+
+  it('the connection status shows SD and clock; 今すぐ同期 calls onSyncClock while connected', () => {
+    const onSyncClock = vi.fn()
+    const live: CameraState = {
+      ...camState,
+      storage: { status: 'ok', fs: 'exFAT', total_gb: 128, free_gb: 11, free_pct: 9 },
+      clock: { camera_unix_us: 1, reading_age_ms: 0, offset_ms: 300, rtt_ms: 10, synced_at_unix_ms: 1, error: null },
+    }
+    const { rerender } = render(<CameraSettingsSheet {...base} cameraState={live} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} onSyncClock={onSyncClock} />)
+    expect(screen.getByText('11.0 / 128 GB  9%', { normalizer: (x) => x })).toHaveStyle({ color: 'var(--danger)' })
+    expect(screen.getByText('GPS 同期 +0.3 s')).toBeInTheDocument()
+    const sync = screen.getByRole('button', { name: '今すぐ同期' })
+    expect(sync).toBeEnabled()
+    fireEvent.click(sync)
+    expect(onSyncClock).toHaveBeenCalledTimes(1)
+    rerender(<CameraSettingsSheet {...base} cameraState={{ ...live, connected: false }} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} onSyncClock={onSyncClock} />)
+    expect(screen.getByRole('button', { name: '今すぐ同期' })).toBeDisabled()
+    rerender(<CameraSettingsSheet {...base} cameraState={live} clockSync={false} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} onSyncClock={onSyncClock} />)
+    expect(screen.getByRole('button', { name: '今すぐ同期' })).toBeDisabled()
   })
 })

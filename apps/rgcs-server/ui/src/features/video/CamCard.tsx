@@ -1,5 +1,6 @@
 import type { CameraCaps, CameraState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
+import { clockDanger, clockText, sdDanger, sdText, thermalText } from '../camera/mediaFormat'
 import { dialOffset, gimbalText } from './cockpitView'
 
 interface Props {
@@ -15,6 +16,8 @@ interface Props {
 export function CamCard({ caps, state, videoText, dict, roiText = null }: Props) {
   const att = caps.gimbal?.attitude && state.gimbal ? state.gimbal : null
   const dial = dialOffset(att)
+  const thermal = caps.thermal ? thermalText(state.thermal) : null
+  const danger = (on: boolean) => (on ? { color: 'var(--danger)' } : undefined)
   return (
     <div className="surface cam-card">
       {att && (
@@ -34,6 +37,24 @@ export function CamCard({ caps, state, videoText, dict, roiText = null }: Props)
           <>
             <span>ROI</span>
             <span>{roiText}</span>
+          </>
+        )}
+        {thermal && (
+          <>
+            <span>{dict.thermal}</span>
+            <span>{thermal}</span>
+          </>
+        )}
+        {caps.storage_info && (
+          <>
+            <span>{dict.camSd}</span>
+            <span style={danger(sdDanger(state.storage))}>{sdText(state.storage, dict) ?? dict.unknown}</span>
+          </>
+        )}
+        {caps.clock_sync && (
+          <>
+            <span>{dict.camClock}</span>
+            <span style={danger(clockDanger(state.clock))}>{clockText(state.clock, dict)}</span>
           </>
         )}
         <span>{dict.videoRow}</span>

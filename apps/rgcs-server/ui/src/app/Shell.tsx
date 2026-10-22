@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
 import { CommandDock, ConfirmDialog, FleetConfirm, fleetTargets, localResult, useCommandRunner, type RunResult } from '../features/commands'
-import { EMPTY_PENDING, clearPending, markPending, sendCameraCommand, type PendingState } from '../features/camera'
+import { EMPTY_PENDING, cameraErrorText, clearPending, markPending, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
 import { DetailPanel, ackMessage } from '../features/detail'
@@ -121,7 +121,7 @@ export function Shell({ me, lang }: Props) {
     setPending((p) => markPending(p, sysid, cmd.cmd, Date.now()))
     sendCameraCommand(sysid, cmd).catch((e: unknown) => {
       setPending((p) => clearPending(p, sysid))
-      vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: `camera:${cmd.cmd}`, ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
+      vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: `camera:${cmd.cmd}`, ok: false, reason: cameraErrorText(e, dict), ts: Date.now() })
     })
   }
   const focusVehicle = (sysid: number) => {
@@ -408,6 +408,8 @@ export function Shell({ me, lang }: Props) {
               dict={dict}
               onCancel={() => setModal(NO_MODAL)}
               onCenter={() => cameraCommand(modal.sysid, { cmd: 'gimbal_center', args: { mode: 'one_key_reset' } })}
+              clockSync={cameras.get(modal.sysid)?.caps.clock_sync ?? false}
+              onSyncClock={() => cameraCommand(modal.sysid, { cmd: 'sync_clock' })}
               onPickRoi={(d, slot) => settingsFlow.startPick(modal.sysid, d, slot)}
               onSave={(d) => void settingsFlow.save(modal.sysid, d)}
             />

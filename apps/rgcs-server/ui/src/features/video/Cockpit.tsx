@@ -9,6 +9,7 @@ import { CamBar } from './CamBar'
 import { CamCard } from './CamCard'
 import { latencyText } from './cockpitView'
 import { roiText } from '../roi/format'
+import { encodingLabel } from '../camera/mediaFormat'
 
 interface Props {
   readonly vehicle: VehicleState
@@ -89,7 +90,7 @@ export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, 
       </div>
       <div className="cockpit-side">
         <div className="surface cockpit-map">{map}</div>
-        {has && <CamCard caps={camera.caps} state={camera.state} videoText={`${source}  ${delay}`} dict={dict} roiText={activeId === null ? null : roiText(active?.name ?? activeId, roiStatus, dict)} />}
+        {has && <CamCard caps={camera.caps} state={camera.state} videoText={[encodingLabel(camera.state.encoding), source, delay].filter(Boolean).join('  ')} dict={dict} roiText={activeId === null ? null : roiText(active?.name ?? activeId, roiStatus, dict)} />}
       </div>
     </section>
   )

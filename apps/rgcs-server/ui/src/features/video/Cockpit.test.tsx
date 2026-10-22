@@ -131,4 +131,36 @@ describe('Cockpit (spec 10 §4.2)', () => {
     const label = [...document.querySelectorAll('.cam-card .kv > span')].find((s) => s.textContent === 'ROI')
     expect(label?.nextElementSibling?.textContent).toBe('送電塔 A  方位 123°  412 m')
   })
+
+  it('the status card shows thermal, SD, clock and the encoding in prototype order', () => {
+    const caps: CameraCaps = {
+      ...mt11,
+      thermal: { gains: ['low', 'high'], palettes: [0, 2, 3], point_temp: true, frame_temp: true },
+      encoding_presets: [{ id: 'h265_1080p', label: 'H.265 1920×1080', codec: 'h265', width: 1920, height: 1080 }], storage_info: true, clock_sync: true,
+    }
+    const st: CameraState = {
+      ...state,
+      thermal: { gain: 'high', range_c: [-20, 150], frame: { max_c: 41.2, min_c: 9.8, max_xy: [1, 1], min_xy: [2, 2] }, point: null },
+      storage: { status: 'ok', fs: 'exFAT', total_gb: 128, free_gb: 11, free_pct: 9 },
+      clock: { camera_unix_us: 1, reading_age_ms: 0, offset_ms: 300, rtt_ms: 10, synced_at_unix_ms: 1, error: null },
+      encoding: { codec: 'h265', width: 1920, height: 1080, bitrate_kbps: 4000, fps: 30 },
+    }
+    setup({ caps, state: st })
+    const rows = [...document.querySelectorAll('.cam-card .kv > span')]
+    const value = (label: string) => rows.find((s) => s.textContent === label)?.nextElementSibling as HTMLElement | undefined
+    expect(rows.filter((_, i) => i % 2 === 0).map((s) => s.textContent)).toEqual(['ジンバル', 'サーマル', 'SDカード', 'カメラ時刻', '映像'])
+    expect(value('サーマル')?.textContent).toBe('High  41.2 / 9.8℃')
+    expect(value('SDカード')?.textContent).toBe('11.0 / 128 GB  9%')
+    expect(value('SDカード')?.style.color).toBe('var(--danger)')
+    expect(value('カメラ時刻')?.textContent).toBe('GPS 同期 +0.3 s')
+    expect(value('カメラ時刻')?.style.color).toBe('')
+    expect(value('映像')?.textContent).toMatch(/^H\.265 1080p {2}MT11/)
+  })
+
+  it('the status card has no thermal row without the thermal cap', () => {
+    const st: CameraState = { ...state, thermal: { gain: 'high', range_c: null, frame: null, point: null } }
+    setup({ state: st })
+    expect(screen.queryByText('サーマル')).toBeNull()
+    expect(screen.queryByText('SDカード')).toBeNull()
+  })
 })

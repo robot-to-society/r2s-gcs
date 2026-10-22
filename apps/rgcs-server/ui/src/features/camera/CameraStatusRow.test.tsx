@@ -37,4 +37,18 @@ describe('CameraStatusRow', () => {
     rerender(<CameraStatusRow caps={mt11} state={st({})} onSetup={() => {}} dict={t('ja')} />)
     expect(screen.getByTestId('cam-status')).not.toHaveTextContent('ROI')
   })
+
+  it('adds the tracking state after a separator; lost / searching are cautions', () => {
+    const track = (status: 'tracking' | 'searching' | 'lost') => ({ status, rect: { x: 0.4, y: 0.4, w: 0.2, h: 0.2 }, target: 'person', age_ms: 0 })
+    const { rerender } = render(<CameraStatusRow caps={mt11} state={st({ track: track('tracking') })} onSetup={() => {}} dict={t('ja')} roiName="送電塔 A" />)
+    const trk = screen.getByText('追跡中')
+    expect(trk.previousElementSibling).toHaveClass('sep')
+    expect(trk).not.toHaveClass('caution')
+    rerender(<CameraStatusRow caps={mt11} state={st({ track: track('lost') })} onSetup={() => {}} dict={t('ja')} />)
+    expect(screen.getByText('見失い')).toHaveClass('caution')
+    rerender(<CameraStatusRow caps={mt11} state={st({ track: track('searching') })} onSetup={() => {}} dict={t('ja')} />)
+    expect(screen.getByText('再捕捉中')).toHaveClass('caution')
+    rerender(<CameraStatusRow caps={mt11} state={st({})} onSetup={() => {}} dict={t('ja')} />)
+    expect(screen.queryByText('追跡中')).toBeNull()
+  })
 })

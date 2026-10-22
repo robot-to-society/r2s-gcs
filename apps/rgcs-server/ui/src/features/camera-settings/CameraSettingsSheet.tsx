@@ -39,6 +39,10 @@ interface Props {
   readonly onSave: (draft: SheetDraft) => void
   readonly onCancel: () => void
   readonly onCenter: () => void
+  /** `caps.clock_sync`; 今すぐ同期 is enabled only with it and a live connection. */
+  readonly clockSync: boolean
+  /** Sends `{cmd: 'sync_clock'}`; failures land in the log. */
+  readonly onSyncClock: () => void
   readonly dict: Dict
 }
 
@@ -56,7 +60,7 @@ function startDraft(profile: CameraProfile, inputProfile: GimbalInputProfile, ro
 
 /** Spec 10 §5 / prototype camera settings: 接続 / 操作 / ROI (映像 later). zod blocks invalid saves. */
 export function CameraSettingsSheet(props: Props) {
-  const { profile, inputProfile, cameraState, gamepadIds, roiSupported, roi, activeRoi, initial, notice, onPickRoi, onSave, onCancel, onCenter, dict } = props
+  const { profile, inputProfile, cameraState, gamepadIds, roiSupported, roi, activeRoi, initial, notice, onPickRoi, onSave, onCancel, onCenter, clockSync, onSyncClock, dict } = props
   const [draft, setDraft] = useState<SheetDraft>(() => initial ?? startDraft(profile, inputProfile, roi))
   const [csvError, setCsvError] = useState<string | null>(null)
   const patch = (p: Partial<SheetDraft>) => setDraft((d) => ({ ...d, ...p }))
@@ -101,7 +105,7 @@ export function CameraSettingsSheet(props: Props) {
       </div>
       <div className="sheet-body settings-body">
         {notice && <div className="hint caution settings-notice">{notice}</div>}
-        {tab === 'connection' && <ConnectionTab draft={draft.camera} issue={cameraIssue} cameraState={cameraState} onChange={(camera) => patch({ camera })} dict={dict} />}
+        {tab === 'connection' && <ConnectionTab draft={draft.camera} issue={cameraIssue} cameraState={cameraState} onChange={(camera) => patch({ camera })} clockSync={clockSync} onSyncClock={onSyncClock} dict={dict} />}
         {tab === 'input' && <InputTab draft={draft.input} issue={inputIssue} gamepadIds={gamepadIds} onChange={(input) => patch({ input })} onCenter={onCenter} dict={dict} />}
         {tab === 'roi' && (
           <>
