@@ -1,6 +1,7 @@
 import type { VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { AttitudeIndicator } from './AttitudeIndicator'
+import { modelFor } from '../map/models/meshes'
 import { CompassRose } from './CompassRose'
 import { fmtHeading, fmtSigned, readAttitude, readHeading } from './instruments'
 
@@ -20,7 +21,7 @@ export function InstrumentsRow({ vehicle, dict }: Props) {
     <div className="instruments" data-testid="instruments">
       <div className="instruments-dials">
         <AttitudeIndicator roll={roll} pitch={pitch} dict={dict} />
-        <CompassRose hdg={hdg} cog={cog} dict={dict} />
+        <CompassRose hdg={hdg} cog={cog} frame={modelFor(vehicle.kind, vehicle.vtol ?? false)} dict={dict} />
       </div>
       <div className="instruments-values num" data-testid="instruments-values">
         <span>

@@ -1,12 +1,16 @@
 import { memo } from 'react'
 import type { Dict } from '../../shared/i18n'
+import type { ModelKey } from '../map/models/meshes'
 import { COMPASS_TICKS, compassTransform, fmtHeading } from './instruments'
+import { VehicleGlyph } from './VehicleGlyph'
 
 interface Props {
   /** Heading, degrees true; null = no data. */
   readonly hdg: number | null
   /** Course over ground, degrees; drawn as a small mark on the card when known. */
   readonly cog?: number | null
+  /** The airframe drawn in the middle (as the 3D model picks it); a plane by default. */
+  readonly frame?: ModelKey
   readonly dict: Dict
 }
 
@@ -28,7 +32,7 @@ function Card({ cog }: { readonly cog: number | null }) {
 }
 
 /** Compass rose: the card turns by −heading under a fixed lubber line and aircraft. */
-export const CompassRose = memo(function CompassRose({ hdg, cog = null, dict }: Props) {
+export const CompassRose = memo(function CompassRose({ hdg, cog = null, frame = 'plane', dict }: Props) {
   const known = hdg !== null
   const course = known && cog !== null && Number.isFinite(cog) ? cog : null
   const label = known ? `${dict.instHeading} ${fmtHeading(hdg)}` : `${dict.instHeading} ${dict.instNoData}`
@@ -39,7 +43,7 @@ export const CompassRose = memo(function CompassRose({ hdg, cog = null, dict }: 
         <Card cog={course} />
       </g>
       <path className="lubber" d="M 0 -50 L -4 -58 H 4 Z" />
-      <path className="aircraft" d="M 0 -16 L 3 -6 L 14 2 V 5 L 3 2 L 2 10 L 6 14 V 16 L 0 14 L -6 16 V 14 L -2 10 L -3 2 L -14 5 V 2 L -3 -6 Z" />
+      <VehicleGlyph frame={frame} />
     </svg>
   )
 })

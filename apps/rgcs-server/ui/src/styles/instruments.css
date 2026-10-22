@@ -30,6 +30,9 @@
 .compass .cog { fill: var(--ok); }
 .compass .lubber { fill: var(--caution); }
 .compass .aircraft { fill: var(--accent); opacity: .9; }
+.compass .aircraft .arm { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; }
+.compass .aircraft .rotor { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+.compass .aircraft .nose { fill: var(--on-accent); }
 
 .instruments-values { display: flex; justify-content: center; gap: 16px; padding: 6px 0 2px; font-size: 13px; color: var(--text); }
 .instruments-values .lbl { color: var(--text-3); font-size: 11px; }
