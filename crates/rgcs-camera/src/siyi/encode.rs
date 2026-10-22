@@ -1,6 +1,6 @@
 //! Command payloads (the `data` part); the client wraps them with `make_packet`.
 
-use rgcs_core::{CenterMode, GimbalMode, VideoMode};
+use rgcs_core::{CenterMode, GimbalMode, ThermalGain, VideoMode};
 
 pub const PITCH_MIN: f32 = -90.0;
 pub const PITCH_MAX: f32 = 30.0;
@@ -84,10 +84,42 @@ pub fn video_mode(mode: VideoMode) -> [u8; 2] {
     }
 }
 
+/// CMD 0x12 request: stream-pixel x, y (u16 LE) and flag 1 (ONCE).
+pub fn point_temp(x: u16, y: u16) -> [u8; 5] {
+    let [x0, x1] = x.to_le_bytes();
+    let [y0, y1] = y.to_le_bytes();
+    [x0, x1, y0, y1, 1]
+}
+
+/// CMD 0x14 request: flag ONCE.
+pub fn full_frame_temp() -> [u8; 1] {
+    [1]
+}
+
+/// CMD 0x38 request: 0 = Low, 1 = High.
+pub fn thermal_gain(g: ThermalGain) -> [u8; 1] {
+    [g.wire()]
+}
+
+/// CMD 0x1B request: palette id.
+pub fn thermal_palette(p: u8) -> [u8; 1] {
+    [p]
+}
+
+/// CMD 0x30 request: UTC microseconds since the Unix epoch, u64 LE.
+pub fn utc_time(unix_us: u64) -> [u8; 8] {
+    unix_us.to_le_bytes()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use rgcs_core::{CenterMode, GimbalMode, VideoMode};
+
+    #[test]
+    fn utc_time_is_le_microseconds() {
+        assert_eq!(utc_time(1_790_000_000_123_456), 1_790_000_000_123_456u64.to_le_bytes());
+    }
 
     #[test]
     fn gimbal_angle_rounds_to_tenths_and_clamps() {

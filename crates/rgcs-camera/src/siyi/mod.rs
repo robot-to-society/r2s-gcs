@@ -4,5 +4,7 @@ pub mod client;
 pub mod encode;
 pub mod frame;
 pub mod parse;
+pub mod tf_card;
+pub mod thermal;
 #[cfg(any(test, feature = "sim"))]
 pub mod sim;

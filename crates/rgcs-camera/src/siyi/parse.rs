@@ -89,10 +89,31 @@ pub fn gimbal_mode(payload: &[u8]) -> Option<GimbalMode> {
     }
 }
 
+/// CMD 0x30 reply: byte 0 == 1 means the camera accepted the time.
+pub fn utc_ack(p: &[u8]) -> Option<bool> {
+    p.first().map(|b| *b == 1)
+}
+
+/// CMD 0x40 reply: UTC microseconds in the first 8 bytes (u64 LE).
+pub fn camera_time(p: &[u8]) -> Option<u64> {
+    Some(u64::from_le_bytes(p.get(..8)?.try_into().ok()?))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use rgcs_core::{Firmware, GimbalMode, RecordingState, VideoMode};
+
+    #[test]
+    fn utc_and_readback() {
+        let mut p = 1_790_000_000_000_000u64.to_le_bytes().to_vec();
+        p.extend(5000u32.to_le_bytes());
+        assert_eq!(camera_time(&p), Some(1_790_000_000_000_000));
+        assert_eq!(camera_time(&p[..7]), None);
+        assert_eq!(utc_ack(&[1]), Some(true));
+        assert_eq!(utc_ack(&[0]), Some(false));
+        assert_eq!(utc_ack(&[]), None);
+    }
 
     #[test]
     fn firmware_sdk_example() {
