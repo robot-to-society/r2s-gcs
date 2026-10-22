@@ -69,7 +69,7 @@ pub trait Camera: Send + Sync {
 | ドライバ | caps | 備考 |
 |---|---|---|
 | `siyi::Mt11` | 全部(zoom.max 165、pitch_range (−90, 30)、modes Lock/Follow/FPV、roi Computed) | TCP 37260(状態・設定)+ UDP 37260(0x07 / 0x08 / 0x0E)。1 s ごと 0x00 ハートビート。切断時は 1 s 後に再接続 |
-| `mavlink_cam` | `CAMERA_INFORMATION.flags` から photo / record / zoom(`MAV_CMD_SET_CAMERA_ZOOM`)/ focus(`MAV_CMD_SET_CAMERA_FOCUS`)。`GIMBAL_MANAGER_INFORMATION` から gimbal rate / angle / attitude(`GIMBAL_MANAGER_SET_PITCHYAW`、`GIMBAL_DEVICE_ATTITUDE_STATUS`)と pitch_range。video_modes = [Rgb]、roi = Native(`MAV_CMD_DO_SET_ROI_LOCATION` / `DO_SET_ROI_NONE`、マネージャが `CAN_POINT_LOCATION_GLOBAL` を持つときだけ。無ければ None)。thermal / ai / encoding / storage / clock は無し | 自前のソケットは持たず FC リンク(`rgcs-mavlink::MavPort`)で送受信する。映像は設定の RTSP URL(MediaMTX への登録は手作業、下記) |
+| `mavlink_cam` | `CAMERA_INFORMATION.flags` から photo / record / zoom(`MAV_CMD_SET_CAMERA_ZOOM`)/ focus(`MAV_CMD_SET_CAMERA_FOCUS`)。`GIMBAL_MANAGER_INFORMATION` から gimbal rate / angle / attitude(`GIMBAL_MANAGER_SET_PITCHYAW`、`GIMBAL_DEVICE_ATTITUDE_STATUS`)と pitch_range。video_modes = [Rgb]、roi = Native(`MAV_CMD_DO_SET_ROI_LOCATION` / `DO_SET_ROI_NONE`、マネージャが `CAN_POINT_LOCATION_GLOBAL` と `HAS_YAW_AXIS` の両方を持つときだけ。無ければ None。ジンバル ID で振り分けるのは ArduPilot master(2026-09 以降)だけで、Copter 4.6.x 以前は §4.2 の注意)。thermal / ai / encoding / storage / clock は無し | 自前のソケットは持たず FC リンク(`rgcs-mavlink::MavPort`)で送受信する。映像は設定の RTSP URL(MediaMTX への登録は手作業、下記) |
 | `none` | 全て無し | |
 
 `mavlink_cam` の決定(2026-10-23、実装 `crates/rgcs-camera/src/mavlink_cam/`):
@@ -151,6 +151,7 @@ pub trait Camera: Send + Sync {
 - `caps.roi = Native` の機体では、`RoiHub` が計算ループ(`roi_task`)の代わりに `roi_native` タスクを動かす(純粋な状態機械は `roi/native.rs`)。開始 / 停止 / 目標変更 / 手動解除 / シャットダウン / `roi_status` の経路は Computed と同じ。
 - 開始と目標座標の変更で `COMMAND_INT` `MAV_CMD_DO_SET_ROI_LOCATION`(frame `MAV_FRAME_GLOBAL` = MSL、x / y = lat / lon × 1e7、z = alt_msl)を送り、動作中は 5 s ごとに再送する(FC の再起動やミッションの `DO_SET_ROI` に黙って負けないため)。**param1 は必ずジンバルのデバイス ID**。0 / NaN は ArduPilot の旧式 ROI で、Copter は**機体ごと**目標に向けてしまう。
 - 停止(操作員、手動 |速度| ≥ 5、`gimbal_angle` / `gimbal_center`、プロファイル再読込、スロット未設定、シャットダウン)では `COMMAND_LONG` `MAV_CMD_DO_SET_ROI_NONE`(param1 = デバイス ID)を 1 回、失敗したら 1 回だけ再送。カメラ切断中の停止は即座に非動作にし、ROI_NONE は再接続後に送る。
+- **ファームウェアの注意**(2026-10-23、最終レビュー I2): `DO_SET_ROI_LOCATION` / `DO_SET_ROI_NONE` の param1(ジンバル ID)を使って振り分けるのは ArduPilot master(2026-09-21 の `689868534b` 以降)だけで、Copter 4.6.x 以前のリリースには入っていない。古いファームウェアでは param1 は無視され(主マウントに向く)、マウントにヨー軸(パン)が無いと AUTO / GUIDED / RTL などで**機体がヨーして**目標を向き、`DO_SET_ROI_NONE` は Copter の自動ヨーを既定に戻す(ミッションの `CONDITION_YAW` / ROI ヨーも消える)。そのため Native はマネージャが `HAS_YAW_AXIS` を報告するときだけ提供し(ピッチだけのマウントは `roi = None`)、ジンバル ID 付きの Native ROI を安全に使うには Copter 4.6.x より新しいファームウェアが必要とする。実機確認(§8)は `ardupilot-latest`(master)で実施。
 - 適用しないもの: `RoiControl`(rate / angle / PID。ROI タブは制御欄を隠す)、速度 0 の送信(ArduPilot が目標を保持する)、姿勢要求。
 - WS ゲートは追従中もスティックのゼロを落とす。速度 0 の `SET_PITCHYAW` でも ArduPilot は MAVLink 指令に切り替わり、ROI が終わるため。
 - `roi_status`: `mode = null`、方位 / 仰角 / 距離と `yaw_cmd` / `pitch_cmd` は表示用に §4 と同じ式で計算、`gimbal_*` は姿勢から、`speed_*` は `null`。エラーは `no_position` / `position_stale` / `heading_unknown` / `camera_offline` / `send_failed`(位置の拒否・ACK 無し)で、ROI は解除しない。カメラ再接続時は位置をすぐ送り直す。

@@ -9,8 +9,12 @@ const CAP_CAPTURE_IMAGE: u32 = 2;
 const CAP_BASIC_ZOOM: u32 = 64;
 const CAP_BASIC_FOCUS: u32 = 128;
 const GIMBAL_HAS_NEUTRAL: u32 = 2;
-const GIMBAL_PITCH_OR_YAW_AXIS: u32 = 32 | 256;
+const GIMBAL_HAS_YAW_AXIS: u32 = 256;
+const GIMBAL_PITCH_OR_YAW_AXIS: u32 = 32 | GIMBAL_HAS_YAW_AXIS;
 const GIMBAL_POINT_LOCATION_GLOBAL: u32 = 131_072;
+/// Native ROI needs a yaw axis: firmware that ignores the gimbal-id selector (Copter ≤ 4.6)
+/// yaws the whole vehicle at the target when the mount has no pan (final review I2).
+const GIMBAL_NATIVE_ROI: u32 = GIMBAL_POINT_LOCATION_GLOBAL | GIMBAL_HAS_YAW_AXIS;
 
 /// MAVLink zoom is a percentage of the lens range (ruling 3).
 pub const PERCENT_ZOOM: ZoomCaps = ZoomCaps {
@@ -34,7 +38,7 @@ pub fn mavlink_caps(cam: Option<&CameraBinding>, gimbal: Option<&GimbalBinding>)
         video_modes: vec![VideoMode::Rgb],
         hfov_deg: cam.and_then(|c| c.hfov_deg),
         roi: match gimbal {
-            Some(g) if g.cap_flags & GIMBAL_POINT_LOCATION_GLOBAL != 0 => RoiMode::Native,
+            Some(g) if g.cap_flags & GIMBAL_NATIVE_ROI == GIMBAL_NATIVE_ROI => RoiMode::Native,
             _ => RoiMode::None,
         },
         ..CameraCaps::none()
@@ -120,6 +124,15 @@ mod tests {
         let caps = mavlink_caps(Some(&cam), gimbal.as_ref());
         assert_eq!(caps.roi, RoiMode::None);
         assert!(!caps.gimbal.expect("gimbal").center);
+    }
+
+    /// Final review I2: on Copter ≤ 4.6 a pitch-only mount turns ROI into vehicle yaw.
+    #[test]
+    fn pitch_only_manager_has_no_native_roi() {
+        let (cam, gimbal) = bound(0xC3, Some(32 | 2 | 131072));
+        let caps = mavlink_caps(Some(&cam), gimbal.as_ref());
+        assert_eq!(caps.roi, RoiMode::None);
+        assert!(caps.gimbal.expect("gimbal").rate, "the pitch axis still moves");
     }
 
     #[test]
