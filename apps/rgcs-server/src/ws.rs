@@ -24,7 +24,7 @@ pub async fn handler(
     ws: WebSocketUpgrade,
     headers: HeaderMap,
     State(app): State<AppState>,
-    AuthUser(_op): AuthUser,
+    AuthUser(op): AuthUser,
 ) -> Response {
     let origin = headers.get("origin").and_then(|v| v.to_str().ok());
     let host = headers.get("host").and_then(|v| v.to_str().ok());
@@ -32,7 +32,7 @@ pub async fn handler(
         return (StatusCode::FORBIDDEN, "origin not allowed").into_response();
     }
     ws.max_message_size(MAX_MESSAGE_SIZE)
-        .on_upgrade(move |socket| session(socket, app))
+        .on_upgrade(move |socket| session(socket, app, op.username))
         .into_response()
 }
 
@@ -52,7 +52,8 @@ pub fn origin_allowed(origin: Option<&str>, host: Option<&str>) -> bool {
     }
 }
 
-async fn session(socket: WebSocket, app: AppState) {
+/// `operator` is the logged-in user who opened the socket: the audit names them for joystick cancels.
+async fn session(socket: WebSocket, app: AppState, operator: String) {
     let (mut sink, mut stream) = socket.split();
     // Subscribe before taking the snapshot so no frame is lost in between.
     let mut rx = app.tx.subscribe();
@@ -75,7 +76,7 @@ async fn session(socket: WebSocket, app: AppState) {
             },
             incoming = stream.next() => match incoming {
                 Some(Ok(Message::Text(text))) => {
-                    let (next, replies) = handle_client(&gate, &app, &text, unix_ms()).await;
+                    let (next, replies) = handle_client(&gate, &app, &operator, &text, unix_ms()).await;
                     gate = next;
                     for reply in replies {
                         if send(&mut sink, &reply).await.is_err() { break; }
@@ -87,13 +88,13 @@ async fn session(socket: WebSocket, app: AppState) {
             _ = deadman.tick() => {
                 let (next, actions) = gate.tick(unix_ms());
                 gate = next;
-                for reply in perform(&app, actions).await {
+                for reply in perform(&app, &operator, actions).await {
                     if send(&mut sink, &reply).await.is_err() { break; }
                 }
             }
         }
     }
-    perform(&app, gate.close()).await;
+    perform(&app, &operator, gate.close()).await;
 }
 
 /// Parses a client frame; a malformed one becomes the `error` reply to send back.
@@ -110,6 +111,7 @@ pub fn parse_client(text: &str) -> Result<ClientMessage, Box<ServerMessage>> {
 pub async fn handle_client(
     gate: &Gate,
     app: &AppState,
+    operator: &str,
     text: &str,
     now_ms: u64,
 ) -> (Gate, Vec<ServerMessage>) {
@@ -124,15 +126,15 @@ pub async fn handle_client(
         ClientMessage::InputHb { sysid } => gate.on_hb(sysid, now_ms),
         ClientMessage::Select { sysid } => gate.on_select(sysid, now_ms),
     };
-    (next, perform(app, actions).await)
+    (next, perform(app, operator, actions).await)
 }
 
 /// Forwards / zeroes go to the camera (errors are logged, never echoed); replies come back.
-async fn perform(app: &AppState, actions: Vec<Action>) -> Vec<ServerMessage> {
+async fn perform(app: &AppState, operator: &str, actions: Vec<Action>) -> Vec<ServerMessage> {
     let mut replies = Vec::new();
     for a in actions {
         match a {
-            Action::Forward { sysid, yaw, pitch } => forward(app, sysid, yaw, pitch).await,
+            Action::Forward { sysid, yaw, pitch } => forward(app, operator, sysid, yaw, pitch).await,
             Action::Zero { sysid } => {
                 if app.roi.on_zero(sysid) == ManualVerdict::Forward {
                     rate(app, sysid, 0, 0).await
@@ -146,7 +148,7 @@ async fn perform(app: &AppState, actions: Vec<Action>) -> Vec<ServerMessage> {
 
 /// While ROI owns the gimbal, zeros and small speeds are dropped and a large speed cancels
 /// ROI first; `on_manual_rate` returns only after the cancel's zero went out (Review Focus 4).
-async fn forward(app: &AppState, sysid: SysId, yaw: i8, pitch: i8) {
+async fn forward(app: &AppState, operator: &str, sysid: SysId, yaw: i8, pitch: i8) {
     if (yaw, pitch) == (0, 0) {
         if app.roi.on_zero(sysid) == ManualVerdict::Forward {
             rate(app, sysid, 0, 0).await;
@@ -158,7 +160,7 @@ async fn forward(app: &AppState, sysid: SysId, yaw: i8, pitch: i8) {
         return;
     }
     if was_active && app.roi.active_target(sysid).is_none() {
-        crate::roi_api::audit_manual_stop(app, "joystick", sysid, "manual_input").await;
+        crate::roi_api::audit_manual_stop(app, operator, sysid, "manual_input").await;
     }
     rate(app, sysid, yaw, pitch).await;
 }
@@ -264,6 +266,7 @@ mod tests {
         let (gate, replies) = handle_client(
             &Gate::default(),
             &app,
+            "pilot",
             "{\"t\":\"gimbal_rate\",\"sysid\":1,\"yaw\":12,\"pitch\":-3,\"seq\":1}",
             1_000,
         )
@@ -285,6 +288,7 @@ mod tests {
         let (_, replies) = handle_client(
             &gate,
             &app,
+            "pilot",
             "{\"t\":\"gimbal_rate\",\"sysid\":1,\"yaw\":200,\"pitch\":0,\"seq\":2}",
             1_100,
         )
@@ -325,10 +329,10 @@ mod tests {
     #[tokio::test]
     async fn ws_small_rate_is_ignored_while_active() {
         let (app, mut sim) = sim_app_with_roi().await;
-        let (gate, _) = handle_client(&Gate::default(), &app, &rate_frame(3, 1), 1_000).await;
+        let (gate, _) = handle_client(&Gate::default(), &app, "pilot", &rate_frame(3, 1), 1_000).await;
         assert_eq!(app.roi.active_target(1).as_deref(), Some("roi_1"));
         assert!(!rate_payloads(&mut sim, 300).await.contains(&vec![3, 0]));
-        let (_, _) = handle_client(&gate, &app, &rate_frame(40, 2), 1_100).await;
+        let (_, _) = handle_client(&gate, &app, "pilot", &rate_frame(40, 2), 1_100).await;
         assert_eq!(app.roi.active_target(1), None);
         let frames = rate_payloads(&mut sim, 300).await;
         let manual = frames.iter().position(|p| p == &vec![40, 0]).expect("[40, 0] forwarded");
@@ -336,7 +340,7 @@ mod tests {
         let rows = app.store.recent_audit(10).await.unwrap();
         let row = serde_json::to_value(&rows).unwrap();
         assert!(
-            row.as_array().unwrap().iter().any(|r| r["operator"] == "joystick"
+            row.as_array().unwrap().iter().any(|r| r["operator"] == "pilot"
                 && r["target"] == "roi"
                 && r["command"] == "stop"
                 && r["reason"] == "manual_input"),
