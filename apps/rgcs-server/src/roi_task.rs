@@ -111,7 +111,8 @@ impl Runner {
         self.offline = !self.watch.as_ref().is_some_and(|w| w.borrow().connected);
         if self.offline {
             if !self.ctl.is_active() {
-                // Nothing to resend to: drop pending zeros so the task can retire.
+                // Nothing to resend to: drop pending zeros so the task can retire. The camera
+                // manager zeros the gimbal when the link comes back (cameras::link_zero).
                 self.ctl = self.ctl.stop(StopReason::Manual).0;
             }
             return;

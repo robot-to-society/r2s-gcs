@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::net::Ipv4Addr;
 #[cfg(any(test, feature = "sim"))]
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use rgcs_camera::{Camera, CameraError, NoneCamera, SiyiMt11};
@@ -24,10 +24,13 @@ pub enum CameraFactory {
     Sim(SocketAddr),
 }
 
+/// True while something else (an active ROI) owns the gimbal of that vehicle.
+pub type GimbalOwned = Arc<dyn Fn(SysId) -> bool + Send + Sync>;
+
 struct Entry {
     camera: Arc<dyn Camera>,
     forwarder: JoinHandle<()>,
-    boot_zero: JoinHandle<()>,
+    link_zero: JoinHandle<()>,
 }
 
 #[derive(Clone)]
@@ -36,6 +39,7 @@ pub struct CameraManager {
     tx: broadcast::Sender<ServerMessage>,
     factory: CameraFactory,
     entries: Arc<Mutex<HashMap<SysId, Entry>>>,
+    owned: Arc<RwLock<Option<GimbalOwned>>>,
 }
 
 impl CameraManager {
@@ -45,7 +49,23 @@ impl CameraManager {
             tx,
             factory,
             entries: Arc::new(Mutex::new(HashMap::new())),
+            owned: Arc::new(RwLock::new(None)),
         }
+    }
+
+    /// Installs the check that suppresses the link-up zero while ROI owns the gimbal.
+    pub fn set_gimbal_owned(&self, owned: GimbalOwned) {
+        if let Ok(mut slot) = self.owned.write() {
+            *slot = Some(owned);
+        }
+    }
+
+    fn gimbal_owned(&self, sysid: SysId) -> bool {
+        self.owned
+            .read()
+            .ok()
+            .and_then(|o| o.as_ref().map(|f| f(sysid)))
+            .unwrap_or(false)
     }
 
     fn build(&self, profile: &CameraProfile) -> Arc<dyn Camera> {
@@ -82,18 +102,18 @@ impl CameraManager {
             tracing::warn!(sysid, error = %e, "camera connect failed");
         }
         let forwarder = tokio::spawn(forward(sysid, camera.caps(), camera.state(), self.tx.clone()));
-        let boot_zero = tokio::spawn(boot_zero(sysid, camera.clone()));
+        let link_zero = tokio::spawn(link_zero(self.clone(), sysid, camera.clone()));
         let mut entries = self.entries.lock().await;
         if let Some(old) = entries.insert(
             sysid,
             Entry {
                 camera: camera.clone(),
                 forwarder,
-                boot_zero,
+                link_zero,
             },
         ) {
             old.forwarder.abort();
-            old.boot_zero.abort();
+            old.link_zero.abort();
             old.camera.disconnect().await;
         }
         camera
@@ -141,17 +161,26 @@ impl CameraManager {
     }
 }
 
-/// Ruling 18: a gimbal left turning by a crash is stopped once the new driver first connects.
-async fn boot_zero(sysid: SysId, camera: Arc<dyn Camera>) {
+/// Ruling 18 + I5: every time the link comes up (first connect of a driver and every
+/// reconnect) the gimbal gets speed 0, unless an active ROI owns it. This covers a crash, a
+/// stop while the link was down (its zero failed) and a manual cancel while offline.
+async fn link_zero(manager: CameraManager, sysid: SysId, camera: Arc<dyn Camera>) {
     if !camera.caps().gimbal.is_some_and(|g| g.rate) {
         return;
     }
     let mut state = camera.state();
-    if state.wait_for(|s| s.connected).await.is_err() {
-        return;
-    }
-    if let Err(e) = camera.send(CameraCommand::GimbalRate { yaw: 0, pitch: 0 }).await {
-        tracing::warn!(sysid, error = %e, "boot gimbal zero failed");
+    loop {
+        if state.wait_for(|s| s.connected).await.is_err() {
+            return;
+        }
+        if !manager.gimbal_owned(sysid) {
+            if let Err(e) = camera.send(CameraCommand::GimbalRate { yaw: 0, pitch: 0 }).await {
+                tracing::warn!(sysid, error = %e, "link-up gimbal zero failed");
+            }
+        }
+        if state.wait_for(|s| !s.connected).await.is_err() {
+            return;
+        }
     }
 }
 

@@ -111,6 +111,7 @@ pub trait Camera: Send + Sync {
   - 手動入力による解除: WS `gimbal_rate` の max(|yaw|, |pitch|) ≥ 5、REST `gimbal_center` / `gimbal_angle` / `gimbal_mode`、カメラプロファイルの PUT(ドライバ再構築)。AI 追跡のコマンドはまだ無いため、AI 連動の解除はサーバーの `RoiHub::stop(…, StopReason::Manual)` を呼ぶ形で後から繋ぐ。
   - ROI 中の機体には、WS ゲートが送るゼロ(転送される (0, 0)、デッドマン / 選択切替 / 切断の Zero)を落とす。ジンバルは ROI ループが持つ。デッドマンの `input_state: lost` 応答は出す。
   - 停止は両モードとも必ず速度 0。操作員 / 目標削除 / シャットダウンの停止は即時 1 回 + 2 回再送、手動解除は 1 回だけ(操作員のスティックと競合しないため)。
+  - カメラリンクが上がるたび(ドライバの初回接続と毎回の再接続)に速度 0 を 1 回送る。ただし ROI 追従中の機体には送らない(2026-10-23)。切断中に出した停止・手動解除のゼロは届かないため、再接続でジンバルを止める。SIGTERM / SIGINT の終了時は追従中の全機体を停止してから抜ける。
   - 開始も両モードとも必ず速度 0 から(2026-10-23): 即時 1 回 + 2 回再送。開始直後はスティックの停止ゼロが落とされるため、エラー状態(`no_position` など)で操作員の速度が残らないようにする。再送は 0 以外の動作指令(0x07 / 0x0E)が出た周期で打ち切る。
   - `roi_status.error` は固定コード(`no_position`, `position_stale`, `heading_unknown`, `target_too_close`, `no_attitude`, `invalid_angles`, `follow_failed`, `send_failed`, `camera_offline`, `waiting`)で、UI が訳す(`roiErr_*`)。
 - 制約: 精度は FC のコンパスと GPS に依存。機体のロール / ピッチによるヨー誤差は補正しない(実機確認 2026-09-23: 補正不要)。

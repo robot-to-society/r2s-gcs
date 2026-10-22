@@ -229,3 +229,41 @@ async fn shutdown_all_stops_every_vehicle() {
     assert_eq!(state.roi.active_target(1), None);
     assert!(wait_frame(&mut sim, 300, is_zero_rate).await);
 }
+
+/// Drops the simulator, waits for the driver to notice, and returns the port to restart on.
+async fn take_camera_offline(state: &AppState, sim: SimServer) -> u16 {
+    let port = sim.addr.port();
+    sim.stop().await;
+    wait_connected(state, 1, false).await;
+    port
+}
+
+#[tokio::test]
+async fn stop_while_offline_is_zeroed_on_reconnect() {
+    let (state, mut sim) = setup().await;
+    state.roi.start(1, "roi_1").await.unwrap();
+    assert!(wait_frame(&mut sim, 1000, |f| f.1 == 0x07 && f.2 != [0, 0]).await);
+    let port = take_camera_offline(&state, sim).await;
+    assert!(state.roi.stop(1, StopReason::Operator).await);
+    let mut sim = SimServer::start_on(port).await;
+    wait_connected(&state, 1, true).await;
+    assert!(wait_frame(&mut sim, 1000, is_zero_rate).await, "reconnect must zero the gimbal");
+}
+
+#[tokio::test]
+async fn reconnect_does_not_zero_while_roi_owns_the_gimbal() {
+    let (state, sim) = setup().await;
+    let angle = rgcs_core::RoiControl {
+        control_mode: rgcs_core::RoiControlMode::Angle,
+        ..rgcs_core::RoiControl::default()
+    };
+    state.store.put_roi_control(1, &angle).await.unwrap();
+    state.roi.start(1, "roi_1").await.unwrap();
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let port = take_camera_offline(&state, sim).await;
+    let mut sim = SimServer::start_on(port).await;
+    wait_connected(&state, 1, true).await;
+    let frames = collect(&mut sim, 800).await;
+    assert!(!frames.iter().any(is_zero_rate), "{frames:?}");
+    assert_eq!(state.roi.active_target(1).as_deref(), Some("roi_1"));
+}

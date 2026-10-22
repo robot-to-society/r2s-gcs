@@ -78,12 +78,20 @@ impl RoiHub {
         router: Arc<Mutex<Router>>,
         tx: broadcast::Sender<ServerMessage>,
     ) -> Self {
+        let handles: Arc<StdMutex<HashMap<SysId, Handle>>> = Arc::new(StdMutex::new(HashMap::new()));
+        let owned = handles.clone();
+        cameras.set_gimbal_owned(Arc::new(move |sysid| {
+            owned
+                .lock()
+                .map(|h| h.get(&sysid).is_some_and(|h| h.active.is_some()))
+                .unwrap_or(false)
+        }));
         Self {
             store,
             cameras,
             router,
             tx,
-            handles: Arc::new(StdMutex::new(HashMap::new())),
+            handles,
             next_gen: Arc::new(AtomicU64::new(1)),
             epoch: Instant::now(),
         }
