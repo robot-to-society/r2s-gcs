@@ -15,8 +15,10 @@ export function speedText(v: VehicleState): string {
   return `${v.ground_speed.toFixed(1)} m/s`
 }
 
+/** Percentage, else voltage; a dash when neither is reported (no battery monitor: 0 V, no %). */
 export function battText(v: VehicleState): string {
-  return v.battery.pct === null ? `${v.battery.volt.toFixed(1)} V` : `${v.battery.pct}%`
+  if (v.battery.pct !== null) return `${v.battery.pct}%`
+  return v.battery.volt > 0 ? `${v.battery.volt.toFixed(1)} V` : '—'
 }
 
 export function battLow(v: VehicleState): boolean {

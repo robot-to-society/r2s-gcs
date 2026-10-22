@@ -38,6 +38,10 @@ describe('vehicle formatting', () => {
     expect(battLow(v)).toBe(false)
   })
 
+  it('shows a dash, not 0.0 V, for a vehicle without a battery monitor', () => {
+    expect(battText({ ...v, battery: { pct: null, volt: 0, current: null } })).toBe('—')
+  })
+
   it('filters by name or mode, ignoring case', () => {
     expect(matches(v, 'uav-05', dict)).toBe(true)
     expect(matches({ ...v, mode: 'AUTO' }, 'auto', dict)).toBe(true)

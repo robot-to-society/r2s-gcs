@@ -3,7 +3,7 @@ import type { BtnState } from '../commands'
 import { CameraStatusRow, CameraStrip, VideoThumb } from '../camera'
 import type { Dict } from '../../shared/i18n'
 import { IconClose, IconPin } from '../../shared/ui/icons'
-import { battWidth, dotClass } from '../vehicles/format'
+import { battText, battWidth, dotClass } from '../vehicles/format'
 import { DetailMessages } from './DetailMessages'
 import { EmergencyRow } from './EmergencyRow'
 import { pendingAlerts } from './messages'
@@ -105,7 +105,7 @@ export function DetailPanel(p: Props) {
           </span>
           <span className="kv">
             <span className="big" data-testid="batt">
-              {v.battery.pct !== null ? `${v.battery.pct}%` : `${v.battery.volt.toFixed(1)} V`}
+              {battText(v)}
             </span>
             <span className="batt">
               <span style={{ width: battWidth(v) }} />

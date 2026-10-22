@@ -35,6 +35,11 @@ describe('DetailPanel', () => {
     expect(screen.queryByText('other vehicle')).toBeNull()
   })
 
+  it('the battery reads a dash, not 0.0 V, without a battery monitor', () => {
+    render(<DetailPanel {...base} vehicle={{ ...v, battery: { pct: null, volt: 0, current: null } }} />)
+    expect(screen.getByTestId('batt')).toHaveTextContent('—')
+  })
+
   it('the newest message row still shows the comms delay body', () => {
     render(<DetailPanel {...base} entries={entries.slice(1)} />)
     const rows = screen.getAllByTestId('msg')
