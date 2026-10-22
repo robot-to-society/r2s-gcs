@@ -6,6 +6,7 @@ export const mavlinkCameraJa = {
   rtspUrl: 'RTSP URL',
   camErr_camera_rejected: 'カメラがコマンドを拒否しました',
   roiNativeNote: 'ArduPilot がジンバルを目標に向けます',
+  roiNoteNative: 'ジョイスティックの roi_1〜roi_10 に割り当てると、押すたびに追従を開始 / 停止します。',
 } as const
 
 export const mavlinkCameraEn: Record<keyof typeof mavlinkCameraJa, string> = {
@@ -14,4 +15,5 @@ export const mavlinkCameraEn: Record<keyof typeof mavlinkCameraJa, string> = {
   rtspUrl: 'RTSP URL',
   camErr_camera_rejected: 'The camera refused the command',
   roiNativeNote: 'ArduPilot points the gimbal at the target',
+  roiNoteNative: 'Assign roi_1–roi_10 to joystick buttons to start / stop pointing with one press.',
 }

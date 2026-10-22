@@ -61,6 +61,17 @@ describe('RoiTab', () => {
     expect(screen.queryByText(dict.roiNativeNote)).toBeNull()
   })
 
+  it('the Follow-mode sentence is MT11-only: native ROI shows the joystick note without it', () => {
+    const { unmount } = renderTab({ roiMode: 'native' })
+    expect(screen.queryByText(dict.roiNote)).toBeNull()
+    expect(screen.getByText(dict.roiNoteNative)).toBeInTheDocument()
+    expect(dict.roiNoteNative).not.toContain('Follow')
+    unmount()
+    renderTab({ roiMode: 'computed' })
+    expect(screen.getByText(dict.roiNote)).toBeInTheDocument()
+    expect(screen.queryByText(dict.roiNoteNative)).toBeNull()
+  })
+
   it('地図で指定 calls onPickOnMap', () => {
     const { onPickOnMap } = renderTab()
     fireEvent.click(screen.getByRole('button', { name: dict.pickOnMap }))

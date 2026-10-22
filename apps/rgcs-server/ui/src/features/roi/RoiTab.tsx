@@ -70,7 +70,7 @@ export function RoiTab({ targets, control, activeId, targetsIssue, controlIssue,
           </tbody>
         </table>
         <div className="t3" style={{ fontSize: 11, marginTop: 8 }}>
-          {dict.roiNote}
+          {roiMode === 'native' ? dict.roiNoteNative : dict.roiNote}
         </div>
         {targetsIssue && <span className="danger settings-issue">{targetsIssue.path}: {targetsIssue.message}</span>}
       </div>
