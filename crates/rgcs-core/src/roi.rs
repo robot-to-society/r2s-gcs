@@ -137,11 +137,13 @@ impl Default for RoiControl {
 }
 
 impl RoiControl {
+    /// Lowest control rate (2026-10-23): in rate mode a 0x07 speed is held for a whole
+    /// period, so a slower loop would let the gimbal coast at up to `max_speed`.
+    pub const RATE_HZ_MIN: f64 = 1.0;
+    pub const RATE_HZ_MAX: f64 = 50.0;
+
     pub fn validate(&self) -> Result<(), ProfileError> {
-        // 0 < rate_hz <= 50 (NaN fails the comparison).
-        if !(self.rate_hz > 0.0 && self.rate_hz <= 50.0) {
-            return Err(err("rate_hz", "must be greater than 0 and at most 50"));
-        }
+        check_range("rate_hz", self.rate_hz, Self::RATE_HZ_MIN, Self::RATE_HZ_MAX)?;
         check_range("target_rate_hz", self.target_rate_hz, 0.2, 10.0)?;
         check_range("smoothing_tau_s", self.smoothing_tau_s, 0.0, 10.0)?;
         check_range("deadband_deg", self.deadband_deg, 0.0, 5.0)?;
@@ -150,6 +152,18 @@ impl RoiControl {
         check_range("pid_kd", self.pid_kd, 0.0, 10.0)?;
         check_range("max_speed", self.max_speed, 1.0, 100.0)?;
         check_range("yaw_offset_deg", self.yaw_offset_deg, -180.0, 180.0)
+    }
+
+    /// Lifts a stored `rate_hz` below the floor (rows saved before 2026-10-23 allowed
+    /// 0 < x) to [`Self::RATE_HZ_MIN`]; anything else is returned unchanged.
+    pub fn clamp_rate(self) -> Self {
+        if self.rate_hz < Self::RATE_HZ_MIN {
+            return Self {
+                rate_hz: Self::RATE_HZ_MIN,
+                ..self
+            };
+        }
+        self
     }
 }
 
@@ -207,9 +221,17 @@ mod tests {
     }
 
     #[test]
+    fn stored_rate_below_floor_is_clamped() {
+        let low = RoiControl { rate_hz: 0.05, ..RoiControl::default() };
+        assert_eq!(low.clamp_rate().rate_hz, RoiControl::RATE_HZ_MIN);
+        let ok = RoiControl { rate_hz: 20.0, ..RoiControl::default() };
+        assert_eq!(ok.clone().clamp_rate(), ok);
+    }
+
+    #[test]
     fn control_validation_bounds() {
         let bad: &[(&str, &[f64])] = &[
-            ("rate_hz", &[0.0, 50.1]),
+            ("rate_hz", &[0.0, 0.05, 0.99, 50.1]),
             ("target_rate_hz", &[0.1, 10.1]),
             ("smoothing_tau_s", &[-0.1, 10.1]),
             ("deadband_deg", &[5.1]),
@@ -228,6 +250,7 @@ mod tests {
             assert_eq!(e.field, *field, "NaN");
         }
         for (field, v) in [
+            ("rate_hz", 1.0),
             ("rate_hz", 50.0),
             ("max_speed", 1.0),
             ("max_speed", 100.0),

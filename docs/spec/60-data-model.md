@@ -95,7 +95,7 @@ CREATE TABLE param_history (
 | 列(roi_control) | 既定 | 範囲 |
 |---|---|---|
 | `control_mode` | `rate` | `rate` / `angle` |
-| `rate_hz` | 10 | 0 < x ≤ 50 |
+| `rate_hz` | 10 | 1 ≤ x ≤ 50(2026-10-23: 下限 1 Hz — 低すぎると 1 周期速度を保持する。保存済みの 1 未満は読込時に 1 へ切り上げ) |
 | `target_rate_hz` | 2 | 0.2–10 |
 | `smoothing_tau_s` | 0.8 | 0–10 |
 | `deadband_deg` | 0.3 | 0–5 |

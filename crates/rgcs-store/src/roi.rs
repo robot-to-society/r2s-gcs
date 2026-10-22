@@ -70,7 +70,8 @@ impl Store {
         Ok(())
     }
 
-    /// The stored control parameters, or the defaults when none were saved yet.
+    /// The stored control parameters, or the defaults when none were saved yet. A `rate_hz`
+    /// below the 1 Hz floor (saved before it existed) loads clamped.
     pub async fn roi_control(&self, sysid: SysId) -> Result<RoiControl> {
         let row = sqlx::query("SELECT * FROM roi_control WHERE sysid = ?1")
             .bind(i64::from(sysid))
@@ -90,7 +91,8 @@ impl Store {
             pid_kd: r.get("pid_kd"),
             max_speed: r.get("max_speed"),
             yaw_offset_deg: r.get("yaw_offset_deg"),
-        })
+        }
+        .clamp_rate())
     }
 
     pub async fn put_roi_control(&self, sysid: SysId, c: &RoiControl) -> Result<()> {
@@ -181,6 +183,17 @@ mod tests {
         let c2 = RoiControl { pid_kp: 3.0, yaw_offset_deg: -12.5, ..c };
         s.put_roi_control(1, &c2).await.unwrap();
         assert_eq!(s.roi_control(1).await.unwrap(), c2);
+    }
+
+    /// I6: rows saved before the 1 Hz floor load clamped, not as a 20 s control period.
+    #[tokio::test]
+    async fn control_below_rate_floor_loads_clamped() {
+        let s = Store::open_memory().await.unwrap();
+        let c = RoiControl { rate_hz: 0.05, ..RoiControl::default() };
+        s.put_roi_control(1, &c).await.unwrap();
+        let loaded = s.roi_control(1).await.unwrap();
+        assert_eq!(loaded.rate_hz, RoiControl::RATE_HZ_MIN);
+        assert!(loaded.validate().is_ok());
     }
 
     #[tokio::test]

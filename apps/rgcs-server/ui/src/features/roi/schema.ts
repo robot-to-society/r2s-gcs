@@ -7,7 +7,7 @@ const num = (lo: number, hi: number) => z.number().finite().min(lo).max(hi)
 
 export const roiControlSchema: z.ZodType<RoiControl> = z.object({
   control_mode: z.enum(['rate', 'angle']),
-  rate_hz: z.number().finite().gt(0).max(50),
+  rate_hz: num(1, 50),
   target_rate_hz: num(0.2, 10),
   smoothing_tau_s: num(0, 10),
   deadband_deg: num(0, 5),

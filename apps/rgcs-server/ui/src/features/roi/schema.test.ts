@@ -17,6 +17,8 @@ describe('roi schema', () => {
     expect(issue({ max_speed: 101 })).toBe('max_speed')
     expect(issue({ max_speed: 0 })).toBe('max_speed')
     expect(issue({ rate_hz: 0 })).toBe('rate_hz')
+    expect(issue({ rate_hz: 0.5 })).toBe('rate_hz')
+    expect(issue({ rate_hz: 1 })).toBeUndefined()
     expect(issue({ rate_hz: 50 })).toBeUndefined()
     expect(issue({ yaw_offset_deg: 181 })).toBe('yaw_offset_deg')
     expect(issue({ pid_kp: 51 })).toBe('pid_kp')
