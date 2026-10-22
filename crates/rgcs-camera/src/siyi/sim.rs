@@ -239,6 +239,8 @@ async fn serve_tcp(
     state: Arc<Mutex<SimState>>,
     frozen: Arc<std::sync::atomic::AtomicBool>,
 ) {
+    // Like the real client: replies must not wait behind Nagle (final review I7).
+    let _ = stream.set_nodelay(true);
     let mut buf = [0u8; 4096];
     let mut parser = Parser::default();
     let mut seq: u16 = 0;

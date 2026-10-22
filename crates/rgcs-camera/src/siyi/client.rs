@@ -129,6 +129,16 @@ enum SessionEnd {
     Lost(String),
 }
 
+/// TCP connect with [`CONNECT_TIMEOUT`] and Nagle off: a 0x0D attitude request must not wait
+/// behind an un-ACKed heartbeat (ROI rate-mode latency, final review I7).
+async fn open_tcp(addr: SocketAddr) -> std::io::Result<TcpStream> {
+    let stream = tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect(addr))
+        .await
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "connect timed out"))??;
+    stream.set_nodelay(true)?;
+    Ok(stream)
+}
+
 /// Connect → serve → (on loss) wait 1 s → connect again, until the op channel is dropped.
 async fn run(addr: SocketAddr, state: watch::Sender<CameraState>, mut ops: mpsc::Receiver<Op>) {
     let udp = match UdpSocket::bind("0.0.0.0:0").await {
@@ -140,15 +150,7 @@ async fn run(addr: SocketAddr, state: watch::Sender<CameraState>, mut ops: mpsc:
     };
     let mut seq: u16 = 0;
     loop {
-        let attempt = tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect(addr)).await;
-        let attempt = match attempt {
-            Ok(r) => r,
-            Err(_) => Err(std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "connect timed out",
-            )),
-        };
-        match attempt {
+        match open_tcp(addr).await {
             Ok(stream) => {
                 state.send_modify(|s| {
                     s.connected = true;
@@ -407,6 +409,13 @@ mod tests {
             out.push(m);
         }
         out
+    }
+
+    #[tokio::test]
+    async fn tcp_session_has_nagle_off() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let stream = super::open_tcp(listener.local_addr().unwrap()).await.unwrap();
+        assert!(stream.nodelay().unwrap());
     }
 
     async fn connected_pair() -> (SiyiMt11, SimServer) {
