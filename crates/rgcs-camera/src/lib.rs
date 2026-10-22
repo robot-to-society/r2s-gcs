@@ -11,5 +11,6 @@ pub mod siyi;
 
 pub use camera::Camera;
 pub use error::CameraError;
+pub use mavlink_cam::driver::MavlinkCamera;
 pub use none::NoneCamera;
 pub use siyi::client::SiyiMt11;
