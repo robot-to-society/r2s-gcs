@@ -105,7 +105,7 @@ describe('GimbalLoop', () => {
     h.loop.tick()
     h.loop.tick()
     expect(h.onButton).toHaveBeenCalledTimes(1)
-    expect(h.onButton).toHaveBeenCalledWith('record_toggle')
+    expect(h.onButton).toHaveBeenCalledWith('record_toggle', 1)
   })
 
   it('routes a press then a release of a held function to onButton then onRelease', () => {
@@ -113,12 +113,28 @@ describe('GimbalLoop', () => {
     h.loop.start({ ...DEFAULT_PROFILE, buttons: [{ button: 0, fn: 'focus_far' }] }, 1)
     h.setPad({ axes: [0, 0], buttons: [true] })
     h.loop.tick()
-    expect(h.onButton).toHaveBeenCalledWith('focus_far')
+    expect(h.onButton).toHaveBeenCalledWith('focus_far', 1)
     expect(h.onRelease).not.toHaveBeenCalled()
     h.setPad({ axes: [0, 0], buttons: [false] })
     h.loop.tick()
     expect(h.onRelease).toHaveBeenCalledOnce()
-    expect(h.onRelease).toHaveBeenCalledWith('focus_far')
+    expect(h.onRelease).toHaveBeenCalledWith('focus_far', 1)
+  })
+
+  it('a release goes to the vehicle the press went to, not the new selection (final review M11)', () => {
+    const h = h0()
+    h.loop.start({ ...DEFAULT_PROFILE, buttons: [{ button: 0, fn: 'focus_near' }, { button: 1, fn: 'focus_far' }] }, 1)
+    h.setPad({ axes: [0, 0], buttons: [true, false] })
+    h.loop.tick()
+    expect(h.onButton).toHaveBeenLastCalledWith('focus_near', 1)
+    h.loop.setTarget(2)
+    h.setPad({ axes: [0, 0], buttons: [false, true] })
+    h.loop.tick()
+    expect(h.onRelease).toHaveBeenCalledWith('focus_near', 1)
+    expect(h.onButton).toHaveBeenLastCalledWith('focus_far', 2)
+    h.loop.setTarget(3)
+    h.loop.stop()
+    expect(h.onRelease).toHaveBeenLastCalledWith('focus_far', 2)
   })
 
   it('a pad that vanishes while a button is held releases it', () => {
@@ -128,7 +144,7 @@ describe('GimbalLoop', () => {
     h.loop.tick()
     h.setPad(null)
     h.loop.tick()
-    expect(h.onRelease).toHaveBeenCalledWith('focus_near')
+    expect(h.onRelease).toHaveBeenCalledWith('focus_near', 1)
   })
 })
 

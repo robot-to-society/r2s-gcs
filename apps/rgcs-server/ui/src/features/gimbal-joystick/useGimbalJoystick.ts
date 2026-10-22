@@ -14,7 +14,7 @@ function readGamepad(deviceId: string | null): { axes: readonly number[]; button
  * Owns one GimbalLoop for the selected vehicle. Tab hidden or pad unplugged → one zero and
  * silence until things come back (spec 70 §2).
  */
-export function useGimbalJoystick(sysid: number | null, profile: GimbalInputProfile | null, onButton: (fn: ButtonFunction) => void, onRelease?: (fn: ButtonFunction) => void): void {
+export function useGimbalJoystick(sysid: number | null, profile: GimbalInputProfile | null, onButton: (fn: ButtonFunction, sysid: number) => void, onRelease?: (fn: ButtonFunction, sysid: number) => void): void {
   const onButtonRef = useRef(onButton)
   onButtonRef.current = onButton
   const onReleaseRef = useRef(onRelease)
@@ -28,8 +28,8 @@ export function useGimbalJoystick(sysid: number | null, profile: GimbalInputProf
     if (!profile) return
     const loop = new GimbalLoop({
       send: (m) => vehicleStore.send(m),
-      onButton: (fn) => onButtonRef.current(fn),
-      onRelease: (fn) => onReleaseRef.current?.(fn),
+      onButton: (fn, target) => onButtonRef.current(fn, target),
+      onRelease: (fn, target) => onReleaseRef.current?.(fn, target),
       readGamepad: () => readGamepad(profile.device_id),
       now: () => performance.now(),
     })

@@ -8,9 +8,13 @@ export interface GamepadSample {
 
 export interface LoopDeps {
   readonly send: (m: ClientMessage) => boolean
-  readonly onButton: (fn: ButtonFunction) => void
-  /** Falling edges, for functions that run while held (focus_near / focus_far). */
-  readonly onRelease?: (fn: ButtonFunction) => void
+  /** A rising edge and the vehicle targeted at that moment. */
+  readonly onButton: (fn: ButtonFunction, sysid: number) => void
+  /**
+   * Falling edges, for functions that run while held (focus_near / focus_far). `sysid` is the
+   * vehicle the press went to, even if the selection changed while the button was held.
+   */
+  readonly onRelease?: (fn: ButtonFunction, sysid: number) => void
   /** Null when no gamepad is connected. */
   readonly readGamepad: () => GamepadSample | null
   readonly now: () => number
@@ -32,6 +36,8 @@ export class GimbalLoop {
   private lastHb: number | null = null
   private prevButtons: readonly boolean[] = []
   private padPresent = false
+  /** The target each held button was pressed for (replaced, never mutated). */
+  private pressedFor: ReadonlyMap<ButtonFunction, number> = new Map()
 
   constructor(deps: LoopDeps) {
     this.deps = deps
@@ -81,8 +87,8 @@ export class GimbalLoop {
     if (nonZero) this.sendRate(target, rates.yaw, rates.pitch)
     else if (this.lastNonZero) this.zero(target)
     this.lastNonZero = nonZero
-    for (const fn of buttonEdges(this.prevButtons, pad.buttons, profile)) this.deps.onButton(fn)
-    for (const fn of buttonReleases(this.prevButtons, pad.buttons, profile)) this.deps.onRelease?.(fn)
+    for (const fn of buttonEdges(this.prevButtons, pad.buttons, profile)) this.press(fn, target)
+    for (const fn of buttonReleases(this.prevButtons, pad.buttons, profile)) this.release(fn, target)
     this.prevButtons = pad.buttons
     if (this.lastHb === null || now - this.lastHb >= HB_MS) {
       this.deps.send({ t: 'input_hb', sysid: target })
@@ -92,8 +98,24 @@ export class GimbalLoop {
 
   /** A vanished pad or a stopped loop releases every held button (focus must not keep running). */
   private releaseAll(profile: GimbalInputProfile): void {
-    for (const fn of buttonReleases(this.prevButtons, [], profile)) this.deps.onRelease?.(fn)
+    const fallback = this.target
+    for (const fn of buttonReleases(this.prevButtons, [], profile)) {
+      const sysid = this.pressedFor.get(fn) ?? fallback
+      if (sysid !== null) this.release(fn, sysid)
+    }
     this.prevButtons = []
+    this.pressedFor = new Map()
+  }
+
+  private press(fn: ButtonFunction, target: number): void {
+    this.pressedFor = new Map([...this.pressedFor, [fn, target]])
+    this.deps.onButton(fn, target)
+  }
+
+  private release(fn: ButtonFunction, fallback: number): void {
+    const sysid = this.pressedFor.get(fn) ?? fallback
+    this.pressedFor = new Map([...this.pressedFor].filter(([k]) => k !== fn))
+    this.deps.onRelease?.(fn, sysid)
   }
 
   private zero(sysid: number): void {

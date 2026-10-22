@@ -157,9 +157,10 @@ export function Shell({ me, lang }: Props) {
       if (current === null) return
       runButtonAction(current, buttonAction(fn, cameras.get(current)?.state ?? null, roi.get(current)?.active_target ?? null), cameraCommand)
     },
-    (fn) => {
+    // The release goes where the press went, even if the selection changed meanwhile (final review M11).
+    (fn, sysid) => {
       const cmd = releaseCommand(fn)
-      if (current !== null && cmd) cameraCommand(current, cmd)
+      if (cmd) cameraCommand(sysid, cmd)
     },
   )
   const detailRoiName = useActiveRoiName(detail?.sysid ?? null, roi)
