@@ -92,15 +92,11 @@ async fn main() -> anyhow::Result<()> {
     let roi = state.roi.clone();
     let app = app::build(state, config.ui_dir.clone());
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
+    let shutdown = rgcs_server::shutdown::shutdown_signal()?;
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(shutdown)
         .await?;
     // Ruling 18: every active ROI ends with speed 0 before the process exits.
     roi.shutdown_all().await;
     Ok(())
-}
-
-async fn shutdown_signal() {
-    let _ = tokio::signal::ctrl_c().await;
-    info!("shutting down");
 }
