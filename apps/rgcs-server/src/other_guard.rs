@@ -17,12 +17,19 @@ const HEARTBEAT: f32 = 0.0;
 const CORE_TELEMETRY: [f32; 7] = [0.0, 1.0, 24.0, 30.0, 33.0, 42.0, 74.0];
 /// While armed, core telemetry stays at 0.5 Hz or faster.
 const ARMED_MAX_INTERVAL_US: f32 = 2_000_000.0;
+/// No stream faster than 100 Hz (a 1 µs request would flood the link).
+const MIN_INTERVAL_US: f32 = 10_000.0;
+/// PREFLIGHT_REBOOT_SHUTDOWN params the UI sends: reboot the autopilot, nothing else.
+const REBOOT_AUTOPILOT: [f32; 7] = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
 /// `None` when the command may go to the queue.
 pub fn check(mav_cmd: u16, params: &[f32; 7], v: &VehicleState) -> Option<Refusal> {
     match mav_cmd {
         MAV_CMD_DO_SET_MISSION_CURRENT => None,
         MAV_CMD_SET_MESSAGE_INTERVAL => check_rate(params[0], params[1], v.armed),
+        MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN if *params != REBOOT_AUTOPILOT => Some(invalid(
+            "only an autopilot reboot (param1 = 1, other params 0) is allowed",
+        )),
         MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN if v.armed => Some(armed("no reboot while armed")),
         MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN => None,
         _ => Some((
@@ -48,6 +55,9 @@ fn check_rate(msg_id: f32, interval_us: f32, is_armed: bool) -> Option<Refusal> 
     }
     if !interval_us.is_finite() || interval_us < -1.0 {
         return Some(invalid("param2 must be -1, 0 or an interval in microseconds"));
+    }
+    if interval_us > 0.0 && interval_us < MIN_INTERVAL_US {
+        return Some(invalid("param2: no stream faster than 100 Hz (at least 10000 µs)"));
     }
     if msg_id == HEARTBEAT {
         return Some(invalid("the HEARTBEAT rate is never changed: the link check depends on it"));
@@ -115,6 +125,32 @@ mod tests {
         assert_eq!(check(511, &rate(1.5, 0.0), &vehicle(false)).unwrap().1, "invalid");
         assert_eq!(check(511, &rate(33.0, -2.0), &vehicle(false)).unwrap().1, "invalid");
         assert_eq!(check(511, &rate(33.0, f32::NAN), &vehicle(false)).unwrap().1, "invalid");
+    }
+
+    #[test]
+    fn reboot_must_be_autopilot_reboot_only() {
+        let disarmed = vehicle(false);
+        for params in [
+            [2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // shutdown
+            [3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // reboot to bootloader
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], // + companion computer
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20190226.0],
+            [1.0, 0.0, f32::NAN, 0.0, 0.0, 0.0, 0.0],
+        ] {
+            let (status, code, _) = check(246, &params, &disarmed).expect("refused");
+            assert_eq!((status, code), (StatusCode::BAD_REQUEST, "invalid"), "{params:?}");
+        }
+    }
+
+    #[test]
+    fn rate_requests_faster_than_100_hz_are_refused() {
+        let disarmed = vehicle(false);
+        assert_eq!(check(511, &rate(33.0, 1.0), &disarmed).unwrap().1, "invalid");
+        assert_eq!(check(511, &rate(33.0, 9_999.0), &disarmed).unwrap().1, "invalid");
+        assert!(check(511, &rate(33.0, 10_000.0), &disarmed).is_none());
+        assert!(check(511, &rate(33.0, 0.0), &disarmed).is_none());
+        assert!(check(511, &rate(33.0, -1.0), &disarmed).is_none());
     }
 
     #[test]
