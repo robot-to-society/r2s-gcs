@@ -39,6 +39,8 @@ pub struct LinkChannels {
     pub gcs: rgcs_core::GcsId,
     /// Records every frame received and sent (maintenance › MAVLink インスペクター).
     pub inspector: crate::inspector::Inspector,
+    /// Camera / gimbal frames from any component, for the MAVLink camera driver.
+    pub payload: broadcast::Sender<crate::port::PayloadFrame>,
 }
 
 /// Wall + monotonic clock for the router, anchored at task start.
@@ -138,6 +140,7 @@ async fn receive_loop(
                 Some((header, msg)) => {
                     let now = clock.now();
                     link.inspector.record(rgcs_core::InspectorDir::Rx, &header, &msg, link.inspector.now_ms());
+                    publish_payload(ch, &header, &msg);
                     let evs = router.lock().await.on_message(&header, &msg, now);
                     forward(&ch.events, evs).await?;
                     handle_special(&conn, router, ch, link, &header, &msg, now).await;
@@ -183,6 +186,13 @@ async fn handle_special(
             });
         }
         _ => {}
+    }
+}
+
+/// Camera / gimbal frames go to the payload tap; never waits (no receiver is fine).
+fn publish_payload(ch: &LinkChannels, header: &MavHeader, msg: &MavMessage) {
+    if let Some(frame) = crate::port::tap(header, msg) {
+        let _ = ch.payload.send(frame);
     }
 }
 
@@ -297,6 +307,32 @@ mod tests {
         gcs.set(42);
         assert_eq!(next_header(&mut link).system_id, 42);
         assert_eq!(next_header(&mut link).component_id, GCS_COMPONENT_ID);
+    }
+
+    #[tokio::test]
+    async fn link_channels_carry_a_payload_sender() {
+        let (events, _events_rx) = mpsc::channel(1);
+        let (_out_tx, outgoing) = mpsc::channel(1);
+        let (acks, _) = broadcast::channel(1);
+        let (payload, mut payload_rx) = broadcast::channel(crate::port::PAYLOAD_CAPACITY);
+        let ch = LinkChannels {
+            events,
+            outgoing,
+            acks,
+            gcs: rgcs_core::GcsId::default(),
+            inspector: crate::inspector::Inspector::default(),
+            payload,
+        };
+        let msg = MavMessage::CAMERA_INFORMATION(
+            mavlink::dialects::ardupilotmega::CAMERA_INFORMATION_DATA::DEFAULT,
+        );
+        let header = MavHeader {
+            system_id: 1,
+            component_id: 100,
+            sequence: 0,
+        };
+        publish_payload(&ch, &header, &msg);
+        assert_eq!(payload_rx.recv().await.unwrap().header.component_id, 100);
     }
 
     #[tokio::test]

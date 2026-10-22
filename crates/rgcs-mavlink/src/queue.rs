@@ -95,7 +95,7 @@ async fn execute(
         {
             return Outcome::LinkClosed;
         }
-        match wait_ack(&mut rx, job.sysid, encoded.ack_for).await {
+        match wait_ack(&mut rx, job.sysid, encoded.ack_for, ACK_TIMEOUT).await {
             Some(result) => return classify(result),
             None => debug!(
                 attempt,
@@ -109,9 +109,15 @@ async fn execute(
     Outcome::Timeout
 }
 
-/// Waits for the matching ACK; `IN_PROGRESS` extends the wait up to `IN_PROGRESS_TIMEOUT`.
-async fn wait_ack(rx: &mut broadcast::Receiver<Ack>, sysid: SysId, command: MavCmd) -> Option<MavResult> {
-    let deadline = tokio::time::Instant::now() + ACK_TIMEOUT;
+/// Waits `timeout` for the matching ACK; `IN_PROGRESS` extends the wait up to
+/// `IN_PROGRESS_TIMEOUT`.
+pub(crate) async fn wait_ack(
+    rx: &mut broadcast::Receiver<Ack>,
+    sysid: SysId,
+    command: MavCmd,
+    timeout: Duration,
+) -> Option<MavResult> {
+    let deadline = tokio::time::Instant::now() + timeout;
     let hard = tokio::time::Instant::now() + IN_PROGRESS_TIMEOUT;
     let mut until = deadline;
     loop {
@@ -130,7 +136,7 @@ async fn wait_ack(rx: &mut broadcast::Receiver<Ack>, sysid: SysId, command: MavC
     }
 }
 
-fn classify(result: MavResult) -> Outcome {
+pub(crate) fn classify(result: MavResult) -> Outcome {
     match result {
         MavResult::MAV_RESULT_ACCEPTED => Outcome::Accepted,
         other => Outcome::Refused(

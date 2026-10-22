@@ -47,6 +47,7 @@ async fn main() -> anyhow::Result<()> {
     let (events_tx, events_rx) = mpsc::channel(256);
     let (outgoing_tx, outgoing_rx) = mpsc::channel(64);
     let (acks_tx, _) = broadcast::channel(64);
+    let (payload_tx, _) = broadcast::channel(rgcs_mavlink::port::PAYLOAD_CAPACITY);
     let (queue_tx, queue_rx) = mpsc::channel(32);
     let gcs_sysid = rgcs_server::settings::load_gcs_sysid(&store).await;
     let state = AppState::new(router.clone(), tx.clone(), store, queue_tx, dev_mode)
@@ -68,6 +69,7 @@ async fn main() -> anyhow::Result<()> {
         acks: acks_tx.clone(),
         gcs: state.gcs.clone(),
         inspector: state.inspector.clone(),
+        payload: payload_tx,
     };
     tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), channels));
     tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx, acks_tx));
