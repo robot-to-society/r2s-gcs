@@ -6,10 +6,36 @@ export const REQUIRES_CONFIRM: ReadonlySet<string> = new Set(['arm', 'disarm', '
 /** Commands whose confirm button is rendered as danger. */
 export const DESTRUCTIVE: ReadonlySet<string> = new Set(['arm', 'disarm', 'rtl', 'land'])
 
-/** One-click mode chips above the command groups (operator proposal 5). */
-export const QUICK_MODES: readonly string[] = ['LOITER', 'GUIDED', 'AUTO', 'RTL']
+/** Per airframe: `quick` are the one-click chips above the command groups (operator proposal 5,
+ * the modes used most); `all` is the 「モード変更」 list. Names match rgcs-mavlink's mode tables. */
+export interface FrameModes {
+  readonly quick: readonly string[]
+  readonly all: readonly string[]
+}
 
-export const COPTER_MODES: readonly string[] = ['STABILIZE', 'ALT_HOLD', 'LOITER', 'AUTO', 'GUIDED', 'RTL', 'LAND', 'BRAKE', 'POSHOLD']
+const PLANE_ALL = ['MANUAL', 'STABILIZE', 'ACRO', 'TRAINING', 'FBWA', 'FBWB', 'CRUISE', 'AUTOTUNE', 'TAKEOFF', 'LOITER', 'CIRCLE', 'GUIDED', 'AUTO', 'RTL', 'THERMAL']
+
+const MODES: Readonly<Record<'copter' | 'plane' | 'quadplane' | 'rover', FrameModes>> = {
+  copter: {
+    quick: ['STABILIZE', 'ALT_HOLD', 'LOITER', 'POSHOLD', 'GUIDED', 'AUTO', 'RTL', 'LAND'],
+    all: ['STABILIZE', 'ALT_HOLD', 'LOITER', 'POSHOLD', 'BRAKE', 'GUIDED', 'AUTO', 'CIRCLE', 'RTL', 'SMART_RTL', 'LAND', 'ACRO', 'SPORT', 'DRIFT', 'AUTOTUNE'],
+  },
+  plane: { quick: ['MANUAL', 'FBWA', 'FBWB', 'CRUISE', 'LOITER', 'GUIDED', 'AUTO', 'RTL'], all: PLANE_ALL },
+  quadplane: {
+    quick: ['QHOVER', 'QLOITER', 'QLAND', 'QRTL', 'FBWA', 'LOITER', 'AUTO', 'RTL'],
+    all: [...PLANE_ALL, 'QSTABILIZE', 'QHOVER', 'QLOITER', 'QLAND', 'QRTL', 'QAUTOTUNE', 'QACRO'],
+  },
+  rover: {
+    quick: ['MANUAL', 'ACRO', 'HOLD', 'LOITER', 'GUIDED', 'AUTO', 'RTL', 'SMART_RTL'],
+    all: ['MANUAL', 'ACRO', 'STEERING', 'HOLD', 'LOITER', 'FOLLOW', 'SIMPLE', 'CIRCLE', 'GUIDED', 'AUTO', 'RTL', 'SMART_RTL', 'DOCK'],
+  },
+}
+
+/** The modes for a vehicle; 'other' gets the copter set, like its icon and model. */
+export function modesFor(v: Pick<VehicleState, 'kind' | 'vtol'>): FrameModes {
+  if (v.kind === 'plane') return v.vtol ? MODES.quadplane : MODES.plane
+  return v.kind === 'rover' ? MODES.rover : MODES.copter
+}
 
 export type CommandGroup = 'flight' | 'move' | 'mode' | 'payload'
 export type ModalTarget = 'guided' | 'camera'

@@ -19,7 +19,7 @@ import {
   IconSpeed,
   IconStepForward,
 } from '../../shared/ui/icons'
-import { CATALOG, COPTER_MODES, QUICK_MODES, catalogGroups, type CatalogItem, type CommandGroup, type ModalTarget } from './catalog'
+import { CATALOG, catalogGroups, modesFor, type CatalogItem, type CommandGroup, type ModalTarget } from './catalog'
 import type { BtnState } from './feedback'
 
 interface Props {
@@ -64,10 +64,10 @@ function label(item: CatalogItem, dict: Dict): string {
 }
 
 /** One-click mode chips (operator proposal 5); still confirm-gated like 「モード変更」. */
-function QuickModes({ current, dict, onPick }: { current: string; dict: Dict; onPick: (c: VehicleCommand) => void }) {
+function QuickModes({ modes, current, dict, onPick }: { modes: readonly string[]; current: string; dict: Dict; onPick: (c: VehicleCommand) => void }) {
   return (
     <div className="quick-modes" role="group" aria-label={dict.quickModes}>
-      {QUICK_MODES.map((m) => (
+      {modes.map((m) => (
         <button key={m} type="button" className={`chip${m === current ? ' on' : ''}`} aria-pressed={m === current} onClick={() => onPick({ cmd: 'set_mode', args: { mode: m } })}>
           {m}
         </button>
@@ -95,7 +95,8 @@ function StepInput({ label, placeholder, value, onChange }: { label: string; pla
 /** Right-aligned 380 px sheet listing every command by group in a 2-column grid (spec 10 §3.5). */
 export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside = false, footer, feedback, prearm = [] }: Props) {
   const [query, setQuery] = useState('')
-  const [mode, setMode] = useState(vehicle.mode || COPTER_MODES[0]!)
+  const modes = modesFor(vehicle)
+  const [mode, setMode] = useState(vehicle.mode || modes.all[0]!)
   const [alt, setAlt] = useState('')
   const [speed, setSpeed] = useState('')
   const [open, setOpen] = useState<string | null>(null)
@@ -123,7 +124,7 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
     <div className="cmd-param" key={`${item.name}-param`}>
       {item.param === 'mode' && (
         <select className="rg-sel" aria-label={label(item, dict)} value={mode} onChange={(e) => setMode(e.target.value)}>
-          {COPTER_MODES.map((m) => (
+          {modes.all.map((m) => (
             <option key={m}>{m}</option>
           ))}
         </select>
@@ -158,7 +159,7 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
         </div>
       </div>
       <div className="sheet-body">
-        {q === '' && <QuickModes current={vehicle.mode} dict={dict} onPick={onPick} />}
+        {q === '' && <QuickModes modes={modes.quick} current={vehicle.mode} dict={dict} onPick={onPick} />}
         {catalogGroups(shown).map(({ group, items }) => (
           <div key={group}>
             <div className="cmd-group-title">{dict[GROUP_LABEL[group]]}</div>

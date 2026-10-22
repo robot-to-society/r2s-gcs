@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
-import { CATALOG, COPTER_MODES, REQUIRES_CONFIRM, catalogGroups, commandName } from './catalog'
+import { CATALOG, REQUIRES_CONFIRM, catalogGroups, commandName, modesFor } from './catalog'
 
 const v = (armed: boolean): VehicleState => ({
   sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'LOITER', armed, lat: 0, lon: 0, alt_rel: 0, alt_msl: 0, hdg: null,
@@ -37,6 +37,20 @@ describe('command catalog', () => {
     expect(by('change_alt').build!({ value: 50 })).toEqual({ cmd: 'change_alt', args: { alt_rel: 50 } })
     expect(by('arm').build!({})).toEqual({ cmd: 'arm' })
     expect(commandName({ cmd: 'change_speed', args: { mps: 3 } })).toBe('change_speed')
-    expect(COPTER_MODES).toContain('GUIDED')
+  })
+
+  it('gives each airframe the modes its operators use most, and its own full list', () => {
+    expect(modesFor({ kind: 'copter' }).quick).toEqual(['STABILIZE', 'ALT_HOLD', 'LOITER', 'POSHOLD', 'GUIDED', 'AUTO', 'RTL', 'LAND'])
+    expect(modesFor({ kind: 'plane' }).quick).toEqual(['MANUAL', 'FBWA', 'FBWB', 'CRUISE', 'LOITER', 'GUIDED', 'AUTO', 'RTL'])
+    expect(modesFor({ kind: 'plane', vtol: true }).quick).toEqual(['QHOVER', 'QLOITER', 'QLAND', 'QRTL', 'FBWA', 'LOITER', 'AUTO', 'RTL'])
+    expect(modesFor({ kind: 'rover' }).quick).toEqual(['MANUAL', 'ACRO', 'HOLD', 'LOITER', 'GUIDED', 'AUTO', 'RTL', 'SMART_RTL'])
+    expect(modesFor({ kind: 'other' })).toEqual(modesFor({ kind: 'copter' }))
+    expect(modesFor({ kind: 'plane' }).all).not.toContain('QHOVER')
+    expect(modesFor({ kind: 'rover' }).all).not.toContain('LAND')
+    for (const v of [{ kind: 'copter' }, { kind: 'plane' }, { kind: 'plane', vtol: true }, { kind: 'rover' }] as const) {
+      const { quick, all } = modesFor(v)
+      expect(quick.filter((m) => !all.includes(m))).toEqual([])
+      expect(new Set(all).size).toBe(all.length)
+    }
   })
 })

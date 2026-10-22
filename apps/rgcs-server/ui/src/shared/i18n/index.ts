@@ -442,7 +442,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   failed: 'failed',
   cmd_arm: 'Arm',
   cmd_disarm: 'Disarm',
-  cmd_rtl: 'Return to launch',
+  cmd_rtl: 'RTL',
   cmd_land: 'Land',
   cmd_pause: 'Pause',
   cmd_resume: 'Resume',

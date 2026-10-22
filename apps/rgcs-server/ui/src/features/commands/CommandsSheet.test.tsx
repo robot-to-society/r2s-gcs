@@ -43,10 +43,22 @@ describe('CommandsSheet', () => {
     render(<CommandsSheet vehicle={v(true)} onPick={onPick} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
     const row = screen.getByRole('group', { name: 'クイックモード' })
     const chips = [...row.querySelectorAll('button')].map((b) => b.textContent)
-    expect(chips).toEqual(['LOITER', 'GUIDED', 'AUTO', 'RTL'])
+    expect(chips).toEqual(['STABILIZE', 'ALT_HOLD', 'LOITER', 'POSHOLD', 'GUIDED', 'AUTO', 'RTL', 'LAND'])
     expect(screen.getByRole('button', { name: 'LOITER' })).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'AUTO' }))
     expect(onPick).toHaveBeenLastCalledWith({ cmd: 'set_mode', args: { mode: 'AUTO' } })
+  })
+
+  it('a QuadPlane gets its own chips and its mode list (not the copter one)', () => {
+    const qp = { ...v(true), kind: 'plane' as const, vtol: true, mode: 'QLOITER' }
+    render(<CommandsSheet vehicle={qp} onPick={() => {}} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
+    const row = screen.getByRole('group', { name: 'クイックモード' })
+    expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['QHOVER', 'QLOITER', 'QLAND', 'QRTL', 'FBWA', 'LOITER', 'AUTO', 'RTL'])
+    expect(screen.getByRole('button', { name: 'QLOITER' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'モード変更' }))
+    const options = [...(screen.getByLabelText('モード変更') as HTMLSelectElement).options].map((o) => o.value)
+    expect(options).toContain('QHOVER')
+    expect(options).not.toContain('ALT_HOLD')
   })
 
   it('altitude and speed inputs start at the current value and step by 5', () => {
