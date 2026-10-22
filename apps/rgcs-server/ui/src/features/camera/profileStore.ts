@@ -35,6 +35,10 @@ function subscribe(l: () => void): () => void {
 const snapshot = (): Profiles => state
 
 export const cameraProfileStore = {
+  /** The cached profile, or null before the first load / set. */
+  get(sysid: number): CameraProfile | null {
+    return state.get(sysid) ?? null
+  },
   /** The saved profile (e.g. a PUT result); no fetch. */
   set(sysid: number, p: CameraProfile): void {
     requested.add(sysid)

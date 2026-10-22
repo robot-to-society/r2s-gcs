@@ -82,7 +82,7 @@ function StatusBox({ cameraState, canSync, onSyncClock, dict }: StatusProps) {
         <span>{dict.camConn}</span>
         <span className="row" style={{ gap: 6 }}>
           <span className={`dot ${cameraState?.connected ? 'ok' : 'lost'}`} style={{ width: 8, height: 8 }} />
-          {cameraState?.connected ? dict.connected : dict.disconnected}
+          {cameraState?.connected ? dict.camConnected : dict.disconnected}
         </span>
         <span>{dict.camFw}</span>
         <span className="mono" style={{ fontSize: 12 }}>

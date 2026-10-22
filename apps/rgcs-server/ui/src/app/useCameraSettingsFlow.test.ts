@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CameraProfile, CommandResult, GimbalInputProfile, RoiControl, RoiTarget, VehicleState } from '../shared/api/types'
+import type { CameraCommand, CameraProfile, CameraState, CommandResult, GimbalInputProfile, RoiControl, RoiTarget, VehicleState } from '../shared/api/types'
 import { DEFAULT_PROFILE } from '../features/gimbal-joystick/profile'
 import { mapUiStore } from '../features/map/store'
 import { DEFAULT_ROI_CONTROL, emptyTargets } from '../features/roi/schema'
@@ -8,18 +8,21 @@ import type { SheetDraft } from '../features/camera-settings/CameraSettingsSheet
 import type { Modal } from './modal'
 
 const calls: string[] = []
+let stored: CameraProfile
 const results: CommandResult[] = []
-const profile = { sysid: 1, kind: 'siyi_mt11', host: '192.168.144.25', port: 37260 } as CameraProfile
+const profile = { sysid: 1, kind: 'siyi_mt11', host: '192.168.144.25', port: 37260, encoding_preset: 'h264_1080p', thermal_palette: 3, thermal_overlay: true, ai_box_px: 100, auto_record: true } as CameraProfile
 const api = {
   getCameraProfile: vi.fn(async () => profile),
-  putCameraProfile: vi.fn(async () => (calls.push('camera'), profile)),
+  // the server answers with the whole stored row
+  putCameraProfile: vi.fn(async (_s: number, p: Partial<CameraProfile>) => (calls.push('kind' in p ? 'camera' : 'video'), (stored = { ...stored, ...p }))),
+  sendCameraCommand: vi.fn(async (_s: number, c: CameraCommand) => void calls.push(`cmd:${c.cmd}`)),
   getRoiTargets: vi.fn(async () => emptyTargets()),
   getRoiControl: vi.fn(async () => DEFAULT_ROI_CONTROL),
   putRoiTargets: vi.fn(async (_s: number, t: readonly RoiTarget[]) => (calls.push('targets'), [...t])),
   putRoiControl: vi.fn(async (_s: number, c: RoiControl) => (calls.push('control'), c)),
   putGimbalProfile: vi.fn(async (p: GimbalInputProfile) => (calls.push('gimbal'), p)),
 }
-vi.mock('../features/camera/api', () => ({ getCameraProfile: () => api.getCameraProfile(), putCameraProfile: () => api.putCameraProfile() }))
+vi.mock('../features/camera/api', () => ({ getCameraProfile: () => api.getCameraProfile(), putCameraProfile: (s: number, p: Partial<CameraProfile>) => api.putCameraProfile(s, p), sendCameraCommand: (s: number, c: CameraCommand) => api.sendCameraCommand(s, c) }))
 vi.mock('../features/roi/api', () => ({
   getRoiTargets: () => api.getRoiTargets(),
   getRoiControl: () => api.getRoiControl(),
@@ -30,8 +33,9 @@ vi.mock('../features/gimbal-joystick/api', () => ({ putGimbalProfile: (p: Gimbal
 vi.mock('../features/vehicles/store', () => ({ vehicleStore: { pushLocalResult: (r: CommandResult) => results.push(r) } }))
 const { useCameraSettingsFlow } = await import('./useCameraSettingsFlow')
 const { roiTargetsStore } = await import('../features/roi/targetsStore')
+const { cameraProfileStore } = await import('../features/camera/profileStore')
 
-const draft: SheetDraft = { tab: 'connection', camera: { kind: 'siyi_mt11', host: '192.168.144.25', port: 37260, video_source_mode: 'auto' }, input: DEFAULT_PROFILE, roiTargets: emptyTargets(), roiControl: DEFAULT_ROI_CONTROL }
+const draft: SheetDraft = { tab: 'connection', camera: { kind: 'siyi_mt11', host: '192.168.144.25', port: 37260, video_source_mode: 'auto' }, input: DEFAULT_PROFILE, roiTargets: emptyTargets(), roiControl: DEFAULT_ROI_CONTROL, video: { encoding_preset: 'h264_1080p', thermal_palette: 3, thermal_overlay: true, ai_box_px: 100, auto_record: true, gain: null } }
 
 function setup(vehicles: ReadonlyMap<number, VehicleState> = new Map()) {
   const setModal = vi.fn<(m: Modal) => void>()
@@ -45,6 +49,7 @@ function setup(vehicles: ReadonlyMap<number, VehicleState> = new Map()) {
 describe('useCameraSettingsFlow', () => {
   beforeEach(() => {
     calls.length = 0
+    stored = profile
     results.length = 0
     vi.clearAllMocks()
   })
@@ -124,5 +129,43 @@ describe('useCameraSettingsFlow', () => {
     expect(setModal).toHaveBeenLastCalledWith({ kind: 'camera-settings', sysid: 1 })
     rerender({ modal: { kind: 'camera-settings', sysid: 1 } })
     expect(result.current.draft).toEqual({ ...draft, tab: 'roi' })
+  })
+
+  describe('the 映像 tab', () => {
+    const full = { ...profile, video_source_mode: 'auto' } as CameraProfile
+    const state = { thermal: { gain: 'high', range_c: null, frame: null, point: null } } as unknown as CameraState
+    const edited = { ...draft, video: { ...draft.video, encoding_preset: 'h265_4k' as const, ai_box_px: 150, gain: 'low' as const } }
+
+    it('PUTs the video patch, stores the result, then sends the live commands', async () => {
+      api.getCameraProfile.mockResolvedValueOnce(full)
+      const { result } = setup()
+      await waitFor(() => expect(result.current.roi).not.toBeNull())
+      await act(() => result.current.save(1, edited, state))
+      expect(calls).toEqual(['video', 'cmd:encoding', 'cmd:thermal_gain', 'targets', 'control', 'gimbal'])
+      expect(api.putCameraProfile).toHaveBeenCalledWith(1, { encoding_preset: 'h265_4k', ai_box_px: 150 })
+      expect(api.sendCameraCommand).toHaveBeenCalledWith(1, { cmd: 'encoding', args: { preset: 'h265_4k' } })
+      expect(cameraProfileStore.get(1)).toMatchObject({ encoding_preset: 'h265_4k', ai_box_px: 150 })
+      expect(results).toEqual([expect.objectContaining({ ok: true })])
+    })
+
+    it('a connection change stores the camera PUT result and skips the commands', async () => {
+      api.getCameraProfile.mockResolvedValueOnce(full)
+      const { result } = setup()
+      await waitFor(() => expect(result.current.roi).not.toBeNull())
+      await act(() => result.current.save(1, { ...edited, camera: { ...edited.camera, host: '10.0.0.7' } }, state))
+      expect(calls).toEqual(['camera', 'video', 'targets', 'control', 'gimbal'])
+      expect(api.sendCameraCommand).not.toHaveBeenCalled()
+      expect(cameraProfileStore.get(1)).toMatchObject({ host: '10.0.0.7' })
+    })
+
+    it('a refused command reports one failure and skips the rest', async () => {
+      api.getCameraProfile.mockResolvedValueOnce(full)
+      api.sendCameraCommand.mockRejectedValueOnce(new Error('stream_unknown'))
+      const { result } = setup()
+      await waitFor(() => expect(result.current.roi).not.toBeNull())
+      await act(() => result.current.save(1, edited, state))
+      expect(calls).toEqual(['video'])
+      expect(results).toEqual([expect.objectContaining({ ok: false, reason: 'stream_unknown' })])
+    })
   })
 })

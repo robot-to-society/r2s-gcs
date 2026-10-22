@@ -1,8 +1,10 @@
 // Camera settings sheet flow (spec 10 §5): load profile + ROI on open, save in order, 地図で指定.
 import { useEffect, useRef, useState } from 'react'
-import type { CameraProfile, GimbalInputProfile, RoiControl, RoiTarget, VehicleState } from '../shared/api/types'
-import { getCameraProfile, putCameraProfile } from '../features/camera/api'
+import type { CameraProfile, CameraState, GimbalInputProfile, RoiControl, RoiTarget, VehicleState } from '../shared/api/types'
+import { getCameraProfile, putCameraProfile, sendCameraCommand } from '../features/camera/api'
+import { cameraProfileStore } from '../features/camera/profileStore'
 import type { SheetDraft } from '../features/camera-settings/CameraSettingsSheet'
+import { videoSteps } from '../features/camera-settings/videoSchema'
 import { putGimbalProfile } from '../features/gimbal-joystick/api'
 import { cancelPick as cancelMapPick, mapUiStore, startPick as startMapPick, type LatLon } from '../features/map/store'
 import { getRoiControl, getRoiTargets, putRoiControl, putRoiTargets } from '../features/roi/api'
@@ -31,7 +33,8 @@ export interface CameraSettingsFlow {
   readonly draft: SheetDraft | null
   /** The last pick had no terrain elevation (home altitude or 0 was used). */
   readonly elevationFallback: boolean
-  readonly save: (sysid: number, d: SheetDraft) => Promise<void>
+  /** `cameraState` is the live state the gain draft is compared with (ruling 7). */
+  readonly save: (sysid: number, d: SheetDraft, cameraState?: CameraState) => Promise<void>
   readonly startPick: (sysid: number, d: SheetDraft, slot: number) => void
   readonly onMapPick: (p: LatLon) => Promise<void>
   readonly cancelPick: () => void
@@ -58,6 +61,21 @@ async function loadRoi(sysid: number): Promise<RoiSettings | null> {
 export function cameraChanged(profile: CameraProfile | null, camera: SheetDraft['camera']): boolean {
   if (profile === null) return true
   return profile.kind !== camera.kind || profile.host !== camera.host || profile.port !== camera.port || profile.video_source_mode !== camera.video_source_mode
+}
+
+const putAndStore = async (sysid: number, patch: Partial<CameraProfile>) => cameraProfileStore.set(sysid, await putCameraProfile(sysid, patch))
+
+/**
+ * The connection PUT (only when those fields changed: the server would rebuild the driver and stop ROI),
+ * then the 映像 patch, then the live commands (skipped after a reload, ruling 7).
+ */
+function profileSteps(sysid: number, profile: CameraProfile | null, d: SheetDraft, cameraState: CameraState | undefined): (() => Promise<unknown>)[] {
+  const connectionChanged = cameraChanged(profile, d.camera)
+  const cameraSteps = connectionChanged ? [() => putAndStore(sysid, d.camera)] : []
+  if (profile === null) return cameraSteps
+  const { patch, commands } = videoSteps(profile, cameraState, d.video, connectionChanged)
+  const patchSteps = patch === null ? [] : [() => putAndStore(sysid, patch)]
+  return [...cameraSteps, ...patchSteps, ...commands.map((c) => () => sendCameraCommand(sysid, c))]
 }
 
 function report(sysid: number, error: unknown): void {
@@ -96,11 +114,9 @@ export function useCameraSettingsFlow({ modal, setModal, terrainTiles, vehicles,
     setElevationFallback(false)
   }, [open])
 
-  const save = async (sysid: number, d: SheetDraft) => {
+  const save = async (sysid: number, d: SheetDraft, cameraState?: CameraState) => {
     const roiSteps = roi === null ? [] : [async () => roiTargetsStore.set(sysid, await putRoiTargets(sysid, d.roiTargets)), () => putRoiControl(sysid, d.roiControl)]
-    // An unchanged profile is not re-PUT: the server would rebuild the driver and stop ROI.
-    const cameraSteps = cameraChanged(profile, d.camera) ? [() => putCameraProfile(sysid, d.camera)] : []
-    const steps: (() => Promise<unknown>)[] = [...cameraSteps, ...roiSteps, async () => setGimbalProfile(await putGimbalProfile(d.input))]
+    const steps: (() => Promise<unknown>)[] = [...profileSteps(sysid, profile, d, cameraState), ...roiSteps, async () => setGimbalProfile(await putGimbalProfile(d.input))]
     try {
       for (const step of steps) await step()
       report(sysid, null)

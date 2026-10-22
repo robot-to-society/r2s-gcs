@@ -38,8 +38,9 @@ export function clockText(c: CameraClock | null | undefined, dict: Dict): string
   if (!c) return dict.unknown
   if (c.error !== null) return codeText(dict, 'clockErr_', c.error) ?? c.error
   if (c.offset_ms === null) return dict.unknown
-  const sign = c.offset_ms < 0 ? '−' : '+'
-  return `${dict.clockGps} ${sign}${(Math.abs(c.offset_ms) / 1000).toFixed(1)} s`
+  const magnitude = (Math.abs(c.offset_ms) / 1000).toFixed(1)
+  const sign = c.offset_ms < 0 && Number(magnitude) > 0 ? '−' : '+'
+  return `${dict.clockGps} ${sign}${magnitude} s`
 }
 
 /** Red when |offset| > 1000 ms or the last sync failed. */

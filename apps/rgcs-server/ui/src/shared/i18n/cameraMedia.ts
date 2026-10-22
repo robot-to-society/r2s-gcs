@@ -2,6 +2,7 @@
 // Refusal codes follow camera-rest ruling 4; AI ACK codes are the driver's 0x55 / 0x56 names.
 
 export const cameraMediaJa = {
+  camConnected: '接続中',
   thermal: 'サーマル',
   trackTracking: '追跡中',
   trackSearching: '再捕捉中',
@@ -36,6 +37,7 @@ export const cameraMediaJa = {
 } as const
 
 export const cameraMediaEn: Record<keyof typeof cameraMediaJa, string> = {
+  camConnected: 'Connected',
   thermal: 'Thermal',
   trackTracking: 'Tracking',
   trackSearching: 'Reacquiring',

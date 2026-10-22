@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { CameraProfile, CameraState } from '../../shared/api/types'
+import type { CameraCaps, CameraProfile, CameraState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 import { DEFAULT_PROFILE } from '../gimbal-joystick'
 import { DEFAULT_ROI_CONTROL, emptyTargets } from '../roi'
@@ -14,7 +14,16 @@ const camState: CameraState = { connected: true, last_error: null, firmware: { c
 
 const roi = { targets: emptyTargets(), control: DEFAULT_ROI_CONTROL }
 const dict = t('ja')
-const base = { sysid: 1, inputProfile: DEFAULT_PROFILE, cameraState: camState, gamepadIds: ['Pad A'], roiSupported: true, roi, activeRoi: null, onPickRoi: () => {}, onCancel: () => {}, onCenter: () => {}, onSyncClock: () => {}, clockSync: true, dict: t('ja') }
+const preset = (id: string, label: string, codec: 'h264' | 'h265', width: number, height: number) => ({ id, label, codec, width, height })
+const mt11Caps = {
+  kind: 'siyi_mt11', gimbal: null, zoom: null, focus: true, photo: true, record: true, video_modes: ['rgb', 'thermal', 'side_by_side'], hfov_deg: 60, roi: 'computed',
+  thermal: { gains: ['high', 'low'], palettes: [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], point_temp: true, frame_temp: true },
+  ai_tracking: { box_select: true, point_select: true, candidates: true },
+  encoding_presets: [preset('h264_720p', 'H.264 1280×720', 'h264', 1280, 720), preset('h264_1080p', 'H.264 1920×1080', 'h264', 1920, 1080), preset('h264_4k', 'H.264 3840×2160', 'h264', 3840, 2160), preset('h265_1080p', 'H.265 1920×1080', 'h265', 1920, 1080), preset('h265_4k', 'H.265 3840×2160', 'h265', 3840, 2160)],
+  storage_info: true, clock_sync: true,
+} as unknown as CameraCaps
+const mavCaps = { ...mt11Caps, kind: 'mavlink', thermal: null, ai_tracking: null, encoding_presets: [], storage_info: false, clock_sync: false } as CameraCaps
+const base = { caps: mt11Caps, sysid: 1, inputProfile: DEFAULT_PROFILE, cameraState: camState, gamepadIds: ['Pad A'], roiSupported: true, roi, activeRoi: null, onPickRoi: () => {}, onCancel: () => {}, onCenter: () => {}, onSyncClock: () => {}, clockSync: true, dict: t('ja') }
 
 describe('CameraSettingsSheet', () => {
   it('kind none hides host/port; choosing MT11 shows them with the rtsp preview', () => {
@@ -102,7 +111,7 @@ describe('CameraSettingsSheet', () => {
 
   it('with an initial draft it opens on the ROI tab with the drafted rows', () => {
     const targets = emptyTargets().map((x, i) => (i === 0 ? { ...x, name: 'ROI 1', lat: 36.1, lon: 139.1, alt_msl: 412 } : x))
-    const initial = { tab: 'roi' as const, camera: { kind: 'siyi_mt11' as const, host: '10.0.0.9', port: 37260, video_source_mode: 'auto' as const }, input: DEFAULT_PROFILE, roiTargets: targets, roiControl: DEFAULT_ROI_CONTROL }
+    const initial = { tab: 'roi' as const, camera: { kind: 'siyi_mt11' as const, host: '10.0.0.9', port: 37260, video_source_mode: 'auto' as const }, input: DEFAULT_PROFILE, roiTargets: targets, roiControl: DEFAULT_ROI_CONTROL, video: { encoding_preset: 'h264_1080p' as const, thermal_palette: 3, thermal_overlay: true, ai_box_px: 100, auto_record: true, gain: null } }
     render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} initial={initial} notice="hint text" />)
     expect(screen.getByLabelText(`${dict.roiName} 1`)).toHaveValue('ROI 1')
     expect(screen.getByText('412 m')).toBeInTheDocument()
@@ -119,6 +128,7 @@ describe('CameraSettingsSheet', () => {
     const { rerender } = render(<CameraSettingsSheet {...base} cameraState={live} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} onSyncClock={onSyncClock} />)
     expect(screen.getByText('11.0 / 128 GB  9%', { normalizer: (x) => x })).toHaveStyle({ color: 'var(--danger)' })
     expect(screen.getByText('GPS 同期 +0.3 s')).toBeInTheDocument()
+    expect(screen.getByText('接続中')).toBeInTheDocument()
     const sync = screen.getByRole('button', { name: '今すぐ同期' })
     expect(sync).toBeEnabled()
     fireEvent.click(sync)
@@ -127,5 +137,51 @@ describe('CameraSettingsSheet', () => {
     expect(screen.getByRole('button', { name: '今すぐ同期' })).toBeDisabled()
     rerender(<CameraSettingsSheet {...base} cameraState={live} clockSync={false} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} onSyncClock={onSyncClock} />)
     expect(screen.getByRole('button', { name: '今すぐ同期' })).toBeDisabled()
+  })
+
+  it('the 映像 tab shows encoding, palette and the gain from the camera state', () => {
+    const live: CameraState = { ...camState, thermal: { gain: 'high', range_c: [-20, 150], frame: null, point: null } }
+    render(<CameraSettingsSheet {...base} cameraState={live} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} />)
+    const tab = screen.getByRole('button', { name: '映像' })
+    expect(tab).not.toHaveAttribute('aria-disabled')
+    expect(tab).not.toHaveAttribute('title')
+    fireEvent.click(tab)
+    const enc = screen.getByLabelText('エンコード')
+    expect(enc.querySelectorAll('option')).toHaveLength(5)
+    expect(enc).toHaveValue('h264_1080p')
+    expect(screen.getByRole('option', { name: 'H.265 3840×2160' })).toBeInTheDocument()
+    expect(screen.getByLabelText('パレット').querySelectorAll('option')).toHaveLength(11)
+    expect(screen.getByLabelText('パレット')).toHaveValue('3')
+    expect(screen.getByRole('button', { name: 'High' })).toHaveClass('on')
+    expect(screen.getByText('測定レンジ −20〜150℃')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Low' }))
+    expect(screen.getByText('測定レンジ 0〜550℃')).toBeInTheDocument()
+  })
+
+  it('an invalid tracking box marks the input and disables save; the draft reaches onSave', () => {
+    const onSave = vi.fn()
+    render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={onSave} />)
+    fireEvent.click(screen.getByRole('button', { name: '映像' }))
+    fireEvent.change(screen.getByLabelText('追跡ボックス'), { target: { value: '20' } })
+    expect(screen.getByLabelText('追跡ボックス')).toHaveClass('invalid')
+    expect(screen.getByRole('button', { name: '保存' })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('追跡ボックス'), { target: { value: '150' } })
+    fireEvent.change(screen.getByLabelText('パレット'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSave.mock.calls[0]![0].video).toMatchObject({ ai_box_px: 150, thermal_palette: 5 })
+  })
+
+  it('MAVLink caps show only auto record; kind none shows the note', () => {
+    const { unmount } = render(<CameraSettingsSheet {...base} caps={mavCaps} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: '映像' }))
+    for (const label of ['エンコード', 'パレット', '追跡ボックス']) expect(screen.queryByLabelText(label)).not.toBeInTheDocument()
+    expect(screen.queryByText('ゲイン')).not.toBeInTheDocument()
+    expect(screen.getByText('ARM で自動録画')).toBeInTheDocument()
+    unmount()
+    render(<CameraSettingsSheet {...base} caps={undefined} profile={profile()} onSave={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: '映像' }))
+    expect(screen.queryByLabelText('エンコード')).not.toBeInTheDocument()
+    expect(screen.queryByText('ARM で自動録画')).not.toBeInTheDocument()
+    expect(screen.getByText(dict.camNoneNote)).toBeInTheDocument()
   })
 })

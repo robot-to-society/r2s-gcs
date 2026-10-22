@@ -135,7 +135,7 @@
 .settings-body { gap: 16px; }
 .settings-body .form .in { height: 34px; }
 .in.invalid, .rg-num.invalid { border-color: var(--danger); }
-.settings-issue { font-size: 12px; grid-column: 1 / -1; }
+.settings-issue { font-size: 12px; grid-column: 1 / -1; color: var(--danger); }
 .settings-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 14px 14px; border-top: 1px solid var(--line-soft); }
 
 /* ---- presentation settings ---- */

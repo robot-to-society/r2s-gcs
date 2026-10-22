@@ -45,6 +45,8 @@ describe('clockText / clockDanger', () => {
   it('shows the signed offset in seconds', () => {
     expect(clockText(clock({}), ja)).toBe('GPS 同期 +0.3 s')
     expect(clockText(clock({ offset_ms: -1200 }), ja)).toBe('GPS 同期 −1.2 s')
+    // a sub-50 ms offset rounds to zero and shows no minus sign
+    expect(clockText(clock({ offset_ms: -0.1 }), ja)).toBe('GPS 同期 +0.0 s')
     expect(clockDanger(clock({ offset_ms: -1200 }))).toBe(true)
     expect(clockDanger(clock({}))).toBe(false)
   })

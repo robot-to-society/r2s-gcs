@@ -399,6 +399,7 @@ export function Shell({ me, lang }: Props) {
               profile={settingsFlow.profile}
               inputProfile={gimbalProfile}
               cameraState={cameras.get(modal.sysid)?.state}
+              caps={cameras.get(modal.sysid)?.caps}
               gamepadIds={typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function' ? navigator.getGamepads().flatMap((g) => (g ? [g.id] : [])) : []}
               roiSupported={(cameras.get(modal.sysid)?.caps.roi ?? 'none') !== 'none'}
               roi={settingsFlow.roi}
@@ -411,7 +412,7 @@ export function Shell({ me, lang }: Props) {
               clockSync={cameras.get(modal.sysid)?.caps.clock_sync ?? false}
               onSyncClock={() => cameraCommand(modal.sysid, { cmd: 'sync_clock' })}
               onPickRoi={(d, slot) => settingsFlow.startPick(modal.sysid, d, slot)}
-              onSave={(d) => void settingsFlow.save(modal.sysid, d)}
+              onSave={(d) => void settingsFlow.save(modal.sysid, d, cameras.get(modal.sysid)?.state)}
             />
           )}
           {settingsFlow.pickHint === 'picking' && (
