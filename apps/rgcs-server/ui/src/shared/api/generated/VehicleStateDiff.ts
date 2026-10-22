@@ -14,4 +14,4 @@ export type VehicleStateDiff = { name?: string, kind?: VehicleKind, mode?: strin
 /**
  * `Some(None)` means the heading became unknown.
  */
-hdg?: number | null, ground_speed?: number, climb?: number, battery?: Battery, link?: LinkStatus, last_rx_ms?: number, gps?: Gps, warn?: boolean, unread?: number, cog?: number | null, nav?: NavInfo | null, target?: GeoPoint | null, home?: GeoPoint | null, attitude?: Attitude | null, };
+hdg?: number | null, ground_speed?: number, climb?: number, battery?: Battery, link?: LinkStatus, last_rx_ms?: number, gps?: Gps, warn?: boolean, unread?: number, cog?: number | null, nav?: NavInfo | null, target?: GeoPoint | null, home?: GeoPoint | null, attitude?: Attitude | null, vtol?: boolean, };

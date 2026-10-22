@@ -17,6 +17,7 @@ pub const MSG_ID_MISSION_CURRENT: u32 = 42;
 pub const MSG_ID_NAV_CONTROLLER_OUTPUT: u32 = 62;
 pub const MSG_ID_POSITION_TARGET_GLOBAL_INT: u32 = 87;
 pub const MSG_ID_HOME_POSITION: u32 = 242;
+pub const MSG_ID_EXTENDED_SYS_STATE: u32 = 245;
 
 const GRACE_MS: u64 = 10_000;
 const RETRY_MS: u64 = 5_000;
@@ -34,6 +35,7 @@ pub const WANTED: &[(u32, u32)] = &[
     (MSG_ID_NAV_CONTROLLER_OUTPUT, 500_000),
     (MSG_ID_POSITION_TARGET_GLOBAL_INT, 1_000_000),
     (MSG_ID_HOME_POSITION, 5_000_000),
+    (MSG_ID_EXTENDED_SYS_STATE, 1_000_000),
 ];
 
 /// Streams that only flow in some states (POSITION_TARGET_GLOBAL_INT in GUIDED, HOME_POSITION
@@ -129,6 +131,12 @@ mod tests {
             r = next;
         }
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn extended_sys_state_is_a_wanted_stream() {
+        // ArduPlane does not stream it by default; its vtol_state tells a QuadPlane apart.
+        assert!(WANTED.contains(&(MSG_ID_EXTENDED_SYS_STATE, 1_000_000)));
     }
 
     #[test]

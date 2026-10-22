@@ -39,4 +39,9 @@ home?: GeoPoint,
 /**
  * ATTITUDE roll / pitch (degrees, 0.1° steps), for the 3D model.
  */
-attitude?: Attitude, };
+attitude?: Attitude, 
+/**
+ * A plane that also hovers (QuadPlane, tiltrotor, tailsitter): EXTENDED_SYS_STATE.vtol_state
+ * or a VTOL MAV_TYPE. Picks the 3D model; omitted while false.
+ */
+vtol?: boolean, };

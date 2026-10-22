@@ -16,6 +16,7 @@ import { hasPosition } from './markers'
 import type { MapMode } from './mapMode'
 import type { LatLon } from './store'
 import type { Tracks } from './tracks'
+import { modelFor } from './models/meshes'
 import type { VehicleModel } from './models/modelLayer'
 
 const CYAN: Rgb = [0x9c / 255, 0xc9 / 255, 1]
@@ -142,7 +143,7 @@ function setupGround(m: MlMap): void {
 export function vehicleModels(vehicles: ReadonlyMap<number, VehicleState>, selected: number | null, alts: ReadonlyMap<number, number | null>): VehicleModel[] {
   return [...vehicles.values()]
     .filter(hasPosition)
-    .map((v) => ({ sysid: v.sysid, kind: v.kind, at: { lon: v.lon, lat: v.lat, amsl: alts.get(v.sysid) ?? v.alt_msl }, hdg: v.hdg ?? 0, accent: v.sysid === selected ? AMBER : CYAN, attitude: v.attitude ?? null }))
+    .map((v) => ({ sysid: v.sysid, model: modelFor(v.kind, v.vtol ?? false), at: { lon: v.lon, lat: v.lat, amsl: alts.get(v.sysid) ?? v.alt_msl }, hdg: v.hdg ?? 0, accent: v.sysid === selected ? AMBER : CYAN, attitude: v.attitude ?? null }))
 }
 
 export interface OpsAir {

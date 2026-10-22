@@ -1,13 +1,14 @@
 //! ArduPilot messages → [`VehicleState`] updates. Every function returns a new state.
 
 use mavlink::dialects::ardupilotmega::{
-    MavMessage, MavModeFlag, PositionTargetTypemask, ATTITUDE_DATA, GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA,
+    MavMessage, MavModeFlag, MavVtolState, PositionTargetTypemask, ATTITUDE_DATA, EXTENDED_SYS_STATE_DATA,
+    GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA,
     HEARTBEAT_DATA, HOME_POSITION_DATA, NAV_CONTROLLER_OUTPUT_DATA, POSITION_TARGET_GLOBAL_INT_DATA,
     SYS_STATUS_DATA, VFR_HUD_DATA,
 };
-use rgcs_core::{Attitude, Battery, GeoPoint, Gps, NavInfo, VehicleState};
+use rgcs_core::{Attitude, Battery, GeoPoint, Gps, NavInfo, VehicleKind, VehicleState};
 
-use crate::modes::{mode_name, vehicle_kind};
+use crate::modes::{is_vtol_type, mode_name, vehicle_kind};
 
 const HDG_UNKNOWN: u16 = u16::MAX;
 const U16_UNKNOWN: u16 = u16::MAX;
@@ -24,6 +25,7 @@ pub fn apply(state: &VehicleState, msg: &MavMessage) -> Option<VehicleState> {
         MavMessage::POSITION_TARGET_GLOBAL_INT(d) => Some(apply_position_target(state, d)),
         MavMessage::HOME_POSITION(d) => Some(apply_home(state, d)),
         MavMessage::ATTITUDE(d) => Some(apply_attitude(state, d)),
+        MavMessage::EXTENDED_SYS_STATE(d) => Some(apply_extended_sys_state(state, d)),
         _ => None,
     }
 }
@@ -43,10 +45,20 @@ pub fn apply_attitude(state: &VehicleState, a: &ATTITUDE_DATA) -> VehicleState {
     }
 }
 
+/// A QuadPlane's HEARTBEAT says FIXED_WING; its vtol_state is the one place it shows.
+/// ArduCopter reports MC as well: only a plane that hovers counts.
+pub fn apply_extended_sys_state(state: &VehicleState, d: &EXTENDED_SYS_STATE_DATA) -> VehicleState {
+    VehicleState {
+        vtol: state.kind == VehicleKind::Plane && d.vtol_state != MavVtolState::MAV_VTOL_STATE_UNDEFINED,
+        ..state.clone()
+    }
+}
+
 pub fn apply_heartbeat(state: &VehicleState, hb: &HEARTBEAT_DATA) -> VehicleState {
     let kind = vehicle_kind(hb.mavtype);
     VehicleState {
         kind,
+        vtol: kind == VehicleKind::Plane && (state.vtol || is_vtol_type(hb.mavtype)),
         mode: mode_name(kind, hb.custom_mode),
         armed: hb.base_mode.contains(MavModeFlag::MAV_MODE_FLAG_SAFETY_ARMED),
         ..state.clone()
@@ -257,6 +269,58 @@ mod tests {
         VehicleState::new(1, "UAV-01")
     }
 
+    fn plane_heartbeat(mavtype: MavType) -> MavMessage {
+        MavMessage::HEARTBEAT(HEARTBEAT_DATA {
+            mavtype,
+            autopilot: MavAutopilot::MAV_AUTOPILOT_ARDUPILOTMEGA,
+            ..HEARTBEAT_DATA::DEFAULT
+        })
+    }
+
+    fn extended(vtol_state: MavVtolState) -> MavMessage {
+        MavMessage::EXTENDED_SYS_STATE(EXTENDED_SYS_STATE_DATA {
+            vtol_state,
+            ..EXTENDED_SYS_STATE_DATA::DEFAULT
+        })
+    }
+
+    #[test]
+    fn extended_sys_state_tells_a_quadplane_from_a_plain_plane() {
+        // A QuadPlane's HEARTBEAT says FIXED_WING; only its vtol_state gives it away.
+        let plane = VehicleState {
+            kind: rgcs_core::VehicleKind::Plane,
+            ..base()
+        };
+        let qp = apply(&plane, &extended(MavVtolState::MAV_VTOL_STATE_MC)).expect("vtol is shown");
+        assert!(qp.vtol);
+        let fw = apply(&qp, &extended(MavVtolState::MAV_VTOL_STATE_FW)).unwrap();
+        assert!(fw.vtol, "flying as a plane is still a VTOL");
+        let plain = apply(&qp, &extended(MavVtolState::MAV_VTOL_STATE_UNDEFINED)).unwrap();
+        assert!(!plain.vtol);
+    }
+
+    #[test]
+    fn a_copter_hovering_is_not_a_vtol_plane() {
+        // ArduCopter reports vtol_state MC too; only a plane that hovers is a VTOL.
+        let copter = VehicleState {
+            kind: rgcs_core::VehicleKind::Copter,
+            ..base()
+        };
+        assert!(!apply(&copter, &extended(MavVtolState::MAV_VTOL_STATE_MC)).unwrap().vtol);
+        let was_vtol = VehicleState { vtol: true, ..base() };
+        assert!(!apply(&was_vtol, &plane_heartbeat(MavType::MAV_TYPE_QUADROTOR)).unwrap().vtol);
+    }
+
+    #[test]
+    fn a_vtol_mav_type_marks_vtol_and_a_fixed_wing_heartbeat_keeps_what_is_known() {
+        let tilt = apply(&base(), &plane_heartbeat(MavType::MAV_TYPE_VTOL_TILTROTOR)).unwrap();
+        assert!(tilt.vtol);
+        assert_eq!(tilt.kind, rgcs_core::VehicleKind::Plane);
+        let qp = VehicleState { vtol: true, ..base() };
+        assert!(apply(&qp, &plane_heartbeat(MavType::MAV_TYPE_FIXED_WING)).unwrap().vtol);
+        assert!(!apply(&base(), &plane_heartbeat(MavType::MAV_TYPE_FIXED_WING)).unwrap().vtol);
+    }
+
     #[test]
     fn heartbeat_sets_kind_mode_and_armed() {
         let hb = HEARTBEAT_DATA {
@@ -293,7 +357,7 @@ mod tests {
     #[test]
     fn attitude_gives_roll_and_pitch_in_tenths_of_a_degree() {
         let a = ATTITUDE_DATA {
-            roll: 0.5236,   // 30.0°
+            roll: std::f32::consts::FRAC_PI_6, // 30.0°
             pitch: -0.0873, // -5.0°
             ..ATTITUDE_DATA::DEFAULT
         };

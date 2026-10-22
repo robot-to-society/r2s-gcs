@@ -6,6 +6,7 @@ import type { FeatureCollection, Point } from 'geojson'
 import type { Map as MlMap, Marker } from 'maplibre-gl'
 import { climbColor, climbTint, itemAmsl, mercatorLine, vehicleAmsl, type AirPoint, type AirVertex, type ElevAt, type Rgb } from '../map/air'
 import { useAir3d } from '../map/air3d'
+import { modelFor } from '../map/models/meshes'
 import { floatMarkers, pixelsPerMetre, type Floating } from '../map/float'
 import type { MapMode } from '../map/mapMode'
 import { arcPoints, isArc } from './arc'
@@ -298,7 +299,7 @@ export function useMissionAir({ map, loaded, mode, terrainTiles, draft, selected
     live.current = marker && v && amsl !== null ? [{ marker, lon: v.lon, lat: v.lat, amsl, base, ground: sampler?.elevAt(v.lon, v.lat) ?? null }] : []
     // in 3D the model stands for the vehicle; the marker keeps its name pill
     marker?.getElement().classList.toggle('model3d', is3d && ready)
-    models.setModels(v && amsl !== null ? [{ sysid: v.sysid, kind: v.kind, at: { lon: v.lon, lat: v.lat, amsl }, hdg: v.hdg ?? 0, accent: VEHICLE_ACCENT, attitude: v.attitude ?? null }] : [])
+    models.setModels(v && amsl !== null ? [{ sysid: v.sysid, model: modelFor(v.kind, v.vtol ?? false), at: { lon: v.lon, lat: v.lat, amsl }, hdg: v.hdg ?? 0, accent: VEHICLE_ACCENT, attitude: v.attitude ?? null }] : [])
     const m = map.current
     // a telemetry update moves the vehicle only: the plan's markers float with the camera
     if (m && matrix.current && is3d) floatMarkers(m, matrix.current, live.current)

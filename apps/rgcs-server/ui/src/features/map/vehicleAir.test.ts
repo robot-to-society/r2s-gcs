@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
 import { toMercator } from './air'
-import { vehicleAirData } from './vehicleAir'
+import { vehicleAirData, vehicleModels } from './vehicleAir'
 import type { Mission } from '../../shared/api/types'
 
 const v = (sysid: number, alt_rel: number, lon = 139.37, lat = 36.16) => ({ sysid, lat, lon, alt_rel, gps: { fix: 3 }, link: 'ok', armed: false, mode: 'LOITER', ground_speed: 0, climb: 0 }) as unknown as VehicleState
+
+describe('vehicleModels', () => {
+  it('gives each airframe its own model: a VTOL plane is a QuadPlane, unknown kinds fly as copters', () => {
+    const at = (sysid: number, kind: string, vtol?: boolean) => ({ ...v(sysid, 0), kind, ...(vtol === undefined ? {} : { vtol }) }) as unknown as VehicleState
+    const all = new Map([[1, at(1, 'copter')], [2, at(2, 'plane', true)], [3, at(3, 'plane')], [4, at(4, 'rover')], [5, at(5, 'other')]])
+    expect(vehicleModels(all, null, new Map()).map((m) => m.model)).toEqual(['copter', 'quadplane', 'plane', 'rover', 'copter'])
+  })
+})
 
 describe('vehicleAirData', () => {
   const homes = new Map([[1, { lat: 36.16, lon: 139.37 }]])

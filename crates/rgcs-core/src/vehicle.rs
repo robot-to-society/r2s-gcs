@@ -88,6 +88,11 @@ pub struct VehicleState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub attitude: Option<Attitude>,
+    /// A plane that also hovers (QuadPlane, tiltrotor, tailsitter): EXTENDED_SYS_STATE.vtol_state
+    /// or a VTOL MAV_TYPE. Picks the 3D model; omitted while false.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[ts(as = "Option<bool>", optional)]
+    pub vtol: bool,
 }
 
 /// Roll (right wing down positive) and pitch (nose up positive), degrees.
@@ -150,6 +155,7 @@ impl VehicleState {
             target: None,
             home: None,
             attitude: None,
+            vtol: false,
         }
     }
 }
@@ -233,6 +239,8 @@ pub struct VehicleStateDiff {
     pub home: Option<Option<GeoPoint>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attitude: Option<Option<Attitude>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vtol: Option<bool>,
 }
 
 macro_rules! changed {
@@ -269,6 +277,7 @@ impl VehicleStateDiff {
             target: Some(s.target),
             home: Some(s.home),
             attitude: Some(s.attitude),
+            vtol: Some(s.vtol),
         }
     }
 }
@@ -299,7 +308,8 @@ pub fn diff(prev: &VehicleState, next: &VehicleState) -> Option<VehicleStateDiff
         nav,
         target,
         home,
-        attitude
+        attitude,
+        vtol
     );
     (d != VehicleStateDiff::default()).then_some(d)
 }
@@ -322,6 +332,16 @@ mod tests {
         let d = diff(&base(), &next).expect("changed");
         assert_eq!(d.attitude, Some(Some(Attitude { roll: 12.5, pitch: -3.0 })));
         assert_eq!(VehicleStateDiff::full(&next).attitude, Some(Some(Attitude { roll: 12.5, pitch: -3.0 })));
+    }
+
+    #[test]
+    fn vtol_starts_false_is_omitted_when_false_and_is_sent_when_it_changes() {
+        assert!(!base().vtol);
+        assert!(!serde_json::to_string(&base()).unwrap().contains("vtol"));
+        let next = VehicleState { vtol: true, ..base() };
+        assert!(serde_json::to_string(&next).unwrap().contains("\"vtol\":true"));
+        assert_eq!(diff(&base(), &next).expect("changed").vtol, Some(true));
+        assert_eq!(VehicleStateDiff::full(&next).vtol, Some(true));
     }
 
     #[test]

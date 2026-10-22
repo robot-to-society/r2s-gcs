@@ -63,6 +63,8 @@ const rotZ = (deg: number): Rot => {
 }
 /** Turns a z-axis cylinder onto the x axis (wheels). */
 const zToX: Rot = (v) => [v[2], v[1], -v[0]]
+/** Turns a z-axis cylinder onto the y axis (propellers facing forward). */
+const zToY: Rot = (v) => [v[0], v[2], -v[1]]
 const turn = (tris: readonly Tri[], r: Rot, at: V3 = [0, 0, 0]): Tri[] =>
   tris.map((t) => {
     const p = t.p.map((v) => {
@@ -89,16 +91,29 @@ function copter(): Tri[] {
   ]
 }
 
-function plane(): Tri[] {
+/** Fuselage, wing and tail shared by both planes. */
+function airframe(): Tri[] {
   return [
     ...box([0, 0, 0], [0.11, 0.78, 0.11], LIGHT), // fuselage
     ...turn(box([0, 0, 0], [0.11, 0.11, 0.08], LIGHT), (v) => [v[0] * 0.7, v[1], v[2] * 0.8], [0, 0.44, -0.005]), // nose
     ...box([0, 0.08, 0.03], [1.2, 0.18, 0.025], ACCENT), // wing
     ...box([0, -0.38, 0.02], [0.42, 0.11, 0.02], ACCENT), // tailplane
     ...box([0, -0.39, 0.11], [0.02, 0.12, 0.17], LIGHT), // fin
-    // QuadPlane booms and lift rotors (also reads as a fixed-wing's outline from afar)
-    ...[-0.32, 0.32].flatMap((x) => [...box([x, 0.08, 0.0], [0.03, 0.62, 0.03], DARK), ...cylinder([x, 0.36, 0.035], 0.12, 0.01, DARK, 10), ...cylinder([x, -0.2, 0.035], 0.12, 0.01, DARK, 10)]),
   ]
+}
+
+/** A propeller disc facing forward (spinning about y) at `y`. */
+const propeller = (y: number, r: number): Tri[] => [...turn(cylinder([0, 0, 0], r, 0.012, DARK, 12), zToY, [0, y, 0]), ...box([0, y, 0], [0.04, 0.03, 0.04], DARK)]
+
+/** A plain fixed wing: tractor propeller ahead of the nose. */
+function plane(): Tri[] {
+  return [...airframe(), ...propeller(0.52, 0.15)]
+}
+
+/** A QuadPlane: two booms carrying four lift rotors, and a pusher propeller behind the tail. */
+function quadplane(): Tri[] {
+  const boom = (x: number) => [...box([x, 0.08, 0.0], [0.03, 0.62, 0.03], DARK), ...cylinder([x, 0.36, 0.035], 0.12, 0.01, ACCENT, 10), ...cylinder([x, -0.2, 0.035], 0.12, 0.01, ACCENT, 10)]
+  return [...airframe(), ...[-0.32, 0.32].flatMap(boom), ...box([0, -0.43, 0], [0.04, 0.06, 0.04], DARK), ...propeller(-0.47, 0.11)]
 }
 
 function rover(): Tri[] {
@@ -123,14 +138,22 @@ function pack(tris: readonly Tri[]): Float32Array {
   return out
 }
 
-const cache = new Map<string, Float32Array>()
+/** One model per airframe. */
+export type ModelKey = 'copter' | 'quadplane' | 'plane' | 'rover'
 
-/** The mesh for a vehicle kind ('other' flies as a multicopter, like its icon). */
-export function meshFor(kind: VehicleKind): Float32Array {
-  const key = kind === 'plane' || kind === 'rover' ? kind : 'copter'
+/** The model for a vehicle: a plane that hovers is a QuadPlane; 'other' flies as a multicopter, like its icon. */
+export function modelFor(kind: VehicleKind, vtol: boolean): ModelKey {
+  if (kind === 'plane') return vtol ? 'quadplane' : 'plane'
+  return kind === 'rover' ? 'rover' : 'copter'
+}
+
+const BUILD: Readonly<Record<ModelKey, () => Tri[]>> = { copter, quadplane, plane, rover }
+const cache = new Map<ModelKey, Float32Array>()
+
+export function meshFor(key: ModelKey): Float32Array {
   const hit = cache.get(key)
   if (hit) return hit
-  const mesh = pack(key === 'plane' ? plane() : key === 'rover' ? rover() : copter())
+  const mesh = pack(BUILD[key]())
   cache.set(key, mesh)
   return mesh
 }

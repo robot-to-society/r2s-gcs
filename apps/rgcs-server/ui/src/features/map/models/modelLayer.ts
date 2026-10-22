@@ -1,14 +1,13 @@
 // 3D vehicle models (low-poly, meshes.ts) as a MapLibre custom layer. Like AirPathLayer, GL state
 // is touched only inside render() and buffers are uploaded there (MapLibre caches GL state).
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MlMap } from 'maplibre-gl'
-import type { VehicleKind } from '../../../shared/api/types'
 import type { Rgb } from '../air'
-import { FLOATS, meshFor } from './meshes'
+import { FLOATS, meshFor, type ModelKey } from './meshes'
 import { bodyBasis, modelMatrix, mul4, screenSizeMerc, type ModelAt } from './placement'
 
 export interface VehicleModel {
   readonly sysid: number
-  readonly kind: VehicleKind
+  readonly model: ModelKey
   readonly at: ModelAt
   /** Degrees clockwise from north. */
   readonly hdg: number
@@ -57,7 +56,7 @@ export class VehicleModelLayer implements CustomLayerInterface {
   private gl: WebGL2RenderingContext | null = null
   private map: MlMap | null = null
   private prog: WebGLProgram | null = null
-  private readonly meshes = new Map<string, { vao: WebGLVertexArrayObject; count: number }>()
+  private readonly meshes = new Map<ModelKey, { vao: WebGLVertexArrayObject; count: number }>()
   private models: readonly VehicleModel[] = []
 
   readonly id: string
@@ -84,11 +83,10 @@ export class VehicleModelLayer implements CustomLayerInterface {
     if (this.visible) this.map?.triggerRepaint()
   }
 
-  private mesh(gl: WebGL2RenderingContext, prog: WebGLProgram, kind: VehicleKind) {
-    const key = kind === 'plane' || kind === 'rover' ? kind : 'copter'
+  private mesh(gl: WebGL2RenderingContext, prog: WebGLProgram, key: ModelKey) {
     const hit = this.meshes.get(key)
     if (hit) return hit
-    const data = meshFor(kind)
+    const data = meshFor(key)
     const vao = gl.createVertexArray()!
     gl.bindVertexArray(vao)
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
@@ -126,7 +124,7 @@ export class VehicleModelLayer implements CustomLayerInterface {
       gl.uniformMatrix3fv(u('u_basis'), false, new Float32Array([...b.right, ...b.nose, ...b.up]))
       gl.uniform3f(u('u_light'), LIGHT[0], LIGHT[1], LIGHT[2])
       gl.uniform3f(u('u_accent'), v.accent[0], v.accent[1], v.accent[2])
-      const m = this.mesh(gl, prog, v.kind)
+      const m = this.mesh(gl, prog, v.model)
       gl.bindVertexArray(m.vao)
       gl.drawArrays(gl.TRIANGLES, 0, m.count)
     }

@@ -193,9 +193,9 @@ describe('MissionMap', () => {
   it('in 3D the target vehicle is a low-poly model and its disc hides', () => {
     const v = { ...(uav as object), kind: 'plane', hdg: 45, lat: 36.2, lon: 139.2, alt_rel: 20, alt_msl: 520 } as never
     const { props, rerender } = renderMap({ terrainTiles: DEM, mode: '3d', vehicle: v })
-    const layer = created.maps[0]!.layerObjs.get('mission-air3d-models') as { visible: boolean; models: { kind: string; hdg: number }[] }
+    const layer = created.maps[0]!.layerObjs.get('mission-air3d-models') as { visible: boolean; models: { model: string; hdg: number }[] }
     expect(layer.visible).toBe(true)
-    expect(layer.models.map((x) => [x.kind, x.hdg])).toEqual([['plane', 45]])
+    expect(layer.models.map((x) => [x.model, x.hdg])).toEqual([['plane', 45]])
     const el = created.markers.find((x) => x.el.querySelector('.vmk'))!.el
     expect(el.classList.contains('model3d')).toBe(true)
     rerender(<MissionMap {...props} terrainTiles={DEM} mode="2d" vehicle={v} />)

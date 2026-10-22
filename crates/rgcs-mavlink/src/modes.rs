@@ -106,6 +106,20 @@ pub fn mode_number(kind: VehicleKind, name: &str) -> Option<u32> {
         .map(|(num, _)| *num)
 }
 
+const VTOLS: &[MavType] = &[
+    MavType::MAV_TYPE_VTOL_TAILSITTER_DUOROTOR,
+    MavType::MAV_TYPE_VTOL_TAILSITTER_QUADROTOR,
+    MavType::MAV_TYPE_VTOL_TILTROTOR,
+    MavType::MAV_TYPE_VTOL_FIXEDROTOR,
+    MavType::MAV_TYPE_VTOL_TAILSITTER,
+    MavType::MAV_TYPE_VTOL_TILTWING,
+];
+
+/// MAV_TYPEs of planes that hover (a plain QuadPlane still reports FIXED_WING).
+pub fn is_vtol_type(mavtype: MavType) -> bool {
+    VTOLS.contains(&mavtype)
+}
+
 pub fn vehicle_kind(mavtype: MavType) -> VehicleKind {
     const COPTERS: &[MavType] = &[
         MavType::MAV_TYPE_QUADROTOR,
@@ -119,20 +133,11 @@ pub fn vehicle_kind(mavtype: MavType) -> VehicleKind {
         MavType::MAV_TYPE_GENERIC_MULTIROTOR,
     ];
     const ROVERS: &[MavType] = &[MavType::MAV_TYPE_GROUND_ROVER, MavType::MAV_TYPE_SURFACE_BOAT];
-    const PLANES: &[MavType] = &[
-        MavType::MAV_TYPE_FIXED_WING,
-        MavType::MAV_TYPE_VTOL_TAILSITTER_DUOROTOR,
-        MavType::MAV_TYPE_VTOL_TAILSITTER_QUADROTOR,
-        MavType::MAV_TYPE_VTOL_TILTROTOR,
-        MavType::MAV_TYPE_VTOL_FIXEDROTOR,
-        MavType::MAV_TYPE_VTOL_TAILSITTER,
-        MavType::MAV_TYPE_VTOL_TILTWING,
-    ];
     if COPTERS.contains(&mavtype) {
         VehicleKind::Copter
     } else if ROVERS.contains(&mavtype) {
         VehicleKind::Rover
-    } else if PLANES.contains(&mavtype) {
+    } else if mavtype == MavType::MAV_TYPE_FIXED_WING || is_vtol_type(mavtype) {
         VehicleKind::Plane
     } else {
         VehicleKind::Other
