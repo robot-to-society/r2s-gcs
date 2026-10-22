@@ -31,6 +31,8 @@
 - 映像ソースが Android のときは追跡・検出枠・温度測定を受け付けない。
 - 時刻同期は GPS 時刻が無い / 古いときは送らない(カメラの時計を壊さない)。
 - 自動録画(`auto_record`)は ARM で開始、DISARM で停止。SD 未挿入 / エラー時はメッセージ欄に警告。
+  - 実装(2026-10-23、`apps/rgcs-server/src/auto_record.rs`): ルーターの機体状態を 2 Hz で見て、`armed` の false → true で(録画中でなければ)`RecordStart`、true → false で(録画中なら)`RecordStop`。サーバー起動後の最初の観測は変化として扱わない。開始時に `storage.status` ≠ ok、または `recording` が `no_card` / `card_error` ならシステムメッセージ `sd_card_problem`(警告)を出す。監査の操作者は `auto_record`。
+- 実装済み(2026-10-23): 解像度未取得のクリック・点温度は 409 `stream_unknown`、GPS 時刻が無い / 5 s 超は同期しない(`clock.error`)、時刻同期無効での「今すぐ同期」は 409 `clock_sync_off`。0x48 は引き続き最下層で拒否。Android ソースは未実装のため、その規則は Android 対応時に入れる。
 
 ## 4. AI チャット
 

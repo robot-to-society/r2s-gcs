@@ -11,7 +11,7 @@
   { "success": true,  "data": { … } }
   { "success": false, "error": { "code": "unsupported_capability", "message": "…", "details": { … } } }
   ```
-- エラーコード(抜粋): `unauthorized`(401)/ `locked`(429)/ `validation`(422)/ `not_found`(404)/ `confirm_required`(409)/ `unsupported_capability`(409)/ `camera_disconnected`(503)/ `link_lost`(503)/ `rate_limited`(429)/ `internal`(500)。
+- エラーコード(抜粋): `unauthorized`(401)/ `locked`(429)/ `validation`(422)/ `not_found`(404)/ `confirm_required`(409)/ `unsupported_capability`(409)/ カメラの拒否 `rgb_only` / `thermal_only` / `stream_unknown` / `no_detection` / `clock_sync_off`(409、§2.3)/ `camera_disconnected`(503)/ `link_lost`(503)/ `rate_limited`(429)/ `internal`(500)。
 - 認証: `POST /api/auth/login` が `HttpOnly; SameSite=Strict; Secure(https 時)` のセッションクッキーを発行。`/api/*`(login 以外)と `/ws` はセッション必須。CSRF はクッキー + `X-Requested-With` ヘッダ必須 + SameSite で防ぐ。
 - 操作者 = セッションの `username`。送信系 API は全て `audit_log` に記録。
 - レート制限: 機体コマンド 10 req/s/セッション、カメラコマンド 20 req/s、ログイン 5 回失敗で 60 s ロック。
@@ -95,8 +95,8 @@
 | メソッド | パス | 本文 / 応答 |
 |---|---|---|
 | GET | `/api/vehicles/{sysid}/camera` | → `{caps: CameraCaps, state: CameraState}` |
-| POST | `/api/vehicles/{sysid}/camera/command` | `CameraCommand`(`GimbalRate` は WS 専用 → `409 ws_only`; caps に無い → `409 unsupported_capability`; 未接続 → `503 camera_offline`。監査 target `camera`) |
-| GET / PUT | `/api/vehicles/{sysid}/camera/profile` | `CameraProfile`(60 §3)。PUT は部分更新(省略した項目は保持)、`400 validation` はフィールド名入り。保存後にドライバと映像監視を再生成。起動時にも保存済み(`none` 以外)の全カメラを自動起動 |
+| POST | `/api/vehicles/{sysid}/camera/command` | `CameraCommand`(`GimbalRate` は WS 専用 → `409 ws_only`; 範囲外(正規化座標 0..1、`box_px` 32–600 など)→ `400 validation`; caps に無い → `409 unsupported_capability`; 未接続 → `503 camera_offline`; カメラ側の拒否 → `409` + 固定コード `rgb_only` / `thermal_only` / `stream_unknown` / `no_detection` / `clock_sync_off`(40 §1.2、UI は `camErr_<code>` で訳す)。`ai_select_box` の `box_px: null` はプロファイルの `ai_box_px` で埋める。`ai_select_box` / `ai_select_point` は送信前に ROI を止める。監査 target `camera`(拒否は reason にコード)) |
+| GET / PUT | `/api/vehicles/{sysid}/camera/profile` | `CameraProfile`(60 §3)。PUT は部分更新(省略した項目は保持)、`400 validation` はフィールド名入り。接続の項目(`kind` / `host` / `port` / `rtsp_url` / `comp_id` / `video_source_mode` / `android_url` / `clock_sync`)が変わったときだけ、保存後にドライバと映像監視を再生成する(2026-10-23)。映像タブの項目(`encoding_preset` / `thermal_palette` / `thermal_overlay` / `ai_box_px` / `auto_record`)は保存だけで、カメラへの反映は UI が続けて送るコマンド(10 §5)。起動時にも保存済み(`none` 以外)の全カメラを自動起動 |
 | GET / PUT | `/api/vehicles/{sysid}/roi/targets` | `[RoiTarget]`(10 件固定、id `roi_1..roi_10` の順)。PUT は全件置換、不正は `400 validation`(`targets[i].lat` などフィールド名入り)。追従中のスロットを未設定にすると ROI 停止、座標変更は追従継続。監査 target `roi` / command `targets` |
 | GET / PUT | `/api/vehicles/{sysid}/roi/control` | `RoiControl`(PUT は全項目、部分更新なし)。不正は `400 validation`。追従中は即時反映。監査 `roi` / `control` |
 | POST | `/api/vehicles/{sysid}/roi/start` | `{id}` → `RoiTarget`。未知の id → `404 not_found`、未設定(名前なし or 0,0)→ `409 roi_target_unset`、caps.roi が `computed` でない → `409 unsupported_capability`、カメラ未接続 → `503 camera_offline`。監査 `roi` / `start`(拒否も `rejected` で記録) |
@@ -104,7 +104,7 @@
 | GET / PUT | `/api/vehicles/{sysid}/video/source` | `{mode: auto\|mt11}` → `VideoSourceStatus`(P2 は Android 無し。PUT は監査 target `video`) |
 | POST | `/api/vehicles/{sysid}/video/whep` | `application/sdp`(≤ 64 KB、ICE 収集完了後の offer、trickle 無し)→ `201 application/sdp`。上流は `config.toml` の `whep_upstream`(既定 `http://127.0.0.1:8889/mt11/whep`)。上流不達は `503 video_unavailable` |
 | POST | `/api/vehicles/{sysid}/video/stats` | (P2 では未実装。遅延は UI が `getStats()` から算出) |
-| GET | `/api/debug/camera/{sysid}/rx` | → `{counts: {"0x50": n…}, last: {...}, firmware}` |
+| GET | `/api/debug/camera/{sysid}/rx` | → `{counts: {"0x50": n…}, last: {...}, firmware}`(未実装。使う UI が無いため移植しない、2026-10-23) |
 
 CSV 取込は UI が解析して `PUT roi/targets`。
 
@@ -181,7 +181,7 @@ ROI 開始 / 停止は REST のみ(`CameraCommand` ではない)。手動入力�
 |---|---|---|
 | `snapshot` | `{vehicles: [VehicleState], cameras: [CameraSnapshot{sysid, caps, state}], video_sources: [{sysid, status}]}` | 接続時 |
 | `telemetry` | `{sysid, diff: Partial<VehicleState>}` | 10 Hz(変化分のみ) |
-| `camera_state` | `{sysid, caps: CameraCaps, state: CameraState}` | 変化時 + 1 Hz(サーバーが再送。caps を毎回載せるので再読込なしに種別変更が反映される) |
+| `camera_state` | `{sysid, caps: CameraCaps, state: CameraState}` | 変化時 + 1 Hz(サーバーが再送。caps を毎回載せるので再読込なしに種別変更が反映される)。変化時の送信は機体ごとに最大 10 Hz(100 ms 間隔、連続した変化の最後の状態は必ず送る。0x50 / 0x5F の push はカメラ側で最大 30 Hz のため、2026-10-23) |
 | `roi_status` | `{sysid, status: RoiStatus}` | 2 Hz(追従中) |
 | `video_source` | `{sysid, status: VideoSourceStatus}` | 変化時 + 1 Hz(サーバーが再送) |
 | `vehicle_message` | `{sysid, id, severity, text, ts}`。機体の STATUSTEXT は原文(50 バイトのチャンクはサーバーで結合)。サーバー生成の `text` は固定コード `comms_delay` / `link_lost` / `link_restored`(UI が翻訳) | 発生時 |

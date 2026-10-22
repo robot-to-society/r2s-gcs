@@ -39,19 +39,27 @@ pub trait Camera: Send + Sync {
 
 ### 1.2 CameraCommand
 
-`GimbalRate{yaw:i8,pitch:i8}`(−100..100、+yaw=右、+pitch=上)/ `GimbalAngle{yaw_deg,pitch_deg}` / `GimbalCenter(OneKeyReset|CenterFaceDown|Center|FaceDown)` / `GimbalMode(Lock|Follow|Fpv)` / `ZoomAbsolute(f32)` / `ZoomStep(i8)` / `ZoomSpeed(-1|0|1)` / `ZoomReset` / `Focus(-1|0|1)` / `Photo` / `RecordStart` / `RecordStop` / `VideoMode(VideoMode)` / `ThermalGain(Low|High)` / `ThermalPalette(u8)` / `MeasurePoint{x,y}` / `MeasureFrame(bool)` / `AiEnable(bool)` / `AiSelectBox(StreamBox)` / `AiSelectPoint{x,y}` / `AiCancel` / `AiCandidates(bool)` / `Encoding(EncodingPresetId)` / `SyncClock` / `RoiStart(RoiTargetId)` / `RoiStop`。
+`GimbalRate{yaw:i8,pitch:i8}`(−100..100、+yaw=右、+pitch=上)/ `GimbalAngle{yaw_deg,pitch_deg}` / `GimbalCenter(OneKeyReset|CenterFaceDown|Center|FaceDown)` / `GimbalMode(Lock|Follow|Fpv)` / `ZoomAbsolute(f32)` / `ZoomStep(i8)` / `ZoomSpeed(-1|0|1)` / `ZoomReset` / `Focus(-1|0|1)` / `Photo` / `RecordStart` / `RecordStop` / `VideoMode(VideoMode)` / `ThermalGain(Low|High)` / `ThermalPalette(u8)` / `MeasurePoint{x,y}` / `AiSelectBox{x,y,box_px}` / `AiSelectPoint{x,y}` / `AiCancel` / `Encoding{preset}` / `SyncClock`。
 
+- 確定(2026-10-23): `MeasurePoint` / `AiSelectBox` / `AiSelectPoint` の `x` / `y` は **正規化 0..1**(画素ではない)。ドライバが最新の 0x20 解像度で画素に直すので、「解像度不明なら拒否」(70 §3)は変換と同じ値で 1 か所で判定する。`box_px` は主ストリーム画素の一辺(32–600)。`null` はプロファイルの `ai_box_px` を使う(サーバーが埋める)。
+- `MeasureFrame(bool)` / `AiEnable(bool)` / `AiCandidates(bool)` はコマンドにしない(2026-10-23)。0x14 は IR 表示中に毎秒ポーリングし、表示の On / Off は UI 側の `thermal_overlay`。0x55 は選択の直前に毎回送る。0x51 / 0x5F は 5 s ごとに再有効化する(カメラ再起動にも追従)。
+- 拒否は `CameraError::Refused(code)` → 409 `{code}`: `rgb_only`(RGB 以外でクリック追跡)、`thermal_only`(IR 以外で点温度)、`stream_unknown`(解像度未取得)、`no_detection`(Ctrl + クリックが直近の検出枠に当たらない)、`clock_sync_off`(時刻同期無効で「今すぐ同期」)。
 - `RoiStart` / `RoiStop` は `CameraCommand` にしない(2026-10-22 決定)。開始・停止は REST `POST /api/vehicles/{sysid}/roi/start|stop`(50 §2.3)とサーバーの `RoiHub` だけが扱う。`CameraCaps::supports` はドライバ単位の判定のまま、監査は target `roi` で残す。
 
 ドライバは対応しないコマンドに `CameraError::Unsupported` を返す。サーバーは `caps` と照合して送信前に拒否する(UI が隠していても API から来るため)。
 
 ### 1.3 CameraState
 
-`connected`, `last_error`, `firmware{camera,gimbal,zoom}`, `recording: Idle|Recording|NoCard|CardError`, `zoom`, `zoom_max`, `video_mode`, `stream: Option<(w,h)>`, `encoding`, `gimbal: Option<{yaw,pitch,roll,age_ms}>`, `gimbal_mode`, `thermal: Option<{gain, range_c, frame: Option<{max_c,min_c,max_xy,min_xy}>, point: Option<{temp_c,xy,age_ms}>}>`, `track: Option<{state: Tracking|Lost|Searching, box}>`, `candidates: Vec<Detection>`, `storage: Option<{status,fs,total_gb,free_gb,free_pct}>`, `clock: Option<{camera_unix_us, offset_ms, rtt_ms, synced_at}>`, `roi: RoiStatus`, `video_source: {mode, source, scanning, probe_ok}`。
+`connected`, `last_error`, `firmware{camera,gimbal,zoom}`, `recording: Idle|Recording|NoCard|CardError`, `zoom`, `zoom_max`, `video_mode`, `stream: Option<(w,h)>`, `encoding`, `gimbal: Option<{yaw,pitch,roll,age_ms}>`, `gimbal_mode`, `thermal: Option<{gain, range_c, frame: Option<{max_c,min_c,max_xy,min_xy}>, point: Option<{temp_c,xy,age_ms}>}>`, `track: Option<{status: Tracking|Searching|Lost, rect: NormRect{x,y,w,h}, target, age_ms}>`, `candidates: Vec<Detection{x0,y0,x1,y1,score,class_id,class_name}>`, `ai_ack: Option<{code, seq}>`, `storage: Option<{status,fs,total_gb,free_gb,free_pct}>`, `clock: Option<{camera_unix_us, reading_age_ms, offset_ms, rtt_ms, synced_at_unix_ms, error}>`。映像ソースは `video_source` WS フレーム(50 §3.1)で別に届く。
 
 - `roi` は `CameraState` に入れない(2026-10-22 決定、50 §3.1 が優先)。`RoiStatus` は WS `roi_status` フレームだけで届く(動作中 2 Hz + 停止時に 1 回)。スナップショットには含めず、再接続したクライアントは 0.5 s 以内に知る。非動作中は UI 上「なし」。
 
-座標(`box`, `xy`, `max_xy`)は **主ストリーム画素**(例 1920×1080)。UI は `stream` で正規化する。
+座標: サーマルの `xy` / `max_xy` / `min_xy` は **主ストリーム画素**(例 1920×1080、0x12 / 0x14 の値そのまま)で、UI は `stream` で正規化する。追跡枠 `track.rect`(左上原点)と検出枠 `candidates` は **正規化 0..1**(2026-10-23)。0x50 は 1280×720 の固定格子、0x5F は u16 / 65535 で、どちらも主ストリーム画素ではないため。
+
+- 追跡状態: 0x50 status 0 / 4 → `tracking`、1 → `searching`、2 → `lost`、3 → `track` を消す。
+- 古い表示は消す(受信時刻から): 全画面温度 3 s、点温度 15 s、追跡枠 1 s、検出枠 0.5 s(履歴は 1.5 s・最大 60 フレーム、Ctrl + クリックは直近 1 s を見る)。250 ms ごとの `expire` が受信と無関係に判定する。
+- 切断時は `track` / `candidates` / `thermal.frame` / `thermal.point` / `stream` / `encoding` を消す。`storage` / `clock` / ゲインは最後の値を残す(灰色表示)。
+- `ai_ack` は 0x55 / 0x56 の ACK ごとに `seq` が増える。UI は `ok` 以外を操作ログに出す。
 
 ## 2. ドライバ
 
@@ -90,6 +98,8 @@ pub trait Camera: Send + Sync {
 | 0x55 / 0x56 | TX / RX | AI モード有効化 / 枠選択・点選択・解除(ACK コードを `ai_select_result`) |
 | 0x5F | TX / RX | 検出枠 push の有効化 / 検出枠(直近 1.5 s、最大 60 フレーム保持) |
 
+ポーリング(2026-10-23、`siyi/polls.rs`、接続後 1 s ごとの tick): 0x0A / 0x0D 毎秒、0x14 `[1]` は IR 表示中だけ毎秒、0x20 `[1]` は解像度不明の間は毎秒・既知なら 30 s ごと(stream_type 1 の応答だけ採用)、0x40 / 0x51 `[1]` / 0x5F `[5]` は 5 s ごと、0x49 / 0x37 は 10 s ごと。0x21 の後は `stream` / `encoding` を消し、300 ms 後に 0x20 を読み直す。0x55 → 0x56 は 100 ms 空ける。
+
 ### 3.1 映像タイプと追跡の関係
 - クリック追跡は RGB 表示時のみ。IR / 2 画面へ切替えると追跡は解除。
 - Ctrl + クリックは直近 1 s の検出枠で当たり判定し、同一物体の最新位置を 0x56 点指定で送る。検出枠が届いていない FW(0x5F 非対応)はクリック位置をそのまま点指定。
@@ -108,7 +118,8 @@ pub trait Camera: Send + Sync {
   - 手動パン / チルト(|速度| ≥ 5)、センター、AI 追跡開始で ROI 解除。ROI 開始で AI 追跡解除。
   - 真後ろ付近は ±190° まで同じ側を維持して一周を防ぐ。
 - 実装上の決定(2026-10-22):
-  - 手動入力による解除: WS `gimbal_rate` の max(|yaw|, |pitch|) ≥ 5、REST `gimbal_center` / `gimbal_angle` / `gimbal_mode`、カメラプロファイルの PUT(ドライバ再構築)。AI 追跡のコマンドはまだ無いため、AI 連動の解除はサーバーの `RoiHub::stop(…, StopReason::Manual)` を呼ぶ形で後から繋ぐ。
+  - AI 追跡との連動(2026-10-23): `AiSelectBox` / `AiSelectPoint` は送信前に ROI を止める(`StopReason::Manual`、監査 reason `ai_tracking`)。`RoiHub::start` は `caps.ai_tracking` があれば先に `AiCancel` を送る(失敗はログのみで開始は止めない)。IR / 2 画面への切替でドライバが 0x56 解除を送る。
+  - 手動入力による解除: WS `gimbal_rate` の max(|yaw|, |pitch|) ≥ 5、REST `gimbal_center` / `gimbal_angle` / `gimbal_mode`、カメラプロファイルの PUT(ドライバ再構築)。AI 追跡の開始も解除する(上記)。
   - ROI 中の機体には、WS ゲートが送るゼロ(転送される (0, 0)、デッドマン / 選択切替 / 切断の Zero)を落とす。ジンバルは ROI ループが持つ。デッドマンの `input_state: lost` 応答は出す。
   - 停止は両モードとも必ず速度 0。操作員 / 目標削除 / シャットダウンの停止は即時 1 回 + 2 回再送、手動解除は 1 回だけ(操作員のスティックと競合しないため)。
   - カメラリンクが上がるたび(ドライバの初回接続と毎回の再接続)に速度 0 を 1 回送る。ただし ROI 追従中の機体には送らない(2026-10-23)。切断中に出した停止・手動解除のゼロは届かないため、再接続でジンバルを止める。SIGTERM / SIGINT の終了時は追従中の全機体を停止してから抜ける。
@@ -123,13 +134,15 @@ pub trait Camera: Send + Sync {
 ## 5. 時刻同期・SD・映像ソース
 
 - 時刻同期(MT11): FC の `SYSTEM_TIME`(無ければ 1 Hz で要求)で 0x30。経過時間を足して送る。タイミング: 初回 GPS 時刻、(再)接続、10 分ごと、「今すぐ同期」。GPS 時刻が無い / 5 s 以上古いときは送らない。同期後に 0x40 で読み返し、RTT/2 補正の差を表示(1 s 超は赤)。
+  - 実装(2026-10-23): 状態機械は `clock_sync.rs`(`time_sync.py` の移植)でドライバのアクター内にある。GPS 時刻はサーバーが注入する `GpsTime`(`RouterGpsTime`: ルーターの最新 `SYSTEM_TIME` のうち `time_unix_usec > 0` のもの、リンクの壁時計で受信時刻を付ける)。経過 = 壁時計の現在 − 受信時刻で、負なら古い扱い。プロファイル `clock_sync = false` なら注入せず自動同期は止まり、「今すぐ同期」は 409 `clock_sync_off`(UI のトグルは無く API のみ)。
+  - 表示する差 `clock.offset_ms` は最後の同期の読み返し(カメラ − GPS、RTT 中点補正)。5 s ごとの 0x40 は `camera_unix_us` の更新だけ。赤: |差| > 1000 ms、または `clock.error`(`no_gps_time` / `gps_time_stale` / `no_readback`)。
 - SD: 10 s ごと 0x49。空き 10% 未満、または status ≠ OK は赤。
 - 映像ソース: `auto` は MT11 → Android → 無ければ 15 s 後に再スキャン。選択中は 3 s ごと確認、2 回連続失敗で切替。固定(`mt11` / `android`)は疎通に関わらずそのソース。Android 表示中はクリック追跡・検出枠・温度表示を無効。
 
 ## 6. ジョイスティック(ジンバル用プロファイル)
 
 - 軸機能: `none` / `pan` / `tilt` / `zoom_abs`(軸 −1..1 → 1..最大倍率、0.5 刻み、2 Hz)/ `zoom_speed`(連続ズーム)/ `zoom_step`(±0.2 を越えるたびに 1 段)。各軸に不感帯(0–0.5)、反転、スケール(0.1–2)。
-- ボタン機能: `shutter`, `record_toggle`, `center_gimbal`, `thermal_toggle`(RGB → IR → 2 画面を巡回), `thermal_gain_toggle`, `focus_near` / `focus_far`(押下中), `ai_tracking_toggle`(中央 200 px で開始), `gimbal_stop`, `zoom_in_step` / `zoom_out_step` / `zoom_1x`, `mode_lock` / `mode_follow` / `mode_fpv` / `mode_cycle`, `roi_1`…`roi_10`(押すたびに開始 / 停止。別の ROI 動作中なら押した目標に切替), `roi_stop`(動作中だけ停止)。`roi_*` は 2026-10-22 実装済み。
+- ボタン機能: `shutter`, `record_toggle`, `center_gimbal`, `thermal_toggle`(RGB → IR → 2 画面を巡回), `thermal_gain_toggle`, `focus_near` / `focus_far`(押下中), `ai_tracking_toggle`(中央 200 px で開始), `gimbal_stop`, `zoom_in_step` / `zoom_out_step` / `zoom_1x`, `mode_lock` / `mode_follow` / `mode_fpv` / `mode_cycle`, `roi_1`…`roi_10`(押すたびに開始 / 停止。別の ROI 動作中なら押した目標に切替), `roi_stop`(動作中だけ停止)。`roi_*` は 2026-10-22、`thermal_gain_toggle`(High ⇄ Low、不明なら High)/ `ai_tracking_toggle`(追跡中は解除、それ以外は中央 200 px)/ `focus_near` / `focus_far`(押下で −1 / +1、離して 0。パッドが消えたときも 0)は 2026-10-23 実装済み。
 - 速度: `yaw = pan × max_pan_speed`、`pitch = tilt × max_tilt_speed`(既定 30 / 20)。20 Hz、非ゼロのときだけ送信し、ゼロに戻った瞬間に 1 回 0 を送る。
 - ROI 中は |速度| < 5 の入力をノイズとして無視する。
 - 対象は「選択中の機体」のカメラ。機体を切替えたら 0 を送ってから切替える。
@@ -156,9 +169,10 @@ pub trait Camera: Send + Sync {
 
 - `crates/rgcs-camera`: `siyi/frame.rs`(CRC / パケット / 受信パーサ)、`siyi/encode.rs`、`siyi/parse.rs`、`siyi/client.rs`(tokio アクター: TCP ハートビート 1 Hz、0x0A / 0x0D ポーリング 1 Hz、接続時 0x01 / 0x18 / 0x10 / 0x19、UDP 0x07 / 0x08 / 0x0E、切断 1 秒後に再接続、接続タイムアウト 3 秒、3 秒無応答で切断扱い(電源断は FIN が来ないため)、切断中のコマンドは即 `NotConnected`、姿勢の `age_ms` は最後の 0x0D からの経過)、`siyi/sim.rs`(疑似サーバー、`cargo run -p rgcs-camera --features sim --example siyi_sim`)、`none.rs`。
 - 実装済みコマンド: `GimbalRate` / `GimbalAngle` / `GimbalCenter` / `GimbalMode` / `ZoomAbsolute` / `ZoomStep` / `ZoomSpeed` / `ZoomReset` / `Focus` / `Photo` / `RecordStart` / `RecordStop` / `VideoMode`。録画はカメラの状態を見てトグルを 1 回だけ送る。
-- 未実装(デモ後): サーマル温度(0x12 / 0x14 / 0x37 / 0x38 / 0x1B)、AI 追跡(0x50 / 0x51 / 0x55 / 0x56 / 0x5F)、エンコード(0x20 / 0x21)、時刻同期(0x30 / 0x40)、SD(0x49)、MAVLink カメラ、Android ソース。
+- 2026-10-23 実装済み: サーマル温度・ゲイン・パレット(0x12 / 0x14 / 0x37 / 0x38 / 0x1B、`siyi/thermal.rs`)、AI 追跡(0x50 / 0x51 / 0x55 / 0x56 / 0x5F、`siyi/ai.rs`)、エンコード(0x20 / 0x21、`siyi/ai.rs` のプリセット)、時刻同期(0x30 / 0x40、`clock_sync.rs`)、SD(0x49、`siyi/tf_card.rs`)。ドライバは `siyi/{client,session,apply,exec,polls,expire}.rs` に分割。疑似サーバーは `siyi/sim_media.rs` で同じコマンドに応答し 0x50 / 0x5F を push する。サーバー: `gps_time.rs`、`auto_record.rs`(70 §3)、ROI ↔ AI 連動(§4)、`camera_state` 10 Hz 上限(50 §3.1)。UI: コックピットの重ね描き・クリック操作・AI追跡ボタン(10 §4.2)、カメラ設定「映像」タブと接続タブの SD / 時刻(10 §5)、状態カード・状態行。
+- 未実装: MAVLink カメラ、Android ソース、0x13(領域温度)。
 - GPS ROI(§4、MT11 Computed)は 2026-10-22 実装済み: `rgcs-camera::roi::{geo, pid, controller}`、サーバーの `RoiHub`(機体ごとに 1 タスク、0x07 10 Hz / 0x0E、ROI 中 0x0D を毎ステップ要求)、`roi_targets` / `roi_control`(60 §3.4)、REST(50 §2.3)、UI(カメラ設定の ROI タブ、地図マーカーと視線、コックピットの ROI チップ、状態行の ROI 名)、ジョイスティック `roi_*`。
-- ジョイスティック(§6)は pan / tilt 軸とボタン機能(shutter, record_toggle, center_gimbal, thermal_toggle, gimbal_stop, zoom_in_step, zoom_out_step, zoom_1x, mode_*)を実装。zoom_abs / zoom_speed / zoom_step 軸は未実装。
+- ジョイスティック(§6)は pan / tilt 軸とボタン機能(shutter, record_toggle, center_gimbal, thermal_toggle, gimbal_stop, zoom_in_step, zoom_out_step, zoom_1x, mode_*、2026-10-23 に thermal_gain_toggle, ai_tracking_toggle, focus_near, focus_far)を実装。zoom_abs / zoom_speed / zoom_step 軸は未実装。
 
 ## 7.2 地図上の撮影方向(2026-10-18 デザイン、10 §3.1)
 
