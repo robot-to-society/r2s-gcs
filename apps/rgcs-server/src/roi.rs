@@ -114,6 +114,9 @@ impl RoiHub {
         if !target.is_set() {
             return Err(RoiError::Unset);
         }
+        if camera.caps().ai_tracking.is_some() {
+            self.cancel_ai_tracking(sysid).await;
+        }
         let control = self.store.roi_control(sysid).await.map_err(internal)?;
         let (ack, done) = oneshot::channel();
         let cmd = Cmd::Start {
@@ -125,6 +128,17 @@ impl RoiHub {
         done.await
             .map_err(|_| RoiError::Internal("roi task ended".into()))?;
         Ok(target)
+    }
+
+    /// Ruling 9: ROI and the AI tracker never steer the gimbal together, so a start cancels
+    /// tracking first. A failure is logged and does not block the start.
+    async fn cancel_ai_tracking(&self, sysid: SysId) {
+        let cancel = self.cameras.send(sysid, rgcs_core::CameraCommand::AiCancel);
+        match tokio::time::timeout(SEND_TIMEOUT, cancel).await {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => tracing::warn!(sysid, error = %e, "ROI start: AI tracking cancel failed"),
+            Err(_) => tracing::warn!(sysid, "ROI start: AI tracking cancel timed out"),
+        }
     }
 
     /// Stops ROI and waits until the task has sent its zero; `false` when it was inactive.

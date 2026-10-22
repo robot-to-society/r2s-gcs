@@ -25,6 +25,7 @@ rgcs-video = { workspace = true }
 rgcs-input = { workspace = true }
 rgcs-mission = { workspace = true }
 thiserror = { workspace = true }
+async-trait = "0.1"
 mavlink = { workspace = true }
 axum-extra = { workspace = true }
 uuid = { workspace = true }

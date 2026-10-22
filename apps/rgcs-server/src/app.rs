@@ -96,6 +96,7 @@ impl AppState {
         // Without a link the sender has no receiver: direct sends fail → 503 link_lost.
         let (outgoing, _) = mpsc::channel(1);
         let cameras = CameraManager::new(store.clone(), tx.clone(), CameraFactory::Real);
+        cameras.set_gps_time(crate::gps_time::factory(router.clone()));
         let roi = crate::roi::RoiHub::new(store.clone(), cameras.clone(), router.clone(), tx.clone());
         let video = VideoHub::new(store.clone(), tx.clone(), Timings::default());
         let gcs = rgcs_core::GcsId::default();
@@ -156,6 +157,7 @@ impl AppState {
 
     /// Swaps the camera manager; the ROI hub is rebuilt so it drives the same drivers.
     pub fn with_cameras(self, cameras: CameraManager) -> Self {
+        cameras.set_gps_time(crate::gps_time::factory(self.router.clone()));
         let roi = crate::roi::RoiHub::new(self.store.clone(), cameras.clone(), self.router.clone(), self.tx.clone());
         Self { cameras, roi, ..self }
     }
@@ -167,6 +169,11 @@ impl AppState {
             self.whep.clone()
         });
         Self { whep, ..self }
+    }
+
+    /// Spawns the background tasks that act on their own (ARM / DISARM auto record).
+    pub fn spawn_background(&self) {
+        crate::auto_record::spawn(self.clone());
     }
 
     /// Boot: start every configured camera driver and its video monitor without waiting for

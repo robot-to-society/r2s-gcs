@@ -45,31 +45,17 @@ pub async fn command(
             "gimbal_rate is sent over the WebSocket",
         );
     }
-    cancel_roi_for_manual(&app, &op.username, sysid, &cmd).await;
+    if let Err(e) = cmd.validate() {
+        return err(StatusCode::BAD_REQUEST, "validation", e.to_string());
+    }
+    let cmd = with_default_box(&app, sysid, cmd).await;
+    cancel_roi_for(&app, &op.username, sysid, &cmd).await;
     let result = app.cameras.send(sysid, cmd.clone()).await;
-    let (status, code, reason) = match &result {
-        Ok(()) => (StatusCode::OK, "", None),
-        Err(CameraError::Unsupported(what)) => (
-            StatusCode::CONFLICT,
-            "unsupported_capability",
-            Some(format!("{what} is not supported")),
-        ),
-        Err(CameraError::NotConnected) => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            "camera_offline",
-            Some("camera is not connected".into()),
-        ),
-        Err(CameraError::Forbidden(c)) => (
-            StatusCode::CONFLICT,
-            "forbidden",
-            Some(format!("command 0x{c:02X} is forbidden")),
-        ),
-        Err(e) => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            "camera_error",
-            Some(e.to_string()),
-        ),
-    };
+    let failure = result.as_ref().err().map(error_reply);
+    let reason = failure.as_ref().map(|(_, code, message)| match code {
+        Code::Refused(c) => (*c).to_string(),
+        _ => message.clone(),
+    });
     audit(
         &app,
         &op.username,
@@ -79,9 +65,69 @@ pub async fn command(
         reason.as_deref(),
     )
     .await;
-    match reason {
+    match failure {
         None => ok(()),
-        Some(message) => err(status, code, message),
+        Some((status, code, message)) => err(status, code.as_str(), message),
+    }
+}
+
+/// The error code of a failed send; refusals carry their own code (ruling 4).
+enum Code {
+    Fixed(&'static str),
+    Refused(&'static str),
+}
+
+impl Code {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Fixed(c) | Self::Refused(c) => c,
+        }
+    }
+}
+
+fn error_reply(e: &CameraError) -> (StatusCode, Code, String) {
+    match e {
+        CameraError::Unsupported(what) => (
+            StatusCode::CONFLICT,
+            Code::Fixed("unsupported_capability"),
+            format!("{what} is not supported"),
+        ),
+        CameraError::NotConnected => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Code::Fixed("camera_offline"),
+            "camera is not connected".into(),
+        ),
+        CameraError::Forbidden(c) => (
+            StatusCode::CONFLICT,
+            Code::Fixed("forbidden"),
+            format!("command 0x{c:02X} is forbidden"),
+        ),
+        CameraError::Refused(code) => (StatusCode::CONFLICT, Code::Refused(code), e.to_string()),
+        e => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Code::Fixed("camera_error"),
+            e.to_string(),
+        ),
+    }
+}
+
+/// `AiSelectBox { box_px: None }` takes the profile's `ai_box_px` (ruling 2).
+async fn with_default_box(app: &AppState, sysid: SysId, cmd: CameraCommand) -> CameraCommand {
+    match cmd {
+        CameraCommand::AiSelectBox { x, y, box_px: None } => {
+            let box_px = app
+                .store
+                .camera_profile(sysid)
+                .await
+                .map(|p| p.ai_box_px)
+                .unwrap_or_else(|_| CameraProfile::default_for(sysid).ai_box_px);
+            CameraCommand::AiSelectBox {
+                x,
+                y,
+                box_px: Some(box_px),
+            }
+        }
+        other => other,
     }
 }
 
@@ -162,9 +208,10 @@ pub async fn put_profile(
     if let Err(e) = app.store.record_audit(entry).await {
         tracing::error!(error = %e, "audit write failed");
     }
-    // An unchanged profile (e.g. a settings save that only touched ROI presets) keeps the
-    // driver, the video and an active ROI running.
-    if profile != base {
+    // Only a connection field change rebuilds the driver (ruling 7): an unchanged profile or
+    // a 映像 tab save (encoding, palette, overlay, box size, auto record) keeps the driver,
+    // the video and an active ROI running.
+    if base.needs_reload(&profile) {
         reload_driver(&app, &op.username, sysid).await;
     }
     ok(profile)
@@ -179,14 +226,25 @@ async fn reload_driver(app: &AppState, operator: &str, sysid: SysId) {
     app.video.reload(sysid).await;
 }
 
-/// Manual gimbal pointing cancels ROI (spec 40 §4); the stop is audited when ROI was active.
-async fn cancel_roi_for_manual(app: &AppState, operator: &str, sysid: SysId, cmd: &CameraCommand) {
-    let manual = matches!(
-        cmd,
-        CameraCommand::GimbalCenter { .. } | CameraCommand::GimbalAngle { .. } | CameraCommand::GimbalMode { .. }
-    );
-    if manual && app.roi.stop(sysid, StopReason::Manual).await {
-        crate::roi_api::audit_manual_stop(app, operator, sysid, "manual_command").await;
+/// Why `cmd` takes the gimbal from an active ROI: manual pointing (spec 40 §4) or an AI
+/// tracking start (ruling 9). Other commands keep ROI.
+fn roi_cancel_reason(cmd: &CameraCommand) -> Option<&'static str> {
+    match cmd {
+        CameraCommand::GimbalCenter { .. } | CameraCommand::GimbalAngle { .. } | CameraCommand::GimbalMode { .. } => {
+            Some("manual_command")
+        }
+        CameraCommand::AiSelectBox { .. } | CameraCommand::AiSelectPoint { .. } => Some("ai_tracking"),
+        _ => None,
+    }
+}
+
+/// Stops an active ROI before `cmd` goes out; the stop is audited when ROI was active.
+async fn cancel_roi_for(app: &AppState, operator: &str, sysid: SysId, cmd: &CameraCommand) {
+    let Some(reason) = roi_cancel_reason(cmd) else {
+        return;
+    };
+    if app.roi.stop(sysid, StopReason::Manual).await {
+        crate::roi_api::audit_manual_stop(app, operator, sysid, reason).await;
     }
 }
 

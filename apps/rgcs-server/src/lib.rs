@@ -6,6 +6,7 @@
 pub mod api;
 pub mod app;
 pub mod auth;
+pub mod auto_record;
 pub mod branding;
 pub mod calib_api;
 pub mod calibration;
@@ -19,6 +20,7 @@ pub mod export_csv;
 pub mod flight_api;
 pub mod flights;
 pub mod geofence_api;
+pub mod gps_time;
 pub mod guided;
 pub mod input_api;
 pub mod inspector_api;

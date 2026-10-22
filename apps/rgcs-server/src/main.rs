@@ -89,6 +89,7 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     state.bring_up_configured().await;
+    state.spawn_background();
     let roi = state.roi.clone();
     let app = app::build(state, config.ui_dir.clone());
     let listener = tokio::net::TcpListener::bind(config.listen).await?;

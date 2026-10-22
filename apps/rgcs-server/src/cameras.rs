@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
+use rgcs_camera::camera::GpsTime;
 use rgcs_camera::{Camera, CameraError, NoneCamera, SiyiMt11};
 use rgcs_core::{CameraCommand, CameraKind, CameraProfile, CameraSnapshot, ServerMessage, SysId};
 use rgcs_store::Store;
@@ -15,6 +16,8 @@ use tokio::sync::{broadcast, Mutex};
 use tokio::task::JoinHandle;
 
 const RESEND_EVERY: Duration = Duration::from_secs(1);
+/// Ruling 8: `camera_state` frames go out at most every 100 ms (10 Hz).
+pub const STATE_MIN_GAP: Duration = Duration::from_millis(100);
 
 /// How drivers are built. `Sim` ignores the profile host and connects to the simulator.
 #[derive(Debug, Clone, Copy)]
@@ -26,6 +29,9 @@ pub enum CameraFactory {
 
 /// True while something else (an active ROI) owns the gimbal of that vehicle.
 pub type GimbalOwned = Arc<dyn Fn(SysId) -> bool + Send + Sync>;
+
+/// Builds the clock-sync GPS source of a vehicle (ruling 5).
+pub type GpsTimeFactory = Arc<dyn Fn(SysId) -> Arc<dyn GpsTime> + Send + Sync>;
 
 struct Entry {
     camera: Arc<dyn Camera>,
@@ -40,6 +46,7 @@ pub struct CameraManager {
     factory: CameraFactory,
     entries: Arc<Mutex<HashMap<SysId, Entry>>>,
     owned: Arc<RwLock<Option<GimbalOwned>>>,
+    gps_time: Arc<RwLock<Option<GpsTimeFactory>>>,
 }
 
 impl CameraManager {
@@ -50,7 +57,25 @@ impl CameraManager {
             factory,
             entries: Arc::new(Mutex::new(HashMap::new())),
             owned: Arc::new(RwLock::new(None)),
+            gps_time: Arc::new(RwLock::new(None)),
         }
+    }
+
+    /// Installs the GPS time source drivers get when their profile has `clock_sync` on.
+    pub fn set_gps_time(&self, f: GpsTimeFactory) {
+        if let Ok(mut slot) = self.gps_time.write() {
+            *slot = Some(f);
+        }
+    }
+
+    fn gps_time_for(&self, profile: &CameraProfile) -> Option<Arc<dyn GpsTime>> {
+        if !profile.clock_sync {
+            return None;
+        }
+        self.gps_time
+            .read()
+            .ok()
+            .and_then(|f| f.as_ref().map(|f| f(profile.sysid)))
     }
 
     /// Installs the check that suppresses the link-up zero while ROI owns the gimbal.
@@ -69,18 +94,25 @@ impl CameraManager {
     }
 
     fn build(&self, profile: &CameraProfile) -> Arc<dyn Camera> {
-        match (profile.kind, self.factory) {
+        let mt11 = match (profile.kind, self.factory) {
             (CameraKind::SiyiMt11, CameraFactory::Real) => {
                 let host = profile.host.parse().unwrap_or(Ipv4Addr::new(192, 168, 144, 25));
-                Arc::new(SiyiMt11::new(host, profile.port))
+                SiyiMt11::new(host, profile.port)
             }
             #[cfg(any(test, feature = "sim"))]
-            (CameraKind::SiyiMt11, CameraFactory::Sim(addr)) => {
-                Arc::new(SiyiMt11::new(Ipv4Addr::LOCALHOST, addr.port()))
-            }
+            (CameraKind::SiyiMt11, CameraFactory::Sim(addr)) => SiyiMt11::new(Ipv4Addr::LOCALHOST, addr.port()),
             // MAVLink cameras arrive with their driver (P3+); until then they behave as none.
-            _ => Arc::new(NoneCamera::default()),
+            _ => return Arc::new(NoneCamera::default()),
+        };
+        match self.gps_time_for(profile) {
+            Some(src) => Arc::new(mt11.with_gps_time(src)),
+            None => Arc::new(mt11),
         }
+    }
+
+    /// The running driver of `sysid`, without spawning one.
+    pub async fn get(&self, sysid: SysId) -> Option<Arc<dyn Camera>> {
+        self.entries.lock().await.get(&sysid).map(|e| e.camera.clone())
     }
 
     /// The driver for `sysid`, spawning it from the stored profile on first use.
@@ -184,7 +216,8 @@ async fn link_zero(manager: CameraManager, sysid: SysId, camera: Arc<dyn Camera>
     }
 }
 
-/// Broadcasts every state change and re-sends the current state each second (with the caps).
+/// Broadcasts state changes at most every `STATE_MIN_GAP` (a burst collapses into its newest
+/// state) and re-sends the current state each second (with the caps).
 async fn forward(
     sysid: SysId,
     caps: rgcs_core::CameraCaps,
@@ -193,6 +226,7 @@ async fn forward(
 ) {
     loop {
         let state = rx.borrow_and_update().clone();
+        let sent_at = tokio::time::Instant::now();
         let _ = tx.send(ServerMessage::CameraState {
             sysid,
             caps: caps.clone(),
@@ -200,7 +234,51 @@ async fn forward(
         });
         tokio::select! {
             changed = rx.changed() => { if changed.is_err() { return; } }
-            _ = tokio::time::sleep(RESEND_EVERY) => {}
+            _ = tokio::time::sleep_until(sent_at + RESEND_EVERY) => {}
         }
+        tokio::time::sleep_until(sent_at + STATE_MIN_GAP).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rgcs_core::{CameraCaps, CameraState};
+    use tokio::time::Instant;
+
+    /// Collects (arrival offset, zoom) of every `camera_state` frame until the channel closes.
+    fn collect(mut rx: broadcast::Receiver<ServerMessage>, start: Instant) -> JoinHandle<Vec<(Duration, f32)>> {
+        tokio::spawn(async move {
+            let mut out = Vec::new();
+            while let Ok(ServerMessage::CameraState { state, .. }) = rx.recv().await {
+                out.push((start.elapsed(), state.zoom));
+            }
+            out
+        })
+    }
+
+    #[tokio::test]
+    async fn forward_caps_bursts_at_10_hz() {
+        let (state_tx, state_rx) = tokio::sync::watch::channel(CameraState::disconnected(1.0));
+        let (tx, rx) = broadcast::channel(256);
+        let start = Instant::now();
+        let frames = collect(rx, start);
+        let task = tokio::spawn(forward(1, CameraCaps::none(), state_rx, tx));
+        for i in 1..=50u16 {
+            let next = CameraState {
+                zoom: f32::from(i),
+                ..state_tx.borrow().clone()
+            };
+            state_tx.send_replace(next);
+            tokio::time::sleep_until(start + Duration::from_millis(4) * u32::from(i)).await;
+        }
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        task.abort();
+        let _ = task.await;
+        let frames = frames.await.expect("collector");
+        let window = Duration::from_millis(200);
+        let in_window = frames.iter().filter(|(at, _)| *at < window).count();
+        assert!(in_window <= 4, "{in_window} frames in 200 ms: {frames:?}");
+        assert_eq!(frames.last().map(|f| f.1), Some(50.0), "{frames:?}");
     }
 }
