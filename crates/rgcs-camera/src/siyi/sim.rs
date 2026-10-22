@@ -164,6 +164,28 @@ fn unix_now_us() -> u64 {
         .map_or(0, |d| d.as_micros() as u64)
 }
 
+/// Ephemeral TCP ports tried before giving up on finding one whose UDP side is free too.
+const EPHEMERAL_ATTEMPTS: usize = 32;
+
+/// Binds TCP and UDP on the same port, trying each candidate (0 = ephemeral) in turn: the
+/// port the kernel hands the TCP listener may already be taken on UDP.
+async fn bind_pair(candidates: impl IntoIterator<Item = u16>) -> std::io::Result<(TcpListener, UdpSocket)> {
+    let mut last = std::io::Error::new(std::io::ErrorKind::AddrInUse, "no candidate port");
+    for port in candidates {
+        match bind_one(port).await {
+            Ok(pair) => return Ok(pair),
+            Err(e) => last = e,
+        }
+    }
+    Err(last)
+}
+
+async fn bind_one(port: u16) -> std::io::Result<(TcpListener, UdpSocket)> {
+    let listener = TcpListener::bind(("127.0.0.1", port)).await?;
+    let udp = UdpSocket::bind(listener.local_addr()?).await?;
+    Ok((listener, udp))
+}
+
 impl SimServer {
     pub async fn start() -> Self {
         Self::start_on(0).await
@@ -171,11 +193,11 @@ impl SimServer {
 
     /// TCP and UDP on the same port (0 = ephemeral).
     pub async fn start_on(port: u16) -> Self {
-        let listener = TcpListener::bind(("127.0.0.1", port))
+        let attempts = if port == 0 { EPHEMERAL_ATTEMPTS } else { 1 };
+        let (listener, udp) = bind_pair(std::iter::repeat_n(port, attempts))
             .await
-            .expect("sim tcp bind");
+            .expect("sim tcp + udp bind");
         let addr = listener.local_addr().expect("sim addr");
-        let udp = UdpSocket::bind(addr).await.expect("sim udp bind");
         let (tx, received) = mpsc::unbounded_channel();
         let state = Arc::new(Mutex::new(SimState::default()));
         let tasks: Arc<Mutex<Vec<JoinHandle<()>>>> = Arc::new(Mutex::new(Vec::new()));
@@ -347,6 +369,16 @@ mod tests {
     fn rewind(state: &Mutex<SimState>, by: Duration) {
         let mut s = state.lock().expect("sim state");
         s.moved_at = Instant::now() - by;
+    }
+
+    #[tokio::test]
+    async fn bind_pair_skips_a_port_whose_udp_side_is_taken() {
+        let taken = UdpSocket::bind(("127.0.0.1", 0)).await.expect("udp");
+        let port = taken.local_addr().expect("addr").port();
+        let (tcp, udp) = bind_pair([port, 0]).await.expect("a free pair");
+        let addr = tcp.local_addr().expect("tcp addr");
+        assert_ne!(addr.port(), port);
+        assert_eq!(udp.local_addr().expect("udp addr"), addr);
     }
 
     #[test]
