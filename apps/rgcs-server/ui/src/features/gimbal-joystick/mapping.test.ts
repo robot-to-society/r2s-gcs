@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PROFILE } from './profile'
-import { applyDeadzone, axesToRates, buttonEdges } from './mapping'
+import { applyDeadzone, axesToRates, buttonEdges, buttonReleases } from './mapping'
 
 describe('gimbal mapping', () => {
   it('rescales outside the deadzone and zeroes inside it', () => {
@@ -25,5 +25,12 @@ describe('gimbal mapping', () => {
     expect(buttonEdges([true, false], [true, true], DEFAULT_PROFILE)).toEqual(['shutter'])
     expect(buttonEdges([true], [false], DEFAULT_PROFILE)).toEqual([])
     expect(buttonEdges([], [false, false, false, false, false, false, false, false, true], DEFAULT_PROFILE)).toEqual([])
+  })
+
+  it('reports falling edges of mapped buttons', () => {
+    const p = { ...DEFAULT_PROFILE, buttons: [{ button: 0, fn: 'focus_near' as const }] }
+    expect(buttonReleases([true], [false], p)).toEqual(['focus_near'])
+    expect(buttonReleases([true], [true], p)).toEqual([])
+    expect(buttonReleases([false], [false], p)).toEqual([])
   })
 })

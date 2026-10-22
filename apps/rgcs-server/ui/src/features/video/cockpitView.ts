@@ -4,6 +4,8 @@ import { angleText } from '../camera'
 
 /** The zoom slider runs 0..1000 on a log scale so 1×–2× gets as much travel as 80×–165× (spec 10 §4.2). */
 export const ZOOM_SLIDER_MAX = 1000
+/** Box size for a centre start (AI追跡 button, joystick `ai_tracking_toggle`; spec 40 §6). */
+export const AI_CENTRE_BOX_PX = 200
 /** The dial's rim: ±90° of yaw / pitch lands this many pixels from the centre (prototype `.cam-dial`). */
 const DIAL_RIM_PX = 36
 const DIAL_RANGE_DEG = 90

@@ -5,7 +5,7 @@ import { IconCamera, IconCrosshair, IconGear, IconMinus, IconPlus } from '../../
 import { zoomText } from '../camera'
 import { RoiChips } from '../roi/RoiChips'
 import { isSet } from '../roi/schema'
-import { ZOOM_SLIDER_MAX, posToZoom, zoomToPos } from './cockpitView'
+import { AI_CENTRE_BOX_PX, ZOOM_SLIDER_MAX, posToZoom, zoomToPos } from './cockpitView'
 
 interface Props {
   readonly caps: CameraCaps
@@ -57,12 +57,25 @@ export function CamBar({ caps, state, pending, dict, onCommand, onSettings, roi 
             <IconCrosshair size={20} />
           </button>
         )}
+        {caps.ai_tracking && <AiTrackButton state={state} dict={dict} onCommand={onCommand} />}
         <button type="button" className="btn-icon" aria-label={dict.cameraSettings} title={dict.cameraSettings} onClick={onSettings}>
           <IconGear size={18} />
         </button>
       </div>
       {showRoi && <RoiChips {...roi} dict={dict} />}
     </div>
+  )
+}
+
+/** Prototype 785: AI追跡 toggles a centre box (200 px, like the joystick) / cancel; RGB only. */
+function AiTrackButton({ state, dict, onCommand }: { readonly state: CameraState; readonly dict: Dict; readonly onCommand: (cmd: CameraCommand) => void }) {
+  const tracking = state.track !== null
+  const rgb = (state.video_mode ?? 'rgb') === 'rgb'
+  const toggle = () => onCommand(tracking ? { cmd: 'ai_cancel' } : { cmd: 'ai_select_box', args: { x: 0.5, y: 0.5, box_px: AI_CENTRE_BOX_PX } })
+  return (
+    <button type="button" className={`btn btn-sm${tracking ? ' on' : ''}`} aria-pressed={tracking} disabled={!rgb} title={rgb ? undefined : dict.camErr_rgb_only} onClick={toggle}>
+      {dict.aiTrack}
+    </button>
   )
 }
 

@@ -1,15 +1,18 @@
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { KindIcon } from '../../shared/ui/KindIcon'
 import type { CameraCommand, CameraSnapshot, RoiStatus, RoiTarget, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconMinimize, IconVideoOff, IconWarn } from '../../shared/ui/icons'
-import { isLive, recDuration, useRecElapsed, useWhepFeed } from '../camera'
+import { isLive, recDuration, useCameraProfile, useRecElapsed, useWhepFeed } from '../camera'
 import { altText, battText, modeLabel, speedText } from '../vehicles/format'
 import { CamBar } from './CamBar'
 import { CamCard } from './CamCard'
 import { latencyText } from './cockpitView'
 import { roiText } from '../roi/format'
 import { encodingLabel } from '../camera/mediaFormat'
+import { VideoOverlay } from './VideoOverlay'
+import { useCoverRect } from './useCoverRect'
+import { useAiAckLog, useOverlayClicks } from './useOverlayClicks'
 
 interface Props {
   readonly vehicle: VehicleState
@@ -30,6 +33,14 @@ interface Props {
 }
 
 const NO_TARGETS: readonly RoiTarget[] = []
+/** Spec 60 §3.3 defaults while the profile is loading. */
+const DEFAULT_BOX_PX = 100
+
+/** Clicks do something only with AI tracking / point temperature, and never in 2画面 (ruling 13). */
+function isClickable(camera: CameraSnapshot | undefined): boolean {
+  if (!camera || camera.state.video_mode === 'side_by_side') return false
+  return camera.caps.ai_tracking !== null || camera.caps.thermal?.point_temp === true
+}
 
 /** Spec 10 §4.2 / prototype `isVideoMax`: video 2.6fr, mini map + camera card 1fr. */
 export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, onSettings, onRestore, map, roiTargets = NO_TARGETS, roiStatus, onRoiStart, onRoiStop }: Props) {
@@ -43,6 +54,12 @@ export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, 
   const activeId = roiStatus?.active_target ?? null
   const active = activeId === null ? undefined : roiTargets.find((r) => r.id === activeId)
   const roi = onRoiStart && onRoiStop ? { targets: roiTargets, activeId, onStart: onRoiStart, onStop: onRoiStop } : undefined
+  const profile = useCameraProfile(has ? v.sysid : null)
+  const boxPx = profile?.ai_box_px ?? DEFAULT_BOX_PX
+  const layerRef = useRef<HTMLDivElement>(null)
+  const rect = useCoverRect(layerRef, ref, live, camera?.state.stream ?? null)
+  const { preview, onClick } = useOverlayClicks({ sysid: v.sysid, camera, boxPx, dict, onCommand, videoRef: ref })
+  useAiAckLog(v.sysid, camera?.state.ai_ack, dict)
   return (
     <section className="float top1 cockpit">
       <div className="vtile" style={{ cursor: 'default' }}>
@@ -56,6 +73,7 @@ export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, 
             </div>
           </div>
         )}
+        {has && <VideoOverlay state={camera.state} rect={rect} thermalOverlay={profile?.thermal_overlay ?? true} preview={preview} dict={dict} layerRef={layerRef} clickable={isClickable(camera)} onClick={onClick} />}
         <div className="cockpit-pills">
           <div className="g-ctl row" style={{ gap: 12, padding: '8px 14px', borderRadius: 999 }}>
             <KindIcon kind={v.kind} />

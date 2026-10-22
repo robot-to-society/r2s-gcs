@@ -4,6 +4,7 @@
 export const cameraMediaJa = {
   camConnected: '接続中',
   thermal: 'サーマル',
+  aiTrack: 'AI追跡',
   trackTracking: '追跡中',
   trackSearching: '再捕捉中',
   trackLost: '見失い',
@@ -39,6 +40,7 @@ export const cameraMediaJa = {
 export const cameraMediaEn: Record<keyof typeof cameraMediaJa, string> = {
   camConnected: 'Connected',
   thermal: 'Thermal',
+  aiTrack: 'AI track',
   trackTracking: 'Tracking',
   trackSearching: 'Reacquiring',
   trackLost: 'Lost',

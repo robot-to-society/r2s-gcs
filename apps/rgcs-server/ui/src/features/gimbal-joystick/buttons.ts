@@ -1,4 +1,5 @@
 import type { ButtonFunction, CameraCommand, CameraState, VideoMode } from '../../shared/api/types'
+import { AI_CENTRE_BOX_PX } from '../video/cockpitView'
 
 const VIDEO_CYCLE: readonly VideoMode[] = ['rgb', 'thermal', 'side_by_side']
 
@@ -33,9 +34,13 @@ export function buttonCommand(fn: ButtonFunction, state: CameraState | null): Ca
       return { cmd: 'gimbal_mode', args: { mode: order[(i + 1) % order.length]! } }
     }
     case 'thermal_gain_toggle':
+      return { cmd: 'thermal_gain', args: { gain: state?.thermal?.gain === 'high' ? 'low' : 'high' } }
     case 'ai_tracking_toggle':
+      return state?.track ? { cmd: 'ai_cancel' } : { cmd: 'ai_select_box', args: { x: 0.5, y: 0.5, box_px: AI_CENTRE_BOX_PX } }
     case 'focus_near':
+      return { cmd: 'focus', args: { dir: -1 } }
     case 'focus_far':
+      return { cmd: 'focus', args: { dir: 1 } }
     case 'gimbal_stop':
     case 'roi_stop':
     case 'roi_1':
@@ -51,6 +56,11 @@ export function buttonCommand(fn: ButtonFunction, state: CameraState | null): Ca
     case 'none':
       return null
   }
+}
+
+/** What releasing a held button sends: focus runs while the button is down (spec 40 §6). */
+export function releaseCommand(fn: ButtonFunction): CameraCommand | null {
+  return fn === 'focus_near' || fn === 'focus_far' ? { cmd: 'focus', args: { dir: 0 } } : null
 }
 
 /** What a joystick button does: a camera command, or starting / stopping a GPS ROI preset. */

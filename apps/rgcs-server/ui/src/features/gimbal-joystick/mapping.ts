@@ -35,3 +35,10 @@ export function buttonEdges(prev: readonly boolean[], now: readonly boolean[], p
     .filter((m) => m.fn !== 'none' && now[m.button] === true && prev[m.button] !== true)
     .map((m) => m.fn)
 }
+
+/** Functions whose button went from pressed to released, in button order. */
+export function buttonReleases(prev: readonly boolean[], now: readonly boolean[], p: GimbalInputProfile): ButtonFunction[] {
+  return p.buttons
+    .filter((m) => m.fn !== 'none' && prev[m.button] === true && now[m.button] !== true)
+    .map((m) => m.fn)
+}

@@ -1,6 +1,8 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
-import type { CameraCaps, CameraState, RoiStatus, RoiTarget, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CameraCaps, CameraProfile, CameraState, RoiStatus, RoiTarget, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import { cameraProfileStore } from '../camera/profileStore'
+import { vehicleStore } from '../vehicles/store'
 import { t } from '../../shared/i18n'
 import { emptyTargets } from '../roi/schema'
 
@@ -42,8 +44,8 @@ const setup = (over: { caps?: CameraCaps; state?: CameraState; roi?: RoiStatus }
     vehicle: v, camera: { sysid: 1, caps: over.caps ?? mt11, state: over.state ?? state }, status: live, pending: false, dict: t('ja'), onCommand: vi.fn(), onSettings: vi.fn(), onRestore: vi.fn(), map: <div data-testid="mini-map" />,
     roiTargets: presets, roiStatus: over.roi, onRoiStart: vi.fn(), onRoiStop: vi.fn(),
   }
-  render(<Cockpit {...p} />)
-  return p
+  const r = render(<Cockpit {...p} />)
+  return { ...p, rerender: r.rerender }
 }
 
 describe('Cockpit (spec 10 §4.2)', () => {
@@ -162,5 +164,101 @@ describe('Cockpit (spec 10 §4.2)', () => {
     setup({ state: st })
     expect(screen.queryByText('サーマル')).toBeNull()
     expect(screen.queryByText('SDカード')).toBeNull()
+  })
+
+  describe('overlay clicks and AI追跡 (spec 10 §4.2)', () => {
+    const ai: CameraCaps = {
+      ...mt11,
+      thermal: { gains: ['low', 'high'], palettes: [0, 2], point_temp: true, frame_temp: true },
+      ai_tracking: { box_select: true, point_select: true, candidates: true },
+    }
+    const known: CameraState = { ...state, stream: [1280, 720] }
+    const profile: CameraProfile = {
+      sysid: 1, kind: 'siyi_mt11', host: '192.168.144.25', port: 37260, rtsp_url: '', comp_id: 154, video_source_mode: 'auto', android_url: '',
+      encoding_preset: 'h264_1080p', thermal_palette: 0, thermal_overlay: true, ai_box_px: 100, clock_sync: true, auto_record: false,
+    }
+    const size = (w: number, h: number) => {
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => w })
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => h })
+    }
+    beforeEach(() => {
+      cameraProfileStore.set(1, profile)
+      size(1280, 720)
+    })
+    afterEach(() => {
+      size(0, 0)
+      vi.restoreAllMocks()
+    })
+    const overlay = () => document.querySelector('.cockpit-overlay') as HTMLElement
+
+    it('a click at the centre selects a box of the profile size', () => {
+      const p = setup({ caps: ai, state: known })
+      fireEvent.click(overlay(), { clientX: 640, clientY: 360 })
+      expect(p.onCommand).toHaveBeenCalledWith({ cmd: 'ai_select_box', args: { x: 0.5, y: 0.5, box_px: 100 } })
+      expect(document.querySelector('.cockpit-overlay .trk')).not.toBeNull()
+    })
+
+    it('Alt+click in IR measures the point', () => {
+      const p = setup({ caps: ai, state: { ...known, video_mode: 'thermal' } })
+      fireEvent.click(overlay(), { clientX: 320, clientY: 180, altKey: true })
+      expect(p.onCommand).toHaveBeenCalledWith({ cmd: 'measure_point', args: { x: 0.25, y: 0.25 } })
+    })
+
+    it('a refused click goes to the log, not to the camera', () => {
+      const push = vi.spyOn(vehicleStore, 'pushLocalResult')
+      const p = setup({ caps: ai, state: { ...known, video_mode: 'thermal' } })
+      fireEvent.click(overlay(), { clientX: 640, clientY: 360 })
+      expect(p.onCommand).not.toHaveBeenCalled()
+      expect(push).toHaveBeenCalledWith(expect.objectContaining({ sysid: 1, cmd: 'ai_track', ok: false, reason: 'AI 追跡は RGB 表示でのみ使えます' }))
+    })
+
+    it('a failed AI ACK is logged once per seq', () => {
+      const push = vi.spyOn(vehicleStore, 'pushLocalResult')
+      const p = setup({ caps: ai, state: known })
+      const rerender = (st: CameraState) => p.rerender(<Cockpit {...p} camera={{ sysid: 1, caps: ai, state: st }} />)
+      rerender({ ...known, ai_ack: { code: 'low_texture', seq: 3 } })
+      rerender({ ...known, ai_ack: { code: 'low_texture', seq: 3 } })
+      rerender({ ...known, ai_ack: { code: 'ok', seq: 4 } })
+      expect(push).toHaveBeenCalledTimes(1)
+      expect(push).toHaveBeenCalledWith(expect.objectContaining({ cmd: 'ai_track', reason: '目標の特徴が少なすぎます' }))
+    })
+
+    it('the AI追跡 button needs MT11 AI caps, starts at the centre and cancels while tracking', () => {
+      const p = setup({ caps: ai, state: known })
+      fireEvent.click(screen.getByRole('button', { name: 'AI追跡' }))
+      expect(p.onCommand).toHaveBeenCalledWith({ cmd: 'ai_select_box', args: { x: 0.5, y: 0.5, box_px: 200 } })
+      cleanup()
+      const tracking = { ...known, track: { status: 'tracking' as const, rect: { x: 0.4, y: 0.4, w: 0.2, h: 0.2 }, target: '', age_ms: 0 } }
+      const q = setup({ caps: ai, state: tracking })
+      const btn = screen.getByRole('button', { name: 'AI追跡' })
+      expect(btn).toHaveClass('btn', 'btn-sm', 'on')
+      fireEvent.click(btn)
+      expect(q.onCommand).toHaveBeenCalledWith({ cmd: 'ai_cancel' })
+      cleanup()
+      setup({ caps: { ...mt11, kind: 'mavlink' }, state: known })
+      expect(screen.queryByRole('button', { name: 'AI追跡' })).toBeNull()
+    })
+
+    it('the AI追跡 button is disabled outside RGB', () => {
+      setup({ caps: ai, state: { ...known, video_mode: 'thermal' } })
+      const btn = screen.getByRole('button', { name: 'AI追跡' })
+      expect(btn).toBeDisabled()
+      expect(btn).toHaveAttribute('title', 'AI 追跡は RGB 表示でのみ使えます')
+    })
+
+    it('macOS Ctrl+click (a context menu event, no click) selects a point', () => {
+      const p = setup({ caps: ai, state: known })
+      fireEvent.contextMenu(overlay(), { clientX: 640, clientY: 360, ctrlKey: true })
+      expect(p.onCommand).toHaveBeenCalledWith({ cmd: 'ai_select_point', args: { x: 0.5, y: 0.5 } })
+      fireEvent.contextMenu(overlay(), { clientX: 640, clientY: 360 })
+      expect(p.onCommand).toHaveBeenCalledOnce()
+    })
+
+    it('the context menu is suppressed on the video', () => {
+      setup({ caps: ai, state: known })
+      const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+      overlay().dispatchEvent(ev)
+      expect(ev.defaultPrevented).toBe(true)
+    })
   })
 })

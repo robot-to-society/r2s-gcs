@@ -1,5 +1,5 @@
 import type { ButtonFunction, ClientMessage, GimbalInputProfile } from '../../shared/api/types'
-import { axesToRates, buttonEdges } from './mapping'
+import { axesToRates, buttonEdges, buttonReleases } from './mapping'
 
 export interface GamepadSample {
   readonly axes: readonly number[]
@@ -9,6 +9,8 @@ export interface GamepadSample {
 export interface LoopDeps {
   readonly send: (m: ClientMessage) => boolean
   readonly onButton: (fn: ButtonFunction) => void
+  /** Falling edges, for functions that run while held (focus_near / focus_far). */
+  readonly onRelease?: (fn: ButtonFunction) => void
   /** Null when no gamepad is connected. */
   readonly readGamepad: () => GamepadSample | null
   readonly now: () => number
@@ -57,6 +59,7 @@ export class GimbalLoop {
 
   stop(): void {
     if (this.padPresent && this.target !== null) this.zero(this.target)
+    if (this.profile) this.releaseAll(this.profile)
     this.target = null
   }
 
@@ -68,8 +71,8 @@ export class GimbalLoop {
     const pad = this.deps.readGamepad()
     if (pad === null) {
       if (this.padPresent) this.zero(target)
+      this.releaseAll(profile)
       this.padPresent = false
-      this.prevButtons = []
       return
     }
     this.padPresent = true
@@ -79,11 +82,18 @@ export class GimbalLoop {
     else if (this.lastNonZero) this.zero(target)
     this.lastNonZero = nonZero
     for (const fn of buttonEdges(this.prevButtons, pad.buttons, profile)) this.deps.onButton(fn)
+    for (const fn of buttonReleases(this.prevButtons, pad.buttons, profile)) this.deps.onRelease?.(fn)
     this.prevButtons = pad.buttons
     if (this.lastHb === null || now - this.lastHb >= HB_MS) {
       this.deps.send({ t: 'input_hb', sysid: target })
       this.lastHb = now
     }
+  }
+
+  /** A vanished pad or a stopped loop releases every held button (focus must not keep running). */
+  private releaseAll(profile: GimbalInputProfile): void {
+    for (const fn of buttonReleases(this.prevButtons, [], profile)) this.deps.onRelease?.(fn)
+    this.prevButtons = []
   }
 
   private zero(sysid: number): void {

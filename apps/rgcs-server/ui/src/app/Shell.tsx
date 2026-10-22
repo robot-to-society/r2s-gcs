@@ -5,7 +5,7 @@ import { EMPTY_PENDING, cameraErrorText, clearPending, markPending, sendCameraCo
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
 import { DetailPanel, ackMessage } from '../features/detail'
-import { buttonAction, getGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
+import { buttonAction, getGimbalProfile, releaseCommand, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { useOpsArrival } from './opsArrival'
@@ -150,10 +150,18 @@ export function Shell({ me, lang }: Props) {
     [],
   )
   const settingsFlow = useCameraSettingsFlow({ modal, setModal, terrainTiles: settings?.terrain_tiles ?? null, vehicles, setGimbalProfile })
-  useGimbalJoystick(current, gimbalProfile, (fn) => {
-    if (current === null) return
-    runButtonAction(current, buttonAction(fn, cameras.get(current)?.state ?? null, roi.get(current)?.active_target ?? null), cameraCommand)
-  })
+  useGimbalJoystick(
+    current,
+    gimbalProfile,
+    (fn) => {
+      if (current === null) return
+      runButtonAction(current, buttonAction(fn, cameras.get(current)?.state ?? null, roi.get(current)?.active_target ?? null), cameraCommand)
+    },
+    (fn) => {
+      const cmd = releaseCommand(fn)
+      if (current !== null && cmd) cameraCommand(current, cmd)
+    },
+  )
   const detailRoiName = useActiveRoiName(detail?.sysid ?? null, roi)
 
   // A reloaded page (or a second laptop) learns the vehicle's mission from the server.

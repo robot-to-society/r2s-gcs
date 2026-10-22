@@ -249,3 +249,8 @@
 /* ---- GPS ROI: pick hint over the map, caution line in the settings sheet ---- */
 .roi-pick-hint { pointer-events: auto; gap: 10px; z-index: 4; }
 .settings-notice { border-radius: 10px; text-align: left; }
+
+/* Cockpit video overlay (spec 10 §4.2, prototype 757–762): track / detection boxes and temperature markers over the feed */
+.cockpit-overlay { position: absolute; inset: 0; overflow: hidden; }
+.cockpit-overlay.clickable { cursor: crosshair; }
+.cockpit-overlay .cand { position: absolute; border: 1px solid #9cdcff; border-radius: 3px; pointer-events: none; }

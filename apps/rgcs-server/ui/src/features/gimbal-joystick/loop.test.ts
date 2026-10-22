@@ -8,8 +8,9 @@ function harness() {
   let now = 0
   let pad: { axes: readonly number[]; buttons: readonly boolean[] } | null = { axes: [0, 0], buttons: [false, false] }
   const onButton = vi.fn()
-  const loop = new GimbalLoop({ send: (m) => (sent.push(m), true), onButton, readGamepad: () => pad, now: () => now })
-  return { sent, onButton, loop, setPad: (p: typeof pad) => (pad = p), advance: (ms: number) => (now += ms) }
+  const onRelease = vi.fn()
+  const loop = new GimbalLoop({ send: (m) => (sent.push(m), true), onButton, onRelease, readGamepad: () => pad, now: () => now })
+  return { sent, onButton, onRelease, loop, setPad: (p: typeof pad) => (pad = p), advance: (ms: number) => (now += ms) }
 }
 
 const rates = (sent: ClientMessage[]) => sent.filter((m) => m.t === 'gimbal_rate').map((m) => (m.t === 'gimbal_rate' ? [m.sysid, m.yaw, m.pitch] : []))
@@ -105,6 +106,29 @@ describe('GimbalLoop', () => {
     h.loop.tick()
     expect(h.onButton).toHaveBeenCalledTimes(1)
     expect(h.onButton).toHaveBeenCalledWith('record_toggle')
+  })
+
+  it('routes a press then a release of a held function to onButton then onRelease', () => {
+    const h = h0()
+    h.loop.start({ ...DEFAULT_PROFILE, buttons: [{ button: 0, fn: 'focus_far' }] }, 1)
+    h.setPad({ axes: [0, 0], buttons: [true] })
+    h.loop.tick()
+    expect(h.onButton).toHaveBeenCalledWith('focus_far')
+    expect(h.onRelease).not.toHaveBeenCalled()
+    h.setPad({ axes: [0, 0], buttons: [false] })
+    h.loop.tick()
+    expect(h.onRelease).toHaveBeenCalledOnce()
+    expect(h.onRelease).toHaveBeenCalledWith('focus_far')
+  })
+
+  it('a pad that vanishes while a button is held releases it', () => {
+    const h = h0()
+    h.loop.start({ ...DEFAULT_PROFILE, buttons: [{ button: 0, fn: 'focus_near' }] }, 1)
+    h.setPad({ axes: [0, 0], buttons: [true] })
+    h.loop.tick()
+    h.setPad(null)
+    h.loop.tick()
+    expect(h.onRelease).toHaveBeenCalledWith('focus_near')
   })
 })
 
