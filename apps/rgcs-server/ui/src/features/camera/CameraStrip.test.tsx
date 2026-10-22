@@ -12,12 +12,12 @@ const mt11: CameraCaps = {
   photo: true,
   record: true,
   video_modes: ['rgb', 'thermal', 'side_by_side'],
-  hfov_deg: 62,
+  hfov_deg: 62, roi: 'computed',
 }
 const state = (over: Partial<CameraState> = {}): CameraState => ({
   connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 2.5, zoom_max: 165, video_mode: 'rgb', gimbal: null, gimbal_mode: 'follow', stream: null, ...over,
 })
-const none: CameraCaps = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: null }
+const none: CameraCaps = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: null, roi: 'none' }
 
 describe('CameraStrip', () => {
   it('renders nothing for kind none and hides the video type segment when only rgb', () => {

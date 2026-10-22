@@ -10,7 +10,7 @@ const v = (sysid: number, alt_rel = 100): VehicleState => ({
 const cam = (sysid: number, pitch: number): CameraSnapshot =>
   ({
     sysid,
-    caps: { kind: 'siyi_mt11', gimbal: { rate: true, angle: true, center: true, modes: [], attitude: true, pitch_range: [-90, 30] }, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: 62 },
+    caps: { kind: 'siyi_mt11', gimbal: { rate: true, angle: true, center: true, modes: [], attitude: true, pitch_range: [-90, 30] }, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: 62, roi: 'computed' },
     state: { connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 1, video_mode: null, gimbal: { yaw: 0, pitch, roll: 0, age_ms: 0 }, gimbal_mode: null, stream: null },
   }) as CameraSnapshot
 

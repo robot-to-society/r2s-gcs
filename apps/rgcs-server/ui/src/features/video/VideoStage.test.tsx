@@ -18,7 +18,7 @@ const vehicle = (sysid: number): VehicleState => ({
 })
 const cam: CameraSnapshot = {
   sysid: 2,
-  caps: { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: null },
+  caps: { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: null, roi: 'none' },
   state: { connected: true, last_error: null, firmware: null, recording: 'recording', zoom: 1, zoom_max: 1, video_mode: null, gimbal: null, gimbal_mode: null, stream: null },
 }
 

@@ -4,7 +4,7 @@ import type { CameraCaps, CameraState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 import { CameraStatusRow } from './CameraStatusRow'
 
-const none: CameraCaps = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: null }
+const none: CameraCaps = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: null, roi: 'none' }
 const mt11: CameraCaps = { ...none, kind: 'siyi_mt11', gimbal: { rate: true, angle: true, center: true, modes: ['lock'], attitude: true, pitch_range: [-90, 30] } }
 const st = (over: Partial<CameraState>): CameraState => ({
   connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 165, video_mode: 'rgb', gimbal: { yaw: 12.3, pitch: -30, roll: 0, age_ms: 0 }, gimbal_mode: 'lock', stream: null, ...over,

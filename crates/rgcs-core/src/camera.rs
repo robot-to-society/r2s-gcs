@@ -79,6 +79,8 @@ pub struct CameraCaps {
     /// Horizontal field of view at 1× zoom (degrees), for the map's gimbal fan / footprint.
     #[ts(type = "number | null")]
     pub hfov_deg: Option<f32>,
+    /// GPS ROI support: `Computed` = the server aims the gimbal itself (spec 40 §4).
+    pub roi: crate::roi::RoiMode,
 }
 
 impl CameraCaps {
@@ -92,6 +94,7 @@ impl CameraCaps {
             record: false,
             video_modes: Vec::new(),
             hfov_deg: None,
+            roi: crate::roi::RoiMode::None,
         }
     }
 
@@ -119,6 +122,7 @@ impl CameraCaps {
             video_modes: vec![VideoMode::Rgb, VideoMode::Thermal, VideoMode::SideBySide],
             // The prototype's CAM_HFOV until the MT11 is measured.
             hfov_deg: Some(62.0),
+            roi: crate::roi::RoiMode::Computed,
         }
     }
 
@@ -440,6 +444,37 @@ pub enum ButtonFunction {
     ModeFollow,
     ModeFpv,
     ModeCycle,
+    #[serde(rename = "roi_1")]
+    #[ts(rename = "roi_1")]
+    Roi1,
+    #[serde(rename = "roi_2")]
+    #[ts(rename = "roi_2")]
+    Roi2,
+    #[serde(rename = "roi_3")]
+    #[ts(rename = "roi_3")]
+    Roi3,
+    #[serde(rename = "roi_4")]
+    #[ts(rename = "roi_4")]
+    Roi4,
+    #[serde(rename = "roi_5")]
+    #[ts(rename = "roi_5")]
+    Roi5,
+    #[serde(rename = "roi_6")]
+    #[ts(rename = "roi_6")]
+    Roi6,
+    #[serde(rename = "roi_7")]
+    #[ts(rename = "roi_7")]
+    Roi7,
+    #[serde(rename = "roi_8")]
+    #[ts(rename = "roi_8")]
+    Roi8,
+    #[serde(rename = "roi_9")]
+    #[ts(rename = "roi_9")]
+    Roi9,
+    #[serde(rename = "roi_10")]
+    #[ts(rename = "roi_10")]
+    Roi10,
+    RoiStop,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

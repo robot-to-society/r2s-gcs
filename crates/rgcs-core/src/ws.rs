@@ -9,6 +9,7 @@ use crate::log::{ackable, severity_of_statustext, LogEntry, MessageSource, Sever
 use crate::logbook::{Flight, LogFetchProgress};
 use crate::mission::{MissionProgress, MissionTransfer};
 use crate::params::ParamProgress;
+use crate::roi::RoiStatus;
 use crate::vehicle::{SysId, VehicleState, VehicleStateDiff};
 
 /// A STATUSTEXT or a link event shown in the vehicle's message list.
@@ -131,6 +132,11 @@ pub enum ServerMessage {
     LogFetchProgress {
         sysid: SysId,
         progress: LogFetchProgress,
+    },
+    /// GPS ROI loop state: 2 Hz while active, plus one final frame on stop (spec 50 §3.1).
+    RoiStatus {
+        sysid: SysId,
+        status: RoiStatus,
     },
     Telemetry {
         sysid: SysId,

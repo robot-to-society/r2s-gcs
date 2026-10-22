@@ -24,7 +24,7 @@ const mt11: CameraCaps = {
   kind: 'siyi_mt11',
   gimbal: { rate: true, angle: true, center: true, modes: ['lock', 'follow', 'fpv'], attitude: true, pitch_range: [-90, 30] },
   zoom: { max: 165, absolute: true, step: true, continuous: true },
-  focus: true, photo: true, record: true, video_modes: ['rgb', 'thermal', 'side_by_side'], hfov_deg: 62,
+  focus: true, photo: true, record: true, video_modes: ['rgb', 'thermal', 'side_by_side'], hfov_deg: 62, roi: 'computed',
 }
 const state: CameraState = {
   connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 165, video_mode: 'rgb',

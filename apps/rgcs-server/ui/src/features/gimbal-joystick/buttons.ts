@@ -33,6 +33,17 @@ export function buttonCommand(fn: ButtonFunction, state: CameraState | null): Ca
       return { cmd: 'gimbal_mode', args: { mode: order[(i + 1) % order.length]! } }
     }
     case 'gimbal_stop':
+    case 'roi_stop':
+    case 'roi_1':
+    case 'roi_2':
+    case 'roi_3':
+    case 'roi_4':
+    case 'roi_5':
+    case 'roi_6':
+    case 'roi_7':
+    case 'roi_8':
+    case 'roi_9':
+    case 'roi_10':
     case 'none':
       return null
   }

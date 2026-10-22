@@ -16,6 +16,7 @@ pub mod logbook;
 pub mod mission;
 pub mod operator;
 pub mod params;
+pub mod roi;
 pub mod survey_camera;
 pub mod vehicle;
 pub mod ws;
@@ -50,6 +51,10 @@ pub use mission::{
 };
 pub use operator::Operator;
 pub use params::{ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult};
+pub use roi::{
+    default_roi_targets, roi_slot_id, validate_roi_targets, RoiControl, RoiControlMode, RoiMode, RoiStatus,
+    RoiTarget, ROI_SLOT_COUNT,
+};
 pub use survey_camera::{validate_survey_camera, SurveyCamera};
 pub use vehicle::{
     diff, Attitude, Battery, GeoPoint, Gps, LinkStatus, NavInfo, SysId, VehicleKind, VehicleState,
