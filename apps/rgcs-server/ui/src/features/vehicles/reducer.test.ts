@@ -152,6 +152,14 @@ describe('camera, video source and input frames', () => {
     expect(s1.roi.has(3)).toBe(true)
   })
 
+  it('snapshot clears ROI status: a reconnect or server restart must not keep a stale active ROI', () => {
+    const status = { active_target: 'roi_1', mode: 'rate' as const, bearing_deg: 12, elevation_deg: -20, distance_m: 300, yaw_cmd_deg: null, pitch_cmd_deg: null, gimbal_yaw_deg: null, gimbal_pitch_deg: null, speed_yaw: null, speed_pitch: null, error: null }
+    const s1 = reduce(initialState, { t: 'roi_status', sysid: 3, status })
+    const s2 = reduce(s1, { t: 'snapshot', vehicles: [uav], cameras: [], video_sources: [] })
+    expect(s2.roi.size).toBe(0)
+    expect(s1.roi.get(3)).toEqual(status)
+  })
+
   it('calibration_status_is_stored_per_vehicle', () => {
     const status = { kind: 'accel' as const, phase: 'waiting' as const, position: 2, compass: [], rc: [], reboot: false, reason: null }
     const s1 = reduce(initialState, { t: 'calibration', sysid: 3, status })

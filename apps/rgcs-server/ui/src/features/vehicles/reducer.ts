@@ -100,6 +100,8 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
         vehicles: new Map(msg.vehicles.map((v) => [v.sysid, v])),
         cameras: new Map(msg.cameras.map((c) => [c.sysid, c])),
         videoSources: new Map(msg.video_sources.map((v) => [v.sysid, v.status])),
+        // An active ROI re-announces itself within 0.5 s (ruling 2); anything older may be stale.
+        roi: new Map(),
       }
     case 'camera_state': {
       const cameras = new Map(state.cameras)
