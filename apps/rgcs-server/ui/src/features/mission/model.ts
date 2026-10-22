@@ -284,6 +284,7 @@ export function reverseItems(d: Draft): Draft {
   return d.items.length < 2 ? d : { ...d, items: [...d.items].reverse() }
 }
 
+/** Empties the list; the surveys go with their items. */
 export function clearItems(d: Draft): Draft {
-  return d.items.length === 0 ? d : { ...d, items: [] }
+  return d.items.length === 0 && d.surveys.length === 0 ? d : { ...d, items: [], surveys: [] }
 }

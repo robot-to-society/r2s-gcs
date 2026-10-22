@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Mission, MissionItem } from '../../shared/api/types'
-import { emptyDraft, fromMission, insertAfter, remapJumps, toMission, updateItem } from '../mission/model'
+import { clearItems, emptyDraft, fromMission, insertAfter, remapJumps, toMission, updateItem } from '../mission/model'
 import { addSurvey, expandSurvey, insertAnchor, reconcileSurveys, regenerateSurvey, surveyAt } from './draftOps'
 import { surveyDraft } from './surveyFixture'
 import { ALPHA7R4, defaultSpec, type SurveySpec } from './spec'
@@ -102,5 +102,15 @@ describe('insertAnchor', () => {
     expect(insertAnchor(draft, uids[2]!)).toBe(uids.at(-1))
     expect(insertAnchor(draft, 9999)).toBe(9999)
     expect(insertAnchor(draft, null)).toBeNull()
+  })
+})
+
+describe('clearing the list', () => {
+  it('removes the surveys with their items, so no detach notice names them', () => {
+    const { draft } = surveyDraft()
+    const cleared = clearItems(draft)
+    expect(cleared.items).toEqual([])
+    expect(cleared.surveys).toEqual([])
+    expect(reconcileSurveys(draft, cleared).dropped).toEqual([])
   })
 })
