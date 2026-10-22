@@ -23,6 +23,14 @@ pub trait Camera: Send + Sync {
     async fn request_attitude(&self) -> Result<(), CameraError> {
         Err(CameraError::Unsupported("attitude"))
     }
+    /// Native ROI: points the gimbal at a geographic position (MSL altitude).
+    async fn roi_location(&self, _lat: f64, _lon: f64, _alt_msl: f64) -> Result<(), CameraError> {
+        Err(CameraError::Unsupported("roi"))
+    }
+    /// Native ROI: releases the target.
+    async fn roi_none(&self) -> Result<(), CameraError> {
+        Err(CameraError::Unsupported("roi"))
+    }
 }
 
 /// The newest flight-controller UTC, already aged: `unix_us` was true `age_us` ago.

@@ -60,6 +60,15 @@ pub struct GimbalCaps {
     pub pitch_range: (f32, f32),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum ZoomUnit {
+    #[default]
+    Times,
+    Percent,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct ZoomCaps {
@@ -67,6 +76,9 @@ pub struct ZoomCaps {
     pub absolute: bool,
     pub step: bool,
     pub continuous: bool,
+    /// What `max` and `CameraState.zoom` count: a multiplier or a percentage of the range.
+    #[serde(default)]
+    pub unit: ZoomUnit,
 }
 
 /// What a camera can do; the UI hides (not disables) everything absent (spec 40 §1.1).
@@ -129,6 +141,7 @@ impl CameraCaps {
                 absolute: true,
                 step: true,
                 continuous: true,
+                unit: ZoomUnit::Times,
             }),
             focus: true,
             photo: true,

@@ -7,7 +7,7 @@ import { CameraStrip } from './CameraStrip'
 const mt11: CameraCaps = {
   kind: 'siyi_mt11',
   gimbal: { rate: true, angle: true, center: true, modes: ['lock', 'follow', 'fpv'], attitude: true, pitch_range: [-90, 30] },
-  zoom: { max: 165, absolute: true, step: true, continuous: true },
+  zoom: { max: 165, absolute: true, step: true, continuous: true, unit: 'times' },
   focus: true,
   photo: true,
   record: true,

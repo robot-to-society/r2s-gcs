@@ -30,7 +30,7 @@ pub use camera::{
     AxisFunction, AxisMapping, ButtonFunction, ButtonMapping, CameraCaps, CameraCommand, CameraKind,
     CameraProfile, CameraSnapshot, CameraState, CenterMode, Deadman, Firmware, GimbalAttitude, GimbalCaps,
     GimbalInputProfile, GimbalMode, ProfileError, RecordingState, VideoMode, VideoSource, VideoSourceMode,
-    VideoSourceStatus, ZoomCaps,
+    VideoSourceStatus, ZoomCaps, ZoomUnit,
 };
 pub use camera_media::{
     mt11_encoding_presets, AiAck, AiTrackingCaps, CameraClock, Detection, EncodingInfo, EncodingPreset,

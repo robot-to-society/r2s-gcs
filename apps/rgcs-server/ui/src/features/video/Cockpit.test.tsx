@@ -26,7 +26,7 @@ const v: VehicleState = {
 const mt11: CameraCaps = {
   kind: 'siyi_mt11',
   gimbal: { rate: true, angle: true, center: true, modes: ['lock', 'follow', 'fpv'], attitude: true, pitch_range: [-90, 30] },
-  zoom: { max: 165, absolute: true, step: true, continuous: true },
+  zoom: { max: 165, absolute: true, step: true, continuous: true, unit: 'times' },
   focus: true, photo: true, record: true, video_modes: ['rgb', 'thermal', 'side_by_side'], hfov_deg: 62, roi: 'computed', thermal: null, ai_tracking: null, encoding_presets: [], storage_info: false, clock_sync: false,
 }
 const state: CameraState = {

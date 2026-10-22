@@ -336,3 +336,20 @@ fn disconnected_state_has_no_media() {
     assert!(s.candidates.is_empty() && s.ai_ack.is_none());
     assert!(s.storage.is_none() && s.clock.is_none());
 }
+
+#[test]
+fn zoom_unit_defaults_to_times() {
+    let z: ZoomCaps =
+        serde_json::from_str(r#"{"max":165,"absolute":true,"step":true,"continuous":true}"#).unwrap();
+    assert_eq!(z.unit, ZoomUnit::Times);
+}
+
+#[test]
+fn siyi_caps_keep_times() {
+    assert_eq!(CameraCaps::siyi_mt11().zoom.unwrap().unit, ZoomUnit::Times);
+}
+
+#[test]
+fn zoom_unit_serializes_snake_case() {
+    assert_eq!(serde_json::to_string(&ZoomUnit::Percent).unwrap(), "\"percent\"");
+}

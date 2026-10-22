@@ -37,3 +37,18 @@ impl Camera for NoneCamera {
 
     async fn disconnect(&self) {}
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn none_camera_refuses_roi() {
+        let cam = NoneCamera::default();
+        assert!(matches!(
+            cam.roi_location(35.0, 139.0, 10.0).await,
+            Err(CameraError::Unsupported("roi"))
+        ));
+        assert!(matches!(cam.roi_none().await, Err(CameraError::Unsupported("roi"))));
+    }
+}
