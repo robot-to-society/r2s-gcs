@@ -44,6 +44,8 @@ pub struct AppState {
     pub outgoing: mpsc::Sender<Outgoing>,
     pub params: ParamCache,
     pub cameras: CameraManager,
+    /// GPS ROI tasks (spec 40 §4); always built on `cameras`.
+    pub roi: crate::roi::RoiHub,
     pub video: VideoHub,
     pub whep: WhepRelay,
     pub missions: crate::missions::MissionHub,
@@ -94,6 +96,7 @@ impl AppState {
         // Without a link the sender has no receiver: direct sends fail → 503 link_lost.
         let (outgoing, _) = mpsc::channel(1);
         let cameras = CameraManager::new(store.clone(), tx.clone(), CameraFactory::Real);
+        let roi = crate::roi::RoiHub::new(store.clone(), cameras.clone(), router.clone(), tx.clone());
         let video = VideoHub::new(store.clone(), tx.clone(), Timings::default());
         let gcs = rgcs_core::GcsId::default();
         let missions = crate::missions::MissionHub::new(tx.clone(), gcs.clone());
@@ -112,6 +115,7 @@ impl AppState {
             outgoing,
             params,
             cameras,
+            roi,
             video,
             whep,
             missions,
@@ -150,8 +154,10 @@ impl AppState {
         }
     }
 
+    /// Swaps the camera manager; the ROI hub is rebuilt so it drives the same drivers.
     pub fn with_cameras(self, cameras: CameraManager) -> Self {
-        Self { cameras, ..self }
+        let roi = crate::roi::RoiHub::new(self.store.clone(), cameras.clone(), self.router.clone(), self.tx.clone());
+        Self { cameras, roi, ..self }
     }
 
     /// Points the WHEP relay at another MediaMTX (`config.toml` or a test fake).

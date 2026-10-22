@@ -36,6 +36,8 @@ pub mod param_pick;
 pub mod params;
 pub mod pdf;
 pub mod present_api;
+pub mod roi;
+mod roi_task;
 pub mod settings;
 pub mod survey_camera_api;
 pub mod telemetry;

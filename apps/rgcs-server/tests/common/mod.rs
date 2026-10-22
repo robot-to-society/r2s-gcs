@@ -197,6 +197,24 @@ pub async fn seed_position(app: &AppState, sysid: u8, lat: f64, lon: f64, fix: u
     router.on_message(&header, &MavMessage::GPS_RAW_INT(gps), Clock::default());
 }
 
+/// Gives `sysid` a position with altitude (mm MSL) and heading (cdeg; 65535 = unknown).
+pub async fn seed_pose(app: &AppState, sysid: u8, lat: f64, lon: f64, alt_mm: i32, hdg_cdeg: u16) {
+    let header = MavHeader {
+        system_id: sysid,
+        component_id: 1,
+        sequence: 0,
+    };
+    let pos = GLOBAL_POSITION_INT_DATA {
+        lat: (lat * 1e7) as i32,
+        lon: (lon * 1e7) as i32,
+        alt: alt_mm,
+        hdg: hdg_cdeg,
+        ..GLOBAL_POSITION_INT_DATA::DEFAULT
+    };
+    let mut router = app.router.lock().await;
+    router.on_message(&header, &MavMessage::GLOBAL_POSITION_INT(pos), Clock::default());
+}
+
 pub fn req(method: Method, path: &str, cookie: Option<&str>, json: Option<Value>) -> Request<Body> {
     build(method, path, cookie, json, true)
 }

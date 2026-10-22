@@ -247,9 +247,13 @@ mod tests {
         assert!(replies.is_empty());
         let mut seen = false;
         for _ in 0..20 {
+            // The driver's boot zero (ROI ruling 18) may arrive first; look for our frame.
             if let Ok((Transport::Udp, 0x07, p)) = sim.received.try_recv() {
-                seen = p == [12, 0xFD];
-                break;
+                if p == [12, 0xFD] {
+                    seen = true;
+                    break;
+                }
+                continue;
             }
             tokio::time::sleep(std::time::Duration::from_millis(25)).await;
         }

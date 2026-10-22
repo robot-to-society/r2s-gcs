@@ -27,6 +27,7 @@ pub enum CameraFactory {
 struct Entry {
     camera: Arc<dyn Camera>,
     forwarder: JoinHandle<()>,
+    boot_zero: JoinHandle<()>,
 }
 
 #[derive(Clone)]
@@ -81,15 +82,18 @@ impl CameraManager {
             tracing::warn!(sysid, error = %e, "camera connect failed");
         }
         let forwarder = tokio::spawn(forward(sysid, camera.caps(), camera.state(), self.tx.clone()));
+        let boot_zero = tokio::spawn(boot_zero(sysid, camera.clone()));
         let mut entries = self.entries.lock().await;
         if let Some(old) = entries.insert(
             sysid,
             Entry {
                 camera: camera.clone(),
                 forwarder,
+                boot_zero,
             },
         ) {
             old.forwarder.abort();
+            old.boot_zero.abort();
             old.camera.disconnect().await;
         }
         camera
@@ -134,6 +138,20 @@ impl CameraManager {
             return Err(CameraError::Unsupported(cmd.name()));
         }
         camera.send(cmd).await
+    }
+}
+
+/// Ruling 18: a gimbal left turning by a crash is stopped once the new driver first connects.
+async fn boot_zero(sysid: SysId, camera: Arc<dyn Camera>) {
+    if !camera.caps().gimbal.is_some_and(|g| g.rate) {
+        return;
+    }
+    let mut state = camera.state();
+    if state.wait_for(|s| s.connected).await.is_err() {
+        return;
+    }
+    if let Err(e) = camera.send(CameraCommand::GimbalRate { yaw: 0, pitch: 0 }).await {
+        tracing::warn!(sysid, error = %e, "boot gimbal zero failed");
     }
 }
 
