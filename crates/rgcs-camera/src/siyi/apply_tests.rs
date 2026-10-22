@@ -40,6 +40,20 @@ fn apply_0x20_main_only() {
     assert!(next.is_none(), "sub stream ignored");
 }
 
+/// Final review I2: a 0x0 (or 1-pixel) main-stream reply is not a resolution.
+#[test]
+fn apply_0x20_zero_size_keeps_the_stream_unknown() {
+    let now = Instant::now();
+    for (w, h) in [(0, 1080), (1920, 0), (0, 0), (1, 1080)] {
+        let (s, _) = step(&base(), &Media::default(), encoding_reply(1, w, h), now);
+        assert_eq!(s.stream, None, "{w}x{h}");
+        assert_eq!(s.encoding, None, "{w}x{h}");
+    }
+    let (known, _) = step(&base(), &Media::default(), encoding_reply(1, 1920, 1080), now);
+    let (s, _) = step(&known, &Media::default(), encoding_reply(1, 0, 0), now);
+    assert_eq!(s.stream, Some((1920, 1080)), "a bogus reply keeps the known size");
+}
+
 #[test]
 fn apply_thermal_frames() {
     let now = Instant::now();

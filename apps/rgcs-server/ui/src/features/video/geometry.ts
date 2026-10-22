@@ -2,6 +2,11 @@
 // The cockpit is full-bleed, so the picture is `object-fit: cover`, not letterboxed (camera-rest ruling 13).
 import type { Detection, NormRect } from '../../shared/api/types'
 
+/** The 0x20 main-stream size, or null while unknown or degenerate (a 0 / 1-pixel reply, final review I2). */
+export function knownStream(stream: readonly [number, number] | null): [number, number] | null {
+  return stream && stream[0] > 1 && stream[1] > 1 ? [stream[0], stream[1]] : null
+}
+
 export interface Rect {
   readonly x: number
   readonly y: number

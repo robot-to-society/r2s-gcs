@@ -1,7 +1,7 @@
 import type { MouseEvent, Ref } from 'react'
 import type { CameraState, TrackState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { detectionToDisplay, pointToDisplay, rectToDisplay, type Rect } from './geometry'
+import { detectionToDisplay, knownStream, pointToDisplay, rectToDisplay, type Rect } from './geometry'
 
 interface Props {
   readonly state: CameraState
@@ -48,7 +48,7 @@ function Marker({ cls, at, text }: { readonly cls: string; readonly at: { x: num
 
 /** IR max / min (0x14) and the Alt+click point (0x12), in main-stream pixels. */
 function ThermalMarks({ state, rect }: { readonly state: CameraState; readonly rect: Rect }) {
-  const stream = state.stream
+  const stream = knownStream(state.stream)
   const th = state.thermal
   if (!stream || !th) return null
   const at = (xy: readonly [number, number]) => pointToDisplay(xy, stream, rect)

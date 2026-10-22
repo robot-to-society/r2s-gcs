@@ -59,6 +59,12 @@ pub fn click_to_stream_box(nx: f32, ny: f32, w: u16, h: u16, box_px: u16) -> Res
     Ok(StreamBox { lx, ly, rx, ry })
 }
 
+/// A main-stream size clicks can be mapped onto (Python keeps a 0x20 size only when > 0;
+/// 1 pixel leaves nothing to select either).
+pub fn usable_stream(w: u16, h: u16) -> bool {
+    w > 1 && h > 1
+}
+
 /// Normalized point to stream pixels, clamped into the frame.
 pub fn normalized_to_stream_point(nx: f32, ny: f32, w: u16, h: u16) -> (u16, u16) {
     let px = |n: f32, limit: u16| {

@@ -37,6 +37,12 @@ describe('VideoOverlay (prototype 757–762)', () => {
     expect(document.querySelector('.tmark.cold')?.textContent).toBe('11.2℃')
   })
 
+  it('draws no temperature markers while the stream size is degenerate', () => {
+    const thermal = { gain: 'high' as const, range_c: null, frame: { max_c: 68.4, min_c: 11.2, max_xy: [960, 540] as [number, number], min_xy: [480, 270] as [number, number] }, point: null }
+    show({ ...base, video_mode: 'thermal', thermal, stream: [0, 0] })
+    expect(document.querySelectorAll('.tmark')).toHaveLength(0)
+  })
+
   it('draws a plain marker for the measured point', () => {
     const thermal = { gain: 'high' as const, range_c: null, frame: null, point: { temp_c: 16, xy: [960, 540] as [number, number], age_ms: 0 } }
     show({ ...base, video_mode: 'thermal', thermal })

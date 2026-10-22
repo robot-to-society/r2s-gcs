@@ -46,6 +46,13 @@ describe('clickAction (spec 10 §4.2, rulings 13 / 14)', () => {
     expect(clickAction({ ...none, alt: true }, 0.5, 0.5, { ...ir, stream: null }, caps, 100)).toEqual({ kind: 'refuse', code: 'stream_unknown' })
   })
 
+  it('a degenerate stream size (0x20 with 0 width / height) is unknown', () => {
+    for (const stream of [[0, 1080], [1920, 0], [0, 0]] as [number, number][]) {
+      expect(clickAction(none, 0.5, 0.5, { ...rgb, stream }, caps, 100)).toEqual({ kind: 'refuse', code: 'stream_unknown' })
+      expect(clickAction({ ...none, alt: true }, 0.5, 0.5, { ...ir, stream }, caps, 100)).toEqual({ kind: 'refuse', code: 'stream_unknown' })
+    }
+  })
+
   it('a camera without AI tracking ignores tracking clicks', () => {
     expect(clickAction(none, 0.5, 0.5, rgb, { ...caps, ai_tracking: null }, 100)).toBeNull()
     expect(clickAction({ ...none, alt: true }, 0.5, 0.5, ir, { ...caps, ai_tracking: null, thermal: null }, 100)).toBeNull()

@@ -79,10 +79,11 @@ fn apply_basic(state: &CameraState, cmd: u8, p: &[u8]) -> Option<CameraState> {
     }
 }
 
-/// 0x20: only the main stream (`stream_type == 1`) sets the resolution.
+/// 0x20: only the main stream (`stream_type == 1`) with a real size sets the resolution; a
+/// 0 / 1-pixel reply (encoder restarting) is ignored, as in Python (final review I2).
 fn apply_encoding(state: &CameraState, p: &[u8]) -> Option<CameraState> {
     let (stream_type, info) = ai::parse_encoding(p)?;
-    (stream_type == 1).then(|| CameraState {
+    (stream_type == 1 && ai::usable_stream(info.width, info.height)).then(|| CameraState {
         stream: Some((info.width, info.height)),
         encoding: Some(info),
         ..state.clone()

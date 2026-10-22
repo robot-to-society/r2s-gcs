@@ -89,7 +89,9 @@ async fn thermal_gain(link: &mut Link<'_>, gain: ThermalGain) -> Result<(), Came
 }
 
 fn stream_of(snap: &CameraState) -> Result<(u16, u16), CameraError> {
-    snap.stream.ok_or(CameraError::Refused("stream_unknown"))
+    snap.stream
+        .filter(|&(w, h)| ai::usable_stream(w, h))
+        .ok_or(CameraError::Refused("stream_unknown"))
 }
 
 fn require_mode(snap: &CameraState, mode: VideoMode, code: &'static str) -> Result<(), CameraError> {
@@ -233,6 +235,19 @@ mod tests {
         let point = CameraCommand::AiSelectPoint { x: 0.5, y: 0.5 };
         assert_eq!(check(&ir, &media, &point), Err(CameraError::Refused("rgb_only")));
         assert_eq!(check(&rgb(None), &media, &CameraCommand::ZoomReset), Ok(()));
+    }
+
+    /// Final review I2: a degenerate size never maps a click onto pixel (0, 0).
+    #[test]
+    fn degenerate_stream_is_unknown() {
+        let media = Media::default();
+        let point = CameraCommand::AiSelectPoint { x: 0.5, y: 0.5 };
+        for s in [(0, 1080), (1920, 0), (1, 1)] {
+            assert_eq!(check(&rgb(Some(s)), &media, &point), Err(CameraError::Refused("stream_unknown")), "{s:?}");
+            let ir = CameraState { video_mode: Some(VideoMode::Thermal), ..rgb(Some(s)) };
+            let measure = CameraCommand::MeasurePoint { x: 0.5, y: 0.5 };
+            assert_eq!(check(&ir, &media, &measure), Err(CameraError::Refused("stream_unknown")), "{s:?}");
+        }
     }
 
     #[tokio::test]

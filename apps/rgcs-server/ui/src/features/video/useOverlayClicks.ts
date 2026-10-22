@@ -3,7 +3,7 @@ import type { AiAck, CameraCommand, CameraSnapshot } from '../../shared/api/type
 import type { Dict } from '../../shared/i18n'
 import { vehicleStore } from '../vehicles/store'
 import { clickAction } from './clickAction'
-import { previewBox, toNormalized, type Rect } from './geometry'
+import { knownStream, previewBox, toNormalized, type Rect } from './geometry'
 import { measureRect, pictureSize } from './useCoverRect'
 
 /** How long the dashed preview box waits for the first 0x50 (ruling 10). */
@@ -37,7 +37,7 @@ export function useOverlayClicks({ sysid, camera, boxPx, dict, onCommand, videoR
     if (!camera) return
     const layer = e.currentTarget
     const b = layer.getBoundingClientRect()
-    const rect = measureRect(layer, videoRef.current, camera.state.stream)
+    const rect = measureRect(layer, videoRef.current, knownStream(camera.state.stream))
     const n = toNormalized(e.clientX - b.left, e.clientY - b.top, rect)
     if (!n || !rect) return
     const result = clickAction({ ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey }, n.nx, n.ny, camera.state, camera.caps, boxPx)
@@ -47,7 +47,7 @@ export function useOverlayClicks({ sysid, camera, boxPx, dict, onCommand, videoR
       return
     }
     if (result.cmd.cmd === 'ai_select_box') {
-      const [sw, sh] = camera.state.stream ?? pictureSize(null, null)
+      const [sw, sh] = knownStream(camera.state.stream) ?? pictureSize(null, null)
       setPreview(previewBox(n.nx, n.ny, rect, sw, sh, boxPx))
     }
     onCommand(result.cmd)

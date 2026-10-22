@@ -8,6 +8,7 @@ import { altText, battText, modeLabel, speedText } from '../vehicles/format'
 import { CamBar } from './CamBar'
 import { CamCard } from './CamCard'
 import { latencyText } from './cockpitView'
+import { knownStream } from './geometry'
 import { roiText } from '../roi/format'
 import { encodingLabel } from '../camera/mediaFormat'
 import { VideoOverlay } from './VideoOverlay'
@@ -57,7 +58,7 @@ export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, 
   const profile = useCameraProfile(has ? v.sysid : null)
   const boxPx = profile?.ai_box_px ?? DEFAULT_BOX_PX
   const layerRef = useRef<HTMLDivElement>(null)
-  const rect = useCoverRect(layerRef, ref, live, camera?.state.stream ?? null)
+  const rect = useCoverRect(layerRef, ref, live, knownStream(camera?.state.stream ?? null))
   const { preview, onClick } = useOverlayClicks({ sysid: v.sysid, camera, boxPx, dict, onCommand, videoRef: ref })
   useAiAckLog(v.sysid, camera?.state.ai_ack, dict)
   return (

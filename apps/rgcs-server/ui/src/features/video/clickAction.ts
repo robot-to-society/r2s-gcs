@@ -1,5 +1,6 @@
 // What a click on the cockpit video means (spec 10 §4.2, camera-rest rulings 2 / 13 / 14).
 import type { CameraCaps, CameraCommand, CameraState } from '../../shared/api/types'
+import { knownStream } from './geometry'
 
 export type RefuseCode = 'rgb_only' | 'thermal_only' | 'stream_unknown'
 export type ClickResult = { kind: 'command'; cmd: CameraCommand } | { kind: 'refuse'; code: RefuseCode } | null
@@ -17,7 +18,7 @@ const command = (cmd: CameraCommand): ClickResult => ({ kind: 'command', cmd })
 function measureClick(nx: number, ny: number, state: CameraState, caps: CameraCaps): ClickResult {
   if (!caps.thermal?.point_temp) return caps.ai_tracking ? refuse('thermal_only') : null
   if (state.video_mode !== 'thermal') return refuse('thermal_only')
-  if (state.stream === null) return refuse('stream_unknown')
+  if (knownStream(state.stream) === null) return refuse('stream_unknown')
   return command({ cmd: 'measure_point', args: { x: nx, y: ny } })
 }
 
@@ -31,7 +32,7 @@ export function clickAction(mods: ClickMods, nx: number, ny: number, state: Came
   if (mods.alt) return measureClick(nx, ny, state, caps)
   if (!caps.ai_tracking) return null
   if (mode !== 'rgb') return refuse('rgb_only')
-  if (state.stream === null) return refuse('stream_unknown')
+  if (knownStream(state.stream) === null) return refuse('stream_unknown')
   if (mods.ctrl || mods.meta) return command({ cmd: 'ai_select_point', args: { x: nx, y: ny } })
   return command({ cmd: 'ai_select_box', args: { x: nx, y: ny, box_px: boxPx } })
 }
