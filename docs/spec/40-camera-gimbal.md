@@ -43,7 +43,7 @@ pub trait Camera: Send + Sync {
 
 - 確定(2026-10-23): `MeasurePoint` / `AiSelectBox` / `AiSelectPoint` の `x` / `y` は **正規化 0..1**(画素ではない)。ドライバが最新の 0x20 解像度で画素に直すので、「解像度不明なら拒否」(70 §3)は変換と同じ値で 1 か所で判定する。`box_px` は主ストリーム画素の一辺(32–600)。`null` はプロファイルの `ai_box_px` を使う(サーバーが埋める)。
 - `MeasureFrame(bool)` / `AiEnable(bool)` / `AiCandidates(bool)` はコマンドにしない(2026-10-23)。0x14 は IR 表示中に毎秒ポーリングし、表示の On / Off は UI 側の `thermal_overlay`。0x55 は選択の直前に毎回送る。0x51 / 0x5F は 5 s ごとに再有効化する(カメラ再起動にも追従)。
-- 拒否は `CameraError::Refused(code)` → 409 `{code}`: `rgb_only`(RGB 以外でクリック追跡)、`thermal_only`(IR 以外で点温度)、`stream_unknown`(解像度未取得)、`no_detection`(Ctrl + クリックが直近の検出枠に当たらない)、`clock_sync_off`(時刻同期無効で「今すぐ同期」)。
+- 拒否は `CameraError::Refused(code)` → 409 `{code}`: `rgb_only`(RGB 以外でクリック追跡)、`thermal_only`(IR 以外で点温度)、`stream_unknown`(解像度未取得)、`no_detection`(Ctrl + クリックが直近の検出枠に当たらない)、`clock_sync_off`(時刻同期無効で「今すぐ同期」)、`encoding_rejected`(0x21 の ACK `sta = 0`。`encoding` コマンドは ACK を最大 1 s 待ってから返り、ACK が無ければ送信済みとして成功を返す)。
 - `RoiStart` / `RoiStop` は `CameraCommand` にしない(2026-10-22 決定)。開始・停止は REST `POST /api/vehicles/{sysid}/roi/start|stop`(50 §2.3)とサーバーの `RoiHub` だけが扱う。`CameraCaps::supports` はドライバ単位の判定のまま、監査は target `roi` で残す。
 
 ドライバは対応しないコマンドに `CameraError::Unsupported` を返す。サーバーは `caps` と照合して送信前に拒否する(UI が隠していても API から来るため)。

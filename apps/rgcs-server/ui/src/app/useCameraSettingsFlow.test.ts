@@ -6,6 +6,8 @@ import { mapUiStore } from '../features/map/store'
 import { DEFAULT_ROI_CONTROL, emptyTargets } from '../features/roi/schema'
 import type { SheetDraft } from '../features/camera-settings/CameraSettingsSheet'
 import type { Modal } from './modal'
+import { ApiError } from '../shared/api/client'
+import { t } from '../shared/i18n'
 
 const calls: string[] = []
 let stored: CameraProfile
@@ -40,7 +42,7 @@ const draft: SheetDraft = { tab: 'connection', camera: { kind: 'siyi_mt11', host
 function setup(vehicles: ReadonlyMap<number, VehicleState> = new Map()) {
   const setModal = vi.fn<(m: Modal) => void>()
   const setGimbalProfile = vi.fn()
-  const hook = renderHook(({ modal }: { modal: Modal }) => useCameraSettingsFlow({ modal, setModal, terrainTiles: null, vehicles, setGimbalProfile }), {
+  const hook = renderHook(({ modal }: { modal: Modal }) => useCameraSettingsFlow({ modal, setModal, terrainTiles: null, vehicles, setGimbalProfile, dict: t('ja') }), {
     initialProps: { modal: { kind: 'camera-settings', sysid: 1 } as Modal },
   })
   return { ...hook, setModal, setGimbalProfile }
@@ -166,6 +168,16 @@ describe('useCameraSettingsFlow', () => {
       await act(() => result.current.save(1, edited, state))
       expect(calls).toEqual(['video'])
       expect(results).toEqual([expect.objectContaining({ ok: false, reason: 'stream_unknown' })])
+    })
+
+    it('an encoding the camera rejects is a translated failure, not saved (final review M4)', async () => {
+      api.getCameraProfile.mockResolvedValueOnce(full)
+      api.sendCameraCommand.mockRejectedValueOnce(new ApiError(409, 'encoding_rejected', 'refused: encoding_rejected'))
+      const { result } = setup()
+      await waitFor(() => expect(result.current.roi).not.toBeNull())
+      await act(() => result.current.save(1, edited, state))
+      expect(calls).toEqual(['video'])
+      expect(results).toEqual([expect.objectContaining({ ok: false, reason: 'カメラがこのエンコード設定を拒否しました' })])
     })
   })
 })

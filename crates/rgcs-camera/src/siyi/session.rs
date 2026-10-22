@@ -15,7 +15,7 @@ use crate::camera::GpsTime;
 use crate::clock_sync::{ClockAction, GpsSample};
 use crate::siyi::ai;
 use crate::siyi::apply::{apply_frame, clock_view, Media};
-use crate::siyi::client::{Link, Op, Transport, READ_TIMEOUT};
+use crate::siyi::client::{Link, Op, Reply, Transport, READ_TIMEOUT};
 use crate::siyi::encode;
 use crate::siyi::exec::{check, exec};
 use crate::siyi::expire::expire;
@@ -28,6 +28,8 @@ const POLL: Duration = Duration::from_secs(1);
 const EXPIRE_TICK: Duration = Duration::from_millis(250);
 /// 0x20 is re-read this long after a 0x21 encoding change (`video_routes.py`).
 const ENCODING_REREAD: Duration = Duration::from_millis(300);
+/// How long an encoding command waits for its 0x21 ACK; without one it is reported as sent.
+const ENCODING_ACK_TIMEOUT: Duration = Duration::from_millis(1000);
 const ON_CONNECT: [u8; 4] = [0x01, 0x18, 0x10, 0x19];
 /// Monotonic µs start here so `received_at = mono − age` never underflows for a sample young
 /// enough to matter: anything older comes out ≥ 60 s old, i.e. stale.
@@ -109,6 +111,8 @@ struct Run {
     last_rx: tokio::time::Instant,
     last_attitude: Option<tokio::time::Instant>,
     reread: Option<tokio::time::Instant>,
+    /// An encoding command's reply, held until its 0x21 ACK (final review M4).
+    encoding_wait: Option<(Reply, tokio::time::Instant)>,
 }
 
 pub(crate) async fn session(
@@ -127,6 +131,7 @@ pub(crate) async fn session(
         last_rx: tokio::time::Instant::now(),
         last_attitude: None,
         reread: None,
+        encoding_wait: None,
     };
     let end = serve(&mut rd, &mut link, ctx, ops, &mut run).await;
     (end, run.media)
@@ -149,6 +154,7 @@ async fn serve(
     loop {
         let watchdog = tokio::time::sleep_until(run.last_rx + READ_TIMEOUT);
         let reread = tokio::time::sleep_until(run.reread.unwrap_or(run.last_rx));
+        let ack_wait = tokio::time::sleep_until(run.encoding_wait.as_ref().map_or(run.last_rx, |w| w.1));
         let step = tokio::select! {
             n = rd.read(&mut buf) => match n {
                 Ok(0) => Err(SessionEnd::Lost("camera closed the connection".into())),
@@ -162,6 +168,11 @@ async fn serve(
             _ = reread, if run.reread.is_some() => {
                 run.reread = None;
                 link.tcp(0x20, &ai::encoding_request()).await.map_err(lost)
+            },
+            _ = ack_wait, if run.encoding_wait.is_some() => {
+                tracing::warn!("no 0x21 ACK for the encoding change; reporting it as sent");
+                run.resolve_encoding(Ok(()));
+                Ok(())
             },
             op = ops.recv() => match op {
                 None => Err(SessionEnd::Closed),
@@ -182,6 +193,9 @@ impl Run {
             if f.cmd == 0x0D {
                 self.last_attitude = Some(self.last_rx);
             }
+            if let Some(ok) = (f.cmd == 0x21).then(|| ai::encoding_ack(&f.payload)).flatten() {
+                self.resolve_encoding(if ok { Ok(()) } else { Err(CameraError::Refused("encoding_rejected")) });
+            }
             let mut next = None;
             replace_if(ctx.state, |s| {
                 let (state, media) = apply_frame(s, &self.media, &f, now, mono);
@@ -189,6 +203,13 @@ impl Run {
                 state
             });
             self.media = next.unwrap_or_else(|| self.media.clone());
+        }
+    }
+
+    /// Answers a held encoding command, if any.
+    fn resolve_encoding(&mut self, r: Result<(), CameraError>) {
+        if let Some((reply, _)) = self.encoding_wait.take() {
+            let _ = reply.send(r);
         }
     }
 
@@ -240,7 +261,12 @@ impl Run {
                 self.reread = Some(tokio::time::Instant::now() + ENCODING_REREAD);
             }
         });
-        let _ = reply.send(r.clone());
+        if is_encoding && r.is_ok() {
+            self.resolve_encoding(Ok(()));
+            self.encoding_wait = Some((reply, tokio::time::Instant::now() + ENCODING_ACK_TIMEOUT));
+        } else {
+            let _ = reply.send(r.clone());
+        }
         match r {
             Err(CameraError::Io(e)) => Err(SessionEnd::Lost(format!("io: {e}"))),
             _ => Ok(()),

@@ -28,6 +28,8 @@ pub struct SimMedia {
     pub stale_encoding_replies: u8,
     /// The previous encoding and how many stale replies are left.
     pub stale: Option<((u8, u16, u16), u8)>,
+    /// Refuse every 0x21 (`[1, 0]`) and keep the current encoding.
+    pub reject_encoding: bool,
 }
 
 impl Default for SimMedia {
@@ -51,6 +53,7 @@ impl Default for SimMedia {
             ],
             stale_encoding_replies: 0,
             stale: None,
+            reject_encoding: false,
         }
     }
 }
@@ -92,6 +95,9 @@ fn stream_reply(m: &mut SimMedia, payload: &[u8]) -> Option<(u8, Vec<u8>)> {
 }
 
 fn set_encoding(m: &mut SimMedia, payload: &[u8]) -> Option<(u8, Vec<u8>)> {
+    if m.reject_encoding {
+        return Some((0x21, vec![1, 0]));
+    }
     m.stale = Some((m.encoding, m.stale_encoding_replies));
     m.encoding = (*payload.get(1)?, u16_at(payload, 2)?, u16_at(payload, 4)?);
     Some((0x21, vec![1, 1]))

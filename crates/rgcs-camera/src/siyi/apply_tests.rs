@@ -74,6 +74,22 @@ fn apply_0x20_waits_for_the_requested_size() {
     assert_eq!(m.pending_encoding, None);
 }
 
+/// Final review M4: a refused 0x21 ends the wait; the camera keeps its old size.
+#[test]
+fn apply_0x21_rejection_ends_the_encoding_wait() {
+    let t0 = Instant::now();
+    let pending = Media {
+        pending_encoding: Some(PendingEncoding { size: (3840, 2160), since: t0 }),
+        ..Media::default()
+    };
+    let (_, m) = step(&base(), &pending, frame(0x21, vec![1, 1]), t0);
+    assert!(m.pending_encoding.is_some(), "an accepted change still waits for its size");
+    let (_, m) = step(&base(), &pending, frame(0x21, vec![1, 0]), t0);
+    assert_eq!(m.pending_encoding, None);
+    let (s, _) = step(&base(), &m, encoding_reply(1, 1920, 1080), t0 + Duration::from_millis(300));
+    assert_eq!(s.stream, Some((1920, 1080)));
+}
+
 #[test]
 fn apply_thermal_frames() {
     let now = Instant::now();

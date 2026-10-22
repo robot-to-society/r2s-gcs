@@ -198,3 +198,10 @@ fn push_enables() {
     assert_eq!(candidate_push(false), [4]);
     assert_eq!(ai_mode(true), [1]);
 }
+
+#[test]
+fn encoding_ack_reads_the_status_byte() {
+    assert_eq!(encoding_ack(&[1, 1]), Some(true));
+    assert_eq!(encoding_ack(&[1, 0]), Some(false));
+    assert_eq!(encoding_ack(&[1]), None);
+}

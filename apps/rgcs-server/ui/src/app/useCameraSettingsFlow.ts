@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CameraProfile, CameraState, GimbalInputProfile, RoiControl, RoiTarget, VehicleState } from '../shared/api/types'
 import { getCameraProfile, putCameraProfile, sendCameraCommand } from '../features/camera/api'
+import { cameraErrorText } from '../features/camera/mediaFormat'
 import { cameraProfileStore } from '../features/camera/profileStore'
 import type { SheetDraft } from '../features/camera-settings/CameraSettingsSheet'
 import { videoSteps } from '../features/camera-settings/videoSchema'
@@ -12,6 +13,7 @@ import { groundElevation } from '../features/roi/elevation'
 import { pickInto } from '../features/roi/schema'
 import { roiTargetsStore } from '../features/roi/targetsStore'
 import { vehicleStore } from '../features/vehicles/store'
+import type { Dict } from '../shared/i18n'
 import { NO_MODAL, type Modal } from './modal'
 
 export interface RoiSettings {
@@ -25,6 +27,8 @@ interface Deps {
   readonly terrainTiles: string | null
   readonly vehicles: ReadonlyMap<number, VehicleState>
   readonly setGimbalProfile: (p: GimbalInputProfile) => void
+  /** Translates a refused camera command (e.g. `encoding_rejected`) for the log. */
+  readonly dict: Dict
 }
 
 export interface CameraSettingsFlow {
@@ -78,8 +82,8 @@ function profileSteps(sysid: number, profile: CameraProfile | null, d: SheetDraf
   return [...cameraSteps, ...patchSteps, ...commands.map((c) => () => sendCameraCommand(sysid, c))]
 }
 
-function report(sysid: number, error: unknown): void {
-  const reason = error === null ? null : error instanceof Error ? error.message : String(error)
+function report(sysid: number, error: unknown, dict: Dict): void {
+  const reason = error === null ? null : cameraErrorText(error, dict)
   vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'camera_settings', ok: error === null, reason, ts: Date.now() })
 }
 
@@ -101,7 +105,7 @@ function useSettingsData(modal: Modal): { profile: CameraProfile | null; roi: Ro
   return data
 }
 
-export function useCameraSettingsFlow({ modal, setModal, terrainTiles, vehicles, setGimbalProfile }: Deps): CameraSettingsFlow {
+export function useCameraSettingsFlow({ modal, setModal, terrainTiles, vehicles, setGimbalProfile, dict }: Deps): CameraSettingsFlow {
   const { profile, roi } = useSettingsData(modal)
   const [draft, setDraft] = useState<SheetDraft | null>(null)
   const [elevationFallback, setElevationFallback] = useState(false)
@@ -119,9 +123,9 @@ export function useCameraSettingsFlow({ modal, setModal, terrainTiles, vehicles,
     const steps: (() => Promise<unknown>)[] = [...profileSteps(sysid, profile, d, cameraState), ...roiSteps, async () => setGimbalProfile(await putGimbalProfile(d.input))]
     try {
       for (const step of steps) await step()
-      report(sysid, null)
+      report(sysid, null, dict)
     } catch (e: unknown) {
-      report(sysid, e)
+      report(sysid, e, dict)
     }
     setModal(NO_MODAL)
   }

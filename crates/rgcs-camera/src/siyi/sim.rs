@@ -259,6 +259,11 @@ impl SimServer {
         self.state.lock().expect("sim state").media.stale_encoding_replies = n;
     }
 
+    /// Every following 0x21 is refused (`[1, 0]`) and the encoding stays.
+    pub fn set_reject_encoding(&self, reject: bool) {
+        self.state.lock().expect("sim state").media.reject_encoding = reject;
+    }
+
     pub fn set_detections(&self, d: Vec<SimDetection>) {
         self.state.lock().expect("sim state").media.detections = d;
     }

@@ -51,6 +51,7 @@ pub fn apply_frame(
     let (next, media) = match f.cmd {
         0x12 | 0x14 | 0x37 | 0x38 => apply_thermal(state, media, f.cmd, p, now),
         0x20 => apply_encoding(state, media, p, now),
+        0x21 => (None, apply_encoding_ack(media, p)),
         0x50 => apply_track(state, media, p, now),
         0x5F => apply_candidates(state, media, p, now),
         0x55 | 0x56 => apply_ack(state, media, f.cmd, p),
@@ -117,6 +118,15 @@ fn apply_encoding(state: &CameraState, media: &Media, p: &[u8], now: Instant) ->
     }
     let next = with(state, |s| CameraState { stream: Some(size), encoding: Some(info), ..s });
     (next, Media { pending_encoding: None, ..media.clone() })
+}
+
+/// 0x21: a refused change ends the wait for its size, so the next 0x20 (the old size the
+/// camera kept) is taken at once (final review M4). The command reply is resolved by the session.
+fn apply_encoding_ack(media: &Media, p: &[u8]) -> Media {
+    match ai::encoding_ack(p) {
+        Some(false) => Media { pending_encoding: None, ..media.clone() },
+        _ => media.clone(),
+    }
 }
 
 fn apply_thermal(state: &CameraState, media: &Media, cmd: u8, p: &[u8], now: Instant) -> Applied {

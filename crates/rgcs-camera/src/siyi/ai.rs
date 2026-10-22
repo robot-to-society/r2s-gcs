@@ -288,6 +288,11 @@ pub fn encode_encoding(preset: &EncodingPreset) -> [u8; 9] {
     out
 }
 
+/// 0x21 reply `[stream_type, sta]`: `sta == 1` means the camera took the encoding.
+pub fn encoding_ack(p: &[u8]) -> Option<bool> {
+    p.get(1).map(|sta| *sta == 1)
+}
+
 /// 0x20 request: main stream.
 pub fn encoding_request() -> [u8; 1] {
     [1]

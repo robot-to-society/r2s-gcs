@@ -126,6 +126,22 @@ async fn encoding_change_refuses_clicks_until_reread() {
     cam.disconnect().await;
 }
 
+/// Final review M4: a refused 0x21 fails the command, and the old size comes back.
+#[tokio::test]
+async fn rejected_encoding_fails_the_command() {
+    let (cam, sim) = pair(false).await;
+    sim.set_reject_encoding(true);
+    assert_eq!(
+        cam.send(CameraCommand::Encoding { preset: "h264_4k".into() }).await,
+        Err(CameraError::Refused("encoding_rejected"))
+    );
+    wait_until(&cam, |s| s.stream == Some((1920, 1080)), 1).await;
+    sim.set_reject_encoding(false);
+    cam.send(CameraCommand::Encoding { preset: "h264_4k".into() }).await.unwrap();
+    wait_until(&cam, |s| s.stream == Some((3840, 2160)), 2).await;
+    cam.disconnect().await;
+}
+
 /// Final review I3: the old size a slow encoder still reports is not taken for the new one.
 #[tokio::test]
 async fn encoding_change_waits_for_the_requested_size() {

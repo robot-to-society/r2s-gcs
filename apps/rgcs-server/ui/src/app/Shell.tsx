@@ -149,7 +149,7 @@ export function Shell({ me, lang }: Props) {
       }),
     [],
   )
-  const settingsFlow = useCameraSettingsFlow({ modal, setModal, terrainTiles: settings?.terrain_tiles ?? null, vehicles, setGimbalProfile })
+  const settingsFlow = useCameraSettingsFlow({ modal, setModal, terrainTiles: settings?.terrain_tiles ?? null, vehicles, setGimbalProfile, dict })
   useGimbalJoystick(
     current,
     gimbalProfile,
