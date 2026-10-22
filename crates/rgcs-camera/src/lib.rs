@@ -4,6 +4,7 @@
 pub mod camera;
 pub mod clock_sync;
 pub mod error;
+pub mod mavlink_cam;
 pub mod none;
 pub mod roi;
 pub mod siyi;

@@ -1812,7 +1812,9 @@ name = "rgcs-camera"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "mavlink",
  "rgcs-core",
+ "rgcs-mavlink",
  "serde",
  "thiserror",
  "tokio",

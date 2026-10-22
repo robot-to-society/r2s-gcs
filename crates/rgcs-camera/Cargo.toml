@@ -11,6 +11,8 @@ sim = []
 
 [dependencies]
 rgcs-core = { workspace = true }
+rgcs-mavlink = { workspace = true }
+mavlink = { workspace = true }
 tokio = { workspace = true, features = ["io-util"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }
