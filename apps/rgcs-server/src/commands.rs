@@ -73,6 +73,7 @@ pub fn precheck(cmd: &VehicleCommand, v: &VehicleState) -> Option<(StatusCode, &
         VehicleCommand::Disarm if !v.armed => {
             Some((StatusCode::CONFLICT, "rejected", "already disarmed".into()))
         }
+        VehicleCommand::Other { mav_cmd, params } => crate::other_guard::check(*mav_cmd, params, v),
         _ => None,
     }
 }
@@ -197,6 +198,15 @@ mod tests {
         assert!(precheck(&VehicleCommand::Rtl, &v).is_none());
         v.link = LinkStatus::Lost;
         assert_eq!(precheck(&VehicleCommand::Pause, &v).unwrap().1, "link_lost");
+    }
+
+    #[test]
+    fn a_raw_arm_cannot_skip_the_confirm_token() {
+        let arm = VehicleCommand::Other {
+            mav_cmd: 400,
+            params: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        };
+        assert_eq!(precheck(&arm, &VehicleState::new(1, "UAV-01")).unwrap().1, "not_allowed");
     }
 
     #[test]

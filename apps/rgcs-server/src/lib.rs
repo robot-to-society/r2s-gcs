@@ -30,6 +30,7 @@ pub mod message_log;
 pub mod messages_api;
 pub mod mission_api;
 pub mod missions;
+pub mod other_guard;
 pub mod param_api;
 pub mod param_pick;
 pub mod params;

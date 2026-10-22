@@ -47,7 +47,7 @@
 | POST | `/api/vehicles/{sysid}/calibration/finish` | rc のみ: 400 µs 以上動いたチャンネルの `RCn_MIN / MAX / TRIM`(TRIM = 終了時の位置)を書込・照合(変更履歴に残る)。動いたチャンネルが無ければ `failed: rc_not_moved` |
 | POST | `/api/vehicles/{sysid}/motor-test` | `{motor: 1–12, pct: 0<–100, seconds: 0<–10, count?, confirm_token}` → `{ok, reason?}`。`DO_MOTOR_TEST`(p2=0 スロットル %、`count` > 0 で `motor` から順に `count` 個)。要確認 `motor_test`、アーム中 409。実施は `calibrations` に `motor` として記録 |
 
-`cmd` の列挙: `pause`, `resume`, `rtl`, `land`, `change_alt`, `change_speed`, `set_mode`, `mission_start`, `mission_resume`, `arm`, `disarm`, `other(mav_cmd, params)`。
+`cmd` の列挙: `pause`, `resume`, `rtl`, `land`, `change_alt`, `change_speed`, `set_mode`, `mission_start`, `mission_resume`, `arm`, `disarm`, `other(mav_cmd, params)`。`other` で送れる MAV_CMD は 70 §1(`422 not_allowed`)。
 
 ### 2.2.1 ミッション(P3、2026-10-17 追補 §5.2 / §5.9)
 | メソッド | パス | 本文 / 応答 |

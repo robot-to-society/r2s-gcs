@@ -11,6 +11,7 @@
 | 禁止 | MT11 `0x48`(SD フォーマット) | ドライバ最下層で拒否。API にも存在しない |
 
 - サーバーは UI の状態を信用しない: ARM 済み機体への `arm` は `rejected`、DISARM 済みへの `disarm` も同様。
+- `other(mav_cmd, params)`(2026-10-22): 通すのは UI が使う MAV_CMD だけ。`224`(DO_SET_MISSION_CURRENT)、`511`(SET_MESSAGE_INTERVAL)、`246`(再起動。DISARM 中のみ、ARM 中は `409 vehicle_armed`)。それ以外は `422 not_allowed`(`400` ARM_DISARM・`300` MISSION_START で確認トークンを迂回させない)。`511` は HEARTBEAT(0)の変更を `400 invalid`、ARM 中にコアテレメトリ(0 / 1 / 24 / 30 / 33 / 42 / 74)を止める・0.5 Hz より遅くするのを `409 vehicle_armed`。param1 が整数のメッセージ ID でない、param2 が -1 未満・非有限も `400 invalid`。
 - Guided 移動: 高度はジオフェンス上限(`FENCE_ALT_MAX`)を超える値を送信前に拒否(`FENCE_ENABLE`=1 のとき)。両パラメータが未取得なら `PARAM_REQUEST_READ` を送り、`warning: fence_unknown` を付けて通す。「初回」= プロセス起動後に機体ごと 1 回の確認。
 - リンク喪失(`LinkLost`)中のコマンドは `503 link_lost`。`CommsDelay` 中は送るが結果待ちを 5 s に延ばす。
 - 全コマンドは `CommandQueue` で直列化し、ACK 必須のものは再送 3 回 / 1.5 s タイムアウト。結果は `command_result` でフッターとメッセージ欄へ。
