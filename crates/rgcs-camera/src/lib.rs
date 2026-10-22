@@ -2,6 +2,7 @@
 //! the `Camera` trait is what the server talks to.
 
 pub mod camera;
+pub mod clock_sync;
 pub mod error;
 pub mod none;
 pub mod roi;

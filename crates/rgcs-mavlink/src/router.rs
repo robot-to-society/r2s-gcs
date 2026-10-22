@@ -69,6 +69,14 @@ struct Slot {
     fc_component: u8,
     last_rx_ms: u64,
     last_seen: HashMap<u32, u64>,
+    system_time: Option<SystemTimeSample>,
+}
+
+/// The FC's `SYSTEM_TIME` with a real UTC (`time_unix_usec > 0`) and the wall time it arrived.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SystemTimeSample {
+    pub unix_us: u64,
+    pub received_unix_ms: u64,
 }
 
 /// MAVLink message id of GLOBAL_POSITION_INT (the ROI controller's position source).
@@ -150,6 +158,12 @@ impl Router {
                 count: pv.param_count,
                 ptype: num_traits::ToPrimitive::to_u8(&pv.param_type).unwrap_or(0),
             }),
+            MavMessage::SYSTEM_TIME(t) if t.time_unix_usec > 0 => {
+                slot.system_time = Some(SystemTimeSample {
+                    unix_us: t.time_unix_usec,
+                    received_unix_ms: clock.unix_ms,
+                });
+            }
             _ => {}
         }
         let slot = self.slots.get_mut(&sysid).expect("slot inserted above");
@@ -255,6 +269,11 @@ impl Router {
         Some(self.now_ms.saturating_sub(seen))
     }
 
+    /// Newest `SYSTEM_TIME` with a real UTC from the vehicle's flight controller.
+    pub fn system_time(&self, sysid: SysId) -> Option<SystemTimeSample> {
+        self.slots.get(&sysid)?.system_time
+    }
+
     fn insert(&mut self, sysid: SysId, fc_component: u8) {
         let state = VehicleState::new(sysid, format!("UAV-{sysid:02}"));
         let (tx, _rx) = watch::channel(state.clone());
@@ -264,6 +283,7 @@ impl Router {
             fc_component,
             last_rx_ms: 0,
             last_seen: HashMap::new(),
+            system_time: None,
         };
         self.slots.insert(sysid, slot);
     }
@@ -596,6 +616,36 @@ mod tests {
             lon: 1_397_000_000,
             ..GLOBAL_POSITION_INT_DATA::DEFAULT
         })
+    }
+
+    fn system_time(usec: u64) -> MavMessage {
+        use mavlink::dialects::ardupilotmega::SYSTEM_TIME_DATA;
+        MavMessage::SYSTEM_TIME(SYSTEM_TIME_DATA {
+            time_unix_usec: usec,
+            ..SYSTEM_TIME_DATA::DEFAULT
+        })
+    }
+
+    #[test]
+    fn system_time_sample() {
+        let mut r = Router::default();
+        r.on_message(&header(1), &fc_heartbeat(), clock(0));
+        assert_eq!(r.system_time(1), None);
+        r.on_message(&header(1), &system_time(0), Clock { mono_ms: 1, unix_ms: 4_000 });
+        assert_eq!(r.system_time(1), None);
+        r.on_message(
+            &header(1),
+            &system_time(1_790_000_000_000_000),
+            Clock { mono_ms: 2, unix_ms: 5_000 },
+        );
+        assert_eq!(
+            r.system_time(1),
+            Some(SystemTimeSample { unix_us: 1_790_000_000_000_000, received_unix_ms: 5_000 })
+        );
+        let other = MavHeader { system_id: 1, component_id: 154, sequence: 0 };
+        r.on_message(&other, &system_time(1_791_000_000_000_000), Clock { mono_ms: 3, unix_ms: 6_000 });
+        assert_eq!(r.system_time(1).unwrap().received_unix_ms, 5_000);
+        assert_eq!(r.system_time(9), None);
     }
 
     #[test]

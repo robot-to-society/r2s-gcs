@@ -19,3 +19,16 @@ pub trait Camera: Send + Sync {
         Err(CameraError::Unsupported("attitude"))
     }
 }
+
+/// The newest flight-controller UTC, already aged: `unix_us` was true `age_us` ago.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TimeSample {
+    pub unix_us: u64,
+    pub age_us: u64,
+}
+
+/// Where the driver gets GPS time for clock sync (the server reads the router's `SYSTEM_TIME`).
+#[async_trait]
+pub trait GpsTime: Send + Sync {
+    async fn sample(&self) -> Option<TimeSample>;
+}
