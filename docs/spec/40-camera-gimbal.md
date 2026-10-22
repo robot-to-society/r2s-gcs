@@ -41,11 +41,15 @@ pub trait Camera: Send + Sync {
 
 `GimbalRate{yaw:i8,pitch:i8}`(−100..100、+yaw=右、+pitch=上)/ `GimbalAngle{yaw_deg,pitch_deg}` / `GimbalCenter(OneKeyReset|CenterFaceDown|Center|FaceDown)` / `GimbalMode(Lock|Follow|Fpv)` / `ZoomAbsolute(f32)` / `ZoomStep(i8)` / `ZoomSpeed(-1|0|1)` / `ZoomReset` / `Focus(-1|0|1)` / `Photo` / `RecordStart` / `RecordStop` / `VideoMode(VideoMode)` / `ThermalGain(Low|High)` / `ThermalPalette(u8)` / `MeasurePoint{x,y}` / `MeasureFrame(bool)` / `AiEnable(bool)` / `AiSelectBox(StreamBox)` / `AiSelectPoint{x,y}` / `AiCancel` / `AiCandidates(bool)` / `Encoding(EncodingPresetId)` / `SyncClock` / `RoiStart(RoiTargetId)` / `RoiStop`。
 
+- `RoiStart` / `RoiStop` は `CameraCommand` にしない(2026-10-22 決定)。開始・停止は REST `POST /api/vehicles/{sysid}/roi/start|stop`(50 §2.3)とサーバーの `RoiHub` だけが扱う。`CameraCaps::supports` はドライバ単位の判定のまま、監査は target `roi` で残す。
+
 ドライバは対応しないコマンドに `CameraError::Unsupported` を返す。サーバーは `caps` と照合して送信前に拒否する(UI が隠していても API から来るため)。
 
 ### 1.3 CameraState
 
 `connected`, `last_error`, `firmware{camera,gimbal,zoom}`, `recording: Idle|Recording|NoCard|CardError`, `zoom`, `zoom_max`, `video_mode`, `stream: Option<(w,h)>`, `encoding`, `gimbal: Option<{yaw,pitch,roll,age_ms}>`, `gimbal_mode`, `thermal: Option<{gain, range_c, frame: Option<{max_c,min_c,max_xy,min_xy}>, point: Option<{temp_c,xy,age_ms}>}>`, `track: Option<{state: Tracking|Lost|Searching, box}>`, `candidates: Vec<Detection>`, `storage: Option<{status,fs,total_gb,free_gb,free_pct}>`, `clock: Option<{camera_unix_us, offset_ms, rtt_ms, synced_at}>`, `roi: RoiStatus`, `video_source: {mode, source, scanning, probe_ok}`。
+
+- `roi` は `CameraState` に入れない(2026-10-22 決定、50 §3.1 が優先)。`RoiStatus` は WS `roi_status` フレームだけで届く(動作中 2 Hz + 停止時に 1 回)。スナップショットには含めず、再接続したクライアントは 0.5 s 以内に知る。非動作中は UI 上「なし」。
 
 座標(`box`, `xy`, `max_xy`)は **主ストリーム画素**(例 1920×1080)。UI は `stream` で正規化する。
 
@@ -103,6 +107,11 @@ pub trait Camera: Send + Sync {
   - 停止、手動操作、位置 / 姿勢途絶時は **必ず速度 0** を送る。
   - 手動パン / チルト(|速度| ≥ 5)、センター、AI 追跡開始で ROI 解除。ROI 開始で AI 追跡解除。
   - 真後ろ付近は ±190° まで同じ側を維持して一周を防ぐ。
+- 実装上の決定(2026-10-22):
+  - 手動入力による解除: WS `gimbal_rate` の max(|yaw|, |pitch|) ≥ 5、REST `gimbal_center` / `gimbal_angle` / `gimbal_mode`、カメラプロファイルの PUT(ドライバ再構築)。AI 追跡のコマンドはまだ無いため、AI 連動の解除はサーバーの `RoiHub::stop(…, StopReason::Manual)` を呼ぶ形で後から繋ぐ。
+  - ROI 中の機体には、WS ゲートが送るゼロ(転送される (0, 0)、デッドマン / 選択切替 / 切断の Zero)を落とす。ジンバルは ROI ループが持つ。デッドマンの `input_state: lost` 応答は出す。
+  - 停止は両モードとも必ず速度 0。操作員 / 目標削除 / シャットダウンの停止は即時 1 回 + 2 回再送、手動解除は 1 回だけ(操作員のスティックと競合しないため)。
+  - `roi_status.error` は固定コード(`no_position`, `position_stale`, `heading_unknown`, `target_too_close`, `no_attitude`, `invalid_angles`, `follow_failed`, `send_failed`, `camera_offline`, `waiting`)で、UI が訳す(`roiErr_*`)。
 - 制約: 精度は FC のコンパスと GPS に依存。機体のロール / ピッチによるヨー誤差は補正しない(実機確認 2026-09-23: 補正不要)。
 
 ### 4.1 RoiStatus
@@ -117,7 +126,7 @@ pub trait Camera: Send + Sync {
 ## 6. ジョイスティック(ジンバル用プロファイル)
 
 - 軸機能: `none` / `pan` / `tilt` / `zoom_abs`(軸 −1..1 → 1..最大倍率、0.5 刻み、2 Hz)/ `zoom_speed`(連続ズーム)/ `zoom_step`(±0.2 を越えるたびに 1 段)。各軸に不感帯(0–0.5)、反転、スケール(0.1–2)。
-- ボタン機能: `shutter`, `record_toggle`, `center_gimbal`, `thermal_toggle`(RGB → IR → 2 画面を巡回), `thermal_gain_toggle`, `focus_near` / `focus_far`(押下中), `ai_tracking_toggle`(中央 200 px で開始), `gimbal_stop`, `zoom_in_step` / `zoom_out_step` / `zoom_1x`, `mode_lock` / `mode_follow` / `mode_fpv` / `mode_cycle`, `roi_1`…`roi_10`(押すたびに開始 / 停止), `roi_stop`。
+- ボタン機能: `shutter`, `record_toggle`, `center_gimbal`, `thermal_toggle`(RGB → IR → 2 画面を巡回), `thermal_gain_toggle`, `focus_near` / `focus_far`(押下中), `ai_tracking_toggle`(中央 200 px で開始), `gimbal_stop`, `zoom_in_step` / `zoom_out_step` / `zoom_1x`, `mode_lock` / `mode_follow` / `mode_fpv` / `mode_cycle`, `roi_1`…`roi_10`(押すたびに開始 / 停止。別の ROI 動作中なら押した目標に切替), `roi_stop`(動作中だけ停止)。`roi_*` は 2026-10-22 実装済み。
 - 速度: `yaw = pan × max_pan_speed`、`pitch = tilt × max_tilt_speed`(既定 30 / 20)。20 Hz、非ゼロのときだけ送信し、ゼロに戻った瞬間に 1 回 0 を送る。
 - ROI 中は |速度| < 5 の入力をノイズとして無視する。
 - 対象は「選択中の機体」のカメラ。機体を切替えたら 0 を送ってから切替える。
@@ -144,7 +153,8 @@ pub trait Camera: Send + Sync {
 
 - `crates/rgcs-camera`: `siyi/frame.rs`(CRC / パケット / 受信パーサ)、`siyi/encode.rs`、`siyi/parse.rs`、`siyi/client.rs`(tokio アクター: TCP ハートビート 1 Hz、0x0A / 0x0D ポーリング 1 Hz、接続時 0x01 / 0x18 / 0x10 / 0x19、UDP 0x07 / 0x08 / 0x0E、切断 1 秒後に再接続、接続タイムアウト 3 秒、3 秒無応答で切断扱い(電源断は FIN が来ないため)、切断中のコマンドは即 `NotConnected`、姿勢の `age_ms` は最後の 0x0D からの経過)、`siyi/sim.rs`(疑似サーバー、`cargo run -p rgcs-camera --features sim --example siyi_sim`)、`none.rs`。
 - 実装済みコマンド: `GimbalRate` / `GimbalAngle` / `GimbalCenter` / `GimbalMode` / `ZoomAbsolute` / `ZoomStep` / `ZoomSpeed` / `ZoomReset` / `Focus` / `Photo` / `RecordStart` / `RecordStop` / `VideoMode`。録画はカメラの状態を見てトグルを 1 回だけ送る。
-- 未実装(デモ後): サーマル温度(0x12 / 0x14 / 0x37 / 0x38 / 0x1B)、AI 追跡(0x50 / 0x51 / 0x55 / 0x56 / 0x5F)、エンコード(0x20 / 0x21)、時刻同期(0x30 / 0x40)、SD(0x49)、ROI、MAVLink カメラ、Android ソース。
+- 未実装(デモ後): サーマル温度(0x12 / 0x14 / 0x37 / 0x38 / 0x1B)、AI 追跡(0x50 / 0x51 / 0x55 / 0x56 / 0x5F)、エンコード(0x20 / 0x21)、時刻同期(0x30 / 0x40)、SD(0x49)、MAVLink カメラ、Android ソース。
+- GPS ROI(§4、MT11 Computed)は 2026-10-22 実装済み: `rgcs-camera::roi::{geo, pid, controller}`、サーバーの `RoiHub`(機体ごとに 1 タスク、0x07 10 Hz / 0x0E、ROI 中 0x0D を毎ステップ要求)、`roi_targets` / `roi_control`(60 §3.4)、REST(50 §2.3)、UI(カメラ設定の ROI タブ、地図マーカーと視線、コックピットの ROI チップ、状態行の ROI 名)、ジョイスティック `roi_*`。
 - ジョイスティック(§6)は pan / tilt 軸とボタン機能(shutter, record_toggle, center_gimbal, thermal_toggle, gimbal_stop, zoom_in_step, zoom_out_step, zoom_1x, mode_*)を実装。zoom_abs / zoom_speed / zoom_step 軸は未実装。
 
 ## 7.2 地図上の撮影方向(2026-10-18 デザイン、10 §3.1)

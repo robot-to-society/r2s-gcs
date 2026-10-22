@@ -150,11 +150,11 @@ CREATE TABLE param_history (
 ## 5. マイグレーション方針
 
 - 追加のみ(列の削除・型変更は新テーブル + コピー)。
-- Python 版からの取込: 初回起動時に `/home/pi/siyi-mt11-cameracontrol/app/roi_config.json` と `joystick_config.json` があれば `roi_targets` / `roi_control` / `gimbal_input_profile` に取り込み、ログに記録する(1 回限り、`app_settings.imported_python = 1`)。
+- Python 版からの取込: 初回起動時に `/home/pi/siyi-mt11-cameracontrol/app/roi_config.json` と `joystick_config.json` があれば `roi_targets` / `roi_control` / `gimbal_input_profile` に取り込み、ログに記録する(1 回限り、`app_settings.imported_python = 1`)。**当面は範囲外(2026-10-22 決定)**: GPS ROI 実装では取込を作っていない。プリセットは ROI タブで入力するか CSV で読み込む。
 - バックアップ: `rgcs-cli db backup` で `.db` をコピー(WAL チェックポイント後)。
 
 ## 6. 受け入れ条件
 
 - 全テーブルの境界値テストが通る(両側)。
-- Python 版の設定ファイルを置いた Pi で初回起動すると、ROI プリセットと軸割当が UI に出る。
+- Python 版の設定ファイルを置いた Pi で初回起動すると、ROI プリセットと軸割当が UI に出る。(未達: 上の取込が範囲外のため)
 - `audit_log` に DELETE / UPDATE の経路が無い(コードレビュー項目)。
