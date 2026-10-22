@@ -14,6 +14,9 @@ pub trait Camera: Send + Sync {
     fn state(&self) -> watch::Receiver<CameraState>;
     async fn connect(&self) -> Result<(), CameraError>;
     async fn disconnect(&self);
+    // 既定は Err(Unsupported("roi"))。caps.roi = Native のドライバだけが実装する(§4.2)
+    async fn roi_location(&self, lat: f64, lon: f64, alt_msl: f64) -> Result<(), CameraError>;
+    async fn roi_none(&self) -> Result<(), CameraError>;
 }
 ```
 
@@ -25,7 +28,7 @@ pub trait Camera: Send + Sync {
 |---|---|---|
 | `kind` | `None \| Mavlink \| SiyiMt11` | 種別 |
 | `gimbal` | `Option<{rate, angle, center, modes: Vec<GimbalMode>, attitude, pitch_range: (f32,f32)}>` | 雲台 |
-| `zoom` | `Option<{max: f32, absolute, step, continuous}>` | ズーム |
+| `zoom` | `Option<{max: f32, absolute, step, continuous, unit: Times \| Percent}>` | ズーム。`unit`(2026-10-23、省略時 `Times`): `Times` は倍率(×)、`Percent` は 0–100 %(MAVLink カメラ。§2)。UI は `40%` / `1.5×` で表示し、地図の扇は `Percent` のとき倍率 1 で描く |
 | `focus` | `bool` | 手動フォーカス |
 | `photo` / `record` | `bool` | 静止画 / 録画 |
 | `video_modes` | `Vec<Rgb \| Thermal \| SideBySide>` | 映像タイプ |
@@ -66,8 +69,19 @@ pub trait Camera: Send + Sync {
 | ドライバ | caps | 備考 |
 |---|---|---|
 | `siyi::Mt11` | 全部(zoom.max 165、pitch_range (−90, 30)、modes Lock/Follow/FPV、roi Computed) | TCP 37260(状態・設定)+ UDP 37260(0x07 / 0x08 / 0x0E)。1 s ごと 0x00 ハートビート。切断時は 1 s 後に再接続 |
-| `mavlink_cam` | `CAMERA_INFORMATION.flags` から photo / record / zoom(`MAV_CMD_SET_CAMERA_ZOOM`)/ focus(`MAV_CMD_SET_CAMERA_FOCUS`)。`GIMBAL_MANAGER_INFORMATION` から gimbal rate / angle / attitude(`GIMBAL_MANAGER_SET_PITCHYAW`、`GIMBAL_DEVICE_ATTITUDE_STATUS`)。video_modes = [Rgb]、roi = Native(`MAV_CMD_DO_SET_ROI_LOCATION` / `DO_SET_ROI_NONE`)。thermal / ai / encoding / storage / clock は無し | 映像は設定の RTSP URL を MediaMTX のパスに登録 |
+| `mavlink_cam` | `CAMERA_INFORMATION.flags` から photo / record / zoom(`MAV_CMD_SET_CAMERA_ZOOM`)/ focus(`MAV_CMD_SET_CAMERA_FOCUS`)。`GIMBAL_MANAGER_INFORMATION` から gimbal rate / angle / attitude(`GIMBAL_MANAGER_SET_PITCHYAW`、`GIMBAL_DEVICE_ATTITUDE_STATUS`)と pitch_range。video_modes = [Rgb]、roi = Native(`MAV_CMD_DO_SET_ROI_LOCATION` / `DO_SET_ROI_NONE`、マネージャが `CAN_POINT_LOCATION_GLOBAL` を持つときだけ。無ければ None)。thermal / ai / encoding / storage / clock は無し | 自前のソケットは持たず FC リンク(`rgcs-mavlink::MavPort`)で送受信する。映像は設定の RTSP URL(MediaMTX への登録は手作業、下記) |
 | `none` | 全て無し | |
+
+`mavlink_cam` の決定(2026-10-23、実装 `crates/rgcs-camera/src/mavlink_cam/`):
+- **束縛(`comp_id` の意味)**: `camera_device_id == 0` の `CAMERA_INFORMATION` を `comp_id`(既定 100)から受けたらそれ(MAVLink ネイティブのカメラ)。無ければ任意のコンポーネントからの `camera_device_id == 1`(ArduPilot に繋がったカメラ、compid 1)。コマンドは束縛した compid 宛てで、カメラ ID の引数は `camera_device_id`。ジンバルはカメラの `gimbal_device_id`(≠ 0 のとき)と同じ `gimbal_device_id` の `GIMBAL_MANAGER_INFORMATION`、無ければ最初に見えたマネージャ。1 機につきカメラ 1 台・ジンバル 1 台(CAM2 / MNT2 は範囲外)。
+- **情報と周期**: 未束縛の間は 2 s ごとに `MAV_CMD_REQUEST_MESSAGE`(259 / 280、compid 0 宛て)、再接続のたびにもう 1 回。`CAMERA_SETTINGS`(260)/ `CAMERA_CAPTURE_STATUS`(262)1 Hz、`GIMBAL_DEVICE_ATTITUDE_STATUS`(285)10 Hz は 3 s 以上届かないときだけ `SET_MESSAGE_INTERVAL` で要求(最短 5 s 間隔)。束縛済みなら切断中も要求する: ArduPilot は情報を 1 回返すだけで、頼むまで 260 / 262 / 285 を流さない(FC 再起動でも周期は消える)ので、要求した周期が(再)接続の条件になる(SITL で確認、2026-10-23)。接続 = 束縛済みかつ束縛した compid のフレームが 3 s 以内。切断中も束縛と caps は残す(UI は灰色)。caps は情報の到着で変わり、`camera_state` は毎フレーム `caps()` を読み直す(50 §3.1)。
+- **ズームはパーセント**: MAVLink には倍率も最大値も無いため `ZoomCaps { max: 100, absolute, step, continuous, unit: Percent }`。`state.zoom` は `CAMERA_SETTINGS.zoomLevel`(0–100 %)。絶対値 = `ZOOM_TYPE_RANGE`、`ZoomStep` = RANGE で現在値 ±10 %(ArduPilot は `ZOOM_TYPE_STEP` を DENIED にする)、`ZoomSpeed` = CONTINUOUS −1 / 0 / 1、`ZoomReset` = RANGE 0。
+- **ヨーの向き**: `CameraState.gimbal.yaw` と `GimbalAngle.yaw_deg` は SIYI と同じ +左(機体基準)。MAVLink は +右なので姿勢と角度指令のヨーは符号を反転し、速度(+右)は反転しない。`GIMBAL_DEVICE_FLAGS_YAW_IN_EARTH_FRAME` の姿勢は `delta_yaw` で機体基準に直し、それも無ければ `gimbal = None`(扇を出さない)。速度は ±100 → ±90 °/s。
+- **モード / センター**: `modes: []`(ArduPilot のロック / フォローはコマンドごと)。`HAS_NEUTRAL` があれば `center`。センター = 角度 (0, 0)、真下 = 角度 (0, pitch 下限)。状態行はモードの代わりに「MAVLink カメラ」(10 §3.3)。
+- **ACK**: 写真 / 録画 / ズーム / フォーカスと ROI は `COMMAND_ACK` を (sysid, command) で照合して待つ(1.5 s、IN_PROGRESS は 10 s まで)。**再送しない**(ACK を落としただけで 2 枚撮らないため)。ACCEPTED 以外 → `Refused("camera_rejected")`(409)、ACK 無し → `Io`(503 `camera_error`)。`GIMBAL_MANAGER_SET_PITCHYAW` は ACK が無く、リンクに載った時点で成功。録画状態は ACCEPTED で楽観的に切り替え、`CAMERA_CAPTURE_STATUS.video_status` で上書き。
+- **FW**: `firmware_version` の下位 3 バイト → `camera: "major.minor.patch"`。`hfov` は `CAMERA_INFORMATION` の焦点距離とセンサー幅から(ArduPilot は NaN を返すので UI 既定 62°)。
+- **リンク上昇時のゼロを送らない**: FC リンクがカメラのリンクなので、上昇時の速度 0 は FC 側の向け先(ミッションの `DO_SET_ROI`、RC、Native ROI)を取り消してしまう。WS ゲートのデッドマン停止は従来どおり。
+- **映像**: 映像監視はプロファイルの `rtsp_url` を MT11 と同じく疎通確認する。MediaMTX のパス登録は範囲外(`deploy/mediamtx.yml` は `api: no`、パスは固定の `mt11`)。MAVLink カメラの映像を出すには運用者がそのパスの上流を手で RTSP URL に向ける。
 
 ## 3. SIYI プロトコル(MT11)
 
@@ -131,6 +145,15 @@ pub trait Camera: Send + Sync {
 ### 4.1 RoiStatus
 `active_target: Option<id>`, `bearing_deg`, `elevation_deg`, `distance_m`, `yaw_cmd_deg`, `pitch_cmd_deg`, `mode`, `gimbal_yaw_deg`, `gimbal_pitch_deg`, `speed_yaw`, `speed_pitch`, `error: Option<String>`。
 
+### 4.2 Native(2026-10-23、MAVLink カメラ)
+
+- `caps.roi = Native` の機体では、`RoiHub` が計算ループ(`roi_task`)の代わりに `roi_native` タスクを動かす(純粋な状態機械は `roi/native.rs`)。開始 / 停止 / 目標変更 / 手動解除 / シャットダウン / `roi_status` の経路は Computed と同じ。
+- 開始と目標座標の変更で `COMMAND_INT` `MAV_CMD_DO_SET_ROI_LOCATION`(frame `MAV_FRAME_GLOBAL` = MSL、x / y = lat / lon × 1e7、z = alt_msl)を送り、動作中は 5 s ごとに再送する(FC の再起動やミッションの `DO_SET_ROI` に黙って負けないため)。**param1 は必ずジンバルのデバイス ID**。0 / NaN は ArduPilot の旧式 ROI で、Copter は**機体ごと**目標に向けてしまう。
+- 停止(操作員、手動 |速度| ≥ 5、`gimbal_angle` / `gimbal_center`、プロファイル再読込、スロット未設定、シャットダウン)では `COMMAND_LONG` `MAV_CMD_DO_SET_ROI_NONE`(param1 = デバイス ID)を 1 回、失敗したら 1 回だけ再送。カメラ切断中の停止は即座に非動作にし、ROI_NONE は再接続後に送る。
+- 適用しないもの: `RoiControl`(rate / angle / PID。ROI タブは制御欄を隠す)、速度 0 の送信(ArduPilot が目標を保持する)、姿勢要求。
+- WS ゲートは追従中もスティックのゼロを落とす。速度 0 の `SET_PITCHYAW` でも ArduPilot は MAVLink 指令に切り替わり、ROI が終わるため。
+- `roi_status`: `mode = null`、方位 / 仰角 / 距離と `yaw_cmd` / `pitch_cmd` は表示用に §4 と同じ式で計算、`gimbal_*` は姿勢から、`speed_*` は `null`。エラーは `no_position` / `position_stale` / `heading_unknown` / `camera_offline` / `send_failed`(位置の拒否・ACK 無し)で、ROI は解除しない。カメラ再接続時は位置をすぐ送り直す。
+
 ## 5. 時刻同期・SD・映像ソース
 
 - 時刻同期(MT11): FC の `SYSTEM_TIME`(無ければ 1 Hz で要求)で 0x30。経過時間を足して送る。タイミング: 初回 GPS 時刻、(再)接続、10 分ごと、「今すぐ同期」。GPS 時刻が無い / 5 s 以上古いときは送らない。同期後に 0x40 で読み返し、RTT/2 補正の差を表示(1 s 超は赤)。
@@ -170,7 +193,8 @@ pub trait Camera: Send + Sync {
 - `crates/rgcs-camera`: `siyi/frame.rs`(CRC / パケット / 受信パーサ)、`siyi/encode.rs`、`siyi/parse.rs`、`siyi/client.rs`(tokio アクター: TCP ハートビート 1 Hz、0x0A / 0x0D ポーリング 1 Hz、接続時 0x01 / 0x18 / 0x10 / 0x19、UDP 0x07 / 0x08 / 0x0E、切断 1 秒後に再接続、接続タイムアウト 3 秒、3 秒無応答で切断扱い(電源断は FIN が来ないため)、切断中のコマンドは即 `NotConnected`、姿勢の `age_ms` は最後の 0x0D からの経過)、`siyi/sim.rs`(疑似サーバー、`cargo run -p rgcs-camera --features sim --example siyi_sim`)、`none.rs`。
 - 実装済みコマンド: `GimbalRate` / `GimbalAngle` / `GimbalCenter` / `GimbalMode` / `ZoomAbsolute` / `ZoomStep` / `ZoomSpeed` / `ZoomReset` / `Focus` / `Photo` / `RecordStart` / `RecordStop` / `VideoMode`。録画はカメラの状態を見てトグルを 1 回だけ送る。
 - 2026-10-23 実装済み: サーマル温度・ゲイン・パレット(0x12 / 0x14 / 0x37 / 0x38 / 0x1B、`siyi/thermal.rs`)、AI 追跡(0x50 / 0x51 / 0x55 / 0x56 / 0x5F、`siyi/ai.rs`)、エンコード(0x20 / 0x21、`siyi/ai.rs` のプリセット)、時刻同期(0x30 / 0x40、`clock_sync.rs`)、SD(0x49、`siyi/tf_card.rs`)。ドライバは `siyi/{client,session,apply,exec,polls,expire}.rs` に分割。疑似サーバーは `siyi/sim_media.rs` で同じコマンドに応答し 0x50 / 0x5F を push する。サーバー: `gps_time.rs`、`auto_record.rs`(70 §3)、ROI ↔ AI 連動(§4)、`camera_state` 10 Hz 上限(50 §3.1)。UI: コックピットの重ね描き・クリック操作・AI追跡ボタン(10 §4.2)、カメラ設定「映像」タブと接続タブの SD / 時刻(10 §5)、状態カード・状態行。
-- 未実装: MAVLink カメラ、Android ソース、0x13(領域温度)。
+- 未実装: Android ソース、0x13(領域温度)。
+- 2026-10-23 実装済み: MAVLink カメラ(§2 `mavlink_cam`、`rgcs-mavlink::MavPort`、`rgcs-camera::mavlink_cam`、Native ROI §4.2、UI の接続タブ・状態行・パーセント表示のズーム)。
 - GPS ROI(§4、MT11 Computed)は 2026-10-22 実装済み: `rgcs-camera::roi::{geo, pid, controller}`、サーバーの `RoiHub`(機体ごとに 1 タスク、0x07 10 Hz / 0x0E、ROI 中 0x0D を毎ステップ要求)、`roi_targets` / `roi_control`(60 §3.4)、REST(50 §2.3)、UI(カメラ設定の ROI タブ、地図マーカーと視線、コックピットの ROI チップ、状態行の ROI 名)、ジョイスティック `roi_*`。
 - ジョイスティック(§6)は pan / tilt 軸とボタン機能(shutter, record_toggle, center_gimbal, thermal_toggle, gimbal_stop, zoom_in_step, zoom_out_step, zoom_1x, mode_*、2026-10-23 に thermal_gain_toggle, ai_tracking_toggle, focus_near, focus_far)を実装。zoom_abs / zoom_speed / zoom_step 軸は未実装。
 
@@ -190,3 +214,7 @@ pub trait Camera: Send + Sync {
 - 実機: ズーム / 録画 / 写真 / 映像タイプ / モード / センター / 温度 / 追跡 / エンコード / SD / 時刻同期が Python 版と同じ挙動。`siyi probe --yaw 90 --pitch -30` の基準確認が通る。
 - ROI: 疑似 FC(`fake_vehicle` 相当)で目標を向き続け、停止・途絶時に速度 0 が送られる(ログで確認)。
 - MAVLink カメラ(SITL + ジンバルシミュレータ)で caps に応じた UI になる。
+  - 確認結果(2026-10-23、ArduCopter SITL `-I6`、自宅 36.2509, 137.6385, 1505 m、機首 359°、ARM なし):
+    - Siyi ZT30 シミュレータ(`MNT1_TYPE 8`、`CAM1_TYPE 4`、`SERIAL5_PROTOCOL 8`、`--serial5=sim:siyi_zt30:`): caps(photo / record / zoom % / focus、pitch_range (−90, 20)、roi native)、FW `1.2.3`、接続中、状態行「MAVLink カメラ | ↔ 0.0° ↕ −35.4°」、接続タブの MAVLink 行。写真 → `IMAGE_START_CAPTURE` p1 1 / p3 1 を compid 1 へ、ACK ACCEPTED。録画開始 / 停止 → ACCEPTED、`recording` が切替。ズーム → `SET_CAMERA_ZOOM` ACCEPTED。速度 → `GIMBAL_DEVICE_ATTITUDE_STATUS` が変わる(+右で MAVLink ヨー +、状態行は −)。`DO_SET_ROI_LOCATION`(`COMMAND_INT`、`MAV_FRAME_GLOBAL`、p1 1)ACCEPTED、5 s ごとに再送、`DO_SET_ROI_NONE` p1 1 ACCEPTED。
+    - サーボ雲台(`MNT1_TYPE 1`、ヨー ±180、`CAM1_TYPE 1`、SITL 再起動でカメラ差し替え → caps が写真だけに変わる): 角度 (左 30°, −20°) → 姿勢 MAVLink ヨー −30.0 / ↔ 30.0°、扇は機首の左 30°。ROI(200 m 東、1505 m)→ ↔ −90.7°、扇は東、ROI_NONE で既定姿勢に戻る。ROI 中も機首方位は 358–359° のまま(機体は回らない)。
+    - SITL で確かめられないもの: Siyi シミュレータはズーム(SIYI 0x05 / 0x0F)とフォーカスを実装しておらず、ArduPilot がズームを転送すると SITL ごと PANIC で止まる。`zoomLevel` の変化と % 表示の追従は疑似応答(`mavlink_cam/fake.rs`)のテストだけ。Siyi シミュレータの姿勢は角度・ROI の閉ループで発散する(ロール ±100°、ヨーが回り続ける)ため、向きの正しさはサーボ雲台で確認した。この SITL は `CAMERA_CAPTURE_STATUS`(262)を流さず、録画状態は ACK による楽観更新だけ(262 の周期要求が 5 s ごとに続く)。映像(RTSP)は無し。

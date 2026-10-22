@@ -73,7 +73,7 @@ CREATE TABLE param_history (
 | `host` | TEXT | `192.168.144.25` | IPv4 ドットアドレス(ホスト名不可、RTSP URL 生成に使う) |
 | `port` | INTEGER | 37260 | 1–65535 |
 | `rtsp_url` | TEXT | `rtsp://{host}:8554/video1` | `rtsp://` で始まる。MT11 は `{host}` 展開、MAVLink は任意 |
-| `comp_id` | INTEGER | 100 | 1–255(MAVLink カメラ) |
+| `comp_id` | INTEGER | 100 | 1–255(MAVLink カメラ)。`camera_device_id = 0` の MAVLink ネイティブカメラのコンポーネント ID。その compid から `CAMERA_INFORMATION` が無ければ、FC(compid 1)に繋がった `camera_device_id = 1` のカメラを使う(2026-10-23、40 §2) |
 | `video_source_mode` | TEXT | `auto` | `auto` / `mt11` / `android` |
 | `android_url` | TEXT | `http://127.0.0.1:8080` | 空で Android ソース無効 |
 | `encoding_preset` | TEXT | `h264_1080p` | `h264_720p` / `h264_1080p` / `h264_4k` / `h265_1080p` / `h265_4k` |
