@@ -183,6 +183,16 @@ impl CameraManager {
         out
     }
 
+    /// The refusal `send` would return now (capability, link, driver preconditions), with
+    /// nothing sent (final review I1).
+    pub async fn check(&self, sysid: SysId, cmd: &CameraCommand) -> Result<(), CameraError> {
+        let camera = self.ensure(sysid).await;
+        if !camera.caps().supports(cmd) {
+            return Err(CameraError::Unsupported(cmd.name()));
+        }
+        camera.check(cmd).await
+    }
+
     /// Capability-checked send (spec 70 §3).
     pub async fn send(&self, sysid: SysId, cmd: CameraCommand) -> Result<(), CameraError> {
         let camera = self.ensure(sysid).await;

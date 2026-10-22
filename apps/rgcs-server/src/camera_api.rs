@@ -49,8 +49,7 @@ pub async fn command(
         return err(StatusCode::BAD_REQUEST, "validation", e.to_string());
     }
     let cmd = with_default_box(&app, sysid, cmd).await;
-    cancel_roi_for(&app, &op.username, sysid, &cmd).await;
-    let result = app.cameras.send(sysid, cmd.clone()).await;
+    let result = take_gimbal_and_send(&app, &op.username, sysid, &cmd).await;
     let failure = result.as_ref().err().map(error_reply);
     let reason = failure.as_ref().map(|(_, code, message)| match code {
         Code::Refused(c) => (*c).to_string(),
@@ -236,6 +235,21 @@ fn roi_cancel_reason(cmd: &CameraCommand) -> Option<&'static str> {
         CameraCommand::AiSelectBox { .. } | CameraCommand::AiSelectPoint { .. } => Some("ai_tracking"),
         _ => None,
     }
+}
+
+/// Sends `cmd`; a command that takes the gimbal from ROI is checked first, and ROI stops only
+/// when the driver would accept it (final review I1: a refused click keeps ROI pointing).
+async fn take_gimbal_and_send(
+    app: &AppState,
+    operator: &str,
+    sysid: SysId,
+    cmd: &CameraCommand,
+) -> Result<(), CameraError> {
+    if roi_cancel_reason(cmd).is_some() {
+        app.cameras.check(sysid, cmd).await?;
+        cancel_roi_for(app, operator, sysid, cmd).await;
+    }
+    app.cameras.send(sysid, cmd.clone()).await
 }
 
 /// Stops an active ROI before `cmd` goes out; the stop is audited when ROI was active.

@@ -121,10 +121,7 @@ async fn ai_select_box(
     y: f32,
     box_px: Option<u16>,
 ) -> Result<(), CameraError> {
-    require_mode(snap, VideoMode::Rgb, "rgb_only")?;
-    let (w, h) = stream_of(snap)?;
-    let b = ai::click_to_stream_box(x, y, w, h, box_px.unwrap_or(AI_BOX_PX_DEFAULT)).map_err(click_error)?;
-    ai_select(link, ai::encode_ai_select(Some(b))).await
+    ai_select(link, box_payload(snap, x, y, box_px)?).await
 }
 
 /// Ctrl+click: the detection under the click in the last second, else the click itself.
@@ -135,11 +132,38 @@ async fn ai_select_point(
     x: f32,
     y: f32,
 ) -> Result<(), CameraError> {
+    ai_select(link, point_payload(snap, media, x, y)?).await
+}
+
+/// The 0x56 payload of a box select, or the refusal (RGB only, stream known, box in frame).
+fn box_payload(snap: &CameraState, x: f32, y: f32, box_px: Option<u16>) -> Result<[u8; 9], CameraError> {
+    require_mode(snap, VideoMode::Rgb, "rgb_only")?;
+    let (w, h) = stream_of(snap)?;
+    let b = ai::click_to_stream_box(x, y, w, h, box_px.unwrap_or(AI_BOX_PX_DEFAULT)).map_err(click_error)?;
+    Ok(ai::encode_ai_select(Some(b)))
+}
+
+/// The 0x56 payload of a point select, or the refusal (RGB only, stream known, a detection).
+fn point_payload(snap: &CameraState, media: &Media, x: f32, y: f32) -> Result<[u8; 9], CameraError> {
     require_mode(snap, VideoMode::Rgb, "rgb_only")?;
     let (w, h) = stream_of(snap)?;
     let (nx, ny) = point_target(media, Instant::now(), x, y)?;
     let (px, py) = ai::normalized_to_stream_point(nx, ny, w, h);
-    ai_select(link, ai::encode_ai_select_point(px, py)).await
+    Ok(ai::encode_ai_select_point(px, py))
+}
+
+/// The refusal `exec` would return for `cmd`, without sending anything (final review I1:
+/// the server stops ROI for an AI select only once the select can go out).
+pub(crate) fn check(snap: &CameraState, media: &Media, cmd: &CameraCommand) -> Result<(), CameraError> {
+    match *cmd {
+        CameraCommand::AiSelectBox { x, y, box_px } => box_payload(snap, x, y, box_px).map(|_| ()),
+        CameraCommand::AiSelectPoint { x, y } => point_payload(snap, media, x, y).map(|_| ()),
+        CameraCommand::MeasurePoint { .. } => {
+            require_mode(snap, VideoMode::Thermal, "thermal_only")?;
+            stream_of(snap).map(|_| ())
+        }
+        _ => Ok(()),
+    }
 }
 
 /// The normalized point a Ctrl+click selects: a recent detection's centre, or the click.
@@ -182,4 +206,39 @@ async fn set_encoding(
         }
     });
     link.tcp(0x21, &ai::encode_encoding(&p)).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rgb(stream: Option<(u16, u16)>) -> CameraState {
+        CameraState {
+            connected: true,
+            video_mode: Some(VideoMode::Rgb),
+            stream,
+            ..CameraState::disconnected(30.0)
+        }
+    }
+
+    const BOX: CameraCommand = CameraCommand::AiSelectBox { x: 0.5, y: 0.5, box_px: None };
+
+    #[test]
+    fn check_reports_the_refusals_send_would_give() {
+        let media = Media::default();
+        assert_eq!(check(&rgb(Some((1920, 1080))), &media, &BOX), Ok(()));
+        assert_eq!(check(&rgb(None), &media, &BOX), Err(CameraError::Refused("stream_unknown")));
+        let ir = CameraState { video_mode: Some(VideoMode::Thermal), ..rgb(Some((1920, 1080))) };
+        assert_eq!(check(&ir, &media, &BOX), Err(CameraError::Refused("rgb_only")));
+        let point = CameraCommand::AiSelectPoint { x: 0.5, y: 0.5 };
+        assert_eq!(check(&ir, &media, &point), Err(CameraError::Refused("rgb_only")));
+        assert_eq!(check(&rgb(None), &media, &CameraCommand::ZoomReset), Ok(()));
+    }
+
+    #[tokio::test]
+    async fn offline_driver_check_is_not_connected() {
+        use crate::{siyi::client::SiyiMt11, Camera};
+        let cam = SiyiMt11::new(std::net::Ipv4Addr::LOCALHOST, 9);
+        assert_eq!(cam.check(&BOX).await, Err(CameraError::NotConnected));
+    }
 }

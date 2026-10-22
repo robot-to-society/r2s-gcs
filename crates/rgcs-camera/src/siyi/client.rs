@@ -36,6 +36,7 @@ pub(crate) type Reply = oneshot::Sender<Result<(), CameraError>>;
 
 pub(crate) enum Op {
     Command(CameraCommand, Reply),
+    Check(CameraCommand, Reply),
     Raw(u8, Vec<u8>, Transport, Reply),
 }
 
@@ -100,6 +101,11 @@ impl Camera for SiyiMt11 {
 
     async fn send(&self, cmd: CameraCommand) -> Result<(), CameraError> {
         self.submit(|reply| Op::Command(cmd, reply)).await
+    }
+
+    async fn check(&self, cmd: &CameraCommand) -> Result<(), CameraError> {
+        let cmd = cmd.clone();
+        self.submit(|reply| Op::Check(cmd, reply)).await
     }
 
     fn state(&self) -> watch::Receiver<CameraState> {
@@ -197,7 +203,7 @@ async fn wait_offline(ops: &mut mpsc::Receiver<Op>) -> bool {
             _ = &mut wait => return true,
             op = ops.recv() => match op {
                 None => return false,
-                Some(Op::Command(_, reply)) | Some(Op::Raw(_, _, _, reply)) => {
+                Some(Op::Command(_, reply)) | Some(Op::Check(_, reply)) | Some(Op::Raw(_, _, _, reply)) => {
                     let _ = reply.send(Err(CameraError::NotConnected));
                 }
             },

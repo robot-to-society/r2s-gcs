@@ -11,6 +11,11 @@ pub trait Camera: Send + Sync {
     fn caps(&self) -> CameraCaps;
     /// Sends one command; `Unsupported` when the driver cannot, `NotConnected` while offline.
     async fn send(&self, cmd: CameraCommand) -> Result<(), CameraError>;
+    /// The refusal `send(cmd)` would return right now, without sending anything (the server
+    /// stops ROI for an AI select only when the select can go out). `Ok` = nothing known.
+    async fn check(&self, _cmd: &CameraCommand) -> Result<(), CameraError> {
+        Ok(())
+    }
     fn state(&self) -> watch::Receiver<CameraState>;
     async fn connect(&self) -> Result<(), CameraError>;
     async fn disconnect(&self);

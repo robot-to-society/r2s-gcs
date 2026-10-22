@@ -17,7 +17,7 @@ use crate::siyi::ai;
 use crate::siyi::apply::{apply_frame, clock_view, Media};
 use crate::siyi::client::{Link, Op, Transport, READ_TIMEOUT};
 use crate::siyi::encode;
-use crate::siyi::exec::exec;
+use crate::siyi::exec::{check, exec};
 use crate::siyi::expire::expire;
 use crate::siyi::frame::Parser;
 use crate::siyi::polls::due_polls;
@@ -220,6 +220,11 @@ impl Run {
                     Transport::Udp => link.udp(cmd, &data).await,
                 };
                 let _ = reply.send(r);
+                return Ok(());
+            }
+            Op::Check(cmd, reply) => {
+                let snap = ctx.state.borrow().clone();
+                let _ = reply.send(check(&snap, &self.media, &cmd));
                 return Ok(());
             }
             Op::Command(cmd, reply) => (cmd, reply),

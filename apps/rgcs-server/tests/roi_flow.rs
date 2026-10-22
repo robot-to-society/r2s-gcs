@@ -400,3 +400,52 @@ async fn profile_put_video_fields_keeps_driver() {
     assert_eq!(s, StatusCode::OK, "{v}");
     assert!(!std::sync::Arc::ptr_eq(&before, &state.cameras.ensure(1).await), "host change reloads");
 }
+
+async fn post_cmd(app: &axum::Router, cookie: &str, body: Value) -> (StatusCode, Value) {
+    send(app, cookie, Method::POST, "/api/vehicles/1/camera/command", Some(body)).await
+}
+
+/// Final review I1: a click the driver refuses must leave ROI pointing (refusal first).
+#[tokio::test]
+async fn refused_ai_click_in_ir_keeps_roi() {
+    let (app, state, _sim, cookie) = setup().await;
+    let (s, v) = post_cmd(&app, &cookie, json!({ "cmd": "video_mode", "args": { "mode": "thermal" } })).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    for _ in 0..80 {
+        if state.cameras.ensure(1).await.state().borrow().video_mode == Some(rgcs_core::VideoMode::Thermal) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    state.roi.start(1, "roi_1").await.unwrap();
+    let body = json!({ "cmd": "ai_select_box", "args": { "x": 0.5, "y": 0.5, "box_px": null } });
+    let (s, v) = post_cmd(&app, &cookie, body).await;
+    assert_eq!(s, StatusCode::CONFLICT, "{v}");
+    assert_eq!(error_code(&v), "rgb_only");
+    assert_eq!(state.roi.active_target(1).as_deref(), Some("roi_1"));
+    let rows = audit_rows(&app, &cookie).await;
+    assert!(!has_roi_row(&rows, "stop", None), "{rows:?}");
+}
+
+#[tokio::test]
+async fn ai_point_missing_every_detection_keeps_roi() {
+    let (app, state, _sim, cookie) = setup().await;
+    wait_stream(&state).await;
+    for _ in 0..80 {
+        if !state.cameras.ensure(1).await.state().borrow().candidates.is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    state.roi.start(1, "roi_1").await.unwrap();
+    let body = json!({ "cmd": "ai_select_point", "args": { "x": 0.05, "y": 0.05 } });
+    let (s, v) = post_cmd(&app, &cookie, body).await;
+    assert_eq!(s, StatusCode::CONFLICT, "{v}");
+    assert_eq!(error_code(&v), "no_detection");
+    assert_eq!(state.roi.active_target(1).as_deref(), Some("roi_1"));
+
+    let body = json!({ "cmd": "ai_select_point", "args": { "x": 0.45, "y": 0.5 } });
+    let (s, v) = post_cmd(&app, &cookie, body).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(state.roi.active_target(1), None, "an accepted select still stops ROI");
+}
