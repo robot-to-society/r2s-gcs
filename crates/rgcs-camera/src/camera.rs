@@ -14,4 +14,8 @@ pub trait Camera: Send + Sync {
     fn state(&self) -> watch::Receiver<CameraState>;
     async fn connect(&self) -> Result<(), CameraError>;
     async fn disconnect(&self);
+    /// Asks for a fresh gimbal attitude now (ROI rate mode polls it every step).
+    async fn request_attitude(&self) -> Result<(), CameraError> {
+        Err(CameraError::Unsupported("attitude"))
+    }
 }

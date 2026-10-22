@@ -118,6 +118,10 @@ impl Camera for SiyiMt11 {
             s.gimbal = None;
         });
     }
+
+    async fn request_attitude(&self) -> Result<(), CameraError> {
+        self.raw_send(0x0D, &[], Transport::Tcp).await
+    }
 }
 
 enum SessionEnd {
@@ -587,6 +591,27 @@ mod tests {
             Err(CameraError::Unsupported(_))
         ));
         assert!(!cam.state().borrow().connected);
+        assert!(matches!(
+            cam.request_attitude().await,
+            Err(CameraError::Unsupported(_))
+        ));
         cam.connect().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn request_attitude_sends_0x0d_over_tcp() {
+        let (cam, mut sim) = connected_pair().await;
+        drain(&mut sim, 100).await;
+        // The 1 Hz poll adds at most one 0x0D in this window; three requests must show up.
+        for _ in 0..3 {
+            cam.request_attitude().await.unwrap();
+        }
+        let got = drain(&mut sim, 500).await;
+        let polls = got
+            .iter()
+            .filter(|m| **m == (Transport::Tcp, 0x0D, vec![]))
+            .count();
+        assert!(polls >= 3, "{got:?}");
+        cam.disconnect().await;
     }
 }

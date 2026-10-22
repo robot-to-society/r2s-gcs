@@ -71,11 +71,16 @@ struct Slot {
     last_seen: HashMap<u32, u64>,
 }
 
+/// MAVLink message id of GLOBAL_POSITION_INT (the ROI controller's position source).
+pub const GLOBAL_POSITION_INT_ID: u32 = 33;
+
 #[derive(Default)]
 pub struct Router {
     slots: HashMap<SysId, Slot>,
     next_message_id: u64,
     joiner: Joiner,
+    /// Latest monotonic clock seen by `on_message` / `tick` (never moves backwards).
+    now_ms: u64,
 }
 
 impl Router {
@@ -83,6 +88,7 @@ impl Router {
     /// from other components on the same sysid are ignored.
     pub fn on_message(&mut self, header: &MavHeader, msg: &MavMessage, clock: Clock) -> Vec<RouterEvent> {
         let sysid = header.system_id;
+        self.now_ms = self.now_ms.max(clock.mono_ms);
         let mut events = Vec::new();
         if !self.slots.contains_key(&sysid) {
             match msg {
@@ -184,6 +190,7 @@ impl Router {
 
     /// Refresh link health / message ages. Call about once a second.
     pub fn tick(&mut self, clock: Clock) -> Vec<RouterEvent> {
+        self.now_ms = self.now_ms.max(clock.mono_ms);
         let mut events = Vec::new();
         for (sysid, slot) in self.slots.iter_mut() {
             let age = clock.mono_ms.saturating_sub(slot.last_rx_ms);
@@ -239,6 +246,13 @@ impl Router {
             .get(&sysid)
             .map(|s| s.last_seen.clone())
             .unwrap_or_default()
+    }
+
+    /// Ms since the flight controller last sent `msg_id`, against the router's latest clock
+    /// (exact while frames flow, ≤ 1 s late when the link is silent). `None` until seen.
+    pub fn message_age_ms(&self, sysid: SysId, msg_id: u32) -> Option<u64> {
+        let seen = *self.slots.get(&sysid)?.last_seen.get(&msg_id)?;
+        Some(self.now_ms.saturating_sub(seen))
     }
 
     fn insert(&mut self, sysid: SysId, fc_component: u8) {
@@ -573,5 +587,30 @@ mod tests {
             sysid: 1,
             frame: rgcs_core::CalibFrame::MagProgress { id: 0, pct: 12 },
         }));
+    }
+
+    fn position() -> MavMessage {
+        use mavlink::dialects::ardupilotmega::GLOBAL_POSITION_INT_DATA;
+        MavMessage::GLOBAL_POSITION_INT(GLOBAL_POSITION_INT_DATA {
+            lat: 356_000_000,
+            lon: 1_397_000_000,
+            ..GLOBAL_POSITION_INT_DATA::DEFAULT
+        })
+    }
+
+    #[test]
+    fn message_age_tracks_position_separately() {
+        let mut r = Router::default();
+        r.on_message(&header(1), &fc_heartbeat(), clock(0));
+        assert_eq!(r.message_age_ms(1, GLOBAL_POSITION_INT_ID), None);
+        r.on_message(&header(1), &position(), clock(1_000));
+        r.on_message(&header(1), &fc_heartbeat(), clock(4_000));
+        assert_eq!(r.message_age_ms(1, GLOBAL_POSITION_INT_ID), Some(3_000));
+        r.tick(clock(6_000));
+        assert_eq!(r.message_age_ms(1, GLOBAL_POSITION_INT_ID), Some(5_000));
+        // A late frame with an older clock never moves the latest clock backwards.
+        r.tick(clock(5_500));
+        assert_eq!(r.message_age_ms(1, GLOBAL_POSITION_INT_ID), Some(5_000));
+        assert_eq!(r.message_age_ms(9, GLOBAL_POSITION_INT_ID), None);
     }
 }

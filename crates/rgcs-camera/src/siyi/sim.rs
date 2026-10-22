@@ -3,6 +3,7 @@
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, UdpSocket};
@@ -21,7 +22,17 @@ pub struct SimState {
     pub video_mode: (u8, u8),
     /// 0 lock, 1 follow, 2 fpv (0x19 encoding).
     pub gimbal_mode: u8,
+    /// Attitude as reported by 0x0D (+yaw = left), degrees.
+    pub yaw_deg: f32,
+    pub pitch_deg: f32,
+    /// Last 0x07 speed (yaw, pitch), −100..100, +yaw = right; 1 unit = 1 °/s.
+    pub rate: (i8, i8),
+    /// When `yaw_deg` / `pitch_deg` were last brought up to date.
+    pub moved_at: Instant,
 }
+
+const PITCH_RANGE: (f32, f32) = (-90.0, 30.0);
+const DEG_PER_S_PER_UNIT: f32 = 1.0;
 
 impl Default for SimState {
     fn default() -> Self {
@@ -30,6 +41,71 @@ impl Default for SimState {
             zoom: (1, 0),
             video_mode: (0, 2),
             gimbal_mode: 1,
+            yaw_deg: 90.5,
+            pitch_deg: -30.0,
+            rate: (0, 0),
+            moved_at: Instant::now(),
+        }
+    }
+}
+
+fn wrap_deg(v: f32) -> f32 {
+    let w = (v + 180.0).rem_euclid(360.0) - 180.0;
+    if w == -180.0 {
+        180.0
+    } else {
+        w
+    }
+}
+
+/// The attitude after turning at `rate` since `moved_at` (0x07 +yaw = right, attitude +yaw = left).
+fn moved(s: &SimState, now: Instant) -> SimState {
+    let dt = now.saturating_duration_since(s.moved_at).as_secs_f32();
+    let yaw = s.yaw_deg - f32::from(s.rate.0) * DEG_PER_S_PER_UNIT * dt;
+    let pitch = s.pitch_deg + f32::from(s.rate.1) * DEG_PER_S_PER_UNIT * dt;
+    SimState {
+        yaw_deg: wrap_deg(yaw),
+        pitch_deg: pitch.clamp(PITCH_RANGE.0, PITCH_RANGE.1),
+        moved_at: now,
+        ..s.clone()
+    }
+}
+
+fn tenths(payload: &[u8], i: usize) -> Option<f32> {
+    let b = payload.get(i * 2..i * 2 + 2)?;
+    Some(f32::from(i16::from_le_bytes([b[0], b[1]])) / 10.0)
+}
+
+/// 0x07 / 0x0E / 0x0D: the simulated gimbal moves and reports where it points.
+fn gimbal_reply(s: &mut SimState, cmd: u8, payload: &[u8]) -> Option<(u8, Vec<u8>)> {
+    let now = moved(s, Instant::now());
+    match cmd {
+        0x07 => {
+            let (yaw, pitch) = (*payload.first()? as i8, *payload.get(1)? as i8);
+            *s = SimState {
+                rate: (yaw, pitch),
+                ..now
+            };
+            None
+        }
+        0x0E => {
+            let (yaw, pitch) = (tenths(payload, 0)?, tenths(payload, 1)?);
+            *s = SimState {
+                yaw_deg: wrap_deg(yaw),
+                pitch_deg: pitch.clamp(PITCH_RANGE.0, PITCH_RANGE.1),
+                ..now
+            };
+            None
+        }
+        _ => {
+            let yaw = (now.yaw_deg * 10.0).round() as i16;
+            let pitch = (now.pitch_deg * 10.0).round() as i16;
+            *s = now;
+            let data = [yaw, pitch, 5, 0, 0, 0]
+                .iter()
+                .flat_map(|v| v.to_le_bytes())
+                .collect();
+            Some((0x0D, data))
         }
     }
 }
@@ -73,13 +149,7 @@ pub fn reply_for(state: &Mutex<SimState>, cmd: u8, payload: &[u8]) -> Option<(u8
             Some((0x11, vec![s.video_mode.0, s.video_mode.1]))
         }
         0x19 => Some((0x19, vec![s.gimbal_mode])),
-        0x0D => {
-            let mut data = Vec::new();
-            for v in [905i16, -300, 5, 0, 0, 0] {
-                data.extend(v.to_le_bytes());
-            }
-            Some((0x0D, data))
-        }
+        0x07 | 0x0D | 0x0E => gimbal_reply(&mut s, cmd, payload),
         _ => None,
     }
 }
@@ -190,5 +260,55 @@ async fn serve_tcp(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::siyi::{encode, parse};
+    use std::time::{Duration, Instant};
+
+    fn attitude(state: &Mutex<SimState>) -> (f32, f32) {
+        let (cmd, data) = reply_for(state, 0x0D, &[]).expect("0x0D reply");
+        assert_eq!(cmd, 0x0D);
+        let (yaw, pitch, _) = parse::attitude(&data).expect("attitude decodes");
+        (yaw, pitch)
+    }
+
+    fn rewind(state: &Mutex<SimState>, by: Duration) {
+        let mut s = state.lock().expect("sim state");
+        s.moved_at = Instant::now() - by;
+    }
+
+    #[test]
+    fn sim_starts_at_the_legacy_attitude() {
+        let state = Mutex::new(SimState::default());
+        assert_eq!(attitude(&state), (90.5, -30.0));
+    }
+
+    #[test]
+    fn sim_gimbal_turns_with_rate() {
+        let state = Mutex::new(SimState::default());
+        reply_for(&state, 0x07, &encode::gimbal_rate(10, 0));
+        rewind(&state, Duration::from_secs(1));
+        let (yaw, pitch) = attitude(&state);
+        assert!((yaw - 80.5).abs() <= 1.5, "yaw {yaw}");
+        assert!((pitch + 30.0).abs() <= 0.5, "pitch {pitch}");
+    }
+
+    #[test]
+    fn sim_pitch_rate_is_clamped() {
+        let state = Mutex::new(SimState::default());
+        reply_for(&state, 0x07, &encode::gimbal_rate(0, 100));
+        rewind(&state, Duration::from_secs(2));
+        assert_eq!(attitude(&state).1, 30.0);
+    }
+
+    #[test]
+    fn sim_angle_sets_attitude() {
+        let state = Mutex::new(SimState::default());
+        reply_for(&state, 0x0E, &encode::gimbal_angle(-30.0, -45.0));
+        assert_eq!(attitude(&state), (-30.0, -45.0));
     }
 }

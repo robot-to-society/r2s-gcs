@@ -28,4 +28,4 @@ pub use link::{LinkUrl, LinkUrlError};
 pub use log_frame::LogFrame;
 pub use mission_frame::MissionFrame;
 pub use queue::{run_queue, Ack, Outcome, Outgoing, QueuedCommand};
-pub use router::{Clock, Router, RouterEvent};
+pub use router::{Clock, Router, RouterEvent, GLOBAL_POSITION_INT_ID};
