@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { altFromDrag, badgeEl, uidsInBox, dragDelta, handleEl, midHandles, updateBadgeEl } from './mapEdit'
-import { appendWaypoint, emptyDraft, setCommand } from './model'
+import { appendWaypoint, emptyDraft, insertAfter, setCommand } from './model'
+import { addSurvey } from '../survey/draftOps'
+import { generateSurvey } from '../survey/generate'
+import { fixtureSpec, HOME } from '../survey/surveyFixture'
 
 describe('map editing helpers', () => {
   it('badge_element_shows_seq_and_selected_class', () => {
@@ -65,5 +68,20 @@ describe('uidsInBox', () => {
     ]
     expect(uidsInBox(at, { x0: 0, y0: 0, x1: 100, y1: 100 })).toEqual([1, 2])
     expect(uidsInBox(at, { x0: 100, y0: 100, x1: 40, y1: 50 })).toEqual([2])
+  })
+
+  it('the "+" on the leg entering a survey inserts before the whole survey, so it stays attached', () => {
+    const spec = fixtureSpec()
+    const gen = generateSurvey(spec, HOME)
+    if ('error' in gen) throw new Error(gen.error)
+    const before = appendWaypoint(appendWaypoint(emptyDraft(), HOME.lat, HOME.lon), HOME.lat + 0.001, HOME.lon)
+    const { draft } = addSurvey(before, before.items.at(-1)!.uid, spec, gen.items)
+    const survey = draft.surveys[0]!
+    expect(draft.items.find((it) => it.uid === survey.uids[0])!.command).not.toBe('WAYPOINT') // leading DO_CHANGE_SPEED
+    const entering = midHandles(draft).find((h) => h.toUid === survey.uids.find((u) => draft.items.find((it) => it.uid === u)!.lat !== 0))!
+    expect(entering.afterUid).toBe(before.items.at(-1)!.uid)
+    const after = insertAfter(draft, entering.afterUid, entering.lat, entering.lon)
+    const first = after.items.findIndex((it) => it.uid === survey.uids[0])
+    expect(after.items.slice(first, first + survey.uids.length).map((it) => it.uid)).toEqual(survey.uids)
   })
 })
