@@ -21,7 +21,7 @@ import { SurveySlot } from '../survey/SurveySlot'
 import { SurveyNotice } from '../survey/SurveyNotice'
 import { predictSurvey } from '../survey/surveyPredict'
 import { insertAnchor, removeWithSurveys } from '../survey/draftOps'
-import { isEditable } from './editorKeys'
+import { ownsKey } from './editorKeys'
 import { useSurveyWiring } from '../survey/useSurveyWiring'
 import { UploadTargets } from './UploadTargets'
 import { MapFinder } from './MapFinder'
@@ -117,7 +117,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const st = stats(draft.items, draft.mission.home, draft.mission.speed)
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (isEditable(e.target) || sv.onKey(e)) return
+    if (ownsKey(e.target, e) || sv.onKey(e)) return
     const meta = e.metaKey || e.ctrlKey
     // fence / rally tabs: only undo / redo and finishing or cancelling a zone; waypoints stay put
     if (plan.tab !== 'mission' && !(meta && e.key.toLowerCase() === 'z')) {
