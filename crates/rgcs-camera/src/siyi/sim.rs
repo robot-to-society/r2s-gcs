@@ -254,6 +254,11 @@ impl SimServer {
         self.state.lock().expect("sim state").media.track_status = 2;
     }
 
+    /// The next `n` 0x20 replies after each 0x21 still report the previous size.
+    pub fn set_stale_encoding_replies(&self, n: u8) {
+        self.state.lock().expect("sim state").media.stale_encoding_replies = n;
+    }
+
     pub fn set_detections(&self, d: Vec<SimDetection>) {
         self.state.lock().expect("sim state").media.detections = d;
     }

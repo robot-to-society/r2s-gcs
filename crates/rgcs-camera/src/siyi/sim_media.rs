@@ -24,6 +24,10 @@ pub struct SimMedia {
     pub track_status: u8,
     pub frame_temps: [u16; 6],
     pub detections: Vec<SimDetection>,
+    /// How many 0x20 replies after a 0x21 still report the previous size (a slow encoder).
+    pub stale_encoding_replies: u8,
+    /// The previous encoding and how many stale replies are left.
+    pub stale: Option<((u8, u16, u16), u8)>,
 }
 
 impl Default for SimMedia {
@@ -45,6 +49,8 @@ impl Default for SimMedia {
                 (0.40, 0.40, 0.50, 0.60, 0.9, 0),
                 (0.70, 0.55, 0.85, 0.70, 0.8, 1),
             ],
+            stale_encoding_replies: 0,
+            stale: None,
         }
     }
 }
@@ -68,11 +74,17 @@ fn sim_unix_us(m: &SimMedia, now: Instant, unix_now_us: u64) -> u64 {
     }
 }
 
-fn stream_reply(m: &SimMedia, payload: &[u8]) -> Option<(u8, Vec<u8>)> {
+fn stream_reply(m: &mut SimMedia, payload: &[u8]) -> Option<(u8, Vec<u8>)> {
     if *payload.first()? != 1 {
         return None;
     }
-    let (codec, w, h) = m.encoding;
+    let (codec, w, h) = match m.stale {
+        Some((old, left)) if left > 0 => {
+            m.stale = Some((old, left - 1));
+            old
+        }
+        _ => m.encoding,
+    };
     let mut data = vec![1, codec];
     data.extend(le(&[w, h, 4000]));
     data.push(30);
@@ -80,6 +92,7 @@ fn stream_reply(m: &SimMedia, payload: &[u8]) -> Option<(u8, Vec<u8>)> {
 }
 
 fn set_encoding(m: &mut SimMedia, payload: &[u8]) -> Option<(u8, Vec<u8>)> {
+    m.stale = Some((m.encoding, m.stale_encoding_replies));
     m.encoding = (*payload.get(1)?, u16_at(payload, 2)?, u16_at(payload, 4)?);
     Some((0x21, vec![1, 1]))
 }

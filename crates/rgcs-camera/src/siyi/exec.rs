@@ -9,7 +9,7 @@ use rgcs_core::{
 use tokio::sync::watch;
 
 use crate::siyi::ai::{self, ClickError, DETECTION_LOOKBACK};
-use crate::siyi::apply::Media;
+use crate::siyi::apply::{Media, PendingEncoding};
 use crate::siyi::client::Link;
 use crate::siyi::encode;
 use crate::CameraError;
@@ -18,7 +18,8 @@ use crate::CameraError;
 const AI_MODE_SETTLE: Duration = Duration::from_millis(100);
 
 /// One command → one or more wire frames; re-reads what the camera changed.
-/// `Encoding` leaves the 0x20 re-read to the session (300 ms later).
+/// `Encoding` leaves the 0x20 re-reads to the session (300 ms later, then every poll second
+/// while the stream is unknown) and records the size it waits for.
 pub(crate) async fn exec(
     link: &mut Link<'_>,
     state: &watch::Sender<CameraState>,
@@ -47,7 +48,11 @@ pub(crate) async fn exec(
         AiSelectBox { x, y, box_px } => ai_select_box(link, &snap, x, y, box_px).await,
         AiSelectPoint { x, y } => ai_select_point(link, &snap, media, x, y).await,
         AiCancel => link.tcp(0x56, &ai::encode_ai_select(None)).await,
-        Encoding { preset } => set_encoding(link, state, &preset).await,
+        Encoding { preset } => {
+            let size = set_encoding(link, state, &preset).await?;
+            let pending_encoding = Some(PendingEncoding { size, since: Instant::now() });
+            return Ok(Media { pending_encoding, ..media.clone() });
+        }
         SyncClock => {
             return Ok(Media {
                 clock: media.clock.request(),
@@ -190,12 +195,13 @@ fn click_error(e: ClickError) -> CameraError {
     }
 }
 
-/// 0x21 for a preset; the resolution is unknown until 0x20 answers again (Review Focus 4).
+/// 0x21 for a preset; returns the requested size. The resolution is unknown until 0x20
+/// reports that size (Review Focus 4, final review I3).
 async fn set_encoding(
     link: &mut Link<'_>,
     state: &watch::Sender<CameraState>,
     preset: &str,
-) -> Result<(), CameraError> {
+) -> Result<(u16, u16), CameraError> {
     let p = mt11_encoding_presets()
         .into_iter()
         .find(|p| p.id == preset)
@@ -207,7 +213,8 @@ async fn set_encoding(
             ..s.clone()
         }
     });
-    link.tcp(0x21, &ai::encode_encoding(&p)).await
+    link.tcp(0x21, &ai::encode_encoding(&p)).await?;
+    Ok((p.width, p.height))
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 //! Received MT11 frames → the next `CameraState` plus the actor-local `Media` data (spec 40 §1, §3).
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use rgcs_core::{AiAck, CameraClock, CameraState, GimbalAttitude, ThermalPoint, ThermalState, TrackState};
 
@@ -21,7 +21,20 @@ pub struct Media {
     pub ack_seq: u32,
     pub clock: ClockSync,
     pub clock_read_at: Option<Instant>,
+    /// The size a 0x21 asked for; until a 0x20 reports it (or [`ENCODING_SETTLE`] passes) the
+    /// stream stays unknown and clicks are refused (final review I3).
+    pub pending_encoding: Option<PendingEncoding>,
 }
+
+/// An encoding change waiting for its 0x20 confirmation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PendingEncoding {
+    pub size: (u16, u16),
+    pub since: Instant,
+}
+
+/// How long a 0x21 change may take before any reported size is believed again.
+pub const ENCODING_SETTLE: Duration = Duration::from_secs(3);
 
 type Applied = (Option<CameraState>, Media);
 
@@ -37,7 +50,7 @@ pub fn apply_frame(
     let same = |next: Option<CameraState>| (next, media.clone());
     let (next, media) = match f.cmd {
         0x12 | 0x14 | 0x37 | 0x38 => apply_thermal(state, media, f.cmd, p, now),
-        0x20 => same(apply_encoding(state, p)),
+        0x20 => apply_encoding(state, media, p, now),
         0x50 => apply_track(state, media, p, now),
         0x5F => apply_candidates(state, media, p, now),
         0x55 | 0x56 => apply_ack(state, media, f.cmd, p),
@@ -81,13 +94,28 @@ fn apply_basic(state: &CameraState, cmd: u8, p: &[u8]) -> Option<CameraState> {
 
 /// 0x20: only the main stream (`stream_type == 1`) with a real size sets the resolution; a
 /// 0 / 1-pixel reply (encoder restarting) is ignored, as in Python (final review I2).
-fn apply_encoding(state: &CameraState, p: &[u8]) -> Option<CameraState> {
-    let (stream_type, info) = ai::parse_encoding(p)?;
-    (stream_type == 1 && ai::usable_stream(info.width, info.height)).then(|| CameraState {
-        stream: Some((info.width, info.height)),
-        encoding: Some(info),
-        ..state.clone()
-    })
+/// While a 0x21 change is pending, only the requested size (or any size after
+/// [`ENCODING_SETTLE`]) is taken; an older reply is dropped (final review I3).
+fn apply_encoding(state: &CameraState, media: &Media, p: &[u8], now: Instant) -> Applied {
+    let unchanged = (None, media.clone());
+    let Some((1, info)) = ai::parse_encoding(p) else {
+        return unchanged;
+    };
+    if !ai::usable_stream(info.width, info.height) {
+        return unchanged;
+    }
+    let size = (info.width, info.height);
+    if let Some(pending) = media.pending_encoding {
+        let settled = now.saturating_duration_since(pending.since) >= ENCODING_SETTLE;
+        if size != pending.size && !settled {
+            return unchanged;
+        }
+        if size != pending.size {
+            tracing::warn!(?size, wanted = ?pending.size, "encoding change not confirmed; using the reported size");
+        }
+    }
+    let next = with(state, |s| CameraState { stream: Some(size), encoding: Some(info), ..s });
+    (next, Media { pending_encoding: None, ..media.clone() })
 }
 
 fn apply_thermal(state: &CameraState, media: &Media, cmd: u8, p: &[u8], now: Instant) -> Applied {

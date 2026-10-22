@@ -126,6 +126,31 @@ async fn encoding_change_refuses_clicks_until_reread() {
     cam.disconnect().await;
 }
 
+/// Final review I3: the old size a slow encoder still reports is not taken for the new one.
+#[tokio::test]
+async fn encoding_change_waits_for_the_requested_size() {
+    let (cam, sim) = pair(false).await;
+    sim.set_stale_encoding_replies(2);
+    cam.send(CameraCommand::Encoding { preset: "h264_4k".into() }).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    assert_eq!(cam.state().borrow().stream, None, "the 300 ms re-read still saw 1080p");
+    assert_eq!(select_box(&cam).await, Err(CameraError::Refused("stream_unknown")));
+    wait_until(&cam, |s| s.stream == Some((3840, 2160)), 4).await;
+    select_box(&cam).await.unwrap();
+    cam.disconnect().await;
+}
+
+#[tokio::test]
+async fn unconfirmed_encoding_change_takes_the_reported_size_after_3_s() {
+    let (cam, sim) = pair(false).await;
+    sim.set_stale_encoding_replies(20);
+    cam.send(CameraCommand::Encoding { preset: "h264_4k".into() }).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(2500)).await;
+    assert_eq!(cam.state().borrow().stream, None);
+    wait_until(&cam, |s| s.stream == Some((1920, 1080)), 3).await;
+    cam.disconnect().await;
+}
+
 #[tokio::test]
 async fn ctrl_click_picks_detection() {
     let (cam, mut sim) = pair(false).await;

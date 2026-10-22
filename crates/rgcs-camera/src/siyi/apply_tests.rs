@@ -54,6 +54,26 @@ fn apply_0x20_zero_size_keeps_the_stream_unknown() {
     assert_eq!(s.stream, Some((1920, 1080)), "a bogus reply keeps the known size");
 }
 
+/// Final review I3: after a 0x21 the old size is not taken for the new one.
+#[test]
+fn apply_0x20_waits_for_the_requested_size() {
+    let t0 = Instant::now();
+    let pending = Media {
+        pending_encoding: Some(PendingEncoding { size: (3840, 2160), since: t0 }),
+        ..Media::default()
+    };
+    let at = |ms| t0 + Duration::from_millis(ms);
+    let (s, m) = step(&base(), &pending, encoding_reply(1, 1920, 1080), at(300));
+    assert_eq!(s.stream, None, "old size refused while the change settles");
+    assert!(m.pending_encoding.is_some());
+    let (s, m) = step(&s, &m, encoding_reply(1, 3840, 2160), at(1000));
+    assert_eq!(s.stream, Some((3840, 2160)));
+    assert_eq!(m.pending_encoding, None, "the matching size ends the wait");
+    let (s, m) = step(&base(), &pending, encoding_reply(1, 1920, 1080), at(3000));
+    assert_eq!(s.stream, Some((1920, 1080)), "after 3 s whatever the camera reports is taken");
+    assert_eq!(m.pending_encoding, None);
+}
+
 #[test]
 fn apply_thermal_frames() {
     let now = Instant::now();
