@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dialOffset, gimbalText, latencyText, posToZoom, zoomToPos } from './cockpitView'
+import { ZOOM_SLIDER_MAX, dialOffset, gimbalText, latencyText, posToZoom, zoomToPos } from './cockpitView'
 
 describe('camera cockpit helpers (spec 10 §4.2)', () => {
   it('maps zoom to a logarithmic 0..1000 slider and back', () => {
@@ -9,6 +9,14 @@ describe('camera cockpit helpers (spec 10 §4.2)', () => {
     expect(posToZoom(0, 165)).toBe(1)
     expect(posToZoom(1000, 165)).toBe(165)
     expect(posToZoom(500, 165)).toBeCloseTo(12.8, 1)
+  })
+  it('a percent zoom maps linearly 0..100 % to the slider', () => {
+    expect(zoomToPos(50, 100, 'percent')).toBe(ZOOM_SLIDER_MAX / 2)
+    expect(zoomToPos(0, 100, 'percent')).toBe(0)
+    expect(zoomToPos(100, 100, 'percent')).toBe(ZOOM_SLIDER_MAX)
+    expect(posToZoom(ZOOM_SLIDER_MAX, 100, 'percent')).toBe(100)
+    expect(posToZoom(0, 100, 'percent')).toBe(0)
+    expect(posToZoom(333, 100, 'percent')).toBe(33)
   })
   it('a camera without optical zoom range sits at the left end', () => {
     expect(zoomToPos(1, 1)).toBe(0)

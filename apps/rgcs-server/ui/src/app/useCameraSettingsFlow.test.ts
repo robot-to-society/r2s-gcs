@@ -12,7 +12,7 @@ import { t } from '../shared/i18n'
 const calls: string[] = []
 let stored: CameraProfile
 const results: CommandResult[] = []
-const profile = { sysid: 1, kind: 'siyi_mt11', host: '192.168.144.25', port: 37260, encoding_preset: 'h264_1080p', thermal_palette: 3, thermal_overlay: true, ai_box_px: 100, auto_record: true } as CameraProfile
+const profile = { sysid: 1, kind: 'siyi_mt11', host: '192.168.144.25', port: 37260, rtsp_url: 'rtsp://{host}:8554/video1', comp_id: 100, encoding_preset: 'h264_1080p', thermal_palette: 3, thermal_overlay: true, ai_box_px: 100, auto_record: true } as CameraProfile
 const api = {
   getCameraProfile: vi.fn(async () => profile),
   // the server answers with the whole stored row
@@ -37,7 +37,7 @@ const { useCameraSettingsFlow } = await import('./useCameraSettingsFlow')
 const { roiTargetsStore } = await import('../features/roi/targetsStore')
 const { cameraProfileStore } = await import('../features/camera/profileStore')
 
-const draft: SheetDraft = { tab: 'connection', camera: { kind: 'siyi_mt11', host: '192.168.144.25', port: 37260, video_source_mode: 'auto' }, input: DEFAULT_PROFILE, roiTargets: emptyTargets(), roiControl: DEFAULT_ROI_CONTROL, video: { encoding_preset: 'h264_1080p', thermal_palette: 3, thermal_overlay: true, ai_box_px: 100, auto_record: true, gain: null } }
+const draft: SheetDraft = { tab: 'connection', camera: { kind: 'siyi_mt11', host: '192.168.144.25', port: 37260, video_source_mode: 'auto', rtsp_url: 'rtsp://{host}:8554/video1', comp_id: 100 }, input: DEFAULT_PROFILE, roiTargets: emptyTargets(), roiControl: DEFAULT_ROI_CONTROL, video: { encoding_preset: 'h264_1080p', thermal_palette: 3, thermal_overlay: true, ai_box_px: 100, auto_record: true, gain: null } }
 
 function setup(vehicles: ReadonlyMap<number, VehicleState> = new Map()) {
   const setModal = vi.fn<(m: Modal) => void>()
@@ -82,6 +82,14 @@ describe('useCameraSettingsFlow', () => {
     await act(() => result.current.save(1, draft))
     expect(calls).toEqual(['targets', 'control', 'gimbal'])
     expect(results[0]).toMatchObject({ ok: true })
+  })
+
+  it('a changed component id or RTSP URL is a connection change', async () => {
+    const { cameraChanged } = await import('./useCameraSettingsFlow')
+    const saved = { ...profile, video_source_mode: 'auto' } as CameraProfile
+    expect(cameraChanged(saved, draft.camera)).toBe(false)
+    expect(cameraChanged(saved, { ...draft.camera, comp_id: 154 })).toBe(true)
+    expect(cameraChanged(saved, { ...draft.camera, rtsp_url: 'rtsp://192.168.144.25:8554/main' })).toBe(true)
   })
 
   it('a failing targets PUT reports one failure and skips the rest', async () => {

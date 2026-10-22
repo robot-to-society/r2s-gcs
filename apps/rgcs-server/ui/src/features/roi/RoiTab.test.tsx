@@ -11,7 +11,7 @@ const targets: RoiTarget[] = emptyTargets().map((x, i) =>
   i === 0 ? { ...x, name: '送電塔 A', lat: 36.16, lon: 139.38, alt_msl: 412 } : i === 1 ? { ...x, name: '貯水池', lat: 36.15, lon: 139.365, alt_msl: 388.4 } : x,
 )
 
-type Data = Pick<Parameters<typeof RoiTab>[0], 'targets' | 'control' | 'activeId' | 'targetsIssue' | 'controlIssue'>
+type Data = Pick<Parameters<typeof RoiTab>[0], 'targets' | 'control' | 'activeId' | 'targetsIssue' | 'controlIssue' | 'roiMode'>
 
 function renderTab(over: Partial<Data> = {}) {
   const mocks = {
@@ -48,6 +48,17 @@ describe('RoiTab', () => {
     expect(next[1]?.name).toBe('貯水池 B')
     expect(next[0]).toBe(targets[0])
     expect(targets[1]?.name).toBe('貯水池')
+  })
+
+  it('native ROI hides the control form and shows the ArduPilot note; computed shows the form', () => {
+    const { unmount } = renderTab({ roiMode: 'native' })
+    expect(screen.queryByRole('group', { name: dict.roiControl })).toBeNull()
+    expect(screen.queryByLabelText(dict.roiMaxSpeed)).toBeNull()
+    expect(screen.getByText(dict.roiNativeNote)).toBeInTheDocument()
+    unmount()
+    renderTab({ roiMode: 'computed' })
+    expect(screen.getByRole('group', { name: dict.roiControl })).toBeInTheDocument()
+    expect(screen.queryByText(dict.roiNativeNote)).toBeNull()
   })
 
   it('地図で指定 calls onPickOnMap', () => {

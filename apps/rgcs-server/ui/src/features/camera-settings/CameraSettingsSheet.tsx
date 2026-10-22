@@ -56,7 +56,7 @@ const TABS: readonly Tab[] = ['connection', 'input', 'roi', 'video']
 function startDraft(profile: CameraProfile, inputProfile: GimbalInputProfile, roi: Props['roi'], cameraState: CameraState | undefined): SheetDraft {
   return {
     tab: 'connection',
-    camera: { kind: profile.kind, host: profile.host, port: profile.port, video_source_mode: profile.video_source_mode },
+    camera: { kind: profile.kind, host: profile.host, port: profile.port, video_source_mode: profile.video_source_mode, rtsp_url: profile.rtsp_url, comp_id: profile.comp_id },
     input: inputProfile,
     roiTargets: roi?.targets ?? emptyTargets(),
     roiControl: roi?.control ?? DEFAULT_ROI_CONTROL,
@@ -130,6 +130,7 @@ export function CameraSettingsSheet(props: Props) {
               onControl={(roiControl) => patch({ roiControl })}
               onPickOnMap={() => onPickRoi({ ...draft, tab: 'roi' }, nextEmptySlot(draft.roiTargets))}
               onCsvError={setCsvError}
+              roiMode={caps?.roi}
               dict={dict}
             />
             {csvError && <span className="danger settings-issue">{csvError}</span>}

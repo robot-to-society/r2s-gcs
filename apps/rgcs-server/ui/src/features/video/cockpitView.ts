@@ -1,8 +1,11 @@
-import type { GimbalMode } from '../../shared/api/types'
+import type { GimbalMode, ZoomUnit } from '../../shared/api/types'
 import type { Latency } from '../../shared/video'
 import { angleText } from '../camera'
 
-/** The zoom slider runs 0..1000 on a log scale so 1×–2× gets as much travel as 80×–165× (spec 10 §4.2). */
+/**
+ * The zoom slider runs 0..1000 on a log scale so 1×–2× gets as much travel as 80×–165× (spec 10 §4.2).
+ * A percent zoom (MAVLink, 0–100 % of the range) is linear.
+ */
 export const ZOOM_SLIDER_MAX = 1000
 /** Box size for a centre start (AI追跡 button, joystick `ai_tracking_toggle`; spec 40 §6). */
 export const AI_CENTRE_BOX_PX = 200
@@ -12,12 +15,14 @@ const DIAL_RANGE_DEG = 90
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
-export function zoomToPos(zoom: number, max: number): number {
+export function zoomToPos(zoom: number, max: number, unit: ZoomUnit = 'times'): number {
+  if (unit === 'percent') return max > 0 ? Math.round(clamp(zoom / max, 0, 1) * ZOOM_SLIDER_MAX) : 0
   if (max <= 1) return 0
   return Math.round(clamp(Math.log(zoom) / Math.log(max), 0, 1) * ZOOM_SLIDER_MAX)
 }
 
-export function posToZoom(pos: number, max: number): number {
+export function posToZoom(pos: number, max: number, unit: ZoomUnit = 'times'): number {
+  if (unit === 'percent') return Math.round((clamp(pos, 0, ZOOM_SLIDER_MAX) / ZOOM_SLIDER_MAX) * max)
   if (max <= 1) return 1
   const zoom = Math.exp((clamp(pos, 0, ZOOM_SLIDER_MAX) / ZOOM_SLIDER_MAX) * Math.log(max))
   return clamp(Math.round(zoom * 10) / 10, 1, max)

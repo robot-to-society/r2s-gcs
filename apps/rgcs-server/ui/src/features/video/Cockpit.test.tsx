@@ -18,6 +18,7 @@ vi.mock('../../shared/video/whep', () => ({
 }))
 
 const { Cockpit } = await import('./Cockpit')
+const { ZOOM_SLIDER_MAX } = await import('./cockpitView')
 const v: VehicleState = {
   sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'AUTO', armed: true, lat: 36, lon: 139, alt_rel: 81.6, alt_msl: 0, hdg: 0,
   ground_speed: 7.25, climb: 0, battery: { pct: 64, volt: 22.1, current: null }, link: 'ok', last_rx_ms: 0,
@@ -85,6 +86,26 @@ describe('Cockpit (spec 10 §4.2)', () => {
     expect(screen.getByText('165.0×')).toBeInTheDocument()
     fireEvent.pointerUp(slider)
     expect(p.onCommand.mock.calls).toEqual([[{ cmd: 'zoom_absolute', args: { zoom: 165 } }]])
+  })
+
+  it('a MAVLink camera: percent zoom, a linear slider, and only the gimbal and video card rows', () => {
+    const mav: CameraCaps = {
+      ...mt11, kind: 'mavlink', video_modes: ['rgb'], roi: 'native', focus: false,
+      gimbal: { rate: true, angle: true, center: false, modes: [], attitude: true, pitch_range: [-90, 25] },
+      zoom: { max: 100, absolute: true, step: true, continuous: true, unit: 'percent' },
+    }
+    const p = setup({ caps: mav, state: { ...state, zoom: 40, zoom_max: 100, gimbal_mode: null, gimbal: { yaw: 0, pitch: -20, roll: 0, age_ms: 0 } } })
+    expect(screen.getByText('40%')).toBeInTheDocument()
+    const rows = [...document.querySelectorAll('.cam-card .kv > span')]
+    expect(rows.filter((_, i) => i % 2 === 0).map((s) => s.textContent)).toEqual(['ジンバル', '映像'])
+    expect(rows[1]?.textContent).toBe('0.0° / −20.0°')
+    for (const label of ['サーマル', 'SDカード', 'カメラ時刻']) expect(screen.queryByText(label)).toBeNull()
+    const slider = screen.getByRole('slider', { name: 'ズーム' })
+    expect(slider).toHaveValue(String(ZOOM_SLIDER_MAX * 0.4))
+    fireEvent.change(slider, { target: { value: String(ZOOM_SLIDER_MAX / 2) } })
+    expect(screen.getByText('50%')).toBeInTheDocument()
+    fireEvent.pointerUp(slider)
+    expect(p.onCommand.mock.calls).toEqual([[{ cmd: 'zoom_absolute', args: { zoom: 50 } }]])
   })
 
   it('stops recording when recording, and hides what a camera cannot do', () => {

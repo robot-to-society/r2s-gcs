@@ -41,7 +41,7 @@ export function CameraStrip({ caps, state, pending, onCommand, onSettings, dict 
           <button type="button" className="btn-icon sm" aria-label={dict.zoomOut} title={dict.zoomOut} onClick={() => onCommand({ cmd: 'zoom_step', args: { steps: -1 } })}>
             <IconMinus />
           </button>
-          <span className="big num">{zoomText(state.zoom)}</span>
+          <span className="big num">{zoomText(state.zoom, caps.zoom.unit)}</span>
           <button type="button" className="btn-icon sm" aria-label={dict.zoomIn} title={dict.zoomIn} onClick={() => onCommand({ cmd: 'zoom_step', args: { steps: 1 } })}>
             <IconPlus />
           </button>

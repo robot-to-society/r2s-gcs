@@ -22,7 +22,7 @@ const HOUSE =
   '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
 
 /** Prototype CAM_HFOV for cameras that do not report one. */
-const DEFAULT_HFOV_DEG = 62
+export const DEFAULT_HFOV_DEG = 62
 
 /** Where the camera looks, for the fan: bearing over ground, current horizontal FOV, pitch. */
 export interface GimbalPose {
@@ -35,7 +35,9 @@ export interface GimbalPose {
 export function gimbalPose(v: VehicleState, cam: CameraSnapshot | undefined): GimbalPose | null {
   const att = cam?.state.gimbal
   if (!cam?.caps.gimbal?.attitude || !att || v.hdg === null) return null
-  return { bearing: bearingOf(v.hdg, att.yaw), hfov: hfovAt(cam.caps.hfov_deg ?? DEFAULT_HFOV_DEG, cam.state.zoom || 1), pitch: att.pitch }
+  // a percent zoom has no known multiplier: the fan stays at the 1× field of view
+  const zoom = cam.caps.zoom?.unit === 'percent' ? 1 : cam.state.zoom || 1
+  return { bearing: bearingOf(v.hdg, att.yaw), hfov: hfovAt(cam.caps.hfov_deg ?? DEFAULT_HFOV_DEG, zoom), pitch: att.pitch }
 }
 
 const fovSvg = (sysid: number) =>

@@ -28,6 +28,18 @@ describe('CameraStatusRow', () => {
     expect(screen.getByTestId('cam-status')).toHaveTextContent('切断')
   })
 
+  it('a MAVLink camera reads MAVLink カメラ | ↔ yaw ↕ pitch with no mode cell', () => {
+    const mav: CameraCaps = { ...none, kind: 'mavlink', gimbal: { rate: true, angle: true, center: true, modes: [], attitude: true, pitch_range: [-90, 30] }, roi: 'native' }
+    render(<CameraStatusRow caps={mav} state={st({ gimbal: { yaw: 0, pitch: -20, roll: 0, age_ms: 0 }, gimbal_mode: null })} onSetup={() => {}} dict={t('ja')} />)
+    const row = screen.getByTestId('cam-status')
+    expect(row).toHaveTextContent('MAVLink カメラ')
+    expect(row).toHaveTextContent('↔ 0.0°')
+    expect(row).toHaveTextContent('↕ −20.0°')
+    expect(row).not.toHaveTextContent('Follow')
+    expect(row).not.toHaveTextContent('—')
+    expect(screen.getByText('MAVLink カメラ').nextElementSibling).toHaveClass('sep')
+  })
+
   it('adds the active ROI name after a separator', () => {
     const { rerender } = render(<CameraStatusRow caps={mt11} state={st({})} onSetup={() => {}} dict={t('ja')} roiName="送電塔 A" />)
     const row = screen.getByTestId('cam-status')

@@ -64,7 +64,14 @@ async function loadRoi(sysid: number): Promise<RoiSettings | null> {
 /** True when the sheet's connection fields differ from the loaded profile (or none loaded). */
 export function cameraChanged(profile: CameraProfile | null, camera: SheetDraft['camera']): boolean {
   if (profile === null) return true
-  return profile.kind !== camera.kind || profile.host !== camera.host || profile.port !== camera.port || profile.video_source_mode !== camera.video_source_mode
+  return (
+    profile.kind !== camera.kind ||
+    profile.host !== camera.host ||
+    profile.port !== camera.port ||
+    profile.video_source_mode !== camera.video_source_mode ||
+    profile.rtsp_url !== camera.rtsp_url ||
+    profile.comp_id !== camera.comp_id
+  )
 }
 
 const putAndStore = async (sysid: number, patch: Partial<CameraProfile>) => cameraProfileStore.set(sysid, await putCameraProfile(sysid, patch))

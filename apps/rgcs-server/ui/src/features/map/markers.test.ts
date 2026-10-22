@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CameraSnapshot, VehicleState } from '../../shared/api/types'
 import { hfovAt } from './gimbal'
-import { gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
+import { DEFAULT_HFOV_DEG, gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
 
 const base: VehicleState = {
   sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'AUTO', armed: true, lat: 36.162, lon: 139.372, alt_rel: 80, alt_msl: 480,
@@ -107,6 +107,12 @@ describe('vehicle markers', () => {
     expect(gimbalPose(base, { ...cam, state: { ...cam.state, gimbal: null } })).toBeNull()
     expect(gimbalPose(base, { ...cam, caps: { ...cam.caps, gimbal: { ...caps.gimbal, attitude: false } } } as unknown as CameraSnapshot)).toBeNull()
     expect(gimbalPose({ ...base, hdg: null }, cam)).toBeNull()
+  })
+  it('a percent zoom camera draws the fan at 1× (no multiplier known)', () => {
+    const caps = { kind: 'mavlink', gimbal: { rate: true, angle: true, center: true, modes: [], attitude: true, pitch_range: [-90, 30] }, zoom: { max: 100, absolute: true, step: true, continuous: true, unit: 'percent' }, hfov_deg: null } as const
+    const state = { connected: true, zoom: 80, gimbal: { yaw: 0, pitch: -20, roll: 0, age_ms: 0 } } as const
+    const cam = { sysid: 1, caps, state } as unknown as CameraSnapshot
+    expect(gimbalPose(base, cam)?.hfov).toBe(DEFAULT_HFOV_DEG)
   })
   it('selected_marker_has_lock_and_beacon_elements', () => {
     const el = markerEl(base, true)

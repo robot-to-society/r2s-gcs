@@ -1,5 +1,5 @@
 import { useRef, type ChangeEvent } from 'react'
-import type { RoiControl, RoiTarget } from '../../shared/api/types'
+import type { RoiControl, RoiMode, RoiTarget } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import type { Issue } from '../camera-settings/schema'
 import { decodeCsvBytes, parseRoiCsv, toRoiTargets, type CsvError } from './csv'
@@ -16,6 +16,8 @@ export interface RoiTabProps {
   readonly onControl: (c: RoiControl) => void
   readonly onPickOnMap: () => void
   readonly onCsvError: (msg: string) => void
+  /** `caps.roi`: with `native` the autopilot aims the gimbal, so the rate / angle control block is hidden. */
+  readonly roiMode?: RoiMode
   readonly dict: Dict
 }
 
@@ -24,8 +26,8 @@ export function csvErrorMessage(e: CsvError, dict: Dict): string {
   return e.code === 'empty' ? reason : dict.roiCsvError.replace('{line}', String(e.line)).replace('{reason}', reason)
 }
 
-/** Spec 10 §5 ROI tab (prototype lines 1256–1274): 10 presets, 地図で指定 / CSV, then the control block. */
-export function RoiTab({ targets, control, activeId, targetsIssue, controlIssue, onTargets, onControl, onPickOnMap, onCsvError, dict }: RoiTabProps) {
+/** Spec 10 §5 ROI tab (prototype lines 1256–1274): 10 presets, 地図で指定 / CSV, then the control block (or the native ROI note). */
+export function RoiTab({ targets, control, activeId, targetsIssue, controlIssue, onTargets, onControl, onPickOnMap, onCsvError, roiMode = 'computed', dict }: RoiTabProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const setName = (i: number, name: string) => onTargets(targets.map((t, j) => (j === i ? { ...t, name } : t)))
   const importCsv = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -72,7 +74,13 @@ export function RoiTab({ targets, control, activeId, targetsIssue, controlIssue,
         </div>
         {targetsIssue && <span className="danger settings-issue">{targetsIssue.path}: {targetsIssue.message}</span>}
       </div>
-      <RoiControlForm control={control} issue={controlIssue} onChange={onControl} dict={dict} />
+      {roiMode === 'native' ? (
+        <div className="t2" style={{ fontSize: 12 }}>
+          {dict.roiNativeNote}
+        </div>
+      ) : (
+        <RoiControlForm control={control} issue={controlIssue} onChange={onControl} dict={dict} />
+      )}
     </>
   )
 }

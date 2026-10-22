@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { CameraCaps, CameraCommand, CameraState, GimbalMode, RoiTarget, VideoMode } from '../../shared/api/types'
+import type { CameraCaps, CameraCommand, CameraState, GimbalMode, RoiTarget, VideoMode, ZoomCaps } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconCamera, IconCrosshair, IconGear, IconMinus, IconPlus } from '../../shared/ui/icons'
 import { zoomText } from '../camera'
@@ -45,7 +45,7 @@ export function CamBar({ caps, state, pending, dict, onCommand, onSettings, roi 
             <IconCamera />
           </button>
         )}
-        {caps.zoom && <ZoomControl max={caps.zoom.max} zoom={state.zoom} absolute={caps.zoom.absolute} step={caps.zoom.step} dict={dict} onCommand={onCommand} />}
+        {caps.zoom && <ZoomControl caps={caps.zoom} zoom={state.zoom} dict={dict} onCommand={onCommand} />}
         {caps.video_modes.length > 1 && (
           <Seg label={dict.videoType} width={172} items={caps.video_modes.map((m) => ({ key: m, label: modeLabel[m], on: (state.video_mode ?? 'rgb') === m, pick: () => onCommand({ cmd: 'video_mode', args: { mode: m } }) }))} />
         )}
@@ -101,23 +101,22 @@ function Seg({ label, width, items }: { readonly label: string; readonly width: 
 }
 
 interface ZoomProps {
-  readonly max: number
+  readonly caps: ZoomCaps
   readonly zoom: number
-  readonly absolute: boolean
-  readonly step: boolean
   readonly dict: Dict
   readonly onCommand: (cmd: CameraCommand) => void
 }
 
-/** − / log slider / + / value. The slider sends one `zoom_absolute` when released, not one per pixel. */
-function ZoomControl({ max, zoom, absolute, step, dict, onCommand }: ZoomProps) {
+/** − / slider (log for ×, linear for %) / + / value. The slider sends one `zoom_absolute` when released, not one per pixel. */
+function ZoomControl({ caps, zoom, dict, onCommand }: ZoomProps) {
+  const { max, absolute, step, unit } = caps
   const [dragPos, setDragPos] = useState<number | null>(null)
   const commit = () => {
     if (dragPos === null) return
-    onCommand({ cmd: 'zoom_absolute', args: { zoom: posToZoom(dragPos, max) } })
+    onCommand({ cmd: 'zoom_absolute', args: { zoom: posToZoom(dragPos, max, unit) } })
     setDragPos(null)
   }
-  const shown = dragPos === null ? zoom : posToZoom(dragPos, max)
+  const shown = dragPos === null ? zoom : posToZoom(dragPos, max, unit)
   return (
     <div className="zoom">
       {step && (
@@ -126,14 +125,14 @@ function ZoomControl({ max, zoom, absolute, step, dict, onCommand }: ZoomProps) 
         </button>
       )}
       {absolute && (
-        <input type="range" min={0} max={ZOOM_SLIDER_MAX} aria-label={dict.zoom} title={dict.zoom} value={dragPos ?? zoomToPos(zoom, max)} onChange={(e) => setDragPos(Number(e.target.value))} onPointerUp={commit} onKeyUp={commit} onBlur={commit} />
+        <input type="range" min={0} max={ZOOM_SLIDER_MAX} aria-label={dict.zoom} title={dict.zoom} value={dragPos ?? zoomToPos(zoom, max, unit)} onChange={(e) => setDragPos(Number(e.target.value))} onPointerUp={commit} onKeyUp={commit} onBlur={commit} />
       )}
       {step && (
         <button type="button" className="btn-icon sm" aria-label={dict.zoomIn} title={dict.zoomIn} onClick={() => onCommand({ cmd: 'zoom_step', args: { steps: 1 } })}>
           <IconPlus />
         </button>
       )}
-      <span className="val">{zoomText(shown)}</span>
+      <span className="val">{zoomText(shown, unit)}</span>
     </div>
   )
 }

@@ -19,7 +19,20 @@ const state = (over: Partial<CameraState> = {}): CameraState => ({
 })
 const none: CameraCaps = { kind: 'none', gimbal: null, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: null, roi: 'none', thermal: null, ai_tracking: null, encoding_presets: [], storage_info: false, clock_sync: false }
 
+const mav: CameraCaps = {
+  ...none, kind: 'mavlink', photo: true, record: true, video_modes: ['rgb'], roi: 'native',
+  gimbal: { rate: true, angle: true, center: true, modes: [], attitude: true, pitch_range: [-90, 30] },
+  zoom: { max: 100, absolute: true, step: true, continuous: true, unit: 'percent' },
+}
+
 describe('CameraStrip', () => {
+  it('a MAVLink camera shows record, photo, − 40% + and the gear only', () => {
+    const { container } = render(<CameraStrip caps={mav} state={state({ zoom: 40, zoom_max: 100, gimbal_mode: null })} pending={false} onCommand={() => {}} onSettings={() => {}} dict={t('ja')} />)
+    expect([...container.querySelectorAll('.cam-strip > *')].map((e) => e.getAttribute('aria-label') ?? e.className)).toEqual(['録画', '写真', 'zstep', 'grow', 'カメラ設定'])
+    expect(container.querySelector('.zstep span.big.num')).toHaveTextContent('40%')
+    expect(screen.queryByRole('group', { name: '映像タイプ' })).toBeNull()
+  })
+
   it('renders nothing for kind none and hides the video type segment when only rgb', () => {
     const { container, rerender } = render(<CameraStrip caps={none} state={state()} pending={false} onCommand={() => {}} onSettings={() => {}} dict={t('ja')} />)
     expect(container).toBeEmptyDOMElement()

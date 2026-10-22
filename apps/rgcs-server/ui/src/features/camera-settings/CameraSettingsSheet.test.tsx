@@ -36,6 +36,38 @@ describe('CameraSettingsSheet', () => {
     expect(screen.getByText(/v1\.0\.1/)).toBeInTheDocument()
   })
 
+  it('MAVLink カメラ is enabled: component id + RTSP URL; the URL host becomes the saved host', () => {
+    const onSave = vi.fn()
+    render(<CameraSettingsSheet {...base} caps={mavCaps} profile={profile()} onSave={onSave} />)
+    const option = screen.getByRole('option', { name: 'MAVLink カメラ' })
+    expect(option).toBeEnabled()
+    fireEvent.change(screen.getByLabelText('カメラ種別'), { target: { value: 'mavlink' } })
+    expect(screen.getByLabelText('コンポーネント ID')).toHaveValue(100)
+    expect(screen.getByLabelText('RTSP URL')).toBeInTheDocument()
+    for (const label of ['IP', '制御ポート']) expect(screen.queryByLabelText(label)).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: '映像ソース' })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('RTSP URL'), { target: { value: 'rtsp://192.168.144.30:8554/main' } })
+    fireEvent.change(screen.getByLabelText('コンポーネント ID'), { target: { value: '154' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSave.mock.calls[0]![0].camera).toMatchObject({ kind: 'mavlink', host: '192.168.144.30', rtsp_url: 'rtsp://192.168.144.30:8554/main', comp_id: 154 })
+  })
+
+  it('a MAVLink RTSP URL without an IPv4 host marks the input and blocks save', () => {
+    render(<CameraSettingsSheet {...base} caps={mavCaps} profile={profile({ kind: 'mavlink', rtsp_url: 'rtsp://192.168.144.25:8554/main' })} onSave={() => {}} />)
+    fireEvent.change(screen.getByLabelText('RTSP URL'), { target: { value: 'rtsp://cam.local/main' } })
+    expect(screen.getByLabelText('RTSP URL')).toHaveClass('invalid')
+    expect(screen.getByRole('button', { name: '保存' })).toBeDisabled()
+  })
+
+  it('the MAVLink status box shows the connection and cam firmware only', () => {
+    const live: CameraState = { ...camState, firmware: { camera: '1.2.3', gimbal: '', zoom: '' } }
+    render(<CameraSettingsSheet {...base} caps={mavCaps} cameraState={live} profile={profile({ kind: 'mavlink', rtsp_url: 'rtsp://192.168.144.25:8554/main' })} onSave={() => {}} />)
+    expect(screen.getByText('接続中')).toBeInTheDocument()
+    expect(screen.getByText('cam 1.2.3')).toBeInTheDocument()
+    for (const label of ['SDカード', 'カメラ時刻']) expect(screen.queryByText(label)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '今すぐ同期' })).not.toBeInTheDocument()
+  })
+
   it('invalid port shows red and keeps save disabled', () => {
     render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} />)
     fireEvent.change(screen.getByLabelText('制御ポート'), { target: { value: '0' } })
@@ -111,7 +143,7 @@ describe('CameraSettingsSheet', () => {
 
   it('with an initial draft it opens on the ROI tab with the drafted rows', () => {
     const targets = emptyTargets().map((x, i) => (i === 0 ? { ...x, name: 'ROI 1', lat: 36.1, lon: 139.1, alt_msl: 412 } : x))
-    const initial = { tab: 'roi' as const, camera: { kind: 'siyi_mt11' as const, host: '10.0.0.9', port: 37260, video_source_mode: 'auto' as const }, input: DEFAULT_PROFILE, roiTargets: targets, roiControl: DEFAULT_ROI_CONTROL, video: { encoding_preset: 'h264_1080p' as const, thermal_palette: 3, thermal_overlay: true, ai_box_px: 100, auto_record: true, gain: null } }
+    const initial = { tab: 'roi' as const, camera: { kind: 'siyi_mt11' as const, host: '10.0.0.9', port: 37260, video_source_mode: 'auto' as const, rtsp_url: 'rtsp://{host}:8554/video1', comp_id: 100 }, input: DEFAULT_PROFILE, roiTargets: targets, roiControl: DEFAULT_ROI_CONTROL, video: { encoding_preset: 'h264_1080p' as const, thermal_palette: 3, thermal_overlay: true, ai_box_px: 100, auto_record: true, gain: null } }
     render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} initial={initial} notice="hint text" />)
     expect(screen.getByLabelText(`${dict.roiName} 1`)).toHaveValue('ROI 1')
     expect(screen.getByText('412 m')).toBeInTheDocument()

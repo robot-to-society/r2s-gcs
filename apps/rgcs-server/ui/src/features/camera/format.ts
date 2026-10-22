@@ -1,5 +1,8 @@
-export function zoomText(zoom: number): string {
-  return `${zoom.toFixed(1)}×`
+import type { ZoomUnit } from '../../shared/api/types'
+
+/** `1.5×` for a multiplier; `40%` for a camera that reports zoom as a percentage of its range (MAVLink). */
+export function zoomText(zoom: number, unit: ZoomUnit = 'times'): string {
+  return unit === 'percent' ? `${Math.round(zoom)}%` : `${zoom.toFixed(1)}×`
 }
 
 /** Typographic minus, one decimal, degree sign. */
