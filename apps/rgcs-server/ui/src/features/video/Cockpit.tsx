@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { KindIcon } from '../../shared/ui/KindIcon'
-import type { CameraCommand, CameraSnapshot, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CameraCommand, CameraSnapshot, RoiStatus, RoiTarget, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconMinimize, IconVideoOff, IconWarn } from '../../shared/ui/icons'
 import { isLive, recDuration, useRecElapsed, useWhepFeed } from '../camera'
@@ -8,6 +8,7 @@ import { altText, battText, modeLabel, speedText } from '../vehicles/format'
 import { CamBar } from './CamBar'
 import { CamCard } from './CamCard'
 import { latencyText } from './cockpitView'
+import { roiText } from '../roi/format'
 
 interface Props {
   readonly vehicle: VehicleState
@@ -20,10 +21,17 @@ interface Props {
   readonly onRestore: () => void
   /** The mini map (the operations map's layers, centred on this vehicle). */
   readonly map: ReactNode
+  /** The vehicle's saved GPS ROI presets and its live ROI status (absent = off). */
+  readonly roiTargets?: readonly RoiTarget[]
+  readonly roiStatus?: RoiStatus
+  readonly onRoiStart?: (id: string) => void
+  readonly onRoiStop?: () => void
 }
 
+const NO_TARGETS: readonly RoiTarget[] = []
+
 /** Spec 10 §4.2 / prototype `isVideoMax`: video 2.6fr, mini map + camera card 1fr. */
-export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, onSettings, onRestore, map }: Props) {
+export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, onSettings, onRestore, map, roiTargets = NO_TARGETS, roiStatus, onRoiStart, onRoiStop }: Props) {
   const live = isLive(status)
   const { ref, latency } = useWhepFeed(v.sysid, live)
   const has = camera !== undefined && camera.caps.kind !== 'none'
@@ -31,6 +39,9 @@ export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, 
   const elapsedMs = useRecElapsed(recording)
   const source = (status?.source ?? 'none').toUpperCase()
   const delay = latencyText(latency)
+  const activeId = roiStatus?.active_target ?? null
+  const active = activeId === null ? undefined : roiTargets.find((r) => r.id === activeId)
+  const roi = onRoiStart && onRoiStop ? { targets: roiTargets, activeId, onStart: onRoiStart, onStop: onRoiStop } : undefined
   return (
     <section className="float top1 cockpit">
       <div className="vtile" style={{ cursor: 'default' }}>
@@ -74,11 +85,11 @@ export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, 
         <button type="button" className="g-ctl btn-icon lg cockpit-restore" aria-label={dict.restore} title={dict.restore} onClick={onRestore}>
           <IconMinimize size={18} />
         </button>
-        {has && <CamBar caps={camera.caps} state={camera.state} pending={pending} dict={dict} onCommand={onCommand} onSettings={onSettings} />}
+        {has && <CamBar caps={camera.caps} state={camera.state} pending={pending} dict={dict} onCommand={onCommand} onSettings={onSettings} roi={roi} />}
       </div>
       <div className="cockpit-side">
         <div className="surface cockpit-map">{map}</div>
-        {has && <CamCard caps={camera.caps} state={camera.state} videoText={`${source}  ${delay}`} dict={dict} />}
+        {has && <CamCard caps={camera.caps} state={camera.state} videoText={`${source}  ${delay}`} dict={dict} roiText={activeId === null ? null : roiText(active?.name ?? activeId, roiStatus, dict)} />}
       </div>
     </section>
   )

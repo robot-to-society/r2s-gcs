@@ -22,6 +22,13 @@ describe('map layer order', () => {
     expect(LAYER_ORDER.indexOf('mission-path-line')).toBeLessThan(LAYER_ORDER.indexOf('tracks-others'))
   })
 
+  it('puts the ROI sight line right above the guided line', () => {
+    const at = (id: string) => LAYER_ORDER.indexOf(id as (typeof LAYER_ORDER)[number])
+    expect(at('sight-casing')).toBe(at('guided-line') + 1)
+    expect(at('sight')).toBe(at('sight-casing') + 1)
+    expect(at('course-nav')).toBe(at('sight') + 1)
+  })
+
   it('skips layers the map does not have', () => {
     const m = fakeMap(['osm', 'tracks-others'])
     orderLayers(m)

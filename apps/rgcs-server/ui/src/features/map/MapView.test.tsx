@@ -155,6 +155,8 @@ vi.mock('maplibre-gl', () => ({
 
 const { MapView } = await import('./MapView')
 const { rasterStyle } = await import('./style')
+const { emptyTargets } = await import('../roi/schema')
+const { roiTargetsStore } = await import('../roi/targetsStore')
 
 const v = (sysid: number, fix: number, lon = 139.37, lat = 36.16): VehicleState => ({
   sysid, name: `UAV-0${sysid}`, kind: 'copter', mode: 'AUTO', armed: true, lat, lon, alt_rel: 50, alt_msl: 0, hdg: 10,
@@ -334,7 +336,30 @@ describe('MapView', () => {
 
   it('stacks the mission path below the tracks below the guided line once loaded', () => {
     render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
-    expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'mission-predicted-line', 'tracks-others', 'tracks-selected', 'guided-line', 'course-nav', 'course-vector-casing', 'course-vector', 'course-target', 'gimbal-footprint', 'gimbal-footprint-line'])
+    expect(created.maps.at(-1)!.layers).toEqual(['mission-path-line', 'mission-predicted-line', 'tracks-others', 'tracks-selected', 'guided-line', 'sight-casing', 'sight', 'course-nav', 'course-vector-casing', 'course-vector', 'course-target', 'gimbal-footprint', 'gimbal-footprint-line'])
+  })
+
+  it('shows the selected vehicle ROI presets, lights the active one and draws the sight line to it', () => {
+    const presets = emptyTargets().map((x, i) => (i === 0 ? { ...x, name: '送電塔 A', lat: 36.17, lon: 139.37 } : i === 1 ? { ...x, name: '橋', lat: 36.15, lon: 139.38 } : x))
+    roiTargetsStore.set(1, presets)
+    const cam: CameraSnapshot = {
+      sysid: 1,
+      caps: { kind: 'siyi_mt11', gimbal: { rate: true, angle: true, center: true, modes: ['follow'], attitude: true, pitch_range: [-90, 30] }, zoom: null, focus: false, photo: false, record: false, video_modes: [], hfov_deg: 62, roi: 'computed' },
+      state: { connected: true, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 1, video_mode: null, gimbal: { yaw: 10, pitch: 0, roll: 0, age_ms: 0 }, gimbal_mode: 'follow', stream: null },
+    }
+    const props = { vehicles: new Map([[1, v(1, 3)]]), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, cameras: new Map([[1, cam]]), onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} />)
+    const rois = () => created.markers.filter((m) => m.el.classList.contains('rg-roi') && m.live)
+    expect(rois().map((m) => m.el.dataset.id)).toEqual(['roi_1', 'roi_2'])
+    expect(rois()[0]!.opts).toMatchObject({ anchor: 'left', offset: [-7, 0] })
+    expect(rois().some((m) => m.el.classList.contains('on'))).toBe(false)
+    const status = { active_target: 'roi_1', mode: 'rate', bearing_deg: 0, elevation_deg: 0, distance_m: 1100, yaw_cmd_deg: 0, pitch_cmd_deg: 0, gimbal_yaw_deg: 10, gimbal_pitch_deg: 0, speed_yaw: 0, speed_pitch: 0, error: null } as const
+    rerender(<MapView {...props} roi={new Map([[1, status]])} />)
+    expect(rois().find((m) => m.el.dataset.id === 'roi_1')!.el.classList.contains('on')).toBe(true)
+    const sight = created.maps.at(-1)!.sources.get('sight')!.setData
+    const last = sight.mock.calls.at(-1)![0] as { features: { geometry: { coordinates: number[][] } }[] }
+    // hdg 10 − yaw 10 = due north, as far as the target
+    expect(last.features[0]!.geometry.coordinates[1]![1]).toBeCloseTo(36.17, 6)
   })
 
   it('places vehicle markers like the prototype and a home tile per known home', () => {

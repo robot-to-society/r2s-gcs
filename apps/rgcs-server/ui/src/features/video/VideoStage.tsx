@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
-import type { CameraCommand, CameraSnapshot, RecordingState, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CameraCommand, CameraSnapshot, RecordingState, RoiStatus, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
+import { useRoiTargets } from '../roi/targetsStore'
 import { Cockpit } from './Cockpit'
 import { VideoGrid } from './VideoGrid'
 
@@ -21,12 +22,18 @@ interface Props {
   readonly onSettings: (sysid: number) => void
   /** The cockpit's mini map (the operations map's layers, centred on the vehicle). */
   readonly miniMap: ReactNode
+  /** Live GPS ROI status per vehicle and the cockpit chip actions. */
+  readonly roi?: ReadonlyMap<number, RoiStatus>
+  readonly onRoiStart?: (sysid: number, id: string) => void
+  readonly onRoiStop?: (sysid: number) => void
 }
 
 /** 全機体映像 (spec 10 §4): the grid of every feed, or one vehicle's camera cockpit. */
 export function VideoStage(p: Props) {
   const recording = useMemo(() => new Map<number, RecordingState>([...p.cameras].map(([sysid, c]) => [sysid, c.state.recording])), [p.cameras])
   const max = p.maximized === null ? undefined : p.vehicles.find((v) => v.sysid === p.maximized)
+  const roiTargets = useRoiTargets(max?.sysid ?? null)
+  const { onRoiStart, onRoiStop } = p
   return (
     <>
       <div className="aurora video-backdrop" />
@@ -41,6 +48,10 @@ export function VideoStage(p: Props) {
           onSettings={() => p.onSettings(max.sysid)}
           onRestore={p.onRestore}
           map={p.miniMap}
+          roiTargets={roiTargets}
+          roiStatus={p.roi?.get(max.sysid)}
+          onRoiStart={onRoiStart && ((id) => onRoiStart(max.sysid, id))}
+          onRoiStop={onRoiStop && (() => onRoiStop(max.sysid))}
         />
       ) : (
         <VideoGrid vehicles={p.vehicles} videoSources={p.videoSources} recording={recording} selected={p.selected} dict={p.dict} onSelect={p.onSelect} onMaximize={p.onMaximize} />

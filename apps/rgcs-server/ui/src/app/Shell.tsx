@@ -5,7 +5,7 @@ import { EMPTY_PENDING, clearPending, markPending, sendCameraCommand, type Pendi
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
 import { DetailPanel, ackMessage } from '../features/detail'
-import { buttonCommand, getGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
+import { buttonAction, getGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { useOpsArrival } from './opsArrival'
@@ -26,6 +26,7 @@ import type { View } from './view'
 import { useCalibAttention } from '../features/calibration'
 import { panelSysid, togglePin } from './pin'
 import { useCameraSettingsFlow } from './useCameraSettingsFlow'
+import { roiStart, roiStop, runButtonAction, useActiveRoiName } from './roiActions'
 
 function formatClock(d: Date, lang: Lang): string {
   const p = (n: number) => String(n).padStart(2, '0')
@@ -151,9 +152,9 @@ export function Shell({ me, lang }: Props) {
   const settingsFlow = useCameraSettingsFlow({ modal, setModal, terrainTiles: settings?.terrain_tiles ?? null, vehicles, setGimbalProfile })
   useGimbalJoystick(current, gimbalProfile, (fn) => {
     if (current === null) return
-    const cmd = buttonCommand(fn, cameras.get(current)?.state ?? null)
-    if (cmd) cameraCommand(current, cmd)
+    runButtonAction(current, buttonAction(fn, cameras.get(current)?.state ?? null, roi.get(current)?.active_target ?? null), cameraCommand)
   })
+  const detailRoiName = useActiveRoiName(detail?.sysid ?? null, roi)
 
   // A reloaded page (or a second laptop) learns the vehicle's mission from the server.
   const knownMissing = current !== null && !vehicleMissions.has(current)
@@ -242,6 +243,7 @@ export function Shell({ me, lang }: Props) {
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}
               homes={homes}
               cameras={cameras}
+              roi={roi}
               groundProjection={settings.map.gimbal_ground_projection}
               onDragStart={() => mapUiStore.update(clearFollow)}
               onClick={(p) => (mapUi.pick === 'roi-target' ? void settingsFlow.onMapPick(p) : mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p)))}
@@ -272,9 +274,12 @@ export function Shell({ me, lang }: Props) {
               onRestore={() => setMaxVideo(null)}
               onCommand={cameraCommand}
               onSettings={(sysid) => setModal({ kind: 'camera-settings', sysid })}
+              roi={roi}
+              onRoiStart={roiStart}
+              onRoiStop={roiStop}
               miniMap={
                 maxVideo !== null && (
-                  <MapView vehicles={vehicles} tracks={tracks} follow={maxVideo} selected={maxVideo} padding={NO_PADDING} style={basemap ? basemapStyle(basemap) : rasterStyle(settings.map_tile_url, settings.map_attribution)} basemap={basemap ?? undefined} homes={homes} cameras={cameras} target={null} onDragStart={() => {}} onClick={() => {}} />
+                  <MapView vehicles={vehicles} tracks={tracks} follow={maxVideo} selected={maxVideo} padding={NO_PADDING} style={basemap ? basemapStyle(basemap) : rasterStyle(settings.map_tile_url, settings.map_attribution)} basemap={basemap ?? undefined} homes={homes} cameras={cameras} roi={roi} target={null} onDragStart={() => {}} onClick={() => {}} />
                 )
               }
             />
@@ -319,6 +324,7 @@ export function Shell({ me, lang }: Props) {
               cameraPending={pending.bySysid.has(detail.sysid)}
               onCameraCommand={(cmd) => cameraCommand(detail.sysid, cmd)}
               onCameraSettings={() => setModal({ kind: 'camera-settings', sysid: detail.sysid })}
+              roiName={detailRoiName}
               onMaximize={openCockpit}
               vehicleMission={vehicleMissions.get(detail.sysid)}
               missionProgress={missionProgress.get(detail.sysid)}

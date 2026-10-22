@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import type { CameraCaps, CameraCommand, CameraState, GimbalMode, VideoMode } from '../../shared/api/types'
+import type { CameraCaps, CameraCommand, CameraState, GimbalMode, RoiTarget, VideoMode } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconCamera, IconCrosshair, IconGear, IconMinus, IconPlus } from '../../shared/ui/icons'
 import { zoomText } from '../camera'
+import { RoiChips } from '../roi/RoiChips'
+import { isSet } from '../roi/schema'
 import { ZOOM_SLIDER_MAX, posToZoom, zoomToPos } from './cockpitView'
 
 interface Props {
@@ -12,14 +14,24 @@ interface Props {
   readonly dict: Dict
   readonly onCommand: (cmd: CameraCommand) => void
   readonly onSettings: () => void
+  /** GPS ROI chips under the bar (spec 10 §4.2): the vehicle's presets and the active one. */
+  readonly roi?: RoiChipsProps
+}
+
+export interface RoiChipsProps {
+  readonly targets: readonly RoiTarget[]
+  readonly activeId: string | null
+  readonly onStart: (id: string) => void
+  readonly onStop: () => void
 }
 
 const GIMBAL_LABEL: Record<GimbalMode, string> = { lock: 'Lock', follow: 'Follow', fpv: 'FPV' }
 
 /** Prototype `.cam-bar .bar`: everything is gated by the camera's caps (spec 40 §1.1). */
-export function CamBar({ caps, state, pending, dict, onCommand, onSettings }: Props) {
+export function CamBar({ caps, state, pending, dict, onCommand, onSettings, roi }: Props) {
   const recording = state.recording === 'recording'
   const modeLabel: Record<VideoMode, string> = { rgb: 'RGB', thermal: 'IR', side_by_side: dict.sbs }
+  const showRoi = roi !== undefined && caps.roi !== 'none' && roi.targets.some(isSet)
   return (
     <div className="cam-bar">
       <div className="g-ctl bar">
@@ -49,6 +61,7 @@ export function CamBar({ caps, state, pending, dict, onCommand, onSettings }: Pr
           <IconGear size={18} />
         </button>
       </div>
+      {showRoi && <RoiChips {...roi} dict={dict} />}
     </div>
   )
 }

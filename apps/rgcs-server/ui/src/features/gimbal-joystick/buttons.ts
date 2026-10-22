@@ -48,3 +48,19 @@ export function buttonCommand(fn: ButtonFunction, state: CameraState | null): Ca
       return null
   }
 }
+
+/** What a joystick button does: a camera command, or starting / stopping a GPS ROI preset. */
+export type ButtonAction = { kind: 'camera'; cmd: CameraCommand } | { kind: 'roi_start'; id: string } | { kind: 'roi_stop' }
+
+const ROI_PRESET = /^roi_(10|[1-9])$/
+
+/**
+ * Spec 40 §6: `roi_N` toggles that preset (押すたびに開始 / 停止; another active preset is
+ * replaced), `roi_stop` stops (nothing while inactive), everything else is a camera command.
+ */
+export function buttonAction(fn: ButtonFunction, state: CameraState | null, roiActive: string | null): ButtonAction | null {
+  if (ROI_PRESET.test(fn)) return roiActive === fn ? { kind: 'roi_stop' } : { kind: 'roi_start', id: fn }
+  if (fn === 'roi_stop') return roiActive === null ? null : { kind: 'roi_stop' }
+  const cmd = buttonCommand(fn, state)
+  return cmd ? { kind: 'camera', cmd } : null
+}

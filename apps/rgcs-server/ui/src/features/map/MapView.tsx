@@ -1,7 +1,8 @@
 import maplibregl, { type ExpressionSpecification, type Map as MlMap, type Marker, type StyleSpecification } from 'maplibre-gl'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FeatureCollection } from 'geojson'
-import type { Basemap, CameraSnapshot, Mission, VehicleState } from '../../shared/api/types'
+import type { Basemap, CameraSnapshot, Mission, RoiStatus, VehicleState } from '../../shared/api/types'
+import { useRoiLayer } from '../roi/useRoiLayer'
 import { hasPosition as itemHasPosition, pathGeoJson, placeTakeoffs, takeoffAnchor } from '../mission/geo'
 import { badgeText } from '../mission/mapEdit'
 import type { Predicted } from '../mission/missionAir'
@@ -60,6 +61,8 @@ interface Props {
   readonly onWaypoint?: (p: WaypointPick) => void
   /** Any zoom, or a camera move (pan / rotate / pitch, 2D and 3D) the user started: anchored popovers close. */
   readonly onViewMove?: () => void
+  /** Live GPS ROI status per vehicle: the active preset marker and the sight line's end. */
+  readonly roi?: ReadonlyMap<number, RoiStatus>
 }
 
 /** Follow / focus moves are programmatic (no originalEvent) and leave anchored popovers alone. */
@@ -78,13 +81,14 @@ const TRACK_PURPLE = '#800080'
 const ARROW_OFFSET: [number, number] = [-17, 0]
 const NO_HOMES: ReadonlyMap<number, LatLon> = new Map()
 const NO_CAMERAS: ReadonlyMap<number, CameraSnapshot> = new Map()
+const NO_ROI: ReadonlyMap<number, RoiStatus> = new Map()
 const FOOTPRINT = 'gimbal-footprint'
 const COURSE = 'course'
 const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint, onViewMove, arrival = 0 }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint, onViewMove, arrival = 0, roi = NO_ROI }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -371,6 +375,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   }, [focus, vehicles])
 
   useArrival(map, arrival, vehicles, selected, follow)
+  useRoiLayer({ map, loaded, vehicles, cameras, roi, selected, is3d: opsAir.is3d })
 
   useEffect(() => {
     send(COURSE, courseGeoJson(vehicles, selected, metresPerPixel(zoom, map.current?.getCenter().lat ?? 36)))

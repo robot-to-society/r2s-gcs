@@ -26,6 +26,8 @@ interface Props {
   readonly cameraPending?: boolean
   readonly onCameraCommand?: (cmd: CameraCommand) => void
   readonly onCameraSettings?: () => void
+  /** The active GPS ROI preset's name for the camera status row. */
+  readonly roiName?: string | null
   /** Opens this vehicle's camera cockpit (全機体映像, spec 10 §4.2). */
   readonly onMaximize?: (sysid: SysId) => void
   readonly vehicleMission?: Mission
@@ -89,7 +91,7 @@ export function DetailPanel(p: Props) {
           {...(p.onMaximize ? { onMaximize: () => p.onMaximize?.(v.sysid) } : {})}
         />
         <CameraStrip caps={caps} state={camState} pending={cameraPending} onCommand={(c) => onCameraCommand?.(c)} onSettings={() => onCameraSettings?.()} dict={dict} />
-        <CameraStatusRow caps={caps} state={camState} onSetup={() => onCameraSettings?.()} dict={dict} />
+        <CameraStatusRow caps={caps} state={camState} onSetup={() => onCameraSettings?.()} dict={dict} roiName={p.roiName ?? null} />
         <div className="detail-telemetry num">
           <span className="kv">
             <span className="big" data-testid="alt">

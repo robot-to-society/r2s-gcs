@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { CameraCaps, CameraState, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CameraCaps, CameraState, RoiStatus, RoiTarget, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
+import { emptyTargets } from '../roi/schema'
 
 const stats: ((l: { rtt: number | null; jitter: number | null }) => void)[] = []
 vi.mock('../../shared/video/whep', () => ({
@@ -31,8 +32,16 @@ const state: CameraState = {
   gimbal: { yaw: 45, pitch: -90, roll: 0, age_ms: 0 }, gimbal_mode: 'follow', stream: null,
 }
 const live: VideoSourceStatus = { mode: 'auto', source: 'mt11', scanning: false, probe_ok: true, whep_path: 'mt11' }
-const setup = (over: { caps?: CameraCaps; state?: CameraState } = {}) => {
-  const p = { vehicle: v, camera: { sysid: 1, caps: over.caps ?? mt11, state: over.state ?? state }, status: live, pending: false, dict: t('ja'), onCommand: vi.fn(), onSettings: vi.fn(), onRestore: vi.fn(), map: <div data-testid="mini-map" /> }
+const presets: RoiTarget[] = emptyTargets().map((x, i) => (i === 0 ? { ...x, name: '送電塔 A', lat: 36.1, lon: 139.1 } : i === 1 ? { ...x, name: '橋', lat: 36.2, lon: 139.2 } : x))
+const roiStatus: RoiStatus = {
+  active_target: 'roi_1', mode: 'rate', bearing_deg: 123, elevation_deg: -4, distance_m: 412, yaw_cmd_deg: 0, pitch_cmd_deg: 0,
+  gimbal_yaw_deg: 0, gimbal_pitch_deg: 0, speed_yaw: 0, speed_pitch: 0, error: null,
+}
+const setup = (over: { caps?: CameraCaps; state?: CameraState; roi?: RoiStatus } = {}) => {
+  const p = {
+    vehicle: v, camera: { sysid: 1, caps: over.caps ?? mt11, state: over.state ?? state }, status: live, pending: false, dict: t('ja'), onCommand: vi.fn(), onSettings: vi.fn(), onRestore: vi.fn(), map: <div data-testid="mini-map" />,
+    roiTargets: presets, roiStatus: over.roi, onRoiStart: vi.fn(), onRoiStop: vi.fn(),
+  }
   render(<Cockpit {...p} />)
   return p
 }
@@ -100,5 +109,26 @@ describe('Cockpit (spec 10 §4.2)', () => {
     expect(screen.queryByRole('button', { name: '録画' })).toBeNull()
     expect(document.querySelector('.cam-card')).toBeNull()
     expect(screen.getByTestId('mini-map')).toBeInTheDocument()
+  })
+
+  it('shows the ROI chips for an ROI camera with set presets and starts / stops from them', () => {
+    const p = setup()
+    expect(document.querySelector('.cam-bar .chips')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '橋' }))
+    expect(p.onRoiStart).toHaveBeenCalledWith('roi_2')
+    fireEvent.click(screen.getByRole('button', { name: '停止' }))
+    expect(p.onRoiStop).toHaveBeenCalledOnce()
+  })
+
+  it('has no ROI chips when the camera cannot do ROI', () => {
+    setup({ caps: { ...mt11, roi: 'none' } })
+    expect(document.querySelector('.chips')).toBeNull()
+  })
+
+  it('the status card has an ROI row while ROI is active', () => {
+    setup({ roi: roiStatus })
+    expect(screen.getByRole('button', { name: '送電塔 A' })).toHaveClass('on')
+    const label = [...document.querySelectorAll('.cam-card .kv > span')].find((s) => s.textContent === 'ROI')
+    expect(label?.nextElementSibling?.textContent).toBe('送電塔 A  方位 123°  412 m')
   })
 })

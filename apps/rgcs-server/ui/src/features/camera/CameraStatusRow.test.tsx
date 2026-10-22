@@ -27,4 +27,14 @@ describe('CameraStatusRow', () => {
     rerender(<CameraStatusRow caps={mt11} state={st({ connected: false })} onSetup={() => {}} dict={t('ja')} />)
     expect(screen.getByTestId('cam-status')).toHaveTextContent('切断')
   })
+
+  it('adds the active ROI name after a separator', () => {
+    const { rerender } = render(<CameraStatusRow caps={mt11} state={st({})} onSetup={() => {}} dict={t('ja')} roiName="送電塔 A" />)
+    const row = screen.getByTestId('cam-status')
+    expect(row).toHaveTextContent('ROI 送電塔 A')
+    const roi = screen.getByText('ROI 送電塔 A')
+    expect(roi.previousElementSibling).toHaveClass('sep')
+    rerender(<CameraStatusRow caps={mt11} state={st({})} onSetup={() => {}} dict={t('ja')} />)
+    expect(screen.getByTestId('cam-status')).not.toHaveTextContent('ROI')
+  })
 })

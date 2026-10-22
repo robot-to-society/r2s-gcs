@@ -7,10 +7,12 @@ interface Props {
   readonly state: CameraState
   readonly videoText: string
   readonly dict: Dict
+  /** The active ROI line ("送電塔 A  方位 123°  412 m"); null when ROI is off. */
+  readonly roiText?: string | null
 }
 
 /** Prototype `.cam-card`: gimbal dial + rows; rows the camera cannot report are left out (spec 10 §4.2). */
-export function CamCard({ caps, state, videoText, dict }: Props) {
+export function CamCard({ caps, state, videoText, dict, roiText = null }: Props) {
   const att = caps.gimbal?.attitude && state.gimbal ? state.gimbal : null
   const dial = dialOffset(att)
   return (
@@ -26,6 +28,12 @@ export function CamCard({ caps, state, videoText, dict }: Props) {
           <>
             <span>{dict.gimbal}</span>
             <span>{gimbalText(state.gimbal_mode, att)}</span>
+          </>
+        )}
+        {roiText && (
+          <>
+            <span>ROI</span>
+            <span>{roiText}</span>
           </>
         )}
         <span>{dict.videoRow}</span>

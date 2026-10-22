@@ -7,12 +7,14 @@ interface Props {
   readonly state: CameraState
   readonly onSetup: () => void
   readonly dict: Dict
+  /** The active GPS ROI preset's name (spec 10 §3.3 item 4); absent when ROI is off. */
+  readonly roiName?: string | null
 }
 
 const MODE: Record<GimbalMode, string> = { lock: 'Lock', follow: 'Follow', fpv: 'FPV' }
 
 /** Spec 10 §3.3 item 4: "Lock | ↔ yaw ↕ pitch", or the setup prompt when no camera. */
-export function CameraStatusRow({ caps, state, onSetup, dict }: Props) {
+export function CameraStatusRow({ caps, state, onSetup, dict, roiName }: Props) {
   if (caps.kind === 'none') {
     return (
       <div className="cam-status" data-testid="cam-status">
@@ -33,6 +35,12 @@ export function CameraStatusRow({ caps, state, onSetup, dict }: Props) {
           <span className="sep" />
           <span className="num">↔ {angleText(state.gimbal.yaw)}</span>
           <span className="num">↕ {angleText(state.gimbal.pitch)}</span>
+        </>
+      )}
+      {roiName && (
+        <>
+          <span className="sep" />
+          <span>ROI {roiName}</span>
         </>
       )}
     </div>
