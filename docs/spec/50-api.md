@@ -97,15 +97,21 @@
 | GET | `/api/vehicles/{sysid}/camera` | → `{caps: CameraCaps, state: CameraState}` |
 | POST | `/api/vehicles/{sysid}/camera/command` | `CameraCommand`(`GimbalRate` は WS 専用 → `409 ws_only`; caps に無い → `409 unsupported_capability`; 未接続 → `503 camera_offline`。監査 target `camera`) |
 | GET / PUT | `/api/vehicles/{sysid}/camera/profile` | `CameraProfile`(60 §3)。PUT は部分更新(省略した項目は保持)、`400 validation` はフィールド名入り。保存後にドライバと映像監視を再生成。起動時にも保存済み(`none` 以外)の全カメラを自動起動 |
-| GET / PUT | `/api/vehicles/{sysid}/roi/targets` | `[RoiTarget]`(10 件固定、id `roi_1..roi_10`) |
-| GET / PUT | `/api/vehicles/{sysid}/roi/control` | `RoiControl` |
-| POST | `/api/vehicles/{sysid}/roi/start` / `stop` | `{id}` / — |
+| GET / PUT | `/api/vehicles/{sysid}/roi/targets` | `[RoiTarget]`(10 件固定、id `roi_1..roi_10` の順)。PUT は全件置換、不正は `400 validation`(`targets[i].lat` などフィールド名入り)。追従中のスロットを未設定にすると ROI 停止、座標変更は追従継続。監査 target `roi` / command `targets` |
+| GET / PUT | `/api/vehicles/{sysid}/roi/control` | `RoiControl`(PUT は全項目、部分更新なし)。不正は `400 validation`。追従中は即時反映。監査 `roi` / `control` |
+| POST | `/api/vehicles/{sysid}/roi/start` | `{id}` → `RoiTarget`。未知の id → `404 not_found`、未設定(名前なし or 0,0)→ `409 roi_target_unset`、caps.roi が `computed` でない → `409 unsupported_capability`、カメラ未接続 → `503 camera_offline`。監査 `roi` / `start`(拒否も `rejected` で記録) |
+| POST | `/api/vehicles/{sysid}/roi/stop` | — → `{stopped: bool}`(停止前に非追従なら false)。監査 `roi` / `stop` |
 | GET / PUT | `/api/vehicles/{sysid}/video/source` | `{mode: auto\|mt11}` → `VideoSourceStatus`(P2 は Android 無し。PUT は監査 target `video`) |
 | POST | `/api/vehicles/{sysid}/video/whep` | `application/sdp`(≤ 64 KB、ICE 収集完了後の offer、trickle 無し)→ `201 application/sdp`。上流は `config.toml` の `whep_upstream`(既定 `http://127.0.0.1:8889/mt11/whep`)。上流不達は `503 video_unavailable` |
 | POST | `/api/vehicles/{sysid}/video/stats` | (P2 では未実装。遅延は UI が `getStats()` から算出) |
 | GET | `/api/debug/camera/{sysid}/rx` | → `{counts: {"0x50": n…}, last: {...}, firmware}` |
 
 CSV 取込は UI が解析して `PUT roi/targets`。
+
+ROI 開始 / 停止は REST のみ(`CameraCommand` ではない)。手動入力による ROI 解除(spec 40 §4):
+- WS `gimbal_rate` の max(|yaw|, |pitch|) ≥ 5 → 解除してから転送。監査 operator `joystick`、`roi` / `stop`、reason `manual_input`。5 未満と速度 0(デッドマン停止を含む)は追従中は破棄。
+- `camera/command` の `gimbal_center` / `gimbal_angle` / `gimbal_mode` → 送信前に解除。監査 `roi` / `stop`、reason `manual_command`(要求者)。
+- `camera/profile` PUT → ドライバ再生成の前に停止。
 
 ### 2.4 設定
 | メソッド | パス | 本文 |

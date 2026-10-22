@@ -13,6 +13,7 @@ use tracing::warn;
 
 use crate::app::{unix_ms, AppState};
 use crate::auth::AuthUser;
+use crate::roi::ManualVerdict;
 
 /// Client frames are small control messages; anything bigger is not ours.
 /// Deadman check cadence: 250 ms keeps the worst case under 1.75 s (spec 70 §2: 1.5 s).
@@ -131,12 +132,35 @@ async fn perform(app: &AppState, actions: Vec<Action>) -> Vec<ServerMessage> {
     let mut replies = Vec::new();
     for a in actions {
         match a {
-            Action::Forward { sysid, yaw, pitch } => rate(app, sysid, yaw, pitch).await,
-            Action::Zero { sysid } => rate(app, sysid, 0, 0).await,
+            Action::Forward { sysid, yaw, pitch } => forward(app, sysid, yaw, pitch).await,
+            Action::Zero { sysid } => {
+                if app.roi.on_zero(sysid) == ManualVerdict::Forward {
+                    rate(app, sysid, 0, 0).await
+                }
+            }
             Action::Reply(m) => replies.push(*m),
         }
     }
     replies
+}
+
+/// While ROI owns the gimbal, zeros and small speeds are dropped and a large speed cancels
+/// ROI first; `on_manual_rate` returns only after the cancel's zero went out (Review Focus 4).
+async fn forward(app: &AppState, sysid: SysId, yaw: i8, pitch: i8) {
+    if (yaw, pitch) == (0, 0) {
+        if app.roi.on_zero(sysid) == ManualVerdict::Forward {
+            rate(app, sysid, 0, 0).await;
+        }
+        return;
+    }
+    let was_active = app.roi.active_target(sysid).is_some();
+    if app.roi.on_manual_rate(sysid, yaw, pitch).await == ManualVerdict::Drop {
+        return;
+    }
+    if was_active && app.roi.active_target(sysid).is_none() {
+        crate::roi_api::audit_manual_stop(app, "joystick", sysid, "manual_input").await;
+    }
+    rate(app, sysid, yaw, pitch).await;
 }
 
 async fn rate(app: &AppState, sysid: SysId, yaw: i8, pitch: i8) {
@@ -266,5 +290,57 @@ mod tests {
         )
         .await;
         assert!(matches!(&replies[..], [ServerMessage::Error { code, .. }] if code == "validation"));
+    }
+
+    /// `sim_app` with `roi_1` set and ROI running on it.
+    async fn sim_app_with_roi() -> (AppState, SimServer) {
+        let (app, sim) = sim_app().await;
+        let mut targets = rgcs_core::default_roi_targets();
+        targets[0] = rgcs_core::RoiTarget {
+            name: "North".into(),
+            lat: 35.009,
+            lon: 139.0,
+            ..targets[0].clone()
+        };
+        app.store.put_roi_targets(1, &targets).await.unwrap();
+        app.roi.start(1, "roi_1").await.unwrap();
+        (app, sim)
+    }
+
+    fn rate_frame(yaw: i8, seq: u32) -> String {
+        format!("{{\"t\":\"gimbal_rate\",\"sysid\":1,\"yaw\":{yaw},\"pitch\":0,\"seq\":{seq}}}")
+    }
+
+    async fn rate_payloads(sim: &mut SimServer, ms: u64) -> Vec<Vec<u8>> {
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(ms);
+        let mut out = Vec::new();
+        while let Ok(Some(f)) = tokio::time::timeout_at(deadline, sim.received.recv()).await {
+            if f.0 == Transport::Udp && f.1 == 0x07 {
+                out.push(f.2);
+            }
+        }
+        out
+    }
+
+    #[tokio::test]
+    async fn ws_small_rate_is_ignored_while_active() {
+        let (app, mut sim) = sim_app_with_roi().await;
+        let (gate, _) = handle_client(&Gate::default(), &app, &rate_frame(3, 1), 1_000).await;
+        assert_eq!(app.roi.active_target(1).as_deref(), Some("roi_1"));
+        assert!(!rate_payloads(&mut sim, 300).await.contains(&vec![3, 0]));
+        let (_, _) = handle_client(&gate, &app, &rate_frame(40, 2), 1_100).await;
+        assert_eq!(app.roi.active_target(1), None);
+        let frames = rate_payloads(&mut sim, 300).await;
+        let manual = frames.iter().position(|p| p == &vec![40, 0]).expect("[40, 0] forwarded");
+        assert!(frames[..manual].contains(&vec![0, 0]), "{frames:?}");
+        let rows = app.store.recent_audit(10).await.unwrap();
+        let row = serde_json::to_value(&rows).unwrap();
+        assert!(
+            row.as_array().unwrap().iter().any(|r| r["operator"] == "joystick"
+                && r["target"] == "roi"
+                && r["command"] == "stop"
+                && r["reason"] == "manual_input"),
+            "{row}"
+        );
     }
 }

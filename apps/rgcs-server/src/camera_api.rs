@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::api::{err, ok};
 use crate::app::AppState;
 use crate::auth::AuthUser;
+use crate::roi::StopReason;
 
 #[derive(Serialize)]
 pub struct CameraView {
@@ -44,6 +45,7 @@ pub async fn command(
             "gimbal_rate is sent over the WebSocket",
         );
     }
+    cancel_roi_for_manual(&app, &op.username, sysid, &cmd).await;
     let result = app.cameras.send(sysid, cmd.clone()).await;
     let (status, code, reason) = match &result {
         Ok(()) => (StatusCode::OK, "", None),
@@ -160,9 +162,22 @@ pub async fn put_profile(
     if let Err(e) = app.store.record_audit(entry).await {
         tracing::error!(error = %e, "audit write failed");
     }
+    // The driver is rebuilt: ROI stops first (with its zeros) so no stale command follows.
+    app.roi.stop(sysid, StopReason::Operator).await;
     app.cameras.reload(sysid).await;
     app.video.reload(sysid).await;
     ok(profile)
+}
+
+/// Manual gimbal pointing cancels ROI (spec 40 §4); the stop is audited when ROI was active.
+async fn cancel_roi_for_manual(app: &AppState, operator: &str, sysid: SysId, cmd: &CameraCommand) {
+    let manual = matches!(
+        cmd,
+        CameraCommand::GimbalCenter { .. } | CameraCommand::GimbalAngle { .. } | CameraCommand::GimbalMode { .. }
+    );
+    if manual && app.roi.stop(sysid, StopReason::Manual).await {
+        crate::roi_api::audit_manual_stop(app, operator, sysid, "manual_command").await;
+    }
 }
 
 async fn audit(

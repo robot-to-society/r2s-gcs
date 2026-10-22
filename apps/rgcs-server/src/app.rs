@@ -24,7 +24,7 @@ use crate::video::VideoHub;
 use crate::{
     api, auth, branding, briefing_api, calib_api, camera_api, commands, export_api, flight_api, geofence_api,
     guided, input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api, param_api,
-    param_pick, present_api, survey_camera_api, video_api, ws,
+    param_pick, present_api, roi_api, survey_camera_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -457,6 +457,16 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
             "/vehicles/{sysid}/camera/profile",
             get(camera_api::get_profile).put(camera_api::put_profile),
         )
+        .route(
+            "/vehicles/{sysid}/roi/targets",
+            get(roi_api::get_targets).put(roi_api::put_targets),
+        )
+        .route(
+            "/vehicles/{sysid}/roi/control",
+            get(roi_api::get_control).put(roi_api::put_control),
+        )
+        .route("/vehicles/{sysid}/roi/start", post(roi_api::start))
+        .route("/vehicles/{sysid}/roi/stop", post(roi_api::stop))
         .route(
             "/vehicles/{sysid}/video/whep",
             post(video_api::whep).layer(DefaultBodyLimit::max(MAX_OFFER_BYTES)),
