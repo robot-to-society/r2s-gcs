@@ -1,4 +1,4 @@
-//! GPS ROI (Computed) runtime: one task per active vehicle aims the gimbal at a preset
+//! GPS ROI runtime (Computed and Native): one task per active vehicle aims the gimbal at a preset
 //! (spec 40 §4). Every start / stop / config / target change and every control tick go
 //! through that single task, so a stop can never be followed by a stale command.
 
@@ -55,6 +55,8 @@ pub(crate) enum Cmd {
 
 struct Handle {
     gen: u64,
+    /// Which task runs it: `Computed` (`roi_task`) or `Native` (`roi_native`).
+    mode: RoiMode,
     cmds: mpsc::UnboundedSender<Cmd>,
     /// The active preset id, written by the task before it acknowledges.
     active: Option<String>,
@@ -105,7 +107,8 @@ impl RoiHub {
             .find(|t| t.id == id)
             .ok_or(RoiError::NotFound)?;
         let camera = self.cameras.ensure(sysid).await;
-        if camera.caps().roi != RoiMode::Computed {
+        let mode = camera.caps().roi;
+        if !matches!(mode, RoiMode::Computed | RoiMode::Native) {
             return Err(RoiError::Unsupported);
         }
         if !camera.state().borrow().connected {
@@ -124,7 +127,7 @@ impl RoiHub {
             control,
             ack,
         };
-        self.dispatch(sysid, cmd, true);
+        self.dispatch(sysid, cmd, Some(mode));
         done.await
             .map_err(|_| RoiError::Internal("roi task ended".into()))?;
         Ok(target)
@@ -144,7 +147,7 @@ impl RoiHub {
     /// Stops ROI and waits until the task has sent its zero; `false` when it was inactive.
     pub async fn stop(&self, sysid: SysId, reason: StopReason) -> bool {
         let (reply, done) = oneshot::channel();
-        if !self.dispatch(sysid, Cmd::Stop(reason, reply), false) {
+        if !self.dispatch(sysid, Cmd::Stop(reason, reply), None) {
             return false;
         }
         done.await.unwrap_or(false)
@@ -177,14 +180,14 @@ impl RoiHub {
 
     pub async fn configure(&self, sysid: SysId, c: RoiControl) {
         let (ack, done) = oneshot::channel();
-        if self.dispatch(sysid, Cmd::Configure(c, ack), false) {
+        if self.dispatch(sysid, Cmd::Configure(c, ack), None) {
             let _ = done.await;
         }
     }
 
     pub async fn set_targets(&self, sysid: SysId, t: Vec<RoiTarget>) {
         let (ack, done) = oneshot::channel();
-        if self.dispatch(sysid, Cmd::Targets(t, ack), false) {
+        if self.dispatch(sysid, Cmd::Targets(t, ack), None) {
             let _ = done.await;
         }
     }
@@ -230,22 +233,22 @@ impl RoiHub {
         true
     }
 
-    /// Hands `cmd` to the vehicle's task; with `spawn`, starts one if none is running.
-    fn dispatch(&self, sysid: SysId, cmd: Cmd, spawn: bool) -> bool {
+    /// Hands `cmd` to the vehicle's task; with `spawn`, starts the task for that ROI mode if
+    /// none is running. A running task of the other mode (the camera kind changed) is
+    /// replaced: dropping its sender ends it once its queue is drained.
+    fn dispatch(&self, sysid: SysId, cmd: Cmd, spawn: Option<RoiMode>) -> bool {
         let mut handles = self.lock();
         let cmd = match handles.get(&sysid) {
-            Some(h) => match h.cmds.send(cmd) {
+            Some(h) if spawn.is_none_or(|m| m == h.mode) => match h.cmds.send(cmd) {
                 Ok(()) => return true,
-                Err(mpsc::error::SendError(cmd)) => {
-                    handles.remove(&sysid);
-                    cmd
-                }
+                Err(mpsc::error::SendError(cmd)) => cmd,
             },
-            None => cmd,
+            _ => cmd,
         };
-        if !spawn {
+        handles.remove(&sysid);
+        let Some(mode) = spawn else {
             return false;
-        }
+        };
         let gen = self.next_gen.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::unbounded_channel();
         let _ = tx.send(cmd);
@@ -253,11 +256,15 @@ impl RoiHub {
             sysid,
             Handle {
                 gen,
+                mode,
                 cmds: tx,
                 active: None,
             },
         );
-        tokio::spawn(crate::roi_task::run(self.clone(), sysid, gen, rx));
+        match mode {
+            RoiMode::Native => tokio::spawn(crate::roi_native::run(self.clone(), sysid, gen, rx)),
+            _ => tokio::spawn(crate::roi_task::run(self.clone(), sysid, gen, rx)),
+        };
         true
     }
 

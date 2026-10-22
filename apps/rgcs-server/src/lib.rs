@@ -40,6 +40,7 @@ pub mod pdf;
 pub mod present_api;
 pub mod roi;
 pub mod roi_api;
+mod roi_native;
 mod roi_task;
 pub mod settings;
 pub mod shutdown;
