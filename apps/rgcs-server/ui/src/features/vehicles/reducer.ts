@@ -1,4 +1,4 @@
-import type { CalibStatus, CameraSnapshot, CommandResult, Deadman, Flight, LogFetchProgress, Mission, MissionProgress, MissionTransfer, ParamProgress, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CalibStatus, CameraSnapshot, CommandResult, Deadman, Flight, LogFetchProgress, Mission, MissionProgress, MissionTransfer, ParamProgress, RoiStatus, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { applyDiff } from '../../shared/ws/apply'
 import { EMPTY_LOG, logReduce, toLogEntry, type LogState } from '../log/store'
 
@@ -25,6 +25,8 @@ export interface VehiclesState {
   readonly logFetch: ReadonlyMap<SysId, LogFetchProgress>
   /** Last `calibration` session state per vehicle (点検・校正). */
   readonly calibration: ReadonlyMap<SysId, CalibStatus>
+  /** Last `roi_status` per vehicle (ruling 2: inactive = no entry or `active_target` null). */
+  readonly roi: ReadonlyMap<SysId, RoiStatus>
   readonly deadman: Deadman
   readonly link: LinkState
   /** The message log behind the footer pill and the history sheet. */
@@ -44,6 +46,7 @@ export const initialState: VehiclesState = {
   flightDrafts: new Map(),
   logFetch: new Map(),
   calibration: new Map(),
+  roi: new Map(),
   deadman: 'ok',
   link: 'connecting',
   log: EMPTY_LOG,
@@ -149,6 +152,11 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
       calibration.set(msg.sysid, msg.status)
       return { ...state, calibration }
     }
+    case 'roi_status': {
+      const roi = new Map(state.roi)
+      roi.set(msg.sysid, msg.status)
+      return { ...state, roi }
+    }
     case 'input_state':
       return state.deadman === msg.deadman ? state : { ...state, deadman: msg.deadman }
     case 'telemetry': {
@@ -160,7 +168,10 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
     case 'vehicle_lost': {
       const vehicles = new Map(state.vehicles)
       vehicles.delete(msg.sysid)
-      return { ...state, vehicles }
+      if (!state.roi.has(msg.sysid)) return { ...state, vehicles }
+      const roi = new Map(state.roi)
+      roi.delete(msg.sysid)
+      return { ...state, vehicles, roi }
     }
     case 'vehicle_message': {
       const { t: _t, ...m } = msg

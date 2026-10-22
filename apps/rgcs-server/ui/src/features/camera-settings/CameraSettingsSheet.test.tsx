@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { CameraProfile, CameraState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 import { DEFAULT_PROFILE } from '../gimbal-joystick'
+import { DEFAULT_ROI_CONTROL, emptyTargets } from '../roi'
 import { CameraSettingsSheet } from './CameraSettingsSheet'
 
 const profile = (over: Partial<CameraProfile> = {}): CameraProfile => ({
@@ -11,7 +12,9 @@ const profile = (over: Partial<CameraProfile> = {}): CameraProfile => ({
 })
 const camState: CameraState = { connected: true, last_error: null, firmware: { camera: 'v1.0.1', gimbal: 'v0.1.10', zoom: 'v0.0.0' }, recording: 'idle', zoom: 1, zoom_max: 165, video_mode: 'rgb', gimbal: null, gimbal_mode: 'follow', stream: null }
 
-const base = { sysid: 1, inputProfile: DEFAULT_PROFILE, cameraState: camState, gamepadIds: ['Pad A'], onCancel: () => {}, onCenter: () => {}, dict: t('ja') }
+const roi = { targets: emptyTargets(), control: DEFAULT_ROI_CONTROL }
+const dict = t('ja')
+const base = { sysid: 1, inputProfile: DEFAULT_PROFILE, cameraState: camState, gamepadIds: ['Pad A'], roiSupported: true, roi, activeRoi: null, onPickRoi: () => {}, onCancel: () => {}, onCenter: () => {}, dict: t('ja') }
 
 describe('CameraSettingsSheet', () => {
   it('kind none hides host/port; choosing MT11 shows them with the rtsp preview', () => {
@@ -40,7 +43,7 @@ describe('CameraSettingsSheet', () => {
     fireEvent.change(screen.getByLabelText('軸 1 の機能'), { target: { value: 'none' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
-    const [cam, input] = onSave.mock.calls[0]!
+    const { camera: cam, input } = onSave.mock.calls[0]![0]
     expect(cam).toMatchObject({ kind: 'siyi_mt11', host: '10.0.0.5', port: 37260 })
     expect(input.max_pan_speed).toBe(45)
     expect(input.axes[1]?.fn).toBe('none')
@@ -52,5 +55,57 @@ describe('CameraSettingsSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: '操作' }))
     fireEvent.click(screen.getByRole('button', { name: 'ジンバルをセンター' }))
     expect(onCenter).toHaveBeenCalledTimes(1)
+  })
+
+  it('the ROI tab is clickable only when the camera supports ROI', () => {
+    const { unmount } = render(<CameraSettingsSheet {...base} roiSupported={false} profile={profile()} onSave={() => {}} />)
+    const tab = screen.getByRole('button', { name: 'ROI' })
+    expect(tab).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(tab)
+    expect(screen.queryByText(dict.roiPresets)).not.toBeInTheDocument()
+    unmount()
+    render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'ROI' }))
+    expect(screen.getByText(dict.roiPresets)).toBeInTheDocument()
+  })
+
+  it('an invalid ROI control disables save', () => {
+    render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'ROI' }))
+    fireEvent.change(screen.getByLabelText(dict.roiMaxSpeed), { target: { value: '500' } })
+    expect(screen.getByRole('button', { name: '保存' })).toBeDisabled()
+  })
+
+  it('onSave receives the ROI targets and control', () => {
+    const onSave = vi.fn()
+    render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={onSave} />)
+    fireEvent.click(screen.getByRole('button', { name: 'ROI' }))
+    fireEvent.change(screen.getByLabelText(`${dict.roiName} 1`), { target: { value: 'ゲート' } })
+    fireEvent.click(screen.getByRole('button', { name: 'angle' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const draft = onSave.mock.calls[0]![0]
+    expect(draft.roiTargets[0].name).toBe('ゲート')
+    expect(draft.roiControl.control_mode).toBe('angle')
+    expect(draft.tab).toBe('roi')
+  })
+
+  it('pick on map hands the draft and the next empty slot to onPickRoi', () => {
+    const onPickRoi = vi.fn()
+    render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} onPickRoi={onPickRoi} />)
+    fireEvent.click(screen.getByRole('button', { name: 'ROI' }))
+    fireEvent.change(screen.getByLabelText(`${dict.roiName} 1`), { target: { value: 'ゲート' } })
+    fireEvent.click(screen.getByRole('button', { name: dict.pickOnMap }))
+    const [draft, slot] = onPickRoi.mock.calls[0]!
+    expect(slot).toBe(0)
+    expect(draft.roiTargets[0].name).toBe('ゲート')
+  })
+
+  it('with an initial draft it opens on the ROI tab with the drafted rows', () => {
+    const targets = emptyTargets().map((x, i) => (i === 0 ? { ...x, name: 'ROI 1', lat: 36.1, lon: 139.1, alt_msl: 412 } : x))
+    const initial = { tab: 'roi' as const, camera: { kind: 'siyi_mt11' as const, host: '10.0.0.9', port: 37260, video_source_mode: 'auto' as const }, input: DEFAULT_PROFILE, roiTargets: targets, roiControl: DEFAULT_ROI_CONTROL }
+    render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={() => {}} initial={initial} notice="hint text" />)
+    expect(screen.getByLabelText(`${dict.roiName} 1`)).toHaveValue('ROI 1')
+    expect(screen.getByText('412 m')).toBeInTheDocument()
+    expect(screen.getByText('hint text')).toBeInTheDocument()
   })
 })

@@ -1,13 +1,24 @@
 import { useState } from 'react'
-import type { CameraProfile, CameraState, GimbalInputProfile } from '../../shared/api/types'
+import type { CameraProfile, CameraState, GimbalInputProfile, RoiControl, RoiTarget } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconClose } from '../../shared/ui/icons'
 import { profileSchema } from '../gimbal-joystick'
+import { RoiTab } from '../roi/RoiTab'
+import { DEFAULT_ROI_CONTROL, emptyTargets, nextEmptySlot, roiControlSchema, roiTargetsSchema } from '../roi/schema'
 import { ConnectionTab } from './ConnectionTab'
 import { InputTab } from './InputTab'
 import { cameraProfileSchema, firstIssue, type CameraProfileDraft } from './schema'
 
-type Tab = 'connection' | 'input'
+export type Tab = 'connection' | 'input' | 'roi'
+
+/** Everything the sheet edits; it survives the 地図で指定 round trip (ruling 14). */
+export interface SheetDraft {
+  readonly tab: Tab
+  readonly camera: CameraProfileDraft
+  readonly input: GimbalInputProfile
+  readonly roiTargets: readonly RoiTarget[]
+  readonly roiControl: RoiControl
+}
 
 interface Props {
   readonly sysid: number
@@ -15,21 +26,58 @@ interface Props {
   readonly inputProfile: GimbalInputProfile
   readonly cameraState: CameraState | undefined
   readonly gamepadIds: readonly string[]
-  readonly onSave: (camera: CameraProfileDraft, input: GimbalInputProfile) => void
+  /** `caps.roi !== 'none'` (ruling 16). */
+  readonly roiSupported: boolean
+  /** The saved presets and control; null when they could not be loaded (the ROI tab stays off). */
+  readonly roi: { readonly targets: readonly RoiTarget[]; readonly control: RoiControl } | null
+  readonly activeRoi: string | null
+  /** Restored after a map pick. */
+  readonly initial?: SheetDraft
+  /** A caution line above the tabs (e.g. the pick used a fallback elevation). */
+  readonly notice?: string | null
+  readonly onPickRoi: (draft: SheetDraft, slot: number) => void
+  readonly onSave: (draft: SheetDraft) => void
   readonly onCancel: () => void
   readonly onCenter: () => void
   readonly dict: Dict
 }
 
-/** Spec 10 §5 / prototype camera settings: 接続 / 操作 (ROI / 映像 after the demo). zod blocks invalid saves. */
-export function CameraSettingsSheet({ profile, inputProfile, cameraState, gamepadIds, onSave, onCancel, onCenter, dict }: Props) {
-  const [tab, setTab] = useState<Tab>('connection')
-  const [camera, setCamera] = useState<CameraProfileDraft>({ kind: profile.kind, host: profile.host, port: profile.port, video_source_mode: profile.video_source_mode })
-  const [input, setInput] = useState<GimbalInputProfile>(inputProfile)
-  const cameraIssue = firstIssue(cameraProfileSchema.safeParse(camera))
-  const inputIssue = firstIssue(profileSchema.safeParse(input))
-  const valid = cameraIssue === null && inputIssue === null
+const TABS: readonly Tab[] = ['connection', 'input', 'roi']
+
+function startDraft(profile: CameraProfile, inputProfile: GimbalInputProfile, roi: Props['roi']): SheetDraft {
+  return {
+    tab: 'connection',
+    camera: { kind: profile.kind, host: profile.host, port: profile.port, video_source_mode: profile.video_source_mode },
+    input: inputProfile,
+    roiTargets: roi?.targets ?? emptyTargets(),
+    roiControl: roi?.control ?? DEFAULT_ROI_CONTROL,
+  }
+}
+
+/** Spec 10 §5 / prototype camera settings: 接続 / 操作 / ROI (映像 later). zod blocks invalid saves. */
+export function CameraSettingsSheet(props: Props) {
+  const { profile, inputProfile, cameraState, gamepadIds, roiSupported, roi, activeRoi, initial, notice, onPickRoi, onSave, onCancel, onCenter, dict } = props
+  const [draft, setDraft] = useState<SheetDraft>(() => initial ?? startDraft(profile, inputProfile, roi))
+  const [csvError, setCsvError] = useState<string | null>(null)
+  const patch = (p: Partial<SheetDraft>) => setDraft((d) => ({ ...d, ...p }))
+  const roiOn = roiSupported && roi !== null
+  const tab = draft.tab === 'roi' && !roiOn ? 'connection' : draft.tab
+  const cameraIssue = firstIssue(cameraProfileSchema.safeParse(draft.camera))
+  const inputIssue = firstIssue(profileSchema.safeParse(draft.input))
+  const targetsIssue = firstIssue(roiTargetsSchema.safeParse(draft.roiTargets))
+  const controlIssue = firstIssue(roiControlSchema.safeParse(draft.roiControl))
+  const valid = cameraIssue === null && inputIssue === null && targetsIssue === null && controlIssue === null
   const name = `UAV-${String(profile.sysid).padStart(2, '0')}`
+  const tabButton = (t: Tab, label: string, enabled: boolean, title?: string) =>
+    enabled ? (
+      <button type="button" className={tab === t ? 'on' : ''} onClick={() => patch({ tab: t })}>
+        {label}
+      </button>
+    ) : (
+      <button type="button" aria-disabled="true" title={title} className="off">
+        {label}
+      </button>
+    )
   return (
     <aside className="g-strong panel sheet settings" aria-label={dict.cameraSettings}>
       <div className="panel-h">
@@ -44,33 +92,43 @@ export function CameraSettingsSheet({ profile, inputProfile, cameraState, gamepa
       </div>
       <div className="settings-tabs">
         <div className="seg n4" role="group" style={{ height: 36 }}>
-          <span className="lens" style={{ transform: `translateX(${tab === 'connection' ? 0 : 100}%)` }} />
-          <button type="button" className={tab === 'connection' ? 'on' : ''} onClick={() => setTab('connection')}>
-            {dict.tabConnection}
-          </button>
-          <button type="button" className={tab === 'input' ? 'on' : ''} onClick={() => setTab('input')}>
-            {dict.tabInput}
-          </button>
-          <button type="button" aria-disabled="true" title={dict.comingSoon} className="off">
-            {dict.tabRoi}
-          </button>
-          <button type="button" aria-disabled="true" title={dict.comingSoon} className="off">
-            {dict.tabVideo}
-          </button>
+          <span className="lens" style={{ transform: `translateX(${TABS.indexOf(tab) * 100}%)` }} />
+          {tabButton('connection', dict.tabConnection, true)}
+          {tabButton('input', dict.tabInput, true)}
+          {tabButton('roi', dict.tabRoi, roiOn, roiSupported ? dict.roiUnavailable : dict.roiUnsupported)}
+          {tabButton('connection', dict.tabVideo, false, dict.comingSoon)}
         </div>
       </div>
       <div className="sheet-body settings-body">
-        {tab === 'connection' ? (
-          <ConnectionTab draft={camera} issue={cameraIssue} cameraState={cameraState} onChange={setCamera} dict={dict} />
-        ) : (
-          <InputTab draft={input} issue={inputIssue} gamepadIds={gamepadIds} onChange={setInput} onCenter={onCenter} dict={dict} />
+        {notice && <div className="hint caution settings-notice">{notice}</div>}
+        {tab === 'connection' && <ConnectionTab draft={draft.camera} issue={cameraIssue} cameraState={cameraState} onChange={(camera) => patch({ camera })} dict={dict} />}
+        {tab === 'input' && <InputTab draft={draft.input} issue={inputIssue} gamepadIds={gamepadIds} onChange={(input) => patch({ input })} onCenter={onCenter} dict={dict} />}
+        {tab === 'roi' && (
+          <>
+            <RoiTab
+              targets={draft.roiTargets}
+              control={draft.roiControl}
+              activeId={activeRoi}
+              targetsIssue={targetsIssue}
+              controlIssue={controlIssue}
+              onTargets={(roiTargets) => {
+                setCsvError(null)
+                patch({ roiTargets })
+              }}
+              onControl={(roiControl) => patch({ roiControl })}
+              onPickOnMap={() => onPickRoi({ ...draft, tab: 'roi' }, nextEmptySlot(draft.roiTargets))}
+              onCsvError={setCsvError}
+              dict={dict}
+            />
+            {csvError && <span className="danger settings-issue">{csvError}</span>}
+          </>
         )}
       </div>
       <div className="settings-actions">
         <button type="button" className="btn" onClick={onCancel}>
           {dict.cancel}
         </button>
-        <button type="button" className="btn btn-primary" disabled={!valid} onClick={() => onSave(camera, input)}>
+        <button type="button" className="btn btn-primary" disabled={!valid} onClick={() => onSave({ ...draft, tab })}>
           {dict.save}
         </button>
       </div>

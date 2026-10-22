@@ -244,3 +244,7 @@
 /* the operations map stays mounted under the video view, out of sight (its controls would show through) */
 .stage.video-on > .map { visibility: hidden; }
 .stage.video-on > .map .maplibregl-control-container { display: none; }
+
+/* ---- GPS ROI: pick hint over the map, caution line in the settings sheet ---- */
+.roi-pick-hint { pointer-events: auto; gap: 10px; z-index: 4; }
+.settings-notice { border-radius: 10px; text-align: left; }

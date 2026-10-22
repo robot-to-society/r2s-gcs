@@ -12,6 +12,7 @@ import { surveyEn, surveyJa } from './survey'
 import { instrumentsEn, instrumentsJa } from './instruments'
 import { wpGoEn, wpGoJa } from './wpGo'
 import { inspRateEn, inspRateJa } from './inspRate'
+import { roiEn, roiJa } from './roi'
 
 export type Lang = 'ja' | 'en'
 
@@ -407,7 +408,7 @@ const baseJa = {
   cmd_param_write: 'パラメータ書込',
 } as const
 
-const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa, ...plannerJa, ...calibJa, ...briefingJa, ...surveyJa, ...instrumentsJa, ...wpGoJa, ...inspRateJa } as const
+const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa, ...plannerJa, ...calibJa, ...briefingJa, ...surveyJa, ...instrumentsJa, ...wpGoJa, ...inspRateJa, ...roiJa } as const
 
 const baseEn: Record<keyof typeof baseJa, string> = {
   vehicles: 'Vehicles',
@@ -801,7 +802,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   cmd_param_write: 'Parameter write',
 }
 
-const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn, ...videoEn, ...planeCmdEn, ...plannerEn, ...calibEn, ...briefingEn, ...surveyEn, ...instrumentsEn, ...wpGoEn, ...inspRateEn }
+const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn, ...videoEn, ...planeCmdEn, ...plannerEn, ...calibEn, ...briefingEn, ...surveyEn, ...instrumentsEn, ...wpGoEn, ...inspRateEn, ...roiEn }
 
 export type Dict = Record<keyof typeof ja, string>
 

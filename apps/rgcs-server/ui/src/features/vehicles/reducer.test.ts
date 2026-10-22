@@ -142,6 +142,16 @@ describe('camera, video source and input frames', () => {
     expect(reduce(s1, { t: 'log_fetch_progress', sysid: 1, progress: { ...p } })).toBe(s1)
   })
 
+  it('roi_status is stored per vehicle and vehicle_lost drops it', () => {
+    const status = { active_target: 'roi_2', mode: 'rate' as const, bearing_deg: 12, elevation_deg: -20, distance_m: 300, yaw_cmd_deg: null, pitch_cmd_deg: null, gimbal_yaw_deg: null, gimbal_pitch_deg: null, speed_yaw: null, speed_pitch: null, error: null }
+    const s1 = reduce(reduce(initialState, { t: 'vehicle_discovered', sysid: 3 }), { t: 'roi_status', sysid: 3, status })
+    expect(s1.roi.get(3)).toEqual(status)
+    expect(initialState.roi.size).toBe(0)
+    const s2 = reduce(s1, { t: 'vehicle_lost', sysid: 3 })
+    expect(s2.roi.has(3)).toBe(false)
+    expect(s1.roi.has(3)).toBe(true)
+  })
+
   it('calibration_status_is_stored_per_vehicle', () => {
     const status = { kind: 'accel' as const, phase: 'waiting' as const, position: 2, compass: [], rc: [], reboot: false, reason: null }
     const s1 = reduce(initialState, { t: 'calibration', sysid: 3, status })

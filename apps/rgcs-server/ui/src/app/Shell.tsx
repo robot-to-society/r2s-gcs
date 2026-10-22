@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
 import { CommandDock, ConfirmDialog, FleetConfirm, fleetTargets, localResult, useCommandRunner, type RunResult } from '../features/commands'
-import { EMPTY_PENDING, clearPending, getCameraProfile, markPending, putCameraProfile, sendCameraCommand, type PendingState } from '../features/camera'
+import { EMPTY_PENDING, clearPending, markPending, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
 import { DetailPanel, ackMessage } from '../features/detail'
-import { buttonCommand, getGimbalProfile, putGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
+import { buttonCommand, getGimbalProfile, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { useOpsArrival } from './opsArrival'
@@ -14,7 +14,7 @@ import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
-import type { CameraCommand, CameraProfile, GimbalInputProfile, Me, VehicleCommand, VehicleState } from '../shared/api/types'
+import type { CameraCommand, GimbalInputProfile, Me, VehicleCommand, VehicleState } from '../shared/api/types'
 import { t, type Lang } from '../shared/i18n'
 import { LogDock } from './LogDock'
 import { useLogHistory } from '../features/log/useLogHistory'
@@ -25,6 +25,7 @@ import { NO_MODAL, type Modal } from './modal'
 import type { View } from './view'
 import { useCalibAttention } from '../features/calibration'
 import { panelSysid, togglePin } from './pin'
+import { useCameraSettingsFlow } from './useCameraSettingsFlow'
 
 function formatClock(d: Date, lang: Lang): string {
   const p = (n: number) => String(n).padStart(2, '0')
@@ -49,7 +50,7 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, log, cameras, videoSources, deadman, missionProgress, missionTransfers, vehicleMissions, paramProgress, flightDrafts, logFetch, calibration } = useVehicles()
+  const { vehicles, link, log, cameras, videoSources, roi, deadman, missionProgress, missionTransfers, vehicleMissions, paramProgress, flightDrafts, logFetch, calibration } = useVehicles()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -147,28 +148,7 @@ export function Shell({ me, lang }: Props) {
       }),
     [],
   )
-  const [settingsProfile, setSettingsProfile] = useState<CameraProfile | null>(null)
-  useEffect(() => {
-    if (modal.kind !== 'camera-settings') return
-    let alive = true
-    getCameraProfile(modal.sysid)
-      .then((p) => alive && setSettingsProfile(p))
-      .catch(() => alive && setSettingsProfile(null))
-    return () => {
-      alive = false
-    }
-  }, [modal])
-  const saveSettings = async (sysid: number, camera: Partial<CameraProfile>, input: GimbalInputProfile) => {
-    try {
-      await putCameraProfile(sysid, camera)
-      const saved = await putGimbalProfile(input)
-      setGimbalProfile(saved)
-      vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'camera_settings', ok: true, reason: null, ts: Date.now() })
-    } catch (e: unknown) {
-      vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'camera_settings', ok: false, reason: e instanceof Error ? e.message : String(e), ts: Date.now() })
-    }
-    setModal(NO_MODAL)
-  }
+  const settingsFlow = useCameraSettingsFlow({ modal, setModal, terrainTiles: settings?.terrain_tiles ?? null, vehicles, setGimbalProfile })
   useGimbalJoystick(current, gimbalProfile, (fn) => {
     if (current === null) return
     const cmd = buttonCommand(fn, cameras.get(current)?.state ?? null)
@@ -264,7 +244,7 @@ export function Shell({ me, lang }: Props) {
               cameras={cameras}
               groundProjection={settings.map.gimbal_ground_projection}
               onDragStart={() => mapUiStore.update(clearFollow)}
-              onClick={(p) => mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p))}
+              onClick={(p) => (mapUi.pick === 'roi-target' ? void settingsFlow.onMapPick(p) : mapUi.pick === 'guided-target' && mapUiStore.update((s) => setTarget(s, p)))}
               onContext={view === 'ops' ? setMapMenu : undefined}
               onWaypoint={setWpGo}
               onViewMove={() => setWpGo(null)}
@@ -407,18 +387,32 @@ export function Shell({ me, lang }: Props) {
               }}
             />
           )}
-          {modal.kind === 'camera-settings' && settingsProfile && gimbalProfile && (
+          {modal.kind === 'camera-settings' && settingsFlow.profile && gimbalProfile && (
             <CameraSettingsSheet
               sysid={modal.sysid}
-              profile={settingsProfile}
+              profile={settingsFlow.profile}
               inputProfile={gimbalProfile}
               cameraState={cameras.get(modal.sysid)?.state}
               gamepadIds={typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function' ? navigator.getGamepads().flatMap((g) => (g ? [g.id] : [])) : []}
+              roiSupported={(cameras.get(modal.sysid)?.caps.roi ?? 'none') !== 'none'}
+              roi={settingsFlow.roi}
+              activeRoi={roi.get(modal.sysid)?.active_target ?? null}
+              initial={settingsFlow.draft ?? undefined}
+              notice={settingsFlow.elevationFallback ? dict.roiNoElevation : null}
               dict={dict}
               onCancel={() => setModal(NO_MODAL)}
               onCenter={() => cameraCommand(modal.sysid, { cmd: 'gimbal_center', args: { mode: 'one_key_reset' } })}
-              onSave={(camera, input) => void saveSettings(modal.sysid, camera, input)}
+              onPickRoi={(d, slot) => settingsFlow.startPick(modal.sysid, d, slot)}
+              onSave={(d) => void settingsFlow.save(modal.sysid, d)}
             />
+          )}
+          {settingsFlow.pickHint === 'picking' && (
+            <div className="hint caution float map-c top1 row roi-pick-hint">
+              {dict.roiPickHint}
+              <button type="button" className="btn btn-sm" onClick={settingsFlow.cancelPick}>
+                {dict.cancel}
+              </button>
+            </div>
           )}
           {modal.kind === 'mission-pick' && (
             <MissionPicker dict={dict} title={dict.mWriteMission} onClose={() => setModal(NO_MODAL)} onPick={(row) => void writeSavedMission(modal.sysid, row.id)} />

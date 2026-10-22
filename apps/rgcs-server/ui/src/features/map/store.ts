@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
-export type PickMode = 'none' | 'guided-target'
+export type PickMode = 'none' | 'guided-target' | 'roi-target'
 
 export interface LatLon {
   readonly lat: number
