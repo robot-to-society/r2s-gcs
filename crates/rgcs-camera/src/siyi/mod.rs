@@ -9,3 +9,5 @@ pub mod tf_card;
 pub mod thermal;
 #[cfg(any(test, feature = "sim"))]
 pub mod sim;
+#[cfg(any(test, feature = "sim"))]
+pub mod sim_media;

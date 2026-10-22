@@ -12,6 +12,7 @@ use tokio::task::JoinHandle;
 
 pub use crate::siyi::client::Transport;
 use crate::siyi::frame::{make_packet, Parser};
+use crate::siyi::sim_media::{candidate_frame, media_reply, track_frame, SimDetection, SimMedia};
 
 pub const FIRMWARE_REPLY: [u8; 12] = [0x01, 0x00, 0x01, 0x89, 0x0A, 0x01, 0x00, 0x8A, 0, 0, 0, 0];
 
@@ -29,8 +30,10 @@ pub struct SimState {
     pub rate: (i8, i8),
     /// When `yaw_deg` / `pitch_deg` were last brought up to date.
     pub moved_at: Instant,
+    pub media: SimMedia,
 }
 
+const PUSH_TICK: std::time::Duration = std::time::Duration::from_millis(100);
 const PITCH_RANGE: (f32, f32) = (-90.0, 30.0);
 const DEG_PER_S_PER_UNIT: f32 = 1.0;
 
@@ -45,6 +48,7 @@ impl Default for SimState {
             pitch_deg: -30.0,
             rate: (0, 0),
             moved_at: Instant::now(),
+            media: SimMedia::default(),
         }
     }
 }
@@ -150,8 +154,14 @@ pub fn reply_for(state: &Mutex<SimState>, cmd: u8, payload: &[u8]) -> Option<(u8
         }
         0x19 => Some((0x19, vec![s.gimbal_mode])),
         0x07 | 0x0D | 0x0E => gimbal_reply(&mut s, cmd, payload),
-        _ => None,
+        _ => media_reply(&mut s.media, cmd, payload, Instant::now(), unix_now_us()),
     }
+}
+
+fn unix_now_us() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_micros() as u64)
 }
 
 impl SimServer {
@@ -224,6 +234,30 @@ impl SimServer {
         self.state.lock().expect("sim state").record_sta = sta;
     }
 
+    pub fn set_tf_card(&self, status: u8, total_x100: u16, free_x100: u16) {
+        let mut s = self.state.lock().expect("sim state");
+        s.media.tf = (status, s.media.tf.1, total_x100, free_x100);
+    }
+
+    /// The sim clock's offset from the host clock (until the next 0x30 sets it).
+    pub fn set_clock_offset_us(&self, offset: i64) {
+        let mut s = self.state.lock().expect("sim state");
+        s.media = SimMedia {
+            clock_offset_us: offset,
+            utc_set_at: None,
+            ..s.media.clone()
+        };
+    }
+
+    /// The tracker reports status 2 (lost) on the next pushes.
+    pub fn lose_track(&self) {
+        self.state.lock().expect("sim state").media.track_status = 2;
+    }
+
+    pub fn set_detections(&self, d: Vec<SimDetection>) {
+        self.state.lock().expect("sim state").media.detections = d;
+    }
+
     /// Drops the listener and every live connection (the client sees EOF).
     pub async fn stop(self) {
         for t in self.tasks.lock().expect("sim tasks").drain(..) {
@@ -244,25 +278,47 @@ async fn serve_tcp(
     let mut buf = [0u8; 4096];
     let mut parser = Parser::default();
     let mut seq: u16 = 0;
+    let started = Instant::now();
+    let mut ticker = tokio::time::interval(PUSH_TICK);
+    let mut ticks: u64 = 0;
     loop {
-        let n = match stream.read(&mut buf).await {
-            Ok(0) | Err(_) => return,
-            Ok(n) => n,
-        };
-        for f in parser.push(&buf[..n]) {
-            let reply = reply_for(&state, f.cmd, &f.payload);
-            let _ = tx.send((Transport::Tcp, f.cmd, f.payload));
-            if frozen.load(std::sync::atomic::Ordering::Relaxed) {
-                continue;
-            }
-            if let Some((cmd, data)) = reply {
-                seq = seq.wrapping_add(1);
-                if stream.write_all(&make_packet(cmd, &data, 2, seq)).await.is_err() {
-                    return;
+        let mut out: Vec<(u8, Vec<u8>)> = Vec::new();
+        tokio::select! {
+            read = stream.read(&mut buf) => {
+                let n = match read {
+                    Ok(0) | Err(_) => return,
+                    Ok(n) => n,
+                };
+                for f in parser.push(&buf[..n]) {
+                    let reply = reply_for(&state, f.cmd, &f.payload);
+                    let _ = tx.send((Transport::Tcp, f.cmd, f.payload));
+                    out.extend(reply);
                 }
+            }
+            _ = ticker.tick() => {
+                ticks += 1;
+                out.extend(pushes(&state, ticks, started));
+            }
+        }
+        if frozen.load(std::sync::atomic::Ordering::Relaxed) {
+            continue;
+        }
+        for (cmd, data) in out {
+            seq = seq.wrapping_add(1);
+            if stream.write_all(&make_packet(cmd, &data, 2, seq)).await.is_err() {
+                return;
             }
         }
     }
+}
+
+/// 0x50 every tick, 0x5F every second tick, while the camera is being asked for them.
+fn pushes(state: &Mutex<SimState>, ticks: u64, started: Instant) -> Vec<(u8, Vec<u8>)> {
+    let s = state.lock().expect("sim state");
+    let track = track_frame(&s.media).map(|d| (0x50, d));
+    let pts = started.elapsed().as_micros() as u64;
+    let boxes = (ticks % 2 == 0).then(|| candidate_frame(&s.media, pts)).flatten();
+    track.into_iter().chain(boxes.map(|d| (0x5F, d))).collect()
 }
 
 #[cfg(test)]
