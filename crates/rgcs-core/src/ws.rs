@@ -83,6 +83,7 @@ pub struct VideoSourceEntry {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "t", rename_all = "snake_case")]
 #[ts(export, rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)] // camera_state frames are the big, frequent variant
 pub enum ServerMessage {
     Snapshot {
         vehicles: Vec<VehicleState>,
