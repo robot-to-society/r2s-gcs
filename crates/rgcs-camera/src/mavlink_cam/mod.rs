@@ -9,6 +9,7 @@ pub mod binding;
 pub mod caps;
 pub mod encode;
 pub mod driver;
+mod motion;
 #[cfg(any(test, feature = "sim"))]
 pub mod fake;
 pub mod requests;

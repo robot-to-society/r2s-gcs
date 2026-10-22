@@ -86,15 +86,26 @@ async fn session(socket: WebSocket, app: AppState, operator: String) {
                 Some(Ok(_)) => {}
             },
             _ = deadman.tick() => {
-                let (next, actions) = gate.tick(unix_ms());
+                let (next, replies) = deadman_tick(&gate, &app, &operator, unix_ms()).await;
                 gate = next;
-                for reply in perform(&app, &operator, actions).await {
+                for reply in replies {
                     if send(&mut sink, &reply).await.is_err() { break; }
                 }
             }
         }
     }
-    perform(&app, &operator, gate.close()).await;
+    close_session(&gate, &app, &operator).await;
+}
+
+/// The deadman check: a silent session stops its gimbal once; returns the replies.
+pub async fn deadman_tick(gate: &Gate, app: &AppState, operator: &str, now_ms: u64) -> (Gate, Vec<ServerMessage>) {
+    let (next, actions) = gate.tick(now_ms);
+    (next, perform(app, operator, actions).await)
+}
+
+/// The session ended: zero the gimbal it was turning (none when it was not, final review I1).
+pub async fn close_session(gate: &Gate, app: &AppState, operator: &str) {
+    perform(app, operator, gate.close()).await;
 }
 
 /// Parses a client frame; a malformed one becomes the `error` reply to send back.
@@ -294,6 +305,35 @@ mod tests {
         )
         .await;
         assert!(matches!(&replies[..], [ServerMessage::Error { code, .. }] if code == "validation"));
+    }
+
+    async fn send_text(gate: &Gate, app: &AppState, text: &str, now_ms: u64) -> Gate {
+        handle_client(gate, app, "pilot", text, now_ms).await.0
+    }
+
+    /// Final review I1: the MT11 still gets its deadman and close zeros.
+    #[tokio::test]
+    async fn mt11_deadman_and_close_zeros_still_go_out() {
+        let (app, mut sim) = sim_app().await;
+        let hb = "{\"t\":\"input_hb\",\"sysid\":1}";
+        let gate = send_text(&Gate::default(), &app, hb, 1_000).await;
+        rate_payloads(&mut sim, 200).await;
+        let (gate, _) = deadman_tick(&gate, &app, "pilot", 2_600).await;
+        assert!(rate_payloads(&mut sim, 300).await.contains(&vec![0, 0]), "deadman zero");
+        let gate = send_text(&gate, &app, &rate_frame(20, 1), 2_700).await;
+        rate_payloads(&mut sim, 200).await;
+        close_session(&gate, &app, "pilot").await;
+        assert_eq!(rate_payloads(&mut sim, 300).await, vec![vec![0, 0]], "close zero");
+    }
+
+    #[tokio::test]
+    async fn a_session_that_never_moved_sends_no_zero_on_close() {
+        let (app, mut sim) = sim_app().await;
+        let select = "{\"t\":\"select\",\"sysid\":1}";
+        let gate = send_text(&Gate::default(), &app, select, 1_000).await;
+        rate_payloads(&mut sim, 200).await;
+        close_session(&gate, &app, "pilot").await;
+        assert!(rate_payloads(&mut sim, 300).await.is_empty());
     }
 
     /// `sim_app` with `roi_1` set and ROI running on it.

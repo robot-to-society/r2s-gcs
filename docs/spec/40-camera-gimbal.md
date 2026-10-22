@@ -81,6 +81,7 @@ pub trait Camera: Send + Sync {
 - **ACK**: 写真 / 録画 / ズーム / フォーカスと ROI は `COMMAND_ACK` を (sysid, command) で照合して待つ(1.5 s、IN_PROGRESS は 10 s まで)。**再送しない**(ACK を落としただけで 2 枚撮らないため)。ACCEPTED 以外 → `Refused("camera_rejected")`(409)、ACK 無し → `Io`(503 `camera_error`)。`GIMBAL_MANAGER_SET_PITCHYAW` は ACK が無く、リンクに載った時点で成功。録画状態は ACCEPTED で楽観的に切り替え、`CAMERA_CAPTURE_STATUS.video_status` で上書き。
 - **FW**: `firmware_version` の下位 3 バイト → `camera: "major.minor.patch"`。`hfov` は `CAMERA_INFORMATION` の焦点距離とセンサー幅から(ArduPilot は NaN を返すので UI 既定 62°)。
 - **リンク上昇時のゼロを送らない**: FC リンクがカメラのリンクなので、上昇時の速度 0 は FC 側の向け先(ミッションの `DO_SET_ROI`、RC、Native ROI)を取り消してしまう。WS ゲートのデッドマン停止は従来どおり。
+- **動いていないときの速度 0 は送らない**(2026-10-23、最終レビュー I1): ArduPilot は速度 0 の `GIMBAL_MANAGER_SET_PITCHYAW` でも MAVLink 指向モードに切り替え、ミッションの ROI / RC 指向を取り消す。ドライバは非ゼロ速度を送ってから 0 をまだ送っていないとき、または最後の非ゼロ速度から 2 s 以内のときだけ速度 0 を送り、それ以外は送らずに成功を返す(角度 / センター / ROI の開始・停止で「動いていない」に戻る)。WS ゲートも、その機体に非ゼロ速度を転送してから止めていないときだけ、切断・選択切替でゼロを出す(ページ読み込み・タブを閉じる・機体切替で FC 側の指向を止めない)。MT11 のデッドマン停止・リンク上昇時のゼロ・ROI 停止は従来どおり。
 - **映像**: 映像監視はプロファイルの `rtsp_url` を MT11 と同じく疎通確認する。MediaMTX のパス登録は範囲外(`deploy/mediamtx.yml` は `api: no`、パスは固定の `mt11`)。MAVLink カメラの映像を出すには運用者がそのパスの上流を手で RTSP URL に向ける。
 
 ## 3. SIYI プロトコル(MT11)

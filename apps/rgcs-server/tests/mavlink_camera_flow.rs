@@ -216,6 +216,35 @@ async fn ws_gimbal_rate_reaches_the_manager() {
     assert!(rates.iter().any(|r| (r - std::f32::consts::FRAC_PI_4).abs() < 1e-6), "{rates:?}");
 }
 
+/// Final review I1: a page load / tab close / deadman with no stick never cancels FC pointing.
+#[tokio::test]
+async fn ws_zeros_without_movement_send_nothing() {
+    use rgcs_server::ws::{close_session, deadman_tick, handle_client};
+    let (_app, state, fake, _cookie) = bound_app(FakeConfig::default()).await;
+    let select = r#"{"t":"select","sysid":1}"#;
+    let (gate, _) = handle_client(&Gate::default(), &state, "pilot", select, 1_000).await;
+    let other = r#"{"t":"select","sysid":2}"#;
+    let (gate, _) = handle_client(&gate, &state, "pilot", other, 1_100).await;
+    let (gate, _) = handle_client(&gate, &state, "pilot", select, 1_200).await;
+    let hb = r#"{"t":"input_hb","sysid":1}"#;
+    let (gate, _) = handle_client(&gate, &state, "pilot", hb, 1_300).await;
+    let (gate, _) = deadman_tick(&gate, &state, "pilot", 3_000).await;
+    close_session(&gate, &state, "pilot").await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(yaw_rates(&fake).is_empty(), "{:?}", fake.sent());
+}
+
+#[tokio::test]
+async fn ws_close_after_movement_stops_the_gimbal() {
+    use rgcs_server::ws::{close_session, handle_client};
+    let (_app, state, fake, _cookie) = bound_app(FakeConfig::default()).await;
+    let frame = r#"{"t":"gimbal_rate","sysid":1,"yaw":50,"pitch":0,"seq":1}"#;
+    let (gate, _) = handle_client(&Gate::default(), &state, "pilot", frame, 1_000).await;
+    close_session(&gate, &state, "pilot").await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(yaw_rates(&fake).last(), Some(&0.0), "{:?}", yaw_rates(&fake));
+}
+
 #[tokio::test]
 async fn auto_record_starts_on_arm() {
     let (_app, state, fake, _cookie) = bound_app(FakeConfig::default()).await;

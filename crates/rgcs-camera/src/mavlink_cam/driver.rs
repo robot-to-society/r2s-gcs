@@ -14,6 +14,7 @@ use tokio::time::{Instant, MissedTickBehavior};
 
 use crate::mavlink_cam::apply::{apply, liveness, Model, LIVENESS_MS};
 use crate::mavlink_cam::encode::{self, encode, Encoded};
+use crate::mavlink_cam::motion::Motion;
 use crate::mavlink_cam::requests::{due_requests, Requests, INFO_RETRY_MS};
 use crate::{Camera, CameraError};
 
@@ -95,6 +96,7 @@ fn optimistic(cmd: &CameraCommand) -> Option<RecordingState> {
 pub struct MavlinkCamera {
     shared: Arc<Shared>,
     task: Mutex<Option<JoinHandle<()>>>,
+    motion: Mutex<Motion>,
 }
 
 impl MavlinkCamera {
@@ -112,6 +114,23 @@ impl MavlinkCamera {
         Self {
             shared: Arc::new(shared),
             task: Mutex::new(None),
+            motion: Mutex::new(Motion::default()),
+        }
+    }
+
+    /// Whether `cmd` goes out; a rate-0 with nothing moving is dropped (final review I1).
+    fn admit(&self, cmd: &CameraCommand) -> bool {
+        let Ok(mut motion) = self.motion.lock() else {
+            return true;
+        };
+        let (next, send) = motion.admit(cmd, Instant::now());
+        *motion = next;
+        send
+    }
+
+    fn pointed(&self) {
+        if let Ok(mut motion) = self.motion.lock() {
+            *motion = Motion::pointed();
         }
     }
 
@@ -132,6 +151,10 @@ impl Camera for MavlinkCamera {
 
     async fn send(&self, cmd: CameraCommand) -> Result<(), CameraError> {
         let m = self.shared.connected_model()?;
+        if !self.admit(&cmd) {
+            tracing::debug!("mavlink camera: rate-0 with no movement dropped");
+            return Ok(());
+        }
         let frames = encode(&cmd, &m.targets(self.shared.sysid), m.state.zoom)?;
         for frame in frames {
             self.shared.transmit(frame).await?;
@@ -180,12 +203,14 @@ impl Camera for MavlinkCamera {
 
     async fn roi_location(&self, lat: f64, lon: f64, alt_msl: f64) -> Result<(), CameraError> {
         let sysid = self.shared.sysid;
+        self.pointed();
         self.roi(|m| encode::roi_location(&m.targets(sysid), lat, lon, alt_msl))
             .await
     }
 
     async fn roi_none(&self) -> Result<(), CameraError> {
         let sysid = self.shared.sysid;
+        self.pointed();
         self.roi(|m| encode::roi_none(&m.targets(sysid))).await
     }
 }

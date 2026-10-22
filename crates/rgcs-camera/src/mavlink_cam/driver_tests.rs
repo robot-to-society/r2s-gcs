@@ -286,6 +286,58 @@ async fn caps_change_notifies_the_state_watch() {
     assert!(cam.caps().gimbal.is_some());
 }
 
+fn pitchyaw_count(fake: &FakeMav) -> usize {
+    fake.sent()
+        .iter()
+        .filter(|m| matches!(m, MavMessage::GIMBAL_MANAGER_SET_PITCHYAW(_)))
+        .count()
+}
+
+const STOP: CameraCommand = CameraCommand::GimbalRate { yaw: 0, pitch: 0 };
+
+/// Final review I1: a zero with nothing moving would end mission / RC pointing on ArduPilot.
+#[tokio::test(start_paused = true)]
+async fn zero_without_a_prior_non_zero_sends_nothing() {
+    let (fake, cam) = bound(FakeConfig::default()).await;
+    cam.send(STOP).await.expect("a dropped zero is still Ok");
+    sleep(Duration::from_millis(100)).await;
+    assert_eq!(pitchyaw_count(&fake), 0, "{:?}", fake.sent());
+}
+
+#[tokio::test(start_paused = true)]
+async fn zero_after_movement_goes_out_and_may_repeat_for_2s() {
+    let (fake, cam) = bound(FakeConfig::default()).await;
+    cam.send(CameraCommand::GimbalRate { yaw: 40, pitch: 0 }).await.expect("rate");
+    cam.send(STOP).await.expect("stop");
+    sleep(Duration::from_millis(1_500)).await;
+    cam.send(STOP).await.expect("repeat");
+    sleep(Duration::from_millis(100)).await;
+    assert_eq!(pitchyaw_count(&fake), 3, "rate, stop and one retry");
+    sleep(Duration::from_millis(1_000)).await;
+    cam.send(STOP).await.expect("late zero");
+    sleep(Duration::from_millis(100)).await;
+    assert_eq!(pitchyaw_count(&fake), 3, "2 s after the last movement: dropped");
+}
+
+#[tokio::test(start_paused = true)]
+async fn zero_after_an_angle_or_roi_is_dropped() {
+    let (fake, cam) = bound(FakeConfig::default()).await;
+    cam.send(CameraCommand::GimbalRate { yaw: 40, pitch: 0 }).await.expect("rate");
+    let angle = CameraCommand::GimbalAngle {
+        yaw_deg: 10.0,
+        pitch_deg: -10.0,
+    };
+    cam.send(angle).await.expect("angle");
+    cam.send(STOP).await.expect("stop");
+    sleep(Duration::from_millis(100)).await;
+    assert_eq!(pitchyaw_count(&fake), 2, "the angle ended the movement");
+    cam.send(CameraCommand::GimbalRate { yaw: 40, pitch: 0 }).await.expect("rate");
+    cam.roi_location(35.0, 139.0, 50.0).await.expect("roi");
+    cam.send(STOP).await.expect("stop");
+    sleep(Duration::from_millis(100)).await;
+    assert_eq!(pitchyaw_count(&fake), 3, "the ROI ended the movement");
+}
+
 fn frame(sysid: u8, message: MavMessage) -> PayloadFrame {
     PayloadFrame {
         header: MavHeader {

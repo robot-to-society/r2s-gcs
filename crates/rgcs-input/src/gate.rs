@@ -21,6 +21,9 @@ pub struct Gate {
     last_rate_ms: Option<u64>,
     last_hb_ms: Option<u64>,
     deadman: Deadman,
+    /// A non-zero rate went to `target` since its last zero. Close / retarget zero only then:
+    /// a no-op zero would cancel FC-side pointing (mission ROI) on ArduPilot.
+    moving: bool,
 }
 
 impl Default for Gate {
@@ -30,14 +33,17 @@ impl Default for Gate {
             last_rate_ms: None,
             last_hb_ms: None,
             deadman: Deadman::Ok,
+            moving: false,
         }
     }
 }
 
 impl Gate {
-    /// Switches the target, zeroing the previous one; revives the deadman on any liveness.
+    /// Switches the target, zeroing the previous one if it moves; revives the deadman on any
+    /// liveness.
     fn retarget(&self, sysid: SysId, now_ms: u64, actions: &mut Vec<Action>) -> Self {
-        if let Some(prev) = self.target.filter(|p| *p != sysid) {
+        let switched = self.target.is_some_and(|p| p != sysid);
+        if let Some(prev) = self.target.filter(|_| switched && self.moving) {
             actions.push(Action::Zero { sysid: prev });
         }
         if self.deadman == Deadman::Lost {
@@ -49,6 +55,7 @@ impl Gate {
             target: Some(sysid),
             last_hb_ms: Some(now_ms),
             deadman: Deadman::Ok,
+            moving: self.moving && !switched,
             ..self.clone()
         }
     }
@@ -80,6 +87,7 @@ impl Gate {
         (
             Self {
                 last_rate_ms: Some(now_ms),
+                moving: !stop,
                 ..next
             },
             actions,
@@ -116,6 +124,7 @@ impl Gate {
             (Deadman::Ok, Some(sysid), true) => (
                 Self {
                     deadman: Deadman::Lost,
+                    moving: false,
                     ..self.clone()
                 },
                 vec![
@@ -129,9 +138,10 @@ impl Gate {
         }
     }
 
-    /// The session ended: never leave a gimbal turning.
+    /// The session ended: never leave a gimbal turning (and send nothing when it is not).
     pub fn close(&self) -> Vec<Action> {
         self.target
+            .filter(|_| self.moving)
             .map(|sysid| Action::Zero { sysid })
             .into_iter()
             .collect()
@@ -248,6 +258,7 @@ mod tests {
         assert_eq!(zeros(&a), vec![1]);
         let (g, a) = g.on_select(2, 200);
         assert!(a.is_empty(), "same target: nothing to zero");
+        let (g, _) = g.on_gimbal_rate(2, 4, 4, 250);
         let (_, a) = g.on_gimbal_rate(3, 1, 1, 300);
         assert_eq!(
             zeros(&a),
@@ -255,6 +266,17 @@ mod tests {
             "a rate for another vehicle also zeroes the old one"
         );
         assert_eq!(forward(&a), vec![(3, 1, 1)]);
+    }
+
+    #[test]
+    fn retarget_without_a_forwarded_rate_sends_no_zero() {
+        let (g, _) = Gate::default().on_select(1, 0);
+        let (g, a) = g.on_select(2, 100);
+        assert!(zeros(&a).is_empty(), "nothing was ever sent to 1: {a:?}");
+        let (g, _) = g.on_gimbal_rate(2, 10, 0, 200);
+        let (g, _) = g.on_gimbal_rate(2, 0, 0, 300);
+        let (_, a) = g.on_hb(3, 400);
+        assert!(zeros(&a).is_empty(), "2 was already stopped: {a:?}");
     }
 
     #[test]
@@ -268,9 +290,24 @@ mod tests {
     }
 
     #[test]
-    fn close_zeroes_the_current_target() {
+    fn close_zeroes_the_current_target_only_while_it_moves() {
         let (g, _) = Gate::default().on_hb(4, 0);
+        assert!(g.close().is_empty(), "a page load without a stick must not send a zero");
+        let (g, _) = g.on_gimbal_rate(4, 0, 30, 100);
         assert_eq!(zeros(&g.close()), vec![4]);
+        let (g, _) = g.on_gimbal_rate(4, 0, 0, 200);
+        assert!(g.close().is_empty(), "already stopped");
         assert!(Gate::default().close().is_empty());
+    }
+
+    #[test]
+    fn the_deadman_zero_still_goes_out_and_ends_the_movement() {
+        let (g, _) = Gate::default().on_hb(1, 0);
+        let (g, a) = g.tick(1_500);
+        assert_eq!(zeros(&a), vec![1], "the deadman is a safety zero");
+        let (g, _) = g.on_gimbal_rate(1, 20, 0, 1_600);
+        let (g, a) = g.tick(3_100);
+        assert_eq!(zeros(&a), vec![1]);
+        assert!(g.close().is_empty(), "the deadman already stopped it");
     }
 }
