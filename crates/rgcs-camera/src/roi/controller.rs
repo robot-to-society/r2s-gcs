@@ -142,12 +142,14 @@ impl RoiController {
         }
     }
 
-    /// Activates `target`; a moving gimbal is halted first. Follow mode goes out on the first step.
+    /// Activates `target`. The gimbal is always zeroed first (with resends): the operator's
+    /// stick may have left it turning, and its release zero is dropped once ROI is active
+    /// (ruling 7). Follow mode goes out on the first step.
     pub fn start(&self, target: RoiTarget) -> Result<(Self, StepOut), RoiStartError> {
         if !target.is_set() {
             return Err(RoiStartError::Unset);
         }
-        let (halted, commands) = self.halt(false);
+        let (halted, commands) = self.halt(true);
         let status = RoiStatus {
             active_target: Some(target.id.clone()),
             mode: Some(self.settings.control_mode),

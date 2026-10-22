@@ -15,12 +15,12 @@ type Cycle = (RoiController, Vec<CameraCommand>, Option<&'static str>);
 impl RoiController {
     /// One control period (algorithm in the GPS ROI plan, Task 3).
     pub fn step(&self, inp: &RoiInputs) -> (Self, StepOut) {
-        let (base, resend) = self.flush_resend();
-        if base.active.is_none() {
+        if self.active.is_none() {
+            let (base, resend) = self.flush_resend();
             return (base, StepOut::of(resend));
         }
-        let rate = base.settings.control_mode == RoiControlMode::Rate;
-        let (base, first_follow) = base.follow_if(inp.now_ms, base.last_follow_ms.is_none());
+        let rate = self.settings.control_mode == RoiControlMode::Rate;
+        let (base, first_follow) = self.follow_if(inp.now_ms, self.last_follow_ms.is_none());
         let base = base.goal_update(inp);
         let (next, motion, error, reassert) = match base.goal() {
             Err(code) => {
@@ -36,6 +36,7 @@ impl RoiController {
                 (c, m, e, true)
             }
         };
+        let (next, resend) = next.settle_resends(&motion);
         let due = reassert && next.follow_due(inp.now_ms);
         let (next, follow) = next.follow_if(inp.now_ms, due);
         let next = Self {
@@ -53,6 +54,22 @@ impl RoiController {
                 request_attitude: rate,
             },
         )
+    }
+
+    /// Pending zero resends go out only on a cycle without its own motion command; a
+    /// motion command other than a zero supersedes them (I4: start zeros with resends).
+    fn settle_resends(&self, motion: &[CameraCommand]) -> (Self, Vec<CameraCommand>) {
+        if motion.is_empty() {
+            return self.flush_resend();
+        }
+        if motion.iter().all(|c| *c == rate_cmd(STILL)) {
+            return (self.clone(), Vec::new());
+        }
+        let next = Self {
+            zero_resends: 0,
+            ..self.clone()
+        };
+        (next, Vec::new())
     }
 
     fn flush_resend(&self) -> (Self, Vec<CameraCommand>) {

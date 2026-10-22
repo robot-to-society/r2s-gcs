@@ -142,7 +142,7 @@ fn moving() -> RoiController {
 #[test]
 fn follow_sent_on_first_step_only() {
     let (c, out) = RoiController::new(angle_settings()).start(north()).unwrap();
-    assert!(out.commands.is_empty());
+    assert_eq!(out.commands, vec![CameraCommand::GimbalRate { yaw: 0, pitch: 0 }]);
     assert_eq!(c.status().active_target.as_deref(), Some("roi_1"));
     let (_, outs) = run(
         &c,
@@ -153,6 +153,17 @@ fn follow_sent_on_first_step_only() {
     );
     assert_eq!(outs.iter().map(modes).sum::<usize>(), 1);
     assert_eq!(all_angles(&outs).len(), 2);
+}
+
+/// I4: the operator's stick may have left the gimbal turning (its release zero is dropped
+/// while ROI is active), so a start always zeros, and a goal error keeps re-zeroing.
+#[test]
+fn start_forces_zero_even_when_controller_was_still() {
+    let (c, out) = RoiController::new(rate_settings()).start(north()).unwrap();
+    assert_eq!(rates(&out), vec![(0, 0)]);
+    let (_, out) = c.step(&inp(T0, None, None));
+    assert_eq!(c.status().error, None);
+    assert_eq!(rates(&out), vec![(0, 0)], "goal error after start re-sends the zero");
 }
 
 #[test]
@@ -370,14 +381,11 @@ fn rate_proportional_and_deadband() {
 #[test]
 fn rate_zero_not_sent_when_still() {
     let c = started(rate_settings(), north());
-    let (_, outs) = run(
-        &c,
-        &[
-            inp(T0, fix(Some(0.0), 0), att(0.0, 0.0, 0)),
-            inp(T0 + 100, fix(Some(0.0), 0), att(0.0, 0.0, 0)),
-        ],
-    );
-    assert!(all_rates(&outs).is_empty());
+    let still = |t| inp(t, fix(Some(0.0), 0), att(0.0, 0.0, 0));
+    let (_, outs) = run(&c, &[still(T0), still(T0 + 100), still(T0 + 200), still(T0 + 300)]);
+    // Only the start zero's two resends; nothing once they are spent.
+    assert_eq!(all_rates(&outs[..2]), vec![(0, 0), (0, 0)]);
+    assert!(all_rates(&outs[2..]).is_empty());
 }
 
 #[test]
