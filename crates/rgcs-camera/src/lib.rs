@@ -4,6 +4,7 @@
 pub mod camera;
 pub mod error;
 pub mod none;
+pub mod roi;
 pub mod siyi;
 
 pub use camera::Camera;
