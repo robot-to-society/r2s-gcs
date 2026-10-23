@@ -6,6 +6,7 @@ import type { Dict } from '../../shared/i18n'
 import type { NetVehicle, VehicleKind } from '../../shared/api/types'
 import { IconCamera, IconCopter, IconPlane, IconRover } from '../../shared/ui/icons'
 import { cameraLine, compLine, type NetStatus } from './graph'
+import { zoneLabelFs } from './layout'
 import type { Lod } from './viewport'
 
 export interface Kit {
@@ -51,10 +52,11 @@ export function Node({ kit, id, extra = '', children }: { readonly kit: Kit; rea
 }
 
 export function Zone({ x, y, w, h, label, tone = '', fs = 11 }: { readonly x: number; readonly y: number; readonly w: number; readonly h: number; readonly label: string; readonly tone?: string; readonly fs?: number }) {
+  const size = zoneLabelFs(label, w, fs)
   return (
     <g>
       <rect x={x} y={y} width={w} height={h} rx={18} className={`nzone ${tone}`.trim()} />
-      <text className="ncolh" x={x + 16} y={y + 12 + fs} style={{ fontSize: `${fs}px` }}>
+      <text className="ncolh" x={x + 16} y={y + 12 + size} style={{ fontSize: `${size}px` }}>
         {label}
       </text>
     </g>

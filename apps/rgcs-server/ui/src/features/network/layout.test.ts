@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { clientSession, mavLink, netVehicle, topology } from './fixture'
 import { toGraph } from './graph'
-import { CWD, layoutNetwork, linkPillY, RH, VH, VW } from './layout'
+import { CWD, layoutNetwork, linkPillY, MEDIA_PILL_W, mediaPillX, RH, VH, VW, zoneLabelFs } from './layout'
 
 const graphOf = (n: number, clients = 1) =>
   toGraph(topology(1, { links: [mavLink()], vehicles: Array.from({ length: n }, (_, i) => netVehicle(i + 1)), clients: Array.from({ length: clients }, (_, i) => clientSession(i + 1)) }))
@@ -51,5 +51,29 @@ describe('layoutNetwork', () => {
     expect(l.UX).toBeGreaterThan(l.HX + l.HW)
     expect(l.W).toBeGreaterThan(l.UX)
     expect(l.H).toBeGreaterThanOrEqual(l.HY + l.HH)
+  })
+
+  it('puts the media pill beside the server card, inside the site zone', () => {
+    for (const n of [1, 3, 8, 12]) {
+      const l = layoutNetwork(graphOf(n))
+      expect(mediaPillX(l)).toBeGreaterThanOrEqual(l.vx + 110 + 4)
+      expect(mediaPillX(l) + MEDIA_PILL_W).toBeLessThanOrEqual(l.zone.x + l.zone.w)
+    }
+  })
+})
+
+describe('zoneLabelFs', () => {
+  it('keeps the requested size when the label fits', () => {
+    expect(zoneLabelFs('クラウド', 400, 11)).toBe(11)
+  })
+
+  it('shrinks a label so it fits the zone width (compact / site LOD)', () => {
+    const fs = zoneLabelFs('インターネット', 130, 44)
+    expect(fs).toBeLessThan(44)
+    expect(fs * 7).toBeLessThanOrEqual(130 - 32)
+  })
+
+  it('counts ASCII as narrower than full-width text', () => {
+    expect(zoneLabelFs('Internet', 130, 44)).toBeGreaterThan(zoneLabelFs('インターネット', 130, 44))
   })
 })

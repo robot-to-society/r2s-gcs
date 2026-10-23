@@ -42,6 +42,18 @@ const GW_GAP = 34
 /** Centre line of the `MAVLink · <url>` link pill, between the vehicles and the server card. */
 export const linkPillY = (l: NetLayout): number => l.gwY - 20
 
+/** The 映像 (MediaMTX) pill, just right of the server card (`[vx − 110, gwY]`, 220 wide) so it
+ *  never covers the card's `<listen> · スタンドアロン` subtitle. */
+export const MEDIA_PILL_W = 112
+export const mediaPillX = (l: NetLayout): number => l.vx + 116
+
+/** Zone heading size: the LOD-scaled size, shrunk so the label fits inside the zone (the internet
+ *  column of one small site is only ~130 wide). Full-width glyphs count 1 em, others 0.6 em. */
+export function zoneLabelFs(label: string, w: number, fs: number): number {
+  const ems = [...label].reduce((sum, ch) => sum + (ch.charCodeAt(0) > 0xff ? 1 : 0.6), 0)
+  return ems === 0 ? fs : Math.min(fs, (w - 32) / ems)
+}
+
 /** Top of the client column (the first client card). */
 export const clientsY = (l: NetLayout): number => l.gwY + 92
 export const clientY = (l: NetLayout, i: number): number => clientsY(l) + i * CLIENT_STEP

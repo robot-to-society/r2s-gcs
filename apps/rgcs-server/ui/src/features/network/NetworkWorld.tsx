@@ -5,7 +5,7 @@ import type { ReactElement } from 'react'
 import type { Dict } from '../../shared/i18n'
 import { IconGlobe, IconLaptop, IconRadioTower, IconRouter, IconServer } from '../../shared/ui/icons'
 import { graphSummary, type NetGraph } from './graph'
-import { clientY, gatewayY, linkPillY, VH, VW, type NetLayout } from './layout'
+import { clientY, gatewayY, linkPillY, MEDIA_PILL_W, mediaPillX, VH, VW, zoneLabelFs, type NetLayout } from './layout'
 import { Card, Edge, Node, Pill, SvgIcon, VehicleBlock, Zone, type Kit, type PillState } from './svgParts'
 import type { Lod } from './viewport'
 
@@ -73,7 +73,7 @@ function mediaPill({ g, l, kit, dict }: Ctx): ReactElement {
   const r = g.media.reachable
   const val = r === null ? dict.netChecking : r ? dict.netReachable : dict.netUnreachable
   const state: PillState = r === null ? 'idle' : r ? 'ok' : 'warn'
-  return <Pill key="media" kit={kit} id="media" x={l.vx + 96} y={l.gwY + 24} w={128} label={dict.netVideo} val={val} state={state} />
+  return <Pill key="media" kit={kit} id="media" x={mediaPillX(l)} y={l.gwY + 24} w={MEDIA_PILL_W} label={dict.netVideo} val={val} state={state} />
 }
 
 /** rgcs-server in the GW slot, its link and media pills, and the WS clients hanging under it. */
@@ -164,7 +164,7 @@ function zones({ l, lod, dict }: Ctx): Layers {
       <Zone key="z:inet" x={l.IX - 10 * S} y={18} w={l.IW + 20 * S} h={l.H - 26} label={dict.netZoneInet} tone="inet" fs={fs} />,
       <Zone key="z:cloud" x={l.HX - 20 * S} y={18} w={l.HW + 40 * S} h={l.H - 26} label={dict.netZoneCloud} tone="cloud" fs={fs} />,
     ],
-    nodes: [<SvgIcon key="globe" icon={IconGlobe} x={l.IX + l.IW / 2 - 11 * S} y={18 + fs * 1.4 + 22} size={22 * S} />],
+    nodes: [<SvgIcon key="globe" icon={IconGlobe} x={l.IX + l.IW / 2 - 11 * S} y={18 + zoneLabelFs(dict.netZoneInet, l.IW + 20 * S, fs) * 1.4 + 22} size={22 * S} />],
   })
 }
 
