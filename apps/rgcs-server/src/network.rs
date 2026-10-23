@@ -205,16 +205,20 @@ fn video_path(s: &VideoSourceStatus) -> VideoPath {
     }
 }
 
-/// Strips `user:pass@` from a URL; anything unparsable passes through unchanged.
+/// Strips credentials (`user:pass@`, query, fragment) from a URL; an unparsable one is hidden.
 pub fn redact_url(url: &str) -> String {
     match url::Url::parse(url) {
-        Ok(mut u) if !u.username().is_empty() || u.password().is_some() => {
-            // Both only fail for cannot-be-a-base URLs, which carry no userinfo.
+        Ok(mut u) => {
+            // Credentials live in the userinfo, the query (?token=) or the fragment: drop all three.
+            // The setters only fail for cannot-be-a-base URLs, which carry no userinfo.
             let _ = u.set_username("");
             let _ = u.set_password(None);
+            u.set_query(None);
+            u.set_fragment(None);
             u.to_string()
         }
-        _ => url.to_string(),
+        // Echoing an unparsable value could leak whatever it holds.
+        Err(_) => "(invalid url)".into(),
     }
 }
 
@@ -523,6 +527,15 @@ mod tests {
             redact_url("http://10.0.0.2:8889/mt11/whep"),
             "http://10.0.0.2:8889/mt11/whep"
         );
-        assert_eq!(redact_url("not a url"), "not a url");
+        assert_eq!(redact_url("not a url"), "(invalid url)");
+    }
+
+    #[test]
+    fn redact_url_drops_query_and_fragment_where_tokens_live() {
+        assert_eq!(
+            redact_url("http://10.0.0.2:8889/mt11/whep?token=s3cret&x=1#frag"),
+            "http://10.0.0.2:8889/mt11/whep"
+        );
+        assert_eq!(redact_url("rtsp://u:p@cam:8554/live?auth=abc"), "rtsp://cam:8554/live");
     }
 }
