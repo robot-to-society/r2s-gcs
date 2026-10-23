@@ -9,7 +9,7 @@ use axum::Json;
 use rgcs_core::{
     CalibKind, CalibPhase, CalibRecord, CalibStatus, LinkStatus, ParamChange, SysId, VehicleCommand,
 };
-use rgcs_mavlink::{Outcome, QueuedCommand};
+use rgcs_mavlink::Outcome;
 use rgcs_store::audit::AuditInput;
 use rgcs_store::param_history::ParamHistoryInput;
 use serde::{Deserialize, Serialize};
@@ -403,17 +403,12 @@ fn unconfirmed(app: &AppState, token: Option<&str>, sysid: SysId, name: &str) ->
 
 /// Queues one COMMAND_LONG, waits for its ACK and audits it.
 async fn send(app: &AppState, operator: &str, sysid: SysId, mav_cmd: u16, params: [f32; 7]) -> Outcome {
-    let Some(kind) = app.router.lock().await.state(sysid).map(|v| v.kind) else {
+    let Some(vehicle) = app.router.lock().await.state(sysid).cloned() else {
         return Outcome::LinkClosed;
     };
     let cmd = VehicleCommand::Other { mav_cmd, params };
     let (done, rx) = oneshot::channel();
-    let job = QueuedCommand {
-        sysid,
-        kind,
-        cmd: cmd.clone(),
-        done,
-    };
+    let job = crate::commands::queued(&vehicle, cmd.clone(), done);
     let outcome = match app.queue.send(job).await {
         Ok(()) => rx.await.unwrap_or(Outcome::LinkClosed),
         Err(_) => Outcome::LinkClosed,

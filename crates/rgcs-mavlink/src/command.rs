@@ -24,6 +24,18 @@ pub enum EncodeError {
     UnknownMode(String),
     #[error("{0} is not implemented yet")]
     NotImplemented(&'static str),
+    #[error("{0}")]
+    NotForKind(String),
+}
+
+/// What the encoder knows about the target airframe (from the server's `VehicleState`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Frame<'a> {
+    pub kind: VehicleKind,
+    /// A plane that hovers (QuadPlane).
+    pub vtol: bool,
+    /// The current flight mode name.
+    pub mode: &'a str,
 }
 
 /// One outgoing message and the MAV_CMD whose COMMAND_ACK completes it.
@@ -49,7 +61,7 @@ fn command_long(target: u8, command: MavCmd, params: [f32; 7]) -> MavMessage {
     })
 }
 
-fn set_mode(target: u8, kind: VehicleKind, name: &str) -> Result<Encoded, EncodeError> {
+pub(crate) fn set_mode(target: u8, kind: VehicleKind, name: &str) -> Result<Encoded, EncodeError> {
     let number = mode_number(kind, name).ok_or_else(|| EncodeError::UnknownMode(name.to_string()))?;
     // MAV_MODE_FLAG_CUSTOM_MODE_ENABLED = 1, custom mode in param2.
     Ok(Encoded {
@@ -62,14 +74,22 @@ fn set_mode(target: u8, kind: VehicleKind, name: &str) -> Result<Encoded, Encode
     })
 }
 
-fn simple(target: u8, command: MavCmd, params: [f32; 7]) -> Encoded {
+pub(crate) fn simple(target: u8, command: MavCmd, params: [f32; 7]) -> Encoded {
     Encoded {
         message: command_long(target, command, params),
         ack_for: command,
     }
 }
 
-/// Encode a command for `target`. `kind` picks the mode table.
+/// Encode a command as the messages to send in order, each completed by its own ACK.
+pub fn encode_steps(cmd: &VehicleCommand, frame: &Frame, target: u8) -> Result<Vec<Encoded>, EncodeError> {
+    match cmd {
+        VehicleCommand::Takeoff { alt_rel } => crate::takeoff::takeoff_steps(frame, *alt_rel, target),
+        other => encode(other, frame.kind, target).map(|e| vec![e]),
+    }
+}
+
+/// Encode a single-message command for `target`. `kind` picks the mode table.
 pub fn encode(cmd: &VehicleCommand, kind: VehicleKind, target: u8) -> Result<Encoded, EncodeError> {
     use VehicleCommand::*;
     let z = [0.0; 7];
@@ -95,6 +115,8 @@ pub fn encode(cmd: &VehicleCommand, kind: VehicleKind, target: u8) -> Result<Enc
             ))
         }
         ChangeAlt { .. } => Err(EncodeError::NotImplemented("change_alt")),
+        // Several steps that depend on the airframe and mode: see `encode_steps`.
+        Takeoff { .. } => Err(EncodeError::NotImplemented("single-message takeoff")),
         Other { mav_cmd, params } => {
             let command = mav_cmd_from_u16(*mav_cmd).ok_or(EncodeError::NotImplemented("unknown MAV_CMD"))?;
             Ok(simple(target, command, *params))

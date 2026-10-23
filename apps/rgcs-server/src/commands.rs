@@ -5,7 +5,7 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use axum::Json;
-use rgcs_core::{CommandResult, LinkStatus, ServerMessage, SysId, VehicleCommand, VehicleState};
+use rgcs_core::{CommandResult, LinkStatus, ServerMessage, SysId, VehicleCommand, VehicleKind, VehicleState};
 use rgcs_mavlink::{Outcome, QueuedCommand};
 use rgcs_store::audit::AuditInput;
 use serde::{Deserialize, Serialize};
@@ -74,7 +74,32 @@ pub fn precheck(cmd: &VehicleCommand, v: &VehicleState) -> Option<(StatusCode, &
             Some((StatusCode::CONFLICT, "rejected", "already disarmed".into()))
         }
         VehicleCommand::Other { mav_cmd, params } => crate::other_guard::check(*mav_cmd, params, v),
+        VehicleCommand::Takeoff { .. } => takeoff_refusal(v),
         _ => None,
+    }
+}
+
+/// Takeoff needs something that flies (spec 50 §2.2), already armed.
+fn takeoff_refusal(v: &VehicleState) -> Option<(StatusCode, &'static str, String)> {
+    if matches!(v.kind, VehicleKind::Rover | VehicleKind::Other) {
+        return Some((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "not_allowed",
+            "takeoff is only for copters and planes".into(),
+        ));
+    }
+    (!v.armed).then(|| (StatusCode::CONFLICT, "rejected", "arm first".into()))
+}
+
+/// The queue job for `cmd` on `v`: its airframe and mode pick how a takeoff is sent.
+pub fn queued(v: &VehicleState, cmd: VehicleCommand, done: oneshot::Sender<Outcome>) -> QueuedCommand {
+    QueuedCommand {
+        sysid: v.sysid,
+        kind: v.kind,
+        vtol: v.vtol,
+        mode: v.mode.clone(),
+        cmd,
+        done,
     }
 }
 
@@ -92,6 +117,10 @@ pub async fn command(
             format!("vehicle {sysid} is not connected"),
         );
     };
+    if let Some(reason) = cmd.invalid() {
+        audit(&app, &op.username, sysid, &cmd, "rejected", Some(&reason)).await;
+        return err(StatusCode::BAD_REQUEST, "invalid", reason);
+    }
     if cmd.requires_confirm() {
         let verdict = body
             .confirm_token
@@ -108,12 +137,7 @@ pub async fn command(
     }
     let id = app.next_command_id();
     let (done_tx, done_rx) = oneshot::channel();
-    let job = QueuedCommand {
-        sysid,
-        kind: vehicle.kind,
-        cmd: cmd.clone(),
-        done: done_tx,
-    };
+    let job = queued(&vehicle, cmd.clone(), done_tx);
     if app.queue.send(job).await.is_err() {
         return err(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -187,6 +211,7 @@ async fn audit(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rgcs_core::VehicleKind;
 
     #[test]
     fn prechecks_follow_the_live_state() {
@@ -201,12 +226,53 @@ mod tests {
     }
 
     #[test]
+    fn takeoff_needs_an_armed_vehicle_that_flies() {
+        let takeoff = VehicleCommand::Takeoff { alt_rel: 30.0 };
+        let mut v = VehicleState::new(1, "UAV-01");
+        v.kind = VehicleKind::Copter;
+        let (status, code, reason) = precheck(&takeoff, &v).unwrap();
+        assert_eq!(
+            (status, code, reason.as_str()),
+            (StatusCode::CONFLICT, "rejected", "arm first")
+        );
+        v.armed = true;
+        assert!(precheck(&takeoff, &v).is_none());
+        v.kind = VehicleKind::Plane;
+        assert!(precheck(&takeoff, &v).is_none());
+        for kind in [VehicleKind::Rover, VehicleKind::Other] {
+            v.kind = kind;
+            let (status, code, _) = precheck(&takeoff, &v).unwrap();
+            assert_eq!((status, code), (StatusCode::UNPROCESSABLE_ENTITY, "not_allowed"));
+        }
+        v.link = LinkStatus::Lost;
+        assert_eq!(precheck(&takeoff, &v).unwrap().1, "link_lost");
+    }
+
+    #[test]
+    fn the_queued_job_carries_the_airframe_and_mode() {
+        let mut v = VehicleState::new(4, "VTOL-1");
+        v.kind = VehicleKind::Plane;
+        v.vtol = true;
+        v.mode = "QLOITER".into();
+        let (done, _rx) = oneshot::channel();
+        let job = queued(&v, VehicleCommand::Takeoff { alt_rel: 40.0 }, done);
+        assert_eq!(
+            (job.sysid, job.kind, job.vtol, job.mode.as_str()),
+            (4, VehicleKind::Plane, true, "QLOITER")
+        );
+        assert_eq!(job.cmd, VehicleCommand::Takeoff { alt_rel: 40.0 });
+    }
+
+    #[test]
     fn a_raw_arm_cannot_skip_the_confirm_token() {
         let arm = VehicleCommand::Other {
             mav_cmd: 400,
             params: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         };
-        assert_eq!(precheck(&arm, &VehicleState::new(1, "UAV-01")).unwrap().1, "not_allowed");
+        assert_eq!(
+            precheck(&arm, &VehicleState::new(1, "UAV-01")).unwrap().1,
+            "not_allowed"
+        );
     }
 
     #[test]

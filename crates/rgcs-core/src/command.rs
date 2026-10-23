@@ -24,6 +24,11 @@ pub enum VehicleCommand {
     },
     MissionStart,
     MissionResume,
+    /// Leave the ground: Copter / QuadPlane climb to `alt_rel` (GUIDED + NAV_TAKEOFF); a plain
+    /// fixed wing switches to TAKEOFF mode and climbs to its TKOFF_ALT (`alt_rel` unused).
+    Takeoff {
+        alt_rel: f32,
+    },
     Arm,
     Disarm,
     /// Any other MAV_CMD, sent as COMMAND_LONG.
@@ -36,7 +41,20 @@ pub enum VehicleCommand {
 impl VehicleCommand {
     /// Commands that need a confirm token (spec 70 §1). Mode change, RTL and land do not.
     pub fn requires_confirm(&self) -> bool {
-        matches!(self, Self::Arm | Self::Disarm | Self::MissionStart)
+        matches!(
+            self,
+            Self::Arm | Self::Disarm | Self::MissionStart | Self::Takeoff { .. }
+        )
+    }
+
+    /// Why the arguments are out of range (HTTP 400), if they are.
+    pub fn invalid(&self) -> Option<String> {
+        match self {
+            Self::Takeoff { alt_rel } if !(alt_rel.is_finite() && (1.0..=1000.0).contains(alt_rel)) => {
+                Some("takeoff altitude must be 1 to 1000 m".into())
+            }
+            _ => None,
+        }
     }
 
     /// Stable name used in the audit log and in `CommandResult.cmd`.
@@ -51,6 +69,7 @@ impl VehicleCommand {
             Self::SetMode { .. } => "set_mode",
             Self::MissionStart => "mission_start",
             Self::MissionResume => "mission_resume",
+            Self::Takeoff { .. } => "takeoff",
             Self::Arm => "arm",
             Self::Disarm => "disarm",
             Self::Other { .. } => "other",
@@ -98,6 +117,28 @@ mod tests {
         assert!(!VehicleCommand::Land.requires_confirm());
         assert!(!VehicleCommand::Pause.requires_confirm());
         assert!(!VehicleCommand::ChangeAlt { alt_rel: 50.0 }.requires_confirm());
+    }
+
+    #[test]
+    fn takeoff_needs_confirmation_and_carries_its_altitude() {
+        let t: VehicleCommand = serde_json::from_str(r#"{"cmd":"takeoff","args":{"alt_rel":30}}"#).unwrap();
+        assert_eq!(t, VehicleCommand::Takeoff { alt_rel: 30.0 });
+        assert!(t.requires_confirm());
+        assert_eq!(t.name(), "takeoff");
+        assert_eq!(t.mav_cmd(), None);
+    }
+
+    #[test]
+    fn takeoff_altitude_must_be_1_to_1000_m() {
+        assert_eq!(VehicleCommand::Takeoff { alt_rel: 1.0 }.invalid(), None);
+        assert_eq!(VehicleCommand::Takeoff { alt_rel: 1000.0 }.invalid(), None);
+        for bad in [0.5, 1000.5, -10.0, f32::NAN, f32::INFINITY] {
+            assert!(
+                VehicleCommand::Takeoff { alt_rel: bad }.invalid().is_some(),
+                "{bad}"
+            );
+        }
+        assert_eq!(VehicleCommand::Arm.invalid(), None);
     }
 
     #[test]

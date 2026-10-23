@@ -9,7 +9,7 @@ use rgcs_core::{SysId, VehicleCommand, VehicleKind};
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tracing::{debug, warn};
 
-use crate::command::{encode, EncodeError};
+use crate::command::{encode_steps, EncodeError, Encoded, Frame};
 
 pub const ACK_TIMEOUT: Duration = Duration::from_millis(1500);
 pub const ATTEMPTS: u32 = 3;
@@ -58,6 +58,10 @@ impl Outcome {
 pub struct QueuedCommand {
     pub sysid: SysId,
     pub kind: VehicleKind,
+    /// A plane that hovers (QuadPlane); with `mode` it picks how a takeoff is sent.
+    pub vtol: bool,
+    /// The vehicle's flight mode when the command was queued.
+    pub mode: String,
     pub cmd: VehicleCommand,
     pub done: oneshot::Sender<Outcome>,
 }
@@ -79,23 +83,45 @@ async fn execute(
     link: &mpsc::Sender<Outgoing>,
     acks: &broadcast::Sender<Ack>,
 ) -> Outcome {
-    let encoded = match encode(&job.cmd, job.kind, job.sysid) {
+    let frame = Frame {
+        kind: job.kind,
+        vtol: job.vtol,
+        mode: &job.mode,
+    };
+    let steps = match encode_steps(&job.cmd, &frame, job.sysid) {
         Ok(e) => e,
         Err(EncodeError::UnknownMode(m)) => return Outcome::Encode(format!("unknown mode {m}")),
         Err(e) => return Outcome::Encode(e.to_string()),
     };
+    // Each step must be accepted before the next one goes out (e.g. GUIDED, then NAV_TAKEOFF).
+    for step in &steps {
+        let outcome = send_step(job, step, link, acks).await;
+        if !outcome.ok() {
+            return outcome;
+        }
+    }
+    Outcome::Accepted
+}
+
+/// Sends one message, retrying until its ACK arrives or the attempts run out.
+async fn send_step(
+    job: &QueuedCommand,
+    step: &Encoded,
+    link: &mpsc::Sender<Outgoing>,
+    acks: &broadcast::Sender<Ack>,
+) -> Outcome {
     for attempt in 1..=ATTEMPTS {
         let mut rx = acks.subscribe();
         if link
             .send(Outgoing {
-                message: encoded.message.clone(),
+                message: step.message.clone(),
             })
             .await
             .is_err()
         {
             return Outcome::LinkClosed;
         }
-        match wait_ack(&mut rx, job.sysid, encoded.ack_for, ACK_TIMEOUT).await {
+        match wait_ack(&mut rx, job.sysid, step.ack_for, ACK_TIMEOUT).await {
             Some(result) => return classify(result),
             None => debug!(
                 attempt,
@@ -157,6 +183,8 @@ mod tests {
             QueuedCommand {
                 sysid: 1,
                 kind: VehicleKind::Copter,
+                vtol: false,
+                mode: "STABILIZE".into(),
                 cmd,
                 done: tx,
             },
@@ -272,5 +300,85 @@ mod tests {
         drop(_link_rx);
         let (j, _d) = job(VehicleCommand::Arm);
         assert_eq!(execute(&j, &link_tx, &ack_tx).await, Outcome::LinkClosed);
+    }
+
+    fn ack(tx: &broadcast::Sender<Ack>, command: MavCmd, result: MavResult) {
+        tx.send(Ack {
+            sysid: 1,
+            command,
+            result,
+        })
+        .unwrap();
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn takeoff_switches_to_guided_then_sends_nav_takeoff() {
+        let (link_tx, mut link_rx) = mpsc::channel(8);
+        let (ack_tx, _) = broadcast::channel(8);
+        let (j, _done) = job(VehicleCommand::Takeoff { alt_rel: 20.0 });
+        let acks = ack_tx.clone();
+        let task = tokio::spawn(async move { execute(&j, &link_tx, &acks).await });
+        let first = link_rx.recv().await.unwrap();
+        assert_eq!(sent_command(&first), MavCmd::MAV_CMD_DO_SET_MODE);
+        ack(
+            &ack_tx,
+            MavCmd::MAV_CMD_DO_SET_MODE,
+            MavResult::MAV_RESULT_ACCEPTED,
+        );
+        let second = link_rx.recv().await.unwrap();
+        let MavMessage::COMMAND_LONG(d) = &second.message else {
+            panic!("{second:?}")
+        };
+        assert_eq!((d.command, d.param7), (MavCmd::MAV_CMD_NAV_TAKEOFF, 20.0));
+        ack(
+            &ack_tx,
+            MavCmd::MAV_CMD_NAV_TAKEOFF,
+            MavResult::MAV_RESULT_ACCEPTED,
+        );
+        assert_eq!(task.await.unwrap(), Outcome::Accepted);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn takeoff_stops_when_the_mode_change_is_refused() {
+        let (link_tx, mut link_rx) = mpsc::channel(8);
+        let (ack_tx, _) = broadcast::channel(8);
+        let (j, _done) = job(VehicleCommand::Takeoff { alt_rel: 20.0 });
+        let acks = ack_tx.clone();
+        let task = tokio::spawn(async move { execute(&j, &link_tx, &acks).await });
+        link_rx.recv().await.unwrap();
+        ack(&ack_tx, MavCmd::MAV_CMD_DO_SET_MODE, MavResult::MAV_RESULT_DENIED);
+        assert_eq!(task.await.unwrap(), Outcome::Refused("denied".into()));
+        assert!(
+            link_rx.recv().await.is_none(),
+            "no NAV_TAKEOFF after a refused mode change"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn takeoff_reports_a_refused_nav_takeoff() {
+        let (link_tx, mut link_rx) = mpsc::channel(8);
+        let (ack_tx, _) = broadcast::channel(8);
+        let (mut j, _done) = job(VehicleCommand::Takeoff { alt_rel: 20.0 });
+        j.mode = "GUIDED".into();
+        let acks = ack_tx.clone();
+        let task = tokio::spawn(async move { execute(&j, &link_tx, &acks).await });
+        assert_eq!(
+            sent_command(&link_rx.recv().await.unwrap()),
+            MavCmd::MAV_CMD_NAV_TAKEOFF
+        );
+        ack(&ack_tx, MavCmd::MAV_CMD_NAV_TAKEOFF, MavResult::MAV_RESULT_FAILED);
+        assert_eq!(task.await.unwrap(), Outcome::Refused("failed".into()));
+    }
+
+    #[tokio::test]
+    async fn rover_takeoff_is_an_encode_error() {
+        let (link_tx, _link_rx) = mpsc::channel(8);
+        let (ack_tx, _) = broadcast::channel(8);
+        let (mut j, _d) = job(VehicleCommand::Takeoff { alt_rel: 20.0 });
+        j.kind = VehicleKind::Rover;
+        assert_eq!(
+            execute(&j, &link_tx, &ack_tx).await,
+            Outcome::Encode("this vehicle cannot take off".into())
+        );
     }
 }
