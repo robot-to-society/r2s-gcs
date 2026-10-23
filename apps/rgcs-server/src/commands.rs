@@ -91,6 +91,26 @@ fn takeoff_refusal(v: &VehicleState) -> Option<(StatusCode, &'static str, String
     (!v.armed).then(|| (StatusCode::CONFLICT, "rejected", "arm first".into()))
 }
 
+/// MAVLink id of EXTENDED_SYS_STATE, whose `vtol_state` tells a QuadPlane from a plain plane.
+pub const EXTENDED_SYS_STATE_ID: u32 = 245;
+
+/// A plane's takeoff waits until EXTENDED_SYS_STATE has been seen (`vtol_seen`): until then a
+/// QuadPlane reads `vtol: false` and would be sent the fixed-wing TAKEOFF mode.
+pub fn vtol_unknown(
+    cmd: &VehicleCommand,
+    v: &VehicleState,
+    vtol_seen: bool,
+) -> Option<(StatusCode, &'static str, String)> {
+    let waits = matches!(cmd, VehicleCommand::Takeoff { .. }) && v.kind == VehicleKind::Plane;
+    (waits && !vtol_seen).then(|| {
+        (
+            StatusCode::CONFLICT,
+            "vtol_unknown",
+            "not yet known whether this plane is a VTOL; try again in a few seconds".into(),
+        )
+    })
+}
+
 /// The queue job for `cmd` on `v`: its airframe and mode pick how a takeoff is sent.
 pub fn queued(v: &VehicleState, cmd: VehicleCommand, done: oneshot::Sender<Outcome>) -> QueuedCommand {
     QueuedCommand {
@@ -110,7 +130,12 @@ pub async fn command(
     Json(body): Json<CommandBody>,
 ) -> Response {
     let cmd = body.command;
-    let Some(vehicle) = app.router.lock().await.state(sysid).cloned() else {
+    let (vehicle, vtol_seen) = {
+        let router = app.router.lock().await;
+        let seen = router.message_age_ms(sysid, EXTENDED_SYS_STATE_ID).is_some();
+        (router.state(sysid).cloned(), seen)
+    };
+    let Some(vehicle) = vehicle else {
         return err(
             StatusCode::NOT_FOUND,
             "not_found",
@@ -131,7 +156,8 @@ pub async fn command(
             return err(StatusCode::CONFLICT, "confirm_required", reason);
         }
     }
-    if let Some((status, code, reason)) = precheck(&cmd, &vehicle) {
+    let refusal = precheck(&cmd, &vehicle).or_else(|| vtol_unknown(&cmd, &vehicle, vtol_seen));
+    if let Some((status, code, reason)) = refusal {
         audit(&app, &op.username, sysid, &cmd, "rejected", Some(&reason)).await;
         return err(status, code, reason);
     }
@@ -246,6 +272,23 @@ mod tests {
         }
         v.link = LinkStatus::Lost;
         assert_eq!(precheck(&takeoff, &v).unwrap().1, "link_lost");
+    }
+
+    #[test]
+    fn plane_takeoff_waits_until_vtol_is_known() {
+        let takeoff = VehicleCommand::Takeoff { alt_rel: 30.0 };
+        let mut v = VehicleState::new(1, "FW-1");
+        v.kind = VehicleKind::Plane;
+        let (status, code, _) = vtol_unknown(&takeoff, &v, false).unwrap();
+        assert_eq!((status, code), (StatusCode::CONFLICT, "vtol_unknown"));
+        assert!(vtol_unknown(&takeoff, &v, true).is_none());
+        v.kind = VehicleKind::Copter;
+        assert!(vtol_unknown(&takeoff, &v, false).is_none(), "copters never wait");
+        v.kind = VehicleKind::Plane;
+        assert!(
+            vtol_unknown(&VehicleCommand::Rtl, &v, false).is_none(),
+            "only takeoff waits"
+        );
     }
 
     #[test]

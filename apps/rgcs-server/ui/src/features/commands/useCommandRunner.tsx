@@ -6,6 +6,7 @@ import type { LogEntry, VehicleCommand, VehicleState } from '../../shared/api/ty
 import type { Dict } from '../../shared/i18n'
 import { requestConfirm } from './api'
 import { ConfirmDialog } from './ConfirmDialog'
+import { errorText } from './errorText'
 import { clearPress, failPress, NO_FEEDBACK, press, settle, stateOf, type BtnState, type Feedback } from './feedback'
 import { runCommand, type RunResult, type SendFn } from './useCommand'
 
@@ -60,7 +61,7 @@ export function useCommandRunner({ entries, dict, vehicleOf, onError, deps }: Ar
       setPending({ sysid, command, message: r.message })
     } else if (r.kind === 'error') {
       setFb((f) => failPress(f, sysid, command.cmd, Date.now()))
-      onError(sysid, command, r.message)
+      onError(sysid, command, errorText(r.code, r.message, dict))
     }
   }
   const pick = (sysid: number, command: VehicleCommand) => {

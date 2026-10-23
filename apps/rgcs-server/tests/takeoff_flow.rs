@@ -2,7 +2,14 @@ mod common;
 
 use axum::http::{Method, StatusCode};
 use common::*;
+use mavlink::dialects::ardupilotmega::{
+    MavAutopilot, MavLandedState, MavMessage, MavModeFlag, MavState, MavType, MavVtolState,
+    EXTENDED_SYS_STATE_DATA, HEARTBEAT_DATA,
+};
+use mavlink::MavHeader;
 use rgcs_core::VehicleCommand;
+use rgcs_mavlink::Clock;
+use rgcs_server::app::AppState;
 use serde_json::{json, Value};
 
 async fn token(app: &axum::Router, cookie: &str) -> String {
@@ -79,5 +86,52 @@ async fn confirmed_takeoff_of_an_armed_copter_is_queued() {
     assert_eq!(
         recorded.recv().await,
         Some(VehicleCommand::Takeoff { alt_rel: 20.0 })
+    );
+}
+
+const HEADER: MavHeader = MavHeader {
+    system_id: 1,
+    component_id: 1,
+    sequence: 0,
+};
+
+/// An armed ArduPlane in FBWA (5); QuadPlanes report FIXED_WING too.
+async fn seed_armed_plane(app: &AppState) {
+    let hb = HEARTBEAT_DATA {
+        custom_mode: 5,
+        mavtype: MavType::MAV_TYPE_FIXED_WING,
+        autopilot: MavAutopilot::MAV_AUTOPILOT_ARDUPILOTMEGA,
+        base_mode: MavModeFlag::MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MavModeFlag::MAV_MODE_FLAG_SAFETY_ARMED,
+        system_status: MavState::MAV_STATE_ACTIVE,
+        mavlink_version: 3,
+    };
+    let mut router = app.router.lock().await;
+    router.on_message(&HEADER, &MavMessage::HEARTBEAT(hb), Clock::default());
+}
+
+#[tokio::test]
+async fn plane_takeoff_is_409_vtol_unknown_until_extended_sys_state_arrives() {
+    let (app, state, mut recorded, _out) = spawn_app_recording().await;
+    seed_armed_plane(&state).await;
+    let cookie = login(&app).await;
+    let t = token(&app, &cookie).await;
+    let (status, body) = takeoff(&app, &cookie, json!(30), Some(&t)).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(error_code(&body), "vtol_unknown");
+    let ext = EXTENDED_SYS_STATE_DATA {
+        vtol_state: MavVtolState::MAV_VTOL_STATE_MC,
+        landed_state: MavLandedState::MAV_LANDED_STATE_ON_GROUND,
+    };
+    state
+        .router
+        .lock()
+        .await
+        .on_message(&HEADER, &MavMessage::EXTENDED_SYS_STATE(ext), Clock::default());
+    let t = token(&app, &cookie).await;
+    let (status, body) = takeoff(&app, &cookie, json!(30), Some(&t)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        recorded.recv().await,
+        Some(VehicleCommand::Takeoff { alt_rel: 30.0 })
     );
 }

@@ -10,7 +10,7 @@
 | 即時 | `pause`, `resume`, `rtl`, `land`, `set_mode`, `change_alt`, `change_speed`, `mission_resume` | 確認不要(2026-10-21 変更: モード変更・RTL・着陸は確認ポップアップなしで送る)。ただし未ログインは不可 |
 | 禁止 | MT11 `0x48`(SD フォーマット) | ドライバ最下層で拒否。API にも存在しない |
 
-- サーバーは UI の状態を信用しない: ARM 済み機体への `arm` は `rejected`、DISARM 済みへの `disarm` も同様。DISARM 中の `takeoff` は `409 rejected`(arm first)、Rover への `takeoff` は `422 not_allowed`(2026-10-23)。
+- サーバーは UI の状態を信用しない: ARM 済み機体への `arm` は `rejected`、DISARM 済みへの `disarm` も同様。DISARM 中の `takeoff` は `409 rejected`(arm first)、Rover への `takeoff` は `422 not_allowed`(2026-10-23)。Plane への `takeoff` は EXTENDED_SYS_STATE(245)を一度も受けていない間は `409 vtol_unknown`(QuadPlane が `vtol: false` に見えて固定翼の TAKEOFF モードを送らないため。UI「機体の種類(VTOL)を確認中です。数秒後にもう一度」)。
 - `other(mav_cmd, params)`(2026-10-22): 通すのは UI が使う MAV_CMD だけ。`224`(DO_SET_MISSION_CURRENT)、`511`(SET_MESSAGE_INTERVAL)、`246`(オートパイロットの再起動のみ: param1 = 1 で他は 0、それ以外(シャットダウン・ブートローダー・コンパニオン再起動など)は `400 invalid`。DISARM 中のみ、ARM 中は `409 vehicle_armed`)。それ以外は `422 not_allowed`(`400` ARM_DISARM・`300` MISSION_START で確認トークンを迂回させない)。`511` は HEARTBEAT(0)の変更を `400 invalid`、ARM 中にコアテレメトリ(0 / 1 / 24 / 30 / 33 / 42 / 74)を止める・0.5 Hz より遅くするのを `409 vehicle_armed`。param1 が整数のメッセージ ID でない、param2 が -1 未満・非有限、1〜9 999 µs(100 Hz より速い)も `400 invalid`(2026-10-23)。
 - Guided 移動: 高度はジオフェンス上限(`FENCE_ALT_MAX`)を超える値を送信前に拒否(`FENCE_ENABLE`=1 のとき)。両パラメータが未取得なら `PARAM_REQUEST_READ` を送り、`warning: fence_unknown` を付けて通す。「初回」= プロセス起動後に機体ごと 1 回の確認。
 - リンク喪失(`LinkLost`)中のコマンドは `503 link_lost`。`CommsDelay` 中は送るが結果待ちを 5 s に延ばす。
