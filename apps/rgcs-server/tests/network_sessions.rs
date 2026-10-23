@@ -48,3 +48,43 @@ async fn ws_session_is_listed_with_address_and_removed_on_close() {
     wait_for("session removal", || state.sessions.list().is_empty()).await;
     server.abort();
 }
+
+/// A WS client with this request; the first (snapshot) frame is already read.
+async fn connect_client(
+    port: u16,
+    cookie: &str,
+) -> tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>> {
+    let mut req = format!("ws://127.0.0.1:{port}/ws").into_client_request().unwrap();
+    req.headers_mut().insert("cookie", HeaderValue::from_str(cookie).unwrap());
+    let (mut socket, _) = tokio_tungstenite::connect_async(req).await.expect("ws connect");
+    socket.next().await.expect("snapshot frame").expect("frame ok");
+    socket
+}
+
+/// Review M4: a half-open socket (the client never answers a ping) is dropped after the
+/// 45 s idle timeout; a client that keeps reading (and so answers pings) stays listed.
+#[tokio::test]
+async fn half_open_ws_session_is_dropped_after_the_idle_timeout() {
+    let (router, state) = common::spawn_app().await;
+    let cookie = common::login(&router).await;
+    let served = app::build(state.clone(), None).into_make_service_with_connect_info::<SocketAddr>();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = tokio::spawn(async move { axum::serve(listener, served).await });
+
+    let silent = connect_client(port, &cookie).await;
+    let mut live = connect_client(port, &cookie).await;
+    let reader = tokio::spawn(async move { while let Some(Ok(_)) = live.next().await {} });
+    wait_for("two sessions", || state.sessions.list().len() == 2).await;
+
+    tokio::time::pause();
+    tokio::time::sleep(Duration::from_secs(30)).await;
+    assert_eq!(state.sessions.list().len(), 2, "both live before the timeout");
+    tokio::time::sleep(Duration::from_secs(30)).await;
+    wait_for("the half-open session to drop", || state.sessions.list().len() == 1).await;
+    tokio::time::sleep(Duration::from_secs(60)).await;
+    assert_eq!(state.sessions.list().len(), 1, "the answering client stays");
+    drop(silent);
+    reader.abort();
+    server.abort();
+}

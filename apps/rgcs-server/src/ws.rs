@@ -21,6 +21,10 @@ use crate::roi::ManualVerdict;
 /// Deadman check cadence: 250 ms keeps the worst case under 1.75 s (spec 70 §2: 1.5 s).
 const DEADMAN_TICK: std::time::Duration = std::time::Duration::from_millis(250);
 const MAX_MESSAGE_SIZE: usize = 16 * 1024;
+/// Keepalive: a Ping this often; a session with no frame from the client (Pong or any other)
+/// for `WS_IDLE_TIMEOUT` is half-open and is dropped, so it leaves no ghost client row.
+const WS_PING_EVERY: std::time::Duration = std::time::Duration::from_secs(15);
+const WS_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(45);
 
 pub async fn handler(
     ws: WebSocketUpgrade,
@@ -82,6 +86,9 @@ async fn session(
     let mut gate = Gate::default();
     let mut deadman = tokio::time::interval(DEADMAN_TICK);
     deadman.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut keepalive = tokio::time::interval_at(tokio::time::Instant::now() + WS_PING_EVERY, WS_PING_EVERY);
+    keepalive.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut last_rx = tokio::time::Instant::now();
     loop {
         tokio::select! {
             frame = rx.recv() => match frame {
@@ -95,6 +102,7 @@ async fn session(
             },
             incoming = stream.next() => match incoming {
                 Some(Ok(Message::Text(text))) => {
+                    last_rx = tokio::time::Instant::now();
                     let (next, replies) = handle_client(&gate, &app, &operator, &text, unix_ms()).await;
                     gate = next;
                     for reply in replies {
@@ -102,7 +110,14 @@ async fn session(
                     }
                 }
                 Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
-                Some(Ok(_)) => {}
+                Some(Ok(_)) => last_rx = tokio::time::Instant::now(),
+            },
+            _ = keepalive.tick() => {
+                if last_rx.elapsed() >= WS_IDLE_TIMEOUT {
+                    warn!(operator = %operator, "ws client silent, dropping half-open session");
+                    break;
+                }
+                if sink.send(Message::Ping(Default::default())).await.is_err() { break; }
             },
             _ = deadman.tick() => {
                 let (next, replies) = deadman_tick(&gate, &app, &operator, unix_ms()).await;
