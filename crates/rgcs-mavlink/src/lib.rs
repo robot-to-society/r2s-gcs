@@ -10,6 +10,7 @@ pub mod heartbeat;
 pub mod inspector;
 pub mod interval;
 pub mod link;
+pub mod link_stats;
 pub mod log_frame;
 pub mod mission_frame;
 pub mod modes;
@@ -27,6 +28,7 @@ pub use command::{
 pub use connection::{run_link, LinkChannels};
 pub use inspector::Inspector;
 pub use link::{LinkUrl, LinkUrlError};
+pub use link_stats::{component_kind, frame_bytes, ComponentStats, LinkStats, LinkStatsSnapshot};
 pub use log_frame::LogFrame;
 pub use mission_frame::MissionFrame;
 pub use port::{tap, MavPort, PayloadFrame, PortError, PAYLOAD_CAPACITY, PAYLOAD_IDS};

@@ -15,6 +15,7 @@ pub mod jst;
 pub mod log;
 pub mod logbook;
 pub mod mission;
+pub mod network;
 pub mod operator;
 pub mod params;
 pub mod roi;
@@ -56,6 +57,7 @@ pub use mission::{
     MAV_CMD_DO_JUMP, MAV_CMD_NAV_LAND, MAV_CMD_NAV_RETURN_TO_LAUNCH, MAV_CMD_NAV_TAKEOFF,
     MAV_CMD_NAV_WAYPOINT,
 };
+pub use network::ComponentKind;
 pub use operator::Operator;
 pub use params::{ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult};
 pub use roi::{

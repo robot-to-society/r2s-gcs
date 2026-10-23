@@ -73,6 +73,8 @@ async fn main() -> anyhow::Result<()> {
         gcs: state.gcs.clone(),
         inspector: state.inspector.clone(),
         payload: payload_tx,
+        // AppState.link_stats arrives with the network API (network view plan Task 4).
+        stats: rgcs_mavlink::LinkStats::default(),
     };
     tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), channels));
     tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx, acks_tx));

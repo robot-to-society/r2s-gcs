@@ -41,6 +41,8 @@ pub struct LinkChannels {
     pub inspector: crate::inspector::Inspector,
     /// Camera / gimbal frames from any component, for the MAVLink camera driver.
     pub payload: broadcast::Sender<crate::port::PayloadFrame>,
+    /// Per-component rates, bytes and sequence loss plus connection state (network view).
+    pub stats: crate::link_stats::LinkStats,
 }
 
 /// Wall + monotonic clock for the router, anchored at task start.
@@ -84,16 +86,22 @@ pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, mut ch: LinkChan
         match tokio::time::timeout(CONNECT_TIMEOUT, mavlink::connect_async::<MavMessage>(&address)).await {
             Ok(Ok(conn)) => {
                 info!(link = %url, "mavlink link connected");
+                ch.stats.on_connected(clock.now().unix_ms);
                 let conn: Conn = Arc::from(conn);
-                if receive_loop(conn, &router, &mut ch, clock, &mut link)
-                    .await
-                    .is_err()
-                {
+                let result = receive_loop(conn, &router, &mut ch, clock, &mut link).await;
+                ch.stats.on_disconnected(Some("link closed".into()));
+                if result.is_err() {
                     return;
                 }
             }
-            Ok(Err(e)) => warn!(link = %url, error = %e, "mavlink connect failed"),
-            Err(_) => warn!(link = %url, "mavlink connect timed out"),
+            Ok(Err(e)) => {
+                warn!(link = %url, error = %e, "mavlink connect failed");
+                ch.stats.on_disconnected(Some(e.to_string()));
+            }
+            Err(_) => {
+                warn!(link = %url, "mavlink connect timed out");
+                ch.stats.on_disconnected(Some("connect timed out".into()));
+            }
         }
         if ch.events.is_closed() {
             return;
@@ -140,6 +148,7 @@ async fn receive_loop(
                 Some((header, msg)) => {
                     let now = clock.now();
                     link.inspector.record(rgcs_core::InspectorDir::Rx, &header, &msg, link.inspector.now_ms());
+                    ch.stats.record(&header, &msg, ch.stats.now_ms());
                     publish_payload(ch, &header, &msg);
                     let evs = router.lock().await.on_message(&header, &msg, now);
                     forward(&ch.events, evs).await?;
@@ -322,6 +331,7 @@ mod tests {
             gcs: rgcs_core::GcsId::default(),
             inspector: crate::inspector::Inspector::default(),
             payload,
+            stats: crate::link_stats::LinkStats::default(),
         };
         let msg = MavMessage::CAMERA_INFORMATION(
             mavlink::dialects::ardupilotmega::CAMERA_INFORMATION_DATA::DEFAULT,
