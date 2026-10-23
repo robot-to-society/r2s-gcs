@@ -8,6 +8,7 @@ use crate::command::CommandResult;
 use crate::log::{ackable, severity_of_statustext, LogEntry, MessageSource, Severity};
 use crate::logbook::{Flight, LogFetchProgress};
 use crate::mission::{MissionProgress, MissionTransfer};
+use crate::network::NetworkTopology;
 use crate::params::ParamProgress;
 use crate::roi::RoiStatus;
 use crate::vehicle::{SysId, VehicleState, VehicleStateDiff};
@@ -100,6 +101,10 @@ pub enum ServerMessage {
     VideoSource {
         sysid: SysId,
         status: VideoSourceStatus,
+    },
+    /// Full network topology, 1 Hz while a client is connected (not part of `snapshot`).
+    NetworkStatus {
+        topology: NetworkTopology,
     },
     InputState {
         deadman: Deadman,
