@@ -44,6 +44,7 @@ tokio-util = { workspace = true }
 printpdf = { workspace = true }
 csv = { workspace = true }
 time = { workspace = true }
+url = { workspace = true }
 
 [features]
 # Compile apps/rgcs-server/ui/dist into the binary (run `npm run build` first).

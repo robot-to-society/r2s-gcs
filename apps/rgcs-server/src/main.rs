@@ -61,6 +61,11 @@ async fn main() -> anyhow::Result<()> {
         .with_whep_upstream(&config.whep_upstream)
         .with_data_dir(config.data_dir.clone())
         .with_log_fetch(config.log_fetch_enabled())
+        .with_network(rgcs_server::network::NetworkConfig {
+            listen: config.listen,
+            mavlink_url: config.mavlink_url.clone(),
+            role: config.role,
+        })
         .with_video_timings(rgcs_video::Timings {
             timeout: Duration::from_millis(config.video_probe_timeout_ms),
             ..rgcs_video::Timings::default()
@@ -73,8 +78,7 @@ async fn main() -> anyhow::Result<()> {
         gcs: state.gcs.clone(),
         inspector: state.inspector.clone(),
         payload: payload_tx,
-        // AppState.link_stats arrives with the network API (network view plan Task 4).
-        stats: rgcs_mavlink::LinkStats::default(),
+        stats: state.link_stats.clone(),
     };
     tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), channels));
     tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx, acks_tx));
@@ -95,6 +99,11 @@ async fn main() -> anyhow::Result<()> {
         Duration::from_millis(config.telemetry_interval_ms.max(20)),
     ));
 
+    state.media.spawn(&config.whep_upstream);
+    tokio::spawn(rgcs_server::network::run_status(
+        state.clone(),
+        Duration::from_secs(1),
+    ));
     state.bring_up_configured().await;
     state.spawn_background();
     let roi = state.roi.clone();

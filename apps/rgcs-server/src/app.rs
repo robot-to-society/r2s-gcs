@@ -23,7 +23,7 @@ use crate::settings;
 use crate::video::VideoHub;
 use crate::{
     api, auth, branding, briefing_api, calib_api, camera_api, commands, export_api, flight_api, geofence_api,
-    guided, input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api, param_api,
+    guided, input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api, network_api, param_api,
     param_pick, present_api, roi_api, survey_camera_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
@@ -66,6 +66,12 @@ pub struct AppState {
     pub messages: crate::message_log::MessageLog,
     /// Live WebSocket sessions (network view client list).
     pub sessions: crate::sessions::SessionRegistry,
+    /// Per-component receive rates and sequence loss of the FC link (network view).
+    pub link_stats: rgcs_mavlink::LinkStats,
+    /// `config.toml` listen / link / role, for the network view.
+    pub network: Arc<crate::network::NetworkConfig>,
+    /// MediaMTX reachability (network view).
+    pub media: crate::media_probe::MediaProbe,
     /// Where branding files (and the database) live; `config.toml` `data_dir`.
     pub data_dir: PathBuf,
     pub hostname: String,
@@ -78,6 +84,7 @@ pub struct AppState {
     /// Terrarium DEM tiles for the 3D map; `None` turns 3D off.
     pub terrain_tiles: Option<String>,
     started: Instant,
+    started_unix_ms: u64,
     lockout: Arc<StdMutex<Lockout>>,
     /// One async mutex per username so check-lockout → verify → record is serialized
     /// (otherwise concurrent attempts slip past the 5-failure limit).
@@ -131,6 +138,9 @@ impl AppState {
             calib,
             messages,
             sessions: crate::sessions::SessionRegistry::default(),
+            link_stats: rgcs_mavlink::LinkStats::default(),
+            network: Arc::new(crate::network::NetworkConfig::default()),
+            media: crate::media_probe::MediaProbe::default(),
             gcs,
             inspector: rgcs_mavlink::Inspector::default(),
             data_dir: crate::config::Config::default().data_dir,
@@ -141,6 +151,7 @@ impl AppState {
             basemaps: crate::config::Config::default().basemaps(),
             terrain_tiles: crate::config::Config::default().terrain(),
             started: Instant::now(),
+            started_unix_ms: unix_ms(),
             lockout: Arc::new(StdMutex::new(Lockout::default())),
             login_guards: Arc::new(StdMutex::new(HashMap::new())),
             guided_confirmed: Arc::new(StdMutex::new(HashSet::new())),
@@ -200,6 +211,14 @@ impl AppState {
         }
     }
 
+    /// `config.toml` listen / link / role shown by the network view.
+    pub fn with_network(self, network: crate::network::NetworkConfig) -> Self {
+        Self {
+            network: Arc::new(network),
+            ..self
+        }
+    }
+
     pub fn with_data_dir(self, data_dir: PathBuf) -> Self {
         Self { data_dir, ..self }
     }
@@ -242,6 +261,11 @@ impl AppState {
     /// Monotonic seconds since start (lockouts and confirm tokens).
     pub fn now_secs(&self) -> u64 {
         self.started.elapsed().as_secs()
+    }
+
+    /// Wall-clock start of this process (Unix ms).
+    pub fn started_unix_ms(&self) -> u64 {
+        self.started_unix_ms
     }
 
     pub fn dev_mode(&self) -> bool {
@@ -430,6 +454,7 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         .route("/vehicles/{sysid}/logs/{id}/file", get(logs_api::file))
         .route("/vehicles/{sysid}/logbook/export", get(export_api::export))
         .route("/mavlink/inspector", get(inspector_api::list))
+        .route("/network", get(network_api::get))
         .route(
             "/mavlink/inspector/{dir}/{sysid}/{compid}/{msg_id}",
             get(inspector_api::detail),
