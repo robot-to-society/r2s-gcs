@@ -6,12 +6,13 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use mavlink::dialects::ardupilotmega::{MavCmd, MavMessage, COMMAND_LONG_DATA};
 use mavlink::{AsyncMavConnection, MavHeader};
 use rgcs_core::SysId;
 use tokio::sync::{broadcast, mpsc, Mutex};
+use tokio::time::Instant;
 use tracing::{info, warn};
 
 use crate::heartbeat::is_flight_controller;
@@ -45,7 +46,8 @@ pub struct LinkChannels {
     pub stats: crate::link_stats::LinkStats,
 }
 
-/// Wall + monotonic clock for the router, anchored at task start.
+/// Wall + monotonic clock for the router, anchored at task start (tokio's clock, so tests
+/// can pause time).
 #[derive(Clone, Copy)]
 struct TaskClock {
     started: Instant,
@@ -71,12 +73,40 @@ struct LinkState {
     inspector: crate::inspector::Inspector,
 }
 
+/// Aborts the router ticker when `run_link` returns.
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// Ticks the router once a second whether or not the transport is up, so heartbeat ages keep
+/// growing and link health reaches delay / lost while reconnects fail (spec 30 §4).
+async fn tick_router(router: Arc<Mutex<Router>>, events: mpsc::Sender<RouterEvent>, clock: TaskClock) {
+    let mut ticker = tokio::time::interval(Duration::from_secs(1));
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        ticker.tick().await;
+        let evs = router.lock().await.tick(clock.now());
+        if forward(&events, evs).await.is_err() {
+            return;
+        }
+    }
+}
+
 /// Runs until the `events` receiver is dropped. Reconnects after any link error.
 pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, mut ch: LinkChannels) {
     let address = url.mavlink_address();
     let clock = TaskClock {
         started: Instant::now(),
     };
+    let _ticker = AbortOnDrop(tokio::spawn(tick_router(
+        router.clone(),
+        ch.events.clone(),
+        clock,
+    )));
     let mut link = LinkState {
         gcs: ch.gcs.clone(),
         inspector: ch.inspector.clone(),
@@ -140,8 +170,6 @@ async fn receive_loop(
     link: &mut LinkState,
 ) -> Result<(), ()> {
     let mut frames = spawn_reader(conn.clone());
-    let mut ticker = tokio::time::interval(Duration::from_secs(1));
-    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         tokio::select! {
             frame = frames.recv() => match frame {
@@ -165,10 +193,6 @@ async fn receive_loop(
                 }
                 None => return Err(()),
             },
-            _ = ticker.tick() => {
-                let evs = router.lock().await.tick(clock.now());
-                forward(&ch.events, evs).await?;
-            }
         }
     }
 }
