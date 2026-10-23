@@ -23,6 +23,9 @@ pub const MAX_COMPONENTS: usize = 256;
 const RING: usize = 8;
 /// Gaps at or above this are duplicates, reordering or a restart: resync, nothing lost.
 const RESYNC_GAP: u8 = 128;
+/// A component silent for longer than this rebooted or dropped out: the next frame sets the
+/// baseline instead of counting the sequence gap (the silence shows as stale rx instead).
+pub const RESYNC_SILENCE_MS: u64 = 2_000;
 
 const MAV_TYPE_GCS: u8 = 6;
 const MAV_TYPE_ONBOARD_CONTROLLER: u8 = 18;
@@ -94,7 +97,11 @@ impl Comp {
     }
 
     fn observe(&mut self, seq: u8, bytes: u32, now_ms: u64) {
-        let lost = self.last_seq.map_or(0, |last| lost_between(last, seq));
+        let resync = now_ms.saturating_sub(self.last_ms) > RESYNC_SILENCE_MS;
+        let lost = match self.last_seq {
+            Some(last) if !resync => lost_between(last, seq),
+            _ => 0,
+        };
         self.last_seq = Some(seq);
         self.last_ms = now_ms;
         let second = now_ms / 1000;
@@ -402,6 +409,30 @@ mod tests {
         assert_eq!(comp_loss(&stats, 2000), 0.0);
         feed(&stats, &[2], 1600);
         assert_eq!(comp_loss(&stats, 2000), 0.0);
+    }
+
+    #[test]
+    fn silence_then_gap_is_a_resync_not_loss() {
+        // FC reboot: last seq 200, 3 s of silence, first post-boot frame seq 0 (gap 55).
+        let stats = LinkStats::default();
+        stats.record(&hdr(1, 1, 200), &hb(), 1000);
+        stats.record(&hdr(1, 1, 0), &hb(), 4000);
+        stats.record(&hdr(1, 1, 1), &hb(), 4100);
+        assert_eq!(comp_loss(&stats, 6000), 0.0);
+    }
+
+    #[test]
+    fn gap_within_a_short_pause_is_still_loss() {
+        let stats = LinkStats::default();
+        stats.record(&hdr(1, 1, 10), &hb(), 1000);
+        stats.record(&hdr(1, 1, 16), &hb(), 1100);
+        let s = stats.snapshot(2000);
+        // 5 lost of 7 (2 received)
+        assert!((s.components[0].loss_pct - 500.0 / 7.0).abs() < 0.01);
+        let stats = LinkStats::default();
+        stats.record(&hdr(1, 1, 10), &hb(), 1000);
+        stats.record(&hdr(1, 1, 16), &hb(), 1000 + RESYNC_SILENCE_MS);
+        assert!(comp_loss(&stats, 4000) > 0.0);
     }
 
     #[test]
