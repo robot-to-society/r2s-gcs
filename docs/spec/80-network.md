@@ -1,7 +1,7 @@
 # RGCS 仕様書 80 — ネットワーク構成
 
 - 版: 0.1(2026-10-18)
-- 状態: §1 はユーザー決定。§3 以降の閾値・API・認証の細部は案で、M5(hub)で確定する
+- 状態: §1 はユーザー決定。§3 以降の閾値・API・認証の細部は案で、M5(hub)で確定する。§4 は 2026-10-23 にスタンドアロン分を実装
 - 画面: 10 §8(ネットワーク画面)、画像 `design_base/screenshots/glass_network*.png`
 - 関連: 00 §2(配置形態)、30 §7(`--role` の記述は P6 統合後に本書へ合わせる)、50 §2.8 / §5、70 §5
 
@@ -49,14 +49,36 @@
 - **映像**: 機体の MediaMTX から WebRTC。遠隔はシグナリングを Hub が持ち、直接つながらなければ TURN で中継。現場は GW 上の rgcs がシグナリングを代行する(案)。
 - **RTCM**: NTRIP → Hub → 全機体(`GPS_RTCM_DATA`)。
 
-## 4. 画面へ渡すデータ(案)
+## 4. 画面へ渡すデータ(案、スタンドアロン分は 2026-10-23 実装)
+
+### 4.1 実装(2026-10-23、スタンドアロン)
+
+スタンドアロンのサーバーが実際に持っているデータだけを返す。無い要素は値を作らず「未構成」として返し、画面は破線・薄色で描く。
+
+- `GET /api/network` → `NetworkTopology`(50 §2.8)。WS `network_status` は `{topology}` の**全体**を 1 Hz(差分ではない。スタンドアロンの全体は数 kB で、差分の合成と欠けたキーの扱いが不要になる)。`snapshot` には含めず、画面を開いたときに GET する。
+- **実データ**:
+  - `server`: ホスト名、版、ビルド、待受(`listen`)、役割(`standalone` / `edge` / `hub`)、稼働時間、起動時刻。
+  - `links`: MAVLink リンク。今は 1 本(`id: "link0"`、`config.mavlink_url`、種類は URL から)。接続状態、接続時刻、再接続回数、最後のエラー、受信 msg/s・bytes/s(推定)、ロス %、最終受信からの経過、`systems`(リンク上の全 SYSID と COMPID ごとの統計。FC の HEARTBEAT が無い SYSID、例えば別の GCS は `vehicle: false` でここにだけ出し、機体ブロックにはしない)。
+  - `vehicles`: SYSID、名前、種別、リンク状態(`ok` / `delay` / `lost`)、ハートビートの経過、コンポーネント(COMPID、種類、MAV_TYPE、msg/s、ロス、最終受信)、カメラ接続(`camera`: 種類、`tcp_udp` / `via_fc`、接続先、接続中か、ファーム版、最後のエラー)、映像経路(`video`: 映像元、RTSP DESCRIBE の到達、検索中、WHEP パス)。
+  - `media`: MediaMTX の WHEP 上流(userinfo を除去)と到達可否(TCP 接続、5 s ごと、1 s タイムアウト、初回前は `null`)。
+  - `clients`: 接続中の WS セッション(ユーザー名、ロール、TCP の相手 `ip:port`、ブラウザ、接続時刻)。ブラウザのタブ 1 つが 1 行。
+- **未構成**(`unconfigured: ["hub", "lte", "mesh", "gateway", "ntrip", "node"]`): RGCS Hub、LTE、メッシュ、メッシュ GW と上り回線、NTRIP、`rgcs-node`。下の案の `sites`、`users`、`external`、機体の `node` / `lte` / `route` / `local_route` は返さない(M5 で追加し、その分を `unconfigured` から外す)。画面が描く唯一の実経路は 機体 → リンク → サーバー → クライアント。
+- 決定(実装計画 `docs/superpowers/plans/2026-10-23-network-view.md` の ruling 1〜4・7):
+  - ruling 1: 形は上の実データ + `unconfigured`。案の項目は M5 で追加的に足す。
+  - ruling 2: `network_status` は全体を 1 Hz。受信者がいない周期は送らない。
+  - ruling 3: bytes/s は推定値。デコードしたフレームを MAVLink 2 で再直列化した長さ(署名 13 バイトと、パーサーが捨てたバイトを含まない。MAVLink 1 のフレームも v2 の長さで数える)。画面の表記は「受信 (推定)」。
+  - ruling 4: ロスは (SYSID, COMPID) ごとのシーケンス番号の欠けから、直近 5 s(1 s 単位、進行中の秒は除く)で求める。欠けが 128 以上は重複・入れ替わり・FC の再起動とみなして数えずに同期し直す。再接続で基準をすべて捨てる。受信側の値だけで、送信側のロスと往復遅延は対象外。警告は §3 の 3 % を超えたとき。
+  - ruling 7: クライアントは WS セッション。`X-Forwarded-For` は信用しない(Vite の開発プロキシ越しでは全員 `127.0.0.1`)。ブラウザは User-Agent から `Edge` / `Firefox` / `Chrome` / `Safari` / `Other`(この順で判定)。観客用画面(`/present`)と WHEP だけのセッションは出さない。
+- 権限: ログイン中の利用者なら誰でも取得・受信できる(機体一覧と同じ)。トークン・クッキー・観客用トークンは含めない。
+
+### 4.2 M5 の案
 
 - `GET /api/network` → `NetworkTopology`:
   - `sites: [{id, name, gateway: {id, addr, uplink}, field_terminals: [{id, user, addr}], vehicles: [sysid]}]`
   - `vehicles: [{sysid, name, kind, node: {ip, version}, components: [{compid, kind, name}], lte?: {state: ok|degraded, latency_ms, loss_pct, kbps, signal}, route: {via: lte|mesh, path: [string], hops}, local_route: {path: [string], hops}}]`
   - `mesh: [{a, b, snr_db, rate_mbps}]`(`a` / `b` は sysid か `gw-<site>`)
   - `users: [{id, name, role, online, client}]`、`external: [{id, kind, addr, status}]`
-- WS `network_status`: 上記の差分を 1 Hz。
+- WS `network_status`: 上記の差分を 1 Hz(案。実装は §4.1 のとおり全体を 1 Hz)。
 - 経路(`route`, `local_route`)はノードが実際に使っている経路をサーバーが返す。プロトタイプは BFS で計算している(`netLocal()`)。
 - メッシュの SNR・隣接情報の取得元は無線機の API(機種決定後に確定)。
 

@@ -168,10 +168,35 @@ ROI 開始 / 停止は REST のみ(`CameraCommand` ではない)。手動入力�
 
 `config.toml` `log_fetch = "auto" | "on" | "off"`(auto: tcp/udp と 921600 bps 以上のシリアルで有効)。
 
-### 2.8 ネットワーク(M5、案、80 §4)
+### 2.8 ネットワーク(2026-10-23 実装、スタンドアロン分。80 §4.1)
 | メソッド | パス | 本文 |
 |---|---|---|
-| GET | `/api/network` | `NetworkTopology`(現場、機体ごとのノード・COMPID・LTE 状態・経路、メッシュの SNR、ユーザー、外部サービス) |
+| GET | `/api/network` | `NetworkTopology`。ログイン中なら誰でも(operator / admin) |
+
+```ts
+type NetworkTopology = { server: ServerNode; links: MavLinkInfo[]; vehicles: NetVehicle[];
+  clients: ClientSession[]; media: MediaServer; unconfigured: ('hub'|'lte'|'mesh'|'gateway'|'ntrip'|'node')[];
+  at_unix_ms: number };
+type ServerNode = { hostname: string; version: string; build: string; listen: string;
+  role: 'standalone'|'edge'|'hub'; uptime_s: number; started_unix_ms: number };
+type MavLinkInfo = { id: string /* "link0" */; url: string; kind: 'udpin'|'udpout'|'tcp'|'serial';
+  connected: boolean; connected_since_unix_ms: number | null; reconnects: number; last_error: string | null;
+  rx_msgs_per_s: number; rx_bytes_per_s: number /* 推定 */; loss_pct: number; last_rx_age_ms: number | null;
+  systems: { sysid: number; vehicle: boolean; components: NetComponent[] }[] };
+type NetComponent = { compid: number; kind: 'autopilot'|'camera'|'gimbal'|'companion'|'gcs'|'other';
+  mav_type: number | null; rx_msgs_per_s: number; loss_pct: number; last_rx_age_ms: number };
+type NetVehicle = { sysid: number; name: string; kind: 'copter'|'rover'|'plane'|'other'; link: 'ok'|'delay'|'lost'; link_id: string;
+  heartbeat_age_ms: number | null; components: NetComponent[];
+  camera: { kind: CameraKind; transport: 'tcp_udp'|'via_fc'; endpoint: string; connected: boolean;
+    firmware: string | null; last_error: string | null } | null;
+  video: { source: VideoSource; probe_ok: boolean; scanning: boolean; whep_path: string } | null };
+type MediaServer = { whep_upstream: string /* userinfo 除去 */; reachable: boolean | null /* 初回の確認前は null */ };
+type ClientSession = { id: number; username: string; role: Role; addr: string | null /* TCP の相手 ip:port */;
+  browser: 'Edge'|'Firefox'|'Chrome'|'Safari'|'Other'; connected_since_unix_ms: number };
+```
+
+- 率は 1 s 単位で直近 5 s(進行中の秒を除く)。ロス = 欠け ÷(受信 + 欠け)× 100、欠け 128 以上は数えずに同期し直す(80 §4.1)。
+- M5 の項目(現場、ノード、LTE、経路、メッシュの SNR、ユーザー、外部サービス、80 §4.2)は追加的に足し、その分を `unconfigured` から外す。
 
 ## 3. WebSocket `/ws`
 
@@ -189,7 +214,7 @@ ROI 開始 / 停止は REST のみ(`CameraCommand` ではない)。手動入力�
 | `vehicle_message` | `{sysid, id, severity, text, ts}`。機体の STATUSTEXT は原文(50 バイトのチャンクはサーバーで結合)。サーバー生成の `text` は固定コード `comms_delay` / `link_lost` / `link_restored`(UI が翻訳) | 発生時 |
 | `command_result` | `{id, sysid, cmd, ok, reason?, ts}` | 完了時 |
 | `message_ack` | `{sysid, id, by, ts}` | 確認時 |
-| `network_status` | `{diff: Partial<NetworkTopology>}` | 1 Hz(M5、80 §4) |
+| `network_status` | `{topology: NetworkTopology}`(差分でなく全体、2026-10-23) | 1 Hz(受信者がいない周期は送らない。`snapshot` には含めず、画面は開いたときに `GET /api/network`。80 §4.1) |
 | `vehicle_discovered` / `vehicle_lost` | `{sysid}` | 発生時 |
 | `mission_progress` | `{sysid, progress: {seq, total}}` | `MISSION_CURRENT` の変化時 + 1 Hz(サーバーが再送)。`total` はサーバーが書込 / 読込したミッションの項目数(未知なら機体の `MISSION_CURRENT.total`) |
 | `mission_transfer` | `{sysid, transfer: {phase: write\|verify\|done\|failed, done, total}}` | ミッション書込中(`PUT .../mission`)。write は機体が要求した項目数、verify は読み戻した項目数(`total` = 項目数 + ホーム)、最後に done か failed |
