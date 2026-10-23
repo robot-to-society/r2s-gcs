@@ -118,10 +118,12 @@ pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, mut ch: LinkChan
                 info!(link = %url, "mavlink link connected");
                 ch.stats.on_connected(clock.now().unix_ms);
                 let conn: Conn = Arc::from(conn);
-                let result = receive_loop(conn, &router, &mut ch, clock, &mut link).await;
-                ch.stats.on_disconnected(Some("link closed".into()));
-                if result.is_err() {
-                    return;
+                match receive_loop(conn, &router, &mut ch, clock, &mut link).await {
+                    Ok(reason) => ch.stats.on_disconnected(Some(reason)),
+                    Err(()) => {
+                        ch.stats.on_disconnected(Some("link closed".into()));
+                        return;
+                    }
                 }
             }
             Ok(Err(e)) => {
@@ -140,19 +142,24 @@ pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, mut ch: LinkChan
     }
 }
 
-/// Reads frames until the link errors; dropping the receiver stops it.
-fn spawn_reader(conn: Conn) -> mpsc::Receiver<(MavHeader, MavMessage)> {
+/// A received frame, or the receive error that ended the reader.
+type ReaderItem = Result<(MavHeader, MavMessage), String>;
+
+/// Reads frames until the link errors (the error is the last item); dropping the receiver
+/// stops it.
+fn spawn_reader(conn: Conn) -> mpsc::Receiver<ReaderItem> {
     let (tx, rx) = mpsc::channel(FRAME_QUEUE);
     tokio::spawn(async move {
         loop {
             match conn.recv().await {
                 Ok(frame) => {
-                    if tx.send(frame).await.is_err() {
+                    if tx.send(Ok(frame)).await.is_err() {
                         break;
                     }
                 }
                 Err(e) => {
                     warn!(error = %e, "mavlink receive error");
+                    let _ = tx.send(Err(e.to_string())).await;
                     break;
                 }
             }
@@ -161,19 +168,20 @@ fn spawn_reader(conn: Conn) -> mpsc::Receiver<(MavHeader, MavMessage)> {
     rx
 }
 
-/// Returns `Err` only when the event channel is gone (shutdown); link errors return `Ok`.
+/// Returns `Err` only when the event channel is gone (shutdown); a link error returns
+/// `Ok(reason)` with the reader's error text.
 async fn receive_loop(
     conn: Conn,
     router: &Arc<Mutex<Router>>,
     ch: &mut LinkChannels,
     clock: TaskClock,
     link: &mut LinkState,
-) -> Result<(), ()> {
+) -> Result<String, ()> {
     let mut frames = spawn_reader(conn.clone());
     loop {
         tokio::select! {
             frame = frames.recv() => match frame {
-                Some((header, msg)) => {
+                Some(Ok((header, msg))) => {
                     let now = clock.now();
                     link.inspector.record(rgcs_core::InspectorDir::Rx, &header, &msg, link.inspector.now_ms());
                     ch.stats.record(&header, &msg, ch.stats.now_ms());
@@ -182,7 +190,8 @@ async fn receive_loop(
                     forward(&ch.events, evs).await?;
                     handle_special(&conn, router, ch, link, &header, &msg, now).await;
                 }
-                None => return Ok(()),
+                Some(Err(reason)) => return Ok(reason),
+                None => return Ok("link closed".into()),
             },
             out = ch.outgoing.recv() => match out {
                 Some(o) => {
@@ -367,6 +376,47 @@ mod tests {
         };
         publish_payload(&ch, &header, &msg);
         assert_eq!(payload_rx.recv().await.unwrap().header.component_id, 100);
+    }
+
+    fn test_channels() -> (LinkChannels, mpsc::Receiver<RouterEvent>, mpsc::Sender<Outgoing>) {
+        let (events, events_rx) = mpsc::channel(16);
+        let (out_tx, outgoing) = mpsc::channel(1);
+        let (acks, _) = broadcast::channel(1);
+        let (payload, _) = broadcast::channel(1);
+        let ch = LinkChannels {
+            events,
+            outgoing,
+            acks,
+            gcs: rgcs_core::GcsId::default(),
+            inspector: crate::inspector::Inspector::default(),
+            payload,
+            stats: crate::link_stats::LinkStats::default(),
+        };
+        (ch, events_rx, out_tx)
+    }
+
+    #[tokio::test]
+    async fn receive_loop_returns_the_reader_error() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let address = format!("tcpout:127.0.0.1:{port}");
+        let (conn, accepted) = tokio::join!(
+            mavlink::connect_async::<MavMessage>(&address),
+            listener.accept()
+        );
+        drop(accepted.unwrap());
+        let conn: Conn = Arc::from(conn.unwrap());
+        let (mut ch, _events_rx, _out_tx) = test_channels();
+        let router = Arc::new(Mutex::new(Router::default()));
+        let clock = TaskClock {
+            started: Instant::now(),
+        };
+        let mut link = LinkState::default();
+        let reason = receive_loop(conn, &router, &mut ch, clock, &mut link)
+            .await
+            .expect("a link error is not a shutdown");
+        assert!(!reason.is_empty());
+        assert_ne!(reason, "link closed");
     }
 
     #[tokio::test]

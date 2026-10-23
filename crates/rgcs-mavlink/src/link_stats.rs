@@ -236,7 +236,8 @@ impl LinkStats {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// The link is up. Every call after the first counts a reconnect; sequence baselines reset.
+    /// The link is up. Every call after the first counts a reconnect; sequence baselines reset
+    /// and the last error is cleared (it stays in the server log).
     pub fn on_connected(&self, unix_ms: u64) {
         let mut inner = self.lock();
         inner.connects += 1;
@@ -245,6 +246,7 @@ impl LinkStats {
         }
         inner.connected = true;
         inner.since = Some(unix_ms);
+        inner.last_error = None;
         inner.comps.values_mut().for_each(|c| c.last_seq = None);
     }
 
@@ -433,6 +435,15 @@ mod tests {
         stats.record(&hdr(1, 1, 10), &hb(), 1000);
         stats.record(&hdr(1, 1, 16), &hb(), 1000 + RESYNC_SILENCE_MS);
         assert!(comp_loss(&stats, 4000) > 0.0);
+    }
+
+    #[test]
+    fn a_successful_connect_clears_the_last_error() {
+        let stats = LinkStats::default();
+        stats.on_disconnected(Some("Connection refused".into()));
+        assert_eq!(stats.snapshot(0).last_error.as_deref(), Some("Connection refused"));
+        stats.on_connected(1);
+        assert_eq!(stats.snapshot(0).last_error, None);
     }
 
     #[test]
