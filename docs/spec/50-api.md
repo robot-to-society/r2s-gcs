@@ -47,7 +47,9 @@
 | POST | `/api/vehicles/{sysid}/calibration/finish` | rc のみ: 400 µs 以上動いたチャンネルの `RCn_MIN / MAX / TRIM`(TRIM = 終了時の位置)を書込・照合(変更履歴に残る)。動いたチャンネルが無ければ `failed: rc_not_moved` |
 | POST | `/api/vehicles/{sysid}/motor-test` | `{motor: 1–12, pct: 0<–100, seconds: 0<–10, count?, confirm_token}` → `{ok, reason?}`。`DO_MOTOR_TEST`(p2=0 スロットル %、`count` > 0 で `motor` から順に `count` 個)。要確認 `motor_test`、アーム中 409。実施は `calibrations` に `motor` として記録 |
 
-`cmd` の列挙: `pause`, `resume`, `rtl`, `land`, `change_alt`, `change_speed`, `set_mode`, `mission_start`, `mission_resume`, `arm`, `disarm`, `other(mav_cmd, params)`。`other` で送れる MAV_CMD は 70 §1(`422 not_allowed`)。
+`cmd` の列挙: `pause`, `resume`, `rtl`, `land`, `change_alt`, `change_speed`, `set_mode`, `mission_start`, `mission_resume`, `takeoff(alt_rel)`, `arm`, `disarm`, `other(mav_cmd, params)`。`other` で送れる MAV_CMD は 70 §1(`422 not_allowed`)。
+
+`takeoff`(2026-10-23、要確認): `alt_rel` はホーム相対 m、有限の 1〜1000(外れは `400 invalid`)。ARM 済みのみ(DISARM 中は `409 rejected` "arm first")、Rover / その他は `422 not_allowed`。機体ごとの送り方: Copter と QuadPlane は GUIDED でなければ先に `DO_SET_MODE` GUIDED、ACK 後に `COMMAND_LONG` `MAV_CMD_NAV_TAKEOFF`(param7 = `alt_rel`)。固定翼(VTOL でない Plane)は NAV_TAKEOFF を受け付けないので TAKEOFF モード(custom mode 13)へ切替え、`TKOFF_ALT` まで上昇(`alt_rel` は使わず、パラメータも書かない)。各段の ACK を待ち、どちらかの失敗をそのまま `command_result` の理由にする。
 
 ### 2.2.1 ミッション(P3、2026-10-17 追補 §5.2 / §5.9)
 | メソッド | パス | 本文 / 応答 |
