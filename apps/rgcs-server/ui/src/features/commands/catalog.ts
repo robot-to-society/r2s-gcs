@@ -1,7 +1,8 @@
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
+import type { Dict } from '../../shared/i18n'
 
 /** Mirror of `rgcs-core::VehicleCommand::requires_confirm` (spec 70 §1); pinned by catalog.test. */
-export const REQUIRES_CONFIRM: ReadonlySet<string> = new Set(['arm', 'disarm', 'mission_start'])
+export const REQUIRES_CONFIRM: ReadonlySet<string> = new Set(['arm', 'disarm', 'mission_start', 'takeoff'])
 
 /** Commands whose confirm button is rendered as danger. */
 export const DESTRUCTIVE: ReadonlySet<string> = new Set(['arm', 'disarm', 'rtl', 'land'])
@@ -37,6 +38,19 @@ export function modesFor(v: Pick<VehicleState, 'kind' | 'vtol'>): FrameModes {
   return v.kind === 'rover' ? MODES.rover : MODES.copter
 }
 
+/** How an airframe takes off (ArduPilot): copter / QuadPlane climb to an altitude in GUIDED,
+ * a plain fixed wing flies TAKEOFF mode up to its TKOFF_ALT, a rover never. */
+export type TakeoffKind = 'climb' | 'tkoff_alt'
+
+export function takeoffKind(v: Pick<VehicleState, 'kind' | 'vtol'>): TakeoffKind | null {
+  if (v.kind === 'copter') return 'climb'
+  if (v.kind === 'plane') return v.vtol ? 'climb' : 'tkoff_alt'
+  return null
+}
+
+/** Where the takeoff altitude input starts (m above home). A fixed wing's command carries it too; the vehicle ignores it. */
+export const TAKEOFF_ALT_DEFAULT = 30
+
 export type CommandGroup = 'flight' | 'move' | 'mode' | 'payload'
 export type ModalTarget = 'guided' | 'camera'
 
@@ -53,7 +67,11 @@ export interface CatalogItem {
   readonly build?: (ctx: BuildCtx) => VehicleCommand | null
   readonly opens?: ModalTarget
   /** Inline parameter the sheet renders before the button. */
-  readonly param?: 'mode' | 'alt' | 'speed'
+  readonly param?: 'mode' | 'alt' | 'speed' | 'takeoff'
+  /** Absent means every airframe has it. */
+  readonly available?: (v: VehicleState) => boolean
+  /** Button title while disabled. */
+  readonly disabledHint?: keyof Dict
 }
 
 export function commandName(c: VehicleCommand): string {
@@ -63,7 +81,18 @@ export function commandName(c: VehicleCommand): string {
 const always = () => true
 const simple = (cmd: 'pause' | 'resume' | 'rtl' | 'land' | 'mission_start' | 'mission_resume' | 'arm' | 'disarm') => (): VehicleCommand => ({ cmd })
 
+const numeric = (value: number | undefined): value is number => value !== undefined && !Number.isNaN(value)
+
 export const CATALOG: readonly CatalogItem[] = [
+  {
+    name: 'takeoff',
+    group: 'flight',
+    enabled: (v) => v.armed,
+    available: (v) => takeoffKind(v) !== null,
+    disabledHint: 'armFirst',
+    param: 'takeoff',
+    build: ({ value }) => (numeric(value) ? { cmd: 'takeoff', args: { alt_rel: value } } : null),
+  },
   { name: 'pause', group: 'flight', enabled: always, build: simple('pause') },
   { name: 'resume', group: 'flight', enabled: always, build: simple('resume') },
   { name: 'rtl', group: 'flight', enabled: always, build: simple('rtl') },

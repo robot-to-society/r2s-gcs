@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
-import { CATALOG, REQUIRES_CONFIRM, catalogGroups, commandName, modesFor } from './catalog'
+import { CATALOG, REQUIRES_CONFIRM, catalogGroups, commandName, modesFor, takeoffKind } from './catalog'
 
 const v = (armed: boolean): VehicleState => ({
   sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'LOITER', armed, lat: 0, lon: 0, alt_rel: 0, alt_msl: 0, hdg: null,
@@ -10,11 +10,11 @@ const v = (armed: boolean): VehicleState => ({
 
 describe('command catalog', () => {
   it('confirm set matches the server (rgcs-core VehicleCommand::requires_confirm)', () => {
-    expect([...REQUIRES_CONFIRM].sort()).toEqual(['arm', 'disarm', 'mission_start'])
+    expect([...REQUIRES_CONFIRM].sort()).toEqual(['arm', 'disarm', 'mission_start', 'takeoff'])
   })
 
   it('every item is a known VehicleCommand name or opens a modal', () => {
-    const names = ['pause', 'resume', 'rtl', 'land', 'change_alt', 'change_speed', 'set_mode', 'mission_start', 'mission_resume', 'arm', 'disarm']
+    const names = ['pause', 'resume', 'rtl', 'land', 'change_alt', 'change_speed', 'set_mode', 'mission_start', 'mission_resume', 'takeoff', 'arm', 'disarm']
     for (const item of CATALOG) {
       // `other` is the design's disabled placeholder for "その他の対応コマンド" (no command yet).
       const placeholder = item.name === 'other' && item.build === undefined && !item.enabled(v(false))
@@ -37,6 +37,26 @@ describe('command catalog', () => {
     expect(by('change_alt').build!({ value: 50 })).toEqual({ cmd: 'change_alt', args: { alt_rel: 50 } })
     expect(by('arm').build!({})).toEqual({ cmd: 'arm' })
     expect(commandName({ cmd: 'change_speed', args: { mps: 3 } })).toBe('change_speed')
+  })
+
+  it('takeoff leads the flight group, needs an armed vehicle and builds the serde shape', () => {
+    const by = (n: string) => CATALOG.find((i) => i.name === n)!
+    expect(catalogGroups()[0]!.items[0]!.name).toBe('takeoff')
+    expect(by('takeoff').enabled(v(false))).toBe(false)
+    expect(by('takeoff').enabled(v(true))).toBe(true)
+    expect(by('takeoff').build!({ value: 25 })).toEqual({ cmd: 'takeoff', args: { alt_rel: 25 } })
+    expect(by('takeoff').build!({ value: Number.NaN })).toBeNull()
+  })
+
+  it('takes off per airframe: climb to an altitude, fixed wing to TKOFF_ALT, rover never', () => {
+    expect(takeoffKind({ kind: 'copter' })).toBe('climb')
+    expect(takeoffKind({ kind: 'plane', vtol: true })).toBe('climb')
+    expect(takeoffKind({ kind: 'plane' })).toBe('tkoff_alt')
+    expect(takeoffKind({ kind: 'rover' })).toBeNull()
+    expect(takeoffKind({ kind: 'other' })).toBeNull()
+    const item = CATALOG.find((i) => i.name === 'takeoff')!
+    expect(item.available?.({ ...v(true), kind: 'rover' })).toBe(false)
+    expect(item.available?.(v(true))).toBe(true)
   })
 
   it('gives each airframe the modes its operators use most, and its own full list', () => {

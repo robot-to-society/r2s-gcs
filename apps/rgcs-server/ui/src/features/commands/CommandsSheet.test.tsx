@@ -75,6 +75,34 @@ describe('CommandsSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: '-5' }))
     expect(screen.getByLabelText('速度変更')).toHaveValue('2')
   })
+  it('takeoff asks for an altitude starting at 30 m on a copter, disabled until armed', () => {
+    const onPick = vi.fn()
+    const { rerender } = render(<CommandsSheet vehicle={v(false)} onPick={onPick} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
+    const btn = screen.getByRole('button', { name: '離陸' })
+    expect(btn).toBeDisabled()
+    expect(btn).toHaveAttribute('title', 'アームしてから')
+    rerender(<CommandsSheet vehicle={{ ...v(true), alt_rel: 12 }} onPick={onPick} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
+    fireEvent.click(screen.getByRole('button', { name: '離陸' }))
+    expect(screen.getByLabelText('離陸')).toHaveValue('30')
+    fireEvent.click(screen.getByRole('button', { name: '+5' }))
+    fireEvent.click(screen.getByRole('button', { name: '実行' }))
+    expect(onPick).toHaveBeenLastCalledWith({ cmd: 'takeoff', args: { alt_rel: 35 } })
+  })
+
+  it('a fixed wing takes off to TKOFF_ALT without an altitude input; a rover has no takeoff', () => {
+    const onPick = vi.fn()
+    const plane = { ...v(true), kind: 'plane' as const, mode: 'FBWA' }
+    const { unmount } = render(<CommandsSheet vehicle={plane} onPick={onPick} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
+    fireEvent.click(screen.getByRole('button', { name: '離陸' }))
+    expect(screen.queryByLabelText('離陸')).toBeNull()
+    expect(screen.getByText('TKOFF_ALT まで上昇')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '実行' }))
+    expect(onPick).toHaveBeenLastCalledWith({ cmd: 'takeoff', args: { alt_rel: 30 } })
+    unmount()
+    render(<CommandsSheet vehicle={{ ...v(true), kind: 'rover' }} onPick={onPick} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
+    expect(screen.queryByRole('button', { name: '離陸' })).toBeNull()
+  })
+
   it('shows why the vehicle refused to arm under ARM while disarmed', () => {
     const { rerender } = render(<CommandsSheet vehicle={v(false)} prearm={['PreArm: Compass not calibrated']} onPick={() => {}} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
     expect(screen.getByTestId('prearm')).toHaveTextContent('PreArm: Compass not calibrated')

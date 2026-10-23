@@ -10,6 +10,7 @@ import {
   IconEllipsis,
   IconHouse,
   IconLand,
+  IconTakeoff,
   IconPause,
   IconPlay,
   IconPower,
@@ -19,7 +20,7 @@ import {
   IconSpeed,
   IconStepForward,
 } from '../../shared/ui/icons'
-import { CATALOG, catalogGroups, modesFor, type CatalogItem, type CommandGroup, type ModalTarget } from './catalog'
+import { CATALOG, TAKEOFF_ALT_DEFAULT, catalogGroups, modesFor, takeoffKind, type CatalogItem, type CommandGroup, type ModalTarget } from './catalog'
 import type { BtnState } from './feedback'
 
 interface Props {
@@ -43,6 +44,7 @@ const FB_ICON: Record<BtnState, () => ReactElement | null> = { sending: () => nu
 const GROUP_LABEL: Record<CommandGroup, keyof Dict> = { flight: 'groupFlight', move: 'groupMove', mode: 'groupMode', payload: 'groupPayload' }
 /** Lucide icon per command name (spec 20 §9). */
 const ICON: Record<string, () => ReactElement> = {
+  takeoff: () => <IconTakeoff />,
   pause: () => <IconPause />,
   resume: () => <IconPlay />,
   rtl: () => <IconHouse size={18} />,
@@ -99,9 +101,10 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
   const [mode, setMode] = useState(vehicle.mode || modes.all[0]!)
   const [alt, setAlt] = useState('')
   const [speed, setSpeed] = useState('')
+  const [takeoffAlt, setTakeoffAlt] = useState('')
   const [open, setOpen] = useState<string | null>(null)
   const q = query.trim().toLowerCase()
-  const shown = CATALOG.filter((i) => q === '' || label(i, dict).toLowerCase().includes(q) || i.name.includes(q))
+  const shown = CATALOG.filter((i) => (i.available?.(vehicle) ?? true) && (q === '' || label(i, dict).toLowerCase().includes(q) || i.name.includes(q)))
 
   const pick = (item: CatalogItem) => {
     if (item.opens) return onOpen(item.opens)
@@ -109,9 +112,10 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
       // start from where the vehicle is now
       if (item.param === 'alt') setAlt(String(Math.round(vehicle.alt_rel)))
       if (item.param === 'speed') setSpeed(String(Math.round(vehicle.ground_speed)))
+      if (item.param === 'takeoff') setTakeoffAlt(String(TAKEOFF_ALT_DEFAULT))
       return setOpen(item.name)
     }
-    const raw = item.param === 'alt' ? alt : item.param === 'speed' ? speed : ''
+    const raw = { alt, speed, takeoff: takeoffAlt, mode: '' }[item.param ?? 'mode']
     const value = raw === '' ? undefined : Number(raw)
     const command = item.build?.({ mode, value }) ?? null
     if (command) {
@@ -131,6 +135,12 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
       )}
       {item.param === 'alt' && <StepInput label={label(item, dict)} placeholder={dict.altInput} value={alt} onChange={setAlt} />}
       {item.param === 'speed' && <StepInput label={label(item, dict)} placeholder={dict.speedInput} value={speed} onChange={setSpeed} />}
+      {item.param === 'takeoff' &&
+        (takeoffKind(vehicle) === 'climb' ? (
+          <StepInput label={label(item, dict)} placeholder={dict.altInput} value={takeoffAlt} onChange={setTakeoffAlt} />
+        ) : (
+          <span className="t2 grow">{dict.takeoffToTkoffAlt}</span>
+        ))}
       <button type="button" className="btn btn-primary btn-sm" onClick={() => pick(item)}>
         {dict.run}
       </button>
@@ -172,6 +182,7 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
                       type="button"
                       className={`cmd-btn${item.name === 'guided' ? ' full' : ''}${open === item.name ? ' on' : ''}${fb ? ` ${fb}` : ''}`}
                       disabled={!item.enabled(vehicle)}
+                      title={!item.enabled(vehicle) && item.disabledHint ? dict[item.disabledHint] : undefined}
                       onClick={() => pick(item)}
                     >
                       <span className="glyph" aria-hidden="true">

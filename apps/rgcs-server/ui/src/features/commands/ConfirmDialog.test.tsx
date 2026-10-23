@@ -22,6 +22,20 @@ describe('ConfirmDialog', () => {
     expect(send).toHaveBeenCalledWith(1, { cmd: 'arm' }, 'tok')
   })
 
+  it('shows the takeoff altitude, or TKOFF_ALT for a fixed wing', () => {
+    const base: VehicleState = {
+      sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'LOITER', armed: true, lat: 0, lon: 0, alt_rel: 0, alt_msl: 0, hdg: null,
+      ground_speed: 0, climb: 0, battery: { pct: 50, volt: 22, current: null }, link: 'ok', last_rx_ms: 0,
+      gps: { fix: 3, sats: 9, hdop: 1 }, warn: false, unread: 0,
+    }
+    const cmd = { cmd: 'takeoff', args: { alt_rel: 25 } } as const
+    const { unmount } = render(<ConfirmDialog sysid={1} command={cmd} vehicleName="UAV-01" vehicle={base} onCancel={() => {}} onDone={() => {}} dict={t('ja')} />)
+    expect(screen.getByRole('dialog')).toHaveTextContent('離陸 → 25 m')
+    unmount()
+    render(<ConfirmDialog sysid={1} command={cmd} vehicleName="FW-1" vehicle={{ ...base, kind: 'plane' }} onCancel={() => {}} onDone={() => {}} dict={t('en')} />)
+    expect(screen.getByRole('dialog')).toHaveTextContent('Takeoff → TKOFF_ALT')
+  })
+
   it('uses the primary button for non-destructive commands and shows the carried message', () => {
     render(
       <ConfirmDialog

@@ -3,7 +3,7 @@ import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import { cmdLabel, type Dict } from '../../shared/i18n'
 import { haversineM } from '../mission/geo'
 import { requestConfirm, sendCommand } from './api'
-import { DESTRUCTIVE } from './catalog'
+import { DESTRUCTIVE, takeoffKind } from './catalog'
 import { useConfirmKeys } from './confirmKeys'
 import { runCommand, type RunResult, type SendFn } from './useCommand'
 
@@ -28,8 +28,9 @@ interface Props {
 
 const HOLD_MS = 1500
 
-function describe(command: VehicleCommand, dict: Dict): string {
+function describe(command: VehicleCommand, dict: Dict, v: VehicleState | undefined): string {
   const label = cmdLabel(command.cmd, dict)
+  if (command.cmd === 'takeoff') return v && takeoffKind(v) === 'tkoff_alt' ? `${label} → TKOFF_ALT` : `${label} → ${command.args.alt_rel} m`
   if (command.cmd === 'set_mode') return `${label} → ${command.args.mode}`
   if (command.cmd === 'change_alt') return `${label} → ${command.args.alt_rel} m`
   if (command.cmd === 'change_speed') return `${label} → ${command.args.mps} m/s`
@@ -108,7 +109,7 @@ export function ConfirmDialog({ sysid, command, vehicleName, vehicle, message, o
       <div ref={box} className="g-strong confirm" role="dialog" aria-label={dict.confirmTitle}>
         <div className="h2">{dict.confirmTitle}</div>
         <div className="confirm-body">
-          <span className="confirm-cmd">{describe(command, dict)}</span>
+          <span className="confirm-cmd">{describe(command, dict, vehicle)}</span>
           <span className="t2">{vehicleName}</span>
         </div>
         {vehicle && <ContextRow v={vehicle} dict={dict} />}

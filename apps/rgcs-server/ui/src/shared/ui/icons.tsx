@@ -42,6 +42,7 @@ import {
   Pause,
   Pin,
   Plane,
+  PlaneTakeoff,
   Play,
   Plus,
   Power,
@@ -121,6 +122,7 @@ export const IconError = ({ size = 16, className }: IconProps) => <Lucide icon={
 export const IconPause = ({ size = 18, className }: IconProps) => <Lucide icon={Pause} size={size} className={className} />
 export const IconPlay = ({ size = 18, className }: IconProps) => <Lucide icon={Play} size={size} className={className} />
 export const IconStepForward = ({ size = 18, className }: IconProps) => <Lucide icon={StepForward} size={size} className={className} />
+export const IconTakeoff = ({ size = 18, className }: IconProps) => <Lucide icon={PlaneTakeoff} size={size} className={className} />
 export const IconLand = ({ size = 18, className }: IconProps) => <Lucide icon={ArrowDownToLine} size={size} className={className} />
 export const IconCrosshair = ({ size = 18, className }: IconProps) => <Lucide icon={Crosshair} size={size} className={className} />
 export const IconAltitude = ({ size = 18, className }: IconProps) => <Lucide icon={ArrowUpDown} size={size} className={className} />
