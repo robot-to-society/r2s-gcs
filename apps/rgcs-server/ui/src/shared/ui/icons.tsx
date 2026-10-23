@@ -7,6 +7,7 @@ import {
   ArrowUpDown,
   ArrowUpToLine,
   BotMessageSquare,
+  BatteryMedium,
   Camera,
   Car,
   ChartArea,
@@ -96,6 +97,7 @@ export const IconMaximize = ({ size = 16, className }: IconProps) => <Lucide ico
 export const IconMinimize = ({ size = 16, className }: IconProps) => <Lucide icon={Minimize} size={size} className={className} />
 export const IconVideoOff = ({ size = 36, className }: IconProps) => <Lucide icon={VideoOff} size={size} className={className} />
 export const IconSearch = ({ size = 16, className }: IconProps) => <Lucide icon={Search} size={size} className={className} />
+export const IconBattery = ({ size = 15, className }: IconProps) => <Lucide icon={BatteryMedium} size={size} className={className} />
 export const IconSpeed = ({ size = 15, className }: IconProps) => <Lucide icon={Gauge} size={size} className={className} />
 export const IconFollow = ({ size = 13, className }: IconProps) => <Lucide icon={LocateFixed} size={size} className={className} />
 export const IconPlane = ({ size = 22, className }: IconProps) => <Lucide icon={Plane} size={size} className={className} />

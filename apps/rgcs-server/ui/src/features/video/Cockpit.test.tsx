@@ -54,7 +54,7 @@ describe('Cockpit (spec 10 §4.2)', () => {
     const p = setup()
     expect(screen.getByText('UAV-01')).toBeInTheDocument()
     expect(screen.getByText('AUTO')).toBeInTheDocument()
-    expect(screen.getByText('▲ 82 m')).toBeInTheDocument()
+    expect(screen.getByText('82 m')).toBeInTheDocument()
     expect(screen.getByTestId('mini-map')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '元に戻す' }))
     expect(p.onRestore).toHaveBeenCalledOnce()

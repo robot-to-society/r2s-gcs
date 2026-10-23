@@ -4,7 +4,8 @@ import type { RecordingState, VehicleState, VideoSourceStatus } from '../../shar
 import type { Dict } from '../../shared/i18n'
 import { IconMaximize, IconVideoOff, IconWarn } from '../../shared/ui/icons'
 import { isLive, recDuration, useRecElapsed, useWhepFeed } from '../camera'
-import { altText, battText, modeLabel, speedText } from '../vehicles/format'
+import { modeLabel } from '../vehicles/format'
+import { StatLine } from './StatLine'
 
 interface Props {
   readonly vehicles: readonly VehicleState[]
@@ -76,9 +77,7 @@ function VideoTile({ vehicle: v, status, recording, selected, dict, onSelect, on
           </button>
         </div>
         <div className="row num" style={{ gap: 18, fontSize: 14, paddingLeft: 32, color: 'var(--text-2)' }}>
-          <span>▲ {altText(v)}</span>
-          <span>◔ {speedText(v)}</span>
-          <span>▮ {battText(v)}</span>
+          <StatLine v={v} />
         </div>
       </div>
     </div>

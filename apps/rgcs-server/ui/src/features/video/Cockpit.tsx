@@ -4,7 +4,8 @@ import type { CameraCommand, CameraSnapshot, RoiStatus, RoiTarget, VehicleState,
 import type { Dict } from '../../shared/i18n'
 import { IconMinimize, IconVideoOff, IconWarn } from '../../shared/ui/icons'
 import { isLive, recDuration, useCameraProfile, useRecElapsed, useWhepFeed } from '../camera'
-import { altText, battText, modeLabel, speedText } from '../vehicles/format'
+import { modeLabel } from '../vehicles/format'
+import { StatLine } from './StatLine'
 import { CamBar } from './CamBar'
 import { CamCard } from './CamCard'
 import { latencyText } from './cockpitView'
@@ -85,9 +86,7 @@ export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, 
             </span>
           </div>
           <div className="g-ctl row num" style={{ gap: 18, fontSize: 14, padding: '6px 14px', borderRadius: 999, color: 'var(--text-2)' }}>
-            <span>▲ {altText(v)}</span>
-            <span>◔ {speedText(v)}</span>
-            <span>▮ {battText(v)}</span>
+            <StatLine v={v} />
           </div>
           {recording === 'recording' && (
             <span className="pill pill-rec">

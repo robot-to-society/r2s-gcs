@@ -1,9 +1,9 @@
 // 割当どおり書き込む confirmation (spec 2026-10-20 §5.5): the assignments, what fence / rally each
 // vehicle still holds (消す / 残す, default 残す), then per-row progress while the batch runs.
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Mission } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { IconClose } from '../../shared/ui/icons'
+import { IconCheck, IconClose, IconError } from '../../shared/ui/icons'
 import { km } from '../mission/labels'
 import { BATCH_REASONS, type BatchJob, type BatchState, type Leftover } from './batch'
 import type { BatchSheet } from './batchStore'
@@ -60,11 +60,18 @@ function toJobs(lines: readonly SheetLine[], leftovers: ReadonlyMap<number, Left
   })
 }
 
-function phaseText(s: BatchState | undefined, dict: Dict): string | null {
+/** Waiting / writing as text; done and failed with a Lucide mark (spec 20 §9: no text glyphs). */
+function phaseText(s: BatchState | undefined, dict: Dict): ReactNode {
   if (!s) return null
   if (s.phase === 'waiting') return dict.bfWaiting
   if (s.phase === 'writing') return dict.bfWriting
-  return s.phase === 'done' ? '✓' : `✗ ${reasonText(s.reason, dict)}`.trim()
+  const [icon, text] = s.phase === 'done' ? [<IconCheck size={14} />, dict.bfDone] : [<IconError size={14} />, reasonText(s.reason, dict)]
+  return (
+    <span className="row" style={{ gap: 4 }}>
+      {icon}
+      {text}
+    </span>
+  )
 }
 
 interface ChoiceProps {
