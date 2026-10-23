@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
+use mavlink::dialects::ardupilotmega::MavMessage;
 use rgcs_core::{CameraCaps, CameraCommand, CameraState, RecordingState, SysId};
 use rgcs_mavlink::{MavPort, Outcome, PayloadFrame};
 use tokio::sync::{broadcast, watch};
@@ -22,6 +23,8 @@ pub const STALE_MS: u64 = LIVENESS_MS;
 pub const INFO_RETRY: Duration = Duration::from_millis(INFO_RETRY_MS);
 pub use crate::mavlink_cam::requests::STREAM_RETRY_MS;
 pub const TICK: Duration = Duration::from_millis(250);
+/// No vehicle HEARTBEAT for this long: the link is down and nothing is requested.
+pub const LINK_HB_MS: u64 = 3_000;
 
 /// What the actor and the command path share.
 struct Shared {
@@ -230,9 +233,12 @@ async fn run(shared: Arc<Shared>, mut frames: broadcast::Receiver<PayloadFrame>)
     let mut tick = tokio::time::interval(TICK);
     tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
     let mut requests = Requests::default();
+    let mut hb_ms: Option<u64> = None;
     loop {
         tokio::select! {
             frame = frames.recv() => match frame {
+                Ok(f) if f.header.system_id == shared.sysid
+                    && matches!(f.message, MavMessage::HEARTBEAT(_)) => hb_ms = Some(now_ms()),
                 Ok(f) if f.header.system_id == shared.sysid => {
                     let now = now_ms();
                     shared.update(|m| liveness(&apply(m, &f, shared.comp_id, now), now));
@@ -241,20 +247,32 @@ async fn run(shared: Arc<Shared>, mut frames: broadcast::Receiver<PayloadFrame>)
                 Err(broadcast::error::RecvError::Closed) => break,
             },
             _ = tick.tick() => {
-                requests = on_tick(&shared, &requests, now_ms()).await;
+                let now = now_ms();
+                let link_up = hb_ms.is_some_and(|t| now.saturating_sub(t) < LINK_HB_MS);
+                requests = on_tick(&shared, &requests, now, link_up);
             }
         }
     }
 }
 
-/// Liveness, then the due info / stream requests (fire and forget).
-async fn on_tick(shared: &Shared, requests: &Requests, now: u64) -> Requests {
+/// Liveness, then the due info / stream requests (fire and forget). While the vehicle sends
+/// no HEARTBEAT nothing is asked and the schedule counts as disconnected, so the first tick
+/// with the link back is a (re)connect edge; a full link queue drops the request (the next
+/// tick repeats it) instead of waiting (final review I3).
+fn on_tick(shared: &Shared, requests: &Requests, now: u64, link_up: bool) -> Requests {
     shared.update(|m| liveness(m, now));
+    if !link_up {
+        return Requests {
+            connected: false,
+            lost: requests.lost || requests.connected,
+            ..requests.clone()
+        };
+    }
     let model = shared.model.borrow().clone();
     let (next, msgs) = due_requests(&model, requests, shared.sysid, now);
     for msg in msgs {
-        if let Err(e) = shared.port.send(msg).await {
-            tracing::debug!("mavlink camera request not sent: {e}");
+        if let Err(e) = shared.port.try_send(msg) {
+            tracing::debug!("mavlink camera request dropped: {e}");
         }
     }
     next
@@ -263,3 +281,7 @@ async fn on_tick(shared: &Shared, requests: &Requests, now: u64) -> Requests {
 #[cfg(test)]
 #[path = "driver_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "link_tests.rs"]
+mod link_tests;

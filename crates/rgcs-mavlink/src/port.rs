@@ -10,9 +10,10 @@ use tokio::sync::{broadcast, mpsc};
 
 use crate::queue::{classify, wait_ack, Ack, Outcome, Outgoing, ACK_TIMEOUT};
 
-/// CAMERA_INFORMATION, CAMERA_SETTINGS, CAMERA_CAPTURE_STATUS, GIMBAL_MANAGER_INFORMATION,
-/// GIMBAL_MANAGER_STATUS, GIMBAL_DEVICE_ATTITUDE_STATUS.
-pub const PAYLOAD_IDS: [u32; 6] = [259, 260, 262, 280, 281, 285];
+/// HEARTBEAT (link liveness for the driver's requests), CAMERA_INFORMATION, CAMERA_SETTINGS,
+/// CAMERA_CAPTURE_STATUS, GIMBAL_MANAGER_INFORMATION, GIMBAL_MANAGER_STATUS,
+/// GIMBAL_DEVICE_ATTITUDE_STATUS.
+pub const PAYLOAD_IDS: [u32; 7] = [0, 259, 260, 262, 280, 281, 285];
 pub const PAYLOAD_CAPACITY: usize = 256;
 
 /// One camera / gimbal frame, with the header of the component that sent it.
@@ -34,6 +35,8 @@ pub fn tap(header: &MavHeader, msg: &MavMessage) -> Option<PayloadFrame> {
 pub enum PortError {
     #[error("link closed")]
     Closed,
+    #[error("link queue full")]
+    Full,
 }
 
 /// Handle on the FC link for a payload driver.
@@ -75,6 +78,17 @@ impl MavPort {
             .send(Outgoing { message })
             .await
             .map_err(|_| PortError::Closed)
+    }
+
+    /// Queues one message only if there is room right now (fire-and-forget requests that the
+    /// next tick repeats anyway; they must never wait on, or fill, a stalled link).
+    pub fn try_send(&self, message: MavMessage) -> Result<(), PortError> {
+        self.outgoing
+            .try_send(Outgoing { message })
+            .map_err(|e| match e {
+                mpsc::error::TrySendError::Full(_) => PortError::Full,
+                mpsc::error::TrySendError::Closed(_) => PortError::Closed,
+            })
     }
 
     /// One send, no retry; waits `ACK_TIMEOUT` (IN_PROGRESS extends to `IN_PROGRESS_TIMEOUT`).
@@ -140,8 +154,6 @@ mod tests {
         let attitude =
             MavMessage::GIMBAL_DEVICE_ATTITUDE_STATUS(GIMBAL_DEVICE_ATTITUDE_STATUS_DATA::DEFAULT);
         assert!(tap(&header(1), &attitude).is_some());
-        let hb = MavMessage::HEARTBEAT(HEARTBEAT_DATA::DEFAULT);
-        assert!(tap(&header(1), &hb).is_none());
         let ack = MavMessage::COMMAND_ACK(COMMAND_ACK_DATA::DEFAULT);
         assert!(tap(&header(1), &ack).is_none());
     }
@@ -197,6 +209,27 @@ mod tests {
         acks.send(ack(2, MavResult::MAV_RESULT_ACCEPTED)).unwrap();
         acks.send(ack(1, MavResult::MAV_RESULT_DENIED)).unwrap();
         assert_eq!(task.await.unwrap(), Outcome::Refused("denied".into()));
+    }
+
+    /// Final review I3: fire-and-forget requests never wait for room on the link.
+    #[tokio::test(start_paused = true)]
+    async fn try_send_drops_when_the_link_queue_is_full() {
+        let (out_tx, mut out_rx) = mpsc::channel(1);
+        let (acks, _) = broadcast::channel(1);
+        let (payload, _) = broadcast::channel(1);
+        let p = MavPort::new(out_tx, acks, payload);
+        assert_eq!(p.try_send(photo()), Ok(()));
+        assert_eq!(p.try_send(photo()), Err(PortError::Full));
+        out_rx.recv().await.unwrap();
+        assert_eq!(p.try_send(photo()), Ok(()));
+        drop(out_rx);
+        assert_eq!(p.try_send(photo()), Err(PortError::Closed));
+    }
+
+    #[test]
+    fn tap_keeps_heartbeats_for_link_liveness() {
+        let hb = MavMessage::HEARTBEAT(HEARTBEAT_DATA::DEFAULT);
+        assert!(tap(&header(1), &hb).is_some());
     }
 
     #[tokio::test(start_paused = true)]

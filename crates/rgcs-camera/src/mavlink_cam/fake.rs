@@ -12,7 +12,7 @@ use std::time::Duration;
 use mavlink::dialects::ardupilotmega::{
     CameraCapFlags, GimbalDeviceFlags, GimbalManagerCapFlags, MavCmd, MavMessage, MavResult,
     CAMERA_CAPTURE_STATUS_DATA, CAMERA_INFORMATION_DATA, CAMERA_SETTINGS_DATA,
-    GIMBAL_DEVICE_ATTITUDE_STATUS_DATA, GIMBAL_MANAGER_INFORMATION_DATA,
+    GIMBAL_DEVICE_ATTITUDE_STATUS_DATA, GIMBAL_MANAGER_INFORMATION_DATA, HEARTBEAT_DATA,
 };
 use mavlink::MavHeader;
 use rgcs_core::SysId;
@@ -286,13 +286,17 @@ impl Responder {
         })
     }
 
-    /// 285 every tick (10 Hz) once enabled; 260 / 262 every 10th tick (1 Hz) once enabled.
+    /// 285 every tick (10 Hz) once enabled; 260 / 262 every 10th tick (1 Hz) once enabled;
+    /// the FC HEARTBEAT at 1 Hz.
     fn stream(&self, world: &World, ticks: u64) {
         if self.paused() {
             return;
         }
         if world.attitude_stream {
             self.emit(GIMBAL_COMPID, self.attitude(world));
+        }
+        if ticks % 10 == 1 {
+            self.emit(GIMBAL_COMPID, MavMessage::HEARTBEAT(HEARTBEAT_DATA::DEFAULT));
         }
         if world.camera_stream && ticks % 10 == 0 {
             self.emit(self.cfg.cam_compid, self.settings(world));
