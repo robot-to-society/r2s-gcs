@@ -91,6 +91,15 @@ describe('inspect', () => {
     expect(i.note).toBe('詳細は MAVLink インスペクター')
   })
 
+  it('marks a connected link with no data as stale', () => {
+    const t = fixture()
+    const stale = { ...t, links: t.links.map((l) => ({ ...l, stale: true })) }
+    const st = kv(inspect('link:link0', stale, ja, NOW), '状態')
+    expect(st?.v).toBe('受信なし')
+    expect(st?.cls).toBe('warn')
+    expect(kv(inspect('link:link0', t, ja, NOW), '状態')?.cls).toBe('ok')
+  })
+
   it('describes a client', () => {
     const i = inspect('c:1', fixture(), ja, NOW)
     expect([i.title, i.sub, i.icon]).toEqual(['admin', 'admin · Chrome', 'laptop'])

@@ -26,6 +26,9 @@ const RESYNC_GAP: u8 = 128;
 /// A component silent for longer than this rebooted or dropped out: the next frame sets the
 /// baseline instead of counting the sequence gap (the silence shows as stale rx instead).
 pub const RESYNC_SILENCE_MS: u64 = 2_000;
+/// A connected link with no frame for longer than this is stale (no data), like the router's
+/// heartbeat `delay` threshold (spec 80 §3).
+pub const STALE_RX_MS: u64 = 3_000;
 
 const MAV_TYPE_GCS: u8 = 6;
 const MAV_TYPE_ONBOARD_CONTROLLER: u8 = 18;
@@ -163,6 +166,8 @@ fn lost_between(last: u8, seq: u8) -> u32 {
 struct Inner {
     connected: bool,
     since: Option<u64>,
+    /// Stats clock (ms) at the last connect: the stale timer starts here.
+    connected_ms: u64,
     reconnects: u32,
     connects: u32,
     last_error: Option<String>,
@@ -207,6 +212,9 @@ pub struct LinkStatsSnapshot {
     pub rx_bytes_per_s: f32,
     pub loss_pct: f32,
     pub last_rx_age_ms: Option<u64>,
+    /// Connected, but no frame for more than [`STALE_RX_MS`] (since the connect or the last
+    /// frame, whichever is later).
+    pub rx_stale: bool,
     /// Sorted by (sysid, compid).
     pub components: Vec<ComponentStats>,
 }
@@ -237,8 +245,8 @@ impl LinkStats {
     }
 
     /// The link is up. Every call after the first counts a reconnect; sequence baselines reset
-    /// and the last error is cleared (it stays in the server log).
-    pub fn on_connected(&self, unix_ms: u64) {
+    /// and the last error is cleared (it stays in the server log). `now_ms` is the stats clock.
+    pub fn on_connected(&self, unix_ms: u64, now_ms: u64) {
         let mut inner = self.lock();
         inner.connects += 1;
         if inner.connects > 1 {
@@ -246,6 +254,7 @@ impl LinkStats {
         }
         inner.connected = true;
         inner.since = Some(unix_ms);
+        inner.connected_ms = now_ms;
         inner.last_error = None;
         inner.comps.values_mut().for_each(|c| c.last_seq = None);
     }
@@ -281,6 +290,8 @@ impl LinkStats {
         rows.sort_by_key(|(c, _)| (c.sysid, c.compid));
         let link = rows.iter().fold(Totals::default(), |acc, (_, t)| acc.plus(*t));
         let last_ms = inner.comps.values().map(|c| c.last_ms).max();
+        let quiet_since = last_ms.unwrap_or(0).max(inner.connected_ms);
+        let rx_stale = inner.connected && now_ms.saturating_sub(quiet_since) > STALE_RX_MS;
         LinkStatsSnapshot {
             connected: inner.connected,
             connected_since_unix_ms: inner.since,
@@ -290,6 +301,7 @@ impl LinkStats {
             rx_bytes_per_s: link.bytes_per_s(),
             loss_pct: link.loss_pct(),
             last_rx_age_ms: last_ms.map(|m| now_ms.saturating_sub(m)),
+            rx_stale,
             components: rows.into_iter().map(|(c, _)| c).collect(),
         }
     }
@@ -442,16 +454,30 @@ mod tests {
         let stats = LinkStats::default();
         stats.on_disconnected(Some("Connection refused".into()));
         assert_eq!(stats.snapshot(0).last_error.as_deref(), Some("Connection refused"));
-        stats.on_connected(1);
+        stats.on_connected(1, 0);
         assert_eq!(stats.snapshot(0).last_error, None);
+    }
+
+    #[test]
+    fn connected_link_without_frames_for_3_s_is_stale() {
+        let stats = LinkStats::default();
+        assert!(!stats.snapshot(10_000).rx_stale, "a down link is not stale");
+        stats.on_connected(1, 1_000);
+        assert!(!stats.snapshot(4_000).rx_stale, "3 s grace after connecting");
+        assert!(stats.snapshot(4_001).rx_stale, "never heard anything");
+        stats.record(&hdr(1, 1, 0), &hb(), 5_000);
+        assert!(!stats.snapshot(8_000).rx_stale);
+        assert!(stats.snapshot(8_001).rx_stale, "silent for > 3 s");
+        stats.on_disconnected(Some("eof".into()));
+        assert!(!stats.snapshot(9_000).rx_stale);
     }
 
     #[test]
     fn reconnect_resets_baselines() {
         let stats = LinkStats::default();
-        stats.on_connected(1);
+        stats.on_connected(1, 0);
         feed(&stats, &[10], 1000);
-        stats.on_connected(2);
+        stats.on_connected(2, 1050);
         feed(&stats, &[200], 1100);
         let s = stats.snapshot(2000);
         assert_eq!(s.components[0].loss_pct, 0.0);
@@ -525,7 +551,7 @@ mod tests {
         let s = stats.snapshot(0);
         assert!(!s.connected);
         assert_eq!(s.last_rx_age_ms, None);
-        stats.on_connected(1_700_000_000_000);
+        stats.on_connected(1_700_000_000_000, 0);
         stats.record(&hdr(1, 1, 0), &hb(), 500);
         let s = stats.snapshot(1500);
         assert!(s.connected);

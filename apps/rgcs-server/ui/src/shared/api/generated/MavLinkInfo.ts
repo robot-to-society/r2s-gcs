@@ -2,4 +2,8 @@
 import type { MavLinkKind } from "./MavLinkKind";
 import type { NetSystem } from "./NetSystem";
 
-export type MavLinkInfo = { id: string, url: string, kind: MavLinkKind, connected: boolean, connected_since_unix_ms: number | null, reconnects: number, last_error: string | null, rx_msgs_per_s: number, rx_bytes_per_s: number, loss_pct: number, last_rx_age_ms: number | null, systems: Array<NetSystem>, };
+export type MavLinkInfo = { id: string, url: string, kind: MavLinkKind, connected: boolean, connected_since_unix_ms: number | null, reconnects: number, last_error: string | null, rx_msgs_per_s: number, rx_bytes_per_s: number, loss_pct: number, last_rx_age_ms: number | null, 
+/**
+ * Connected but no frame for more than 3 s (80 §3): shown as a warning,「受信なし」.
+ */
+stale: boolean, systems: Array<NetSystem>, };

@@ -48,6 +48,7 @@ export function mavLink(overrides: Partial<MavLinkInfo> = {}): MavLinkInfo {
     rx_bytes_per_s: 2000,
     loss_pct: 0,
     last_rx_age_ms: 100,
+    stale: false,
     systems: [],
     ...overrides,
   }

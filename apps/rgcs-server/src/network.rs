@@ -115,6 +115,7 @@ fn link_info(i: &NetworkInputs) -> MavLinkInfo {
         rx_bytes_per_s: s.rx_bytes_per_s,
         loss_pct: s.loss_pct,
         last_rx_age_ms: s.last_rx_age_ms,
+        stale: s.rx_stale,
         systems: systems(i),
     }
 }
@@ -373,6 +374,7 @@ mod tests {
                 rx_bytes_per_s: 990.0,
                 loss_pct: 0.0,
                 last_rx_age_ms: Some(20),
+                rx_stale: false,
                 components: vec![
                     comp(1, 1, ComponentKind::Autopilot, 30.0),
                     comp(1, 100, ComponentKind::Camera, 2.0),
@@ -496,6 +498,14 @@ mod tests {
         assert!(t.links[0].connected);
         assert_eq!(t.links[0].rx_msgs_per_s, 33.0);
         assert_eq!(t.links[0].connected_since_unix_ms, Some(2_000));
+    }
+
+    #[test]
+    fn stale_rx_is_carried_to_the_link() {
+        assert!(!assemble(&inputs()).links[0].stale);
+        let mut i = inputs();
+        i.link.rx_stale = true;
+        assert!(assemble(&i).links[0].stale);
     }
 
     #[test]

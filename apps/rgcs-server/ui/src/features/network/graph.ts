@@ -31,8 +31,17 @@ export function vehicleStatus(v: NetVehicle): NetStatus {
   return v.link === 'ok' ? 'ok' : 'warn'
 }
 
+/** A down link, a connected one with no frame for > 3 s (`stale`, 80 §3) or loss above 3 % warns. */
 export function linkStatus(l: MavLinkInfo): NetStatus {
-  return !l.connected || l.loss_pct > LOSS_WARN_PCT ? 'warn' : 'ok'
+  return !l.connected || l.stale || l.loss_pct > LOSS_WARN_PCT ? 'warn' : 'ok'
+}
+
+const MAX_URL = 18
+const shortUrl = (s: string): string => (s.length > MAX_URL ? `${s.slice(0, MAX_URL - 1)}…` : s)
+
+/** The link pill's value: 「受信なし」 while connected but silent, else the (shortened) url. */
+export function linkPillValue(l: MavLinkInfo, dict: Dict): string {
+  return l.connected && l.stale ? dict.netNoData : shortUrl(l.url)
 }
 
 export function mediaStatus(m: MediaServer): NetStatus {

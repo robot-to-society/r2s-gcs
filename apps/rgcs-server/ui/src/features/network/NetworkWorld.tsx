@@ -4,7 +4,7 @@
 import type { ReactElement } from 'react'
 import type { Dict } from '../../shared/i18n'
 import { IconGlobe, IconLaptop, IconRadioTower, IconRouter, IconServer } from '../../shared/ui/icons'
-import { graphSummary, type NetGraph } from './graph'
+import { graphSummary, linkPillValue, type NetGraph } from './graph'
 import { clientY, gatewayY, linkPillY, MEDIA_PILL_W, mediaPillX, VH, VW, zoneLabelFs, type NetLayout } from './layout'
 import { Card, Edge, Node, Pill, SvgIcon, VehicleBlock, Zone, type Kit, type PillState } from './svgParts'
 import type { Lod } from './viewport'
@@ -40,8 +40,6 @@ const merge = (...ls: readonly Layers[]): Layers => ({
   nodes: ls.flatMap((x) => x.nodes),
   top: ls.flatMap((x) => x.top),
 })
-const MAX_URL = 18
-const short = (s: string): string => (s.length > MAX_URL ? `${s.slice(0, MAX_URL - 1)}…` : s)
 const bundled = (g: NetGraph): boolean => g.vehicles.length > 8
 
 function vehicles({ g, l, lod, kit, dict }: Ctx): Layers {
@@ -82,7 +80,7 @@ function server(ctx: Ctx): Layers {
   const x = l.vx - 110
   const link = g.link
   const linkPill =
-    link === null ? [] : [<Pill key="link" kit={kit} id={`link:${link.id}`} x={x} y={linkPillY(l)} w={200} label="MAVLink" val={short(link.url)} state={g.status.get(`link:${link.id}`) ?? 'ok'} />]
+    link === null ? [] : [<Pill key="link" kit={kit} id={`link:${link.id}`} x={x} y={linkPillY(l)} w={200} label="MAVLink" val={linkPillValue(link, dict)} state={g.status.get(`link:${link.id}`) ?? 'ok'} />]
   const clientEdges = g.clients.map((c, i) => {
     const cy = clientY(l, i)
     const d = i === 0 ? `M${l.vx},${l.gwY + 48} V${cy}` : `M${l.vx},${l.gwY + 48} V${l.gwY + 80} H${l.vx - 122} V${cy + 24} H${x}`

@@ -135,6 +135,12 @@ function systemTable(l: MavLinkInfo, dict: Dict): Table {
   return { title: dict.netSystems, cols: '64px 1fr 64px', head: ['SYSID', dict.netKind, 'msg/s'], rows }
 }
 
+/** 状態: 未接続 / 受信なし (connected but silent > 3 s) warn, else 接続 ok. */
+function linkState(l: MavLinkInfo, dict: Dict): KvRow {
+  if (!l.connected) return kv(dict.netState, dict.netDisconnected, 'warn')
+  return l.stale ? kv(dict.netState, dict.netNoData, 'warn') : kv(dict.netState, dict.netConnected, 'ok')
+}
+
 function linkInspection(l: MavLinkInfo, dict: Dict, now: number): Inspection {
   const since = l.connected_since_unix_ms === null ? null : now - l.connected_since_unix_ms
   const err = l.last_error === null ? [] : [kv(dict.netLastError, l.last_error, 'warn')]
@@ -144,7 +150,7 @@ function linkInspection(l: MavLinkInfo, dict: Dict, now: number): Inspection {
     sub: l.url,
     kv: [
       kv(dict.netKind, l.kind),
-      kv(dict.netState, l.connected ? dict.netConnected : dict.netDisconnected, l.connected ? 'ok' : 'warn'),
+      linkState(l, dict),
       kv(dict.netSince, l.connected ? fmtAge(since, dict) : '—'),
       kv(dict.netRxEst, `${fmtRate(l.rx_msgs_per_s)} msg/s · ${fmtBytes(l.rx_bytes_per_s)}`),
       kv(dict.netLoss, fmtLoss(l.loss_pct), l.loss_pct > LOSS_WARN_PCT ? 'warn' : undefined),

@@ -116,7 +116,7 @@ pub async fn run_link(url: LinkUrl, router: Arc<Mutex<Router>>, mut ch: LinkChan
         match tokio::time::timeout(CONNECT_TIMEOUT, mavlink::connect_async::<MavMessage>(&address)).await {
             Ok(Ok(conn)) => {
                 info!(link = %url, "mavlink link connected");
-                ch.stats.on_connected(clock.now().unix_ms);
+                ch.stats.on_connected(clock.now().unix_ms, ch.stats.now_ms());
                 let conn: Conn = Arc::from(conn);
                 match receive_loop(conn, &router, &mut ch, clock, &mut link).await {
                     Ok(reason) => ch.stats.on_disconnected(Some(reason)),

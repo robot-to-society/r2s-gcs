@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { t } from '../../shared/i18n'
 import { clientSession, mavLink, netComponent, netVehicle, topology } from './fixture'
-import { cameraLine, compLine, graphSummary, linkStatus, toGraph, vehicleStatus } from './graph'
+import { cameraLine, compLine, graphSummary, linkPillValue, linkStatus, toGraph, vehicleStatus } from './graph'
 
 const ja = t('ja')
 
@@ -22,6 +22,15 @@ describe('graph', () => {
     expect(linkStatus(mavLink({ loss_pct: 3.0 }))).toBe('ok')
     expect(linkStatus(mavLink({ loss_pct: 3.01 }))).toBe('warn')
     expect(linkStatus(mavLink({ connected: false }))).toBe('warn')
+    expect(linkStatus(mavLink({ stale: true, loss_pct: 0 }))).toBe('warn')
+  })
+
+  it('linkPillValue says no data on a stale link, else the short url', () => {
+    const ja = t('ja')
+    expect(linkPillValue(mavLink({ stale: true }), ja)).toBe('受信なし')
+    expect(linkPillValue(mavLink({ url: 'tcp:127.0.0.1:5760' }), ja)).toBe('tcp:127.0.0.1:5760')
+    expect(linkPillValue(mavLink({ url: 'tcp:127.0.0.1:5760' }), t('en'))).toBe('tcp:127.0.0.1:5760')
+    expect(linkPillValue(mavLink({ stale: true }), t('en'))).toBe('No data')
   })
 
   it('counts warnings over vehicles, the link and the media server', () => {

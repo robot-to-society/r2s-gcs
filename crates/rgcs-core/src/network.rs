@@ -77,6 +77,8 @@ pub struct MavLinkInfo {
     pub loss_pct: f32,
     #[ts(type = "number | null")]
     pub last_rx_age_ms: Option<u64>,
+    /// Connected but no frame for more than 3 s (80 §3): shown as a warning,「受信なし」.
+    pub stale: bool,
     pub systems: Vec<NetSystem>,
 }
 
@@ -271,6 +273,7 @@ mod tests {
                 rx_bytes_per_s: 9_800.0,
                 loss_pct: 0.0,
                 last_rx_age_ms: Some(20),
+                stale: false,
                 systems: (1..=vehicles)
                     .map(|sysid| NetSystem {
                         sysid,
