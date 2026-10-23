@@ -2,11 +2,13 @@
 //! until the input gate lands (M2), answered with an error frame.
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::State;
+use axum::extract::{ConnectInfo, State};
+use axum::Extension;
+use std::net::SocketAddr;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use futures::{SinkExt, StreamExt};
-use rgcs_core::{CameraCommand, ClientMessage, ServerMessage, SysId};
+use rgcs_core::{CameraCommand, ClientMessage, Operator, ServerMessage, SysId};
 use rgcs_input::{Action, Gate};
 use tokio::sync::broadcast;
 use tracing::warn;
@@ -23,6 +25,7 @@ const MAX_MESSAGE_SIZE: usize = 16 * 1024;
 pub async fn handler(
     ws: WebSocketUpgrade,
     headers: HeaderMap,
+    connect: Option<Extension<ConnectInfo<SocketAddr>>>,
     State(app): State<AppState>,
     AuthUser(op): AuthUser,
 ) -> Response {
@@ -31,8 +34,13 @@ pub async fn handler(
     if !origin_allowed(origin, host) {
         return (StatusCode::FORBIDDEN, "origin not allowed").into_response();
     }
+    let addr = connect.map(|Extension(ConnectInfo(a))| a);
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
     ws.max_message_size(MAX_MESSAGE_SIZE)
-        .on_upgrade(move |socket| session(socket, app, op.username))
+        .on_upgrade(move |socket| session(socket, app, op, addr, user_agent))
         .into_response()
 }
 
@@ -53,7 +61,18 @@ pub fn origin_allowed(origin: Option<&str>, host: Option<&str>) -> bool {
 }
 
 /// `operator` is the logged-in user who opened the socket: the audit names them for joystick cancels.
-async fn session(socket: WebSocket, app: AppState, operator: String) {
+async fn session(
+    socket: WebSocket,
+    app: AppState,
+    op: Operator,
+    addr: Option<SocketAddr>,
+    user_agent: Option<String>,
+) {
+    // Held until every exit path of this function: its Drop removes the registry row.
+    let _guard = app
+        .sessions
+        .register(&op.username, op.role, addr, user_agent.as_deref(), unix_ms());
+    let operator = op.username;
     let (mut sink, mut stream) = socket.split();
     // Subscribe before taking the snapshot so no frame is lost in between.
     let mut rx = app.tx.subscribe();

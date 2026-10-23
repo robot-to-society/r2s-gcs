@@ -101,7 +101,10 @@ async fn main() -> anyhow::Result<()> {
     let app = app::build(state, config.ui_dir.clone());
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     let shutdown = rgcs_server::shutdown::shutdown_signal()?;
-    axum::serve(listener, app)
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
         .with_graceful_shutdown(shutdown)
         .await?;
     // Ruling 18: every active ROI ends with speed 0 before the process exits.

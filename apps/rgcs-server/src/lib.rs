@@ -42,6 +42,7 @@ pub mod roi;
 pub mod roi_api;
 mod roi_native;
 mod roi_task;
+pub mod sessions;
 pub mod settings;
 pub mod shutdown;
 pub mod survey_camera_api;

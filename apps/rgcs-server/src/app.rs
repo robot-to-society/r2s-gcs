@@ -64,6 +64,8 @@ pub struct AppState {
     pub calib: crate::calibration::CalibHub,
     /// Persistent message log (footer, history sheet, acknowledgements).
     pub messages: crate::message_log::MessageLog,
+    /// Live WebSocket sessions (network view client list).
+    pub sessions: crate::sessions::SessionRegistry,
     /// Where branding files (and the database) live; `config.toml` `data_dir`.
     pub data_dir: PathBuf,
     pub hostname: String,
@@ -128,6 +130,7 @@ impl AppState {
             logs,
             calib,
             messages,
+            sessions: crate::sessions::SessionRegistry::default(),
             gcs,
             inspector: rgcs_mavlink::Inspector::default(),
             data_dir: crate::config::Config::default().data_dir,

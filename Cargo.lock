@@ -1893,6 +1893,7 @@ dependencies = [
  "thiserror",
  "time",
  "tokio",
+ "tokio-tungstenite",
  "tokio-util",
  "toml",
  "tower",
