@@ -1,4 +1,4 @@
-import type { CalibStatus, CameraSnapshot, CommandResult, Deadman, Flight, LogFetchProgress, Mission, MissionProgress, MissionTransfer, ParamProgress, RoiStatus, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
+import type { CalibStatus, CameraSnapshot, CommandResult, Deadman, Flight, LogFetchProgress, Mission, MissionProgress, MissionTransfer, NetworkTopology, ParamProgress, RoiStatus, ServerMessage, SysId, VehicleMessage, VehicleState, VideoSourceStatus } from '../../shared/api/types'
 import { applyDiff } from '../../shared/ws/apply'
 import { EMPTY_LOG, logReduce, toLogEntry, type LogState } from '../log/store'
 
@@ -27,6 +27,8 @@ export interface VehiclesState {
   readonly calibration: ReadonlyMap<SysId, CalibStatus>
   /** Last `roi_status` per vehicle (ruling 2: inactive = no entry or `active_target` null). */
   readonly roi: ReadonlyMap<SysId, RoiStatus>
+  /** Last `network_status` topology (1 Hz, full frame); null until the first one. */
+  readonly network: NetworkTopology | null
   readonly deadman: Deadman
   readonly link: LinkState
   /** The message log behind the footer pill and the history sheet. */
@@ -47,6 +49,7 @@ export const initialState: VehiclesState = {
   logFetch: new Map(),
   calibration: new Map(),
   roi: new Map(),
+  network: null,
   deadman: 'ok',
   link: 'connecting',
   log: EMPTY_LOG,
@@ -159,6 +162,8 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
       roi.set(msg.sysid, msg.status)
       return { ...state, roi }
     }
+    case 'network_status':
+      return { ...state, network: msg.topology }
     case 'input_state':
       return state.deadman === msg.deadman ? state : { ...state, deadman: msg.deadman }
     case 'telemetry': {

@@ -8,6 +8,7 @@ import {
   ArrowUpToLine,
   BotMessageSquare,
   BatteryMedium,
+  Cable,
   Camera,
   Car,
   ChartArea,
@@ -15,17 +16,20 @@ import {
   ChevronRight,
   ChevronUp,
   CircleCheck,
+  Cpu,
   Crosshair,
   Ellipsis,
   Eye,
   EyeOff,
   FileUp,
   Gauge,
+  Globe,
   Grid3x3,
   Grip,
   History,
   House,
   Info,
+  Laptop,
   Layers,
   ListChecks,
   LocateFixed,
@@ -48,9 +52,13 @@ import {
   Plus,
   Power,
   PowerOff,
+  RadioTower,
   Repeat,
   Route,
+  Router,
+  Scan,
   Search,
+  Server,
   Settings,
   StepForward,
   TriangleAlert,
@@ -170,3 +178,12 @@ export const IconSignal = ({ size = 18, top = 'var(--text-3)' }: IconProps & { r
 )
 export const IconElevation = ({ size = 20, className }: IconProps) => <Lucide icon={ChartArea} size={size} className={className} />
 export const IconSortAlerts = ({ size = 18, className }: IconProps) => <Lucide icon={ArrowDownWideNarrow} size={size} className={className} />
+// Network view (plan 2026-10-23): server, gateway, client, internet, component, radio, camera scan, link.
+export const IconServer = ({ size = 16, className }: IconProps) => <Lucide icon={Server} size={size} className={className} />
+export const IconRouter = ({ size = 16, className }: IconProps) => <Lucide icon={Router} size={size} className={className} />
+export const IconLaptop = ({ size = 16, className }: IconProps) => <Lucide icon={Laptop} size={size} className={className} />
+export const IconGlobe = ({ size = 16, className }: IconProps) => <Lucide icon={Globe} size={size} className={className} />
+export const IconCpu = ({ size = 16, className }: IconProps) => <Lucide icon={Cpu} size={size} className={className} />
+export const IconRadioTower = ({ size = 16, className }: IconProps) => <Lucide icon={RadioTower} size={size} className={className} />
+export const IconScan = ({ size = 16, className }: IconProps) => <Lucide icon={Scan} size={size} className={className} />
+export const IconCable = ({ size = 16, className }: IconProps) => <Lucide icon={Cable} size={size} className={className} />

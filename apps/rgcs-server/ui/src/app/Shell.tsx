@@ -10,6 +10,7 @@ import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { useOpsArrival } from './opsArrival'
 import { MaintView } from '../features/params'
+import { NetworkView } from '../features/network'
 import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks, NO_PADDING, WpGoPopover, type WaypointPick } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
@@ -51,7 +52,7 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, log, cameras, videoSources, roi, deadman, missionProgress, missionTransfers, vehicleMissions, paramProgress, flightDrafts, logFetch, calibration } = useVehicles()
+  const { vehicles, link, log, cameras, videoSources, roi, deadman, missionProgress, missionTransfers, vehicleMissions, paramProgress, flightDrafts, logFetch, calibration, network } = useVehicles()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -232,7 +233,13 @@ export function Shell({ me, lang }: Props) {
             {logDock}
           </main>
         )}
-        <main className={`stage${showDetail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}${view === 'maint' ? ' maint-on' : ''}${view === 'video' ? ' video-on' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' ? 'none' : undefined }}>
+        {view === 'network' && (
+          <main className="stage net" style={{ position: 'absolute', inset: 0 }}>
+            <NetworkView ws={network} dict={dict} />
+            {logDock}
+          </main>
+        )}
+        <main className={`stage${showDetail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}${view === 'maint' ? ' maint-on' : ''}${view === 'video' ? ' video-on' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' || view === 'network' ? 'none' : undefined }}>
           {settings && (
             <MapView
               vehicles={vehicles}
@@ -450,7 +457,7 @@ export function Shell({ me, lang }: Props) {
               onDone={(r) => settle(modal.sysid, r, modal.command)}
             />
           )}
-          {view !== 'mission' && logDock}
+          {view !== 'mission' && view !== 'network' && logDock}
         </main>
       </div>
     </div>

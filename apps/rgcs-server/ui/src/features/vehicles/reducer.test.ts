@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
 import { initialState, reduce, setLink, withVehicleMission } from './reducer'
 import { vm } from '../../test/vm'
+import { topology } from '../network/fixture'
 
 const uav: VehicleState = {
   sysid: 1,
@@ -198,5 +199,19 @@ describe('camera, video source and input frames', () => {
     s = reduce(s, { t: 'message_ack', sysid: 1, id: 10, by: 'admin', ts: 5 })
     expect(s.log.entries[1].acked_by).toBe('admin')
     expect(s.messages[0].acked_by).toBe('admin')
+  })
+
+  it('network_status_replaces_topology', () => {
+    expect(initialState.network).toBeNull()
+    const t1 = topology(1000)
+    const t2 = topology(2000)
+    const s1 = reduce(initialState, { t: 'network_status', topology: t1 })
+    expect(s1.network).toBe(t1)
+    const s2 = reduce(s1, { t: 'network_status', topology: t2 })
+    expect(s2.network).toBe(t2)
+    expect(s2.vehicles).toBe(initialState.vehicles)
+    expect(s2.cameras).toBe(initialState.cameras)
+    expect(s2.log).toBe(initialState.log)
+    expect(s2.results).toBe(initialState.results)
   })
 })

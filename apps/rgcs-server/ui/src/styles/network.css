@@ -1,0 +1,7 @@
+/* Network view additions (plan 2026-10-23). Placeholders for elements a standalone server does not
+   have (Hub, LTE, mesh GW, uplink, NTRIP, remote users) are drawn dashed and dim. These selectors
+   only add to the prototype classes; prototype.css is never edited. */
+.nn.ph .card { stroke-dasharray: 4 4; fill: rgba(255, 255, 255, .02) }
+.nn.ph, .npl.ph, .ne.ph { opacity: .45 }
+.ne.ph .flow { display: none }
+.ne.ph .base { stroke-dasharray: 3 5 }

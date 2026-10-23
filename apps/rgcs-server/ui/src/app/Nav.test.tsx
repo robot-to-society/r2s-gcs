@@ -9,7 +9,7 @@ describe('Nav', () => {
     expect(container.querySelector('nav.seg.n6')).not.toBeNull()
     const buttons = screen.getAllByRole('button')
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['運用マップ', '全機体映像', 'ミッション', 'ネットワーク', 'AIチャット', 'メンテナンス・設定'])
-    for (const name of ['ネットワーク', 'AIチャット']) expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'AIチャット' })).toHaveAttribute('aria-disabled', 'true')
     for (const b of buttons) expect(b.querySelector('svg.lucide, svg.ic')).not.toBeNull()
     expect(buttons[0]).toHaveAttribute('aria-current', 'page')
     expect(screen.getByTestId('lens')).toHaveStyle({ transform: 'translateX(0%)' })
@@ -18,10 +18,10 @@ describe('Nav', () => {
   it('does not switch to a view that is not implemented yet', () => {
     const onView = vi.fn()
     render(<Nav view="ops" onView={onView} dict={t('ja')} />)
-    const net = screen.getByRole('button', { name: 'ネットワーク' })
-    expect(net).toHaveAttribute('aria-disabled', 'true')
-    expect(net).toHaveAttribute('title', 'ネットワーク (準備中)')
-    fireEvent.click(net)
+    const ai = screen.getByRole('button', { name: 'AIチャット' })
+    expect(ai).toHaveAttribute('aria-disabled', 'true')
+    expect(ai).toHaveAttribute('title', 'AIチャット (準備中)')
+    fireEvent.click(ai)
     expect(onView).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '運用マップ' }))
     expect(onView).toHaveBeenCalledWith('ops')
@@ -36,5 +36,14 @@ describe('Nav', () => {
       fireEvent.click(b)
       expect(onView).toHaveBeenCalledWith(view)
     }
+  })
+
+  it('network_is_enabled', () => {
+    const onView = vi.fn()
+    render(<Nav view="ops" onView={onView} dict={t('ja')} />)
+    const net = screen.getByRole('button', { name: 'ネットワーク' })
+    expect(net).not.toHaveAttribute('aria-disabled')
+    fireEvent.click(net)
+    expect(onView).toHaveBeenCalledWith('network')
   })
 })

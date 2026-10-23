@@ -17,6 +17,7 @@ import { cameraMediaEn, cameraMediaJa } from './cameraMedia'
 import { mavlinkCameraEn, mavlinkCameraJa } from './mavlinkCamera'
 import { cameraVideoEn, cameraVideoJa } from './cameraVideo'
 import { missionItemsEn, missionItemsJa } from './missionItems'
+import { networkEn, networkJa } from './network'
 
 export type Lang = 'ja' | 'en'
 
@@ -341,7 +342,7 @@ const baseJa = {
   cmd_param_write: 'パラメータ書込',
 } as const
 
-const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa, ...plannerJa, ...calibJa, ...briefingJa, ...surveyJa, ...instrumentsJa, ...wpGoJa, ...inspRateJa, ...roiJa, ...cameraMediaJa, ...mavlinkCameraJa, ...cameraVideoJa, ...missionItemsJa } as const
+const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa, ...plannerJa, ...calibJa, ...briefingJa, ...surveyJa, ...instrumentsJa, ...wpGoJa, ...inspRateJa, ...roiJa, ...cameraMediaJa, ...mavlinkCameraJa, ...cameraVideoJa, ...missionItemsJa, ...networkJa } as const
 
 const baseEn: Record<keyof typeof baseJa, string> = {
   vehicles: 'Vehicles',
@@ -664,7 +665,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   cmd_param_write: 'Parameter write',
 }
 
-const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn, ...videoEn, ...planeCmdEn, ...plannerEn, ...calibEn, ...briefingEn, ...surveyEn, ...instrumentsEn, ...wpGoEn, ...inspRateEn, ...roiEn, ...cameraMediaEn, ...mavlinkCameraEn, ...cameraVideoEn, ...missionItemsEn }
+const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn, ...videoEn, ...planeCmdEn, ...plannerEn, ...calibEn, ...briefingEn, ...surveyEn, ...instrumentsEn, ...wpGoEn, ...inspRateEn, ...roiEn, ...cameraMediaEn, ...mavlinkCameraEn, ...cameraVideoEn, ...missionItemsEn, ...networkEn }
 
 export type Dict = Record<keyof typeof ja, string>
 
