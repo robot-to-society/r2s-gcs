@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { clientSession, mavLink, netVehicle, topology } from './fixture'
 import { toGraph } from './graph'
-import { CWD, layoutNetwork, RH, VH, VW } from './layout'
+import { CWD, layoutNetwork, linkPillY, RH, VH, VW } from './layout'
 
 const graphOf = (n: number, clients = 1) =>
   toGraph(topology(1, { links: [mavLink()], vehicles: Array.from({ length: n }, (_, i) => netVehicle(i + 1)), clients: Array.from({ length: clients }, (_, i) => clientSession(i + 1)) }))
@@ -17,7 +17,7 @@ describe('layoutNetwork', () => {
     expect(l.cols).toBe(1)
     expect(l.rows).toBe(1)
     expect(l.vx).toBe(176)
-    expect(l.gwY).toBe(62 + 77 + 6)
+    expect(l.gwY).toBe(62 + 77 + 34)
     expect(l.S).toBe(1)
   })
 
@@ -30,10 +30,17 @@ describe('layoutNetwork', () => {
     expect(l.pos.get(8)).toEqual([150, 62 + 7 * 77])
   })
 
+  it.each([1, 3, 8, 12])('keeps the link pill clear of the vehicles and the server card (%i vehicles)', (n) => {
+    const l = layoutNetwork(graphOf(n))
+    const lastBottom = Math.max(...[...l.pos.values()].map(([, y]) => y + VH))
+    expect(linkPillY(l) - 10).toBeGreaterThanOrEqual(lastBottom + 8)
+    expect(linkPillY(l) + 10).toBeLessThanOrEqual(l.gwY - 8)
+  })
+
   it('grows the site zone by 58 px per extra client', () => {
     const one = layoutNetwork(graphOf(1, 1))
     const three = layoutNetwork(graphOf(1, 3))
-    expect(one.zone.h).toBe(77 + 192 + 70)
+    expect(one.zone.h).toBe(77 + 220 + 70)
     expect(three.zone.h - one.zone.h).toBe(2 * 58)
   })
 

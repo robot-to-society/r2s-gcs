@@ -5,3 +5,10 @@
 .nn.ph, .npl.ph, .ne.ph { opacity: .45 }
 .ne.ph .flow { display: none }
 .ne.ph .base { stroke-dasharray: 3 5 }
+
+/* Inspector kv values coloured like the prototype's .ntable cells. */
+.stage.net .kv > span.warn { color: var(--caution) }
+.stage.net .kv > span.ok { color: var(--ok) }
+.stage.net .kv > span.dim { color: var(--text-3) }
+/* The client table has four columns in the 340 px panel: slightly tighter cells than the prototype's. */
+.stage.net .ntable > span { padding-left: 6px; padding-right: 6px }

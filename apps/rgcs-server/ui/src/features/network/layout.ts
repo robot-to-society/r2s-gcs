@@ -35,6 +35,12 @@ const Y0 = 62, CLIENT_STEP = 58
 /** The 「メッシュ GW · 未構成」 card below the clients. */
 const GW_PLACEHOLDER_H = 70
 const HUB_Y = 182
+/** Space between the last vehicle row and the server card, so the MAVLink link pill sits on the
+ *  edges above the card instead of overlapping it (the prototype leaves 6 px; its GW has no pill). */
+const GW_GAP = 34
+
+/** Centre line of the `MAVLink · <url>` link pill, between the vehicles and the server card. */
+export const linkPillY = (l: NetLayout): number => l.gwY - 20
 
 /** Top of the client column (the first client card). */
 export const clientsY = (l: NetLayout): number => l.gwY + 92
@@ -49,7 +55,7 @@ export function layoutNetwork(g: NetGraph): NetLayout {
   const vx = cols === 1 ? 176 : 150
   const pos = new Map(g.vehicles.map((v, j) => [v.sysid, [vx + Math.floor(j / MAX_ROWS) * CWD, Y0 + (j % MAX_ROWS) * RH] as const]))
   const extraClients = Math.max(0, g.clients.length - 1) * CLIENT_STEP
-  const zone = { x: 8, y: Y0 - 44, w: vx + (cols - 1) * CWD + VW + 12, h: rows * RH + 192 + extraClients + GW_PLACEHOLDER_H }
+  const zone = { x: 8, y: Y0 - 44, w: vx + (cols - 1) * CWD + VW + 12, h: rows * RH + 192 + (GW_GAP - 6) + extraClients + GW_PLACEHOLDER_H }
   const siteBottom = zone.y + zone.h
   const S = Math.min(3, Math.max(1, siteBottom / 700))
   const fieldR = zone.x + zone.w
@@ -57,5 +63,5 @@ export function layoutNetwork(g: NetGraph): NetLayout {
   const UX = HX + HW + 66 * S
   // Deviation from netLayout: one small site would leave the hub below the world, so H also holds it.
   const H = Math.max(siteBottom, HUB_Y + HH + 26)
-  return { pos, cols, rows, vx, gwY: Y0 + rows * RH + 6, zone, W: UX + 190 * S, H, S, IX, IW, HX, HW, HH, HY: HUB_Y, UX }
+  return { pos, cols, rows, vx, gwY: Y0 + rows * RH + GW_GAP, zone, W: UX + 190 * S, H, S, IX, IW, HX, HW, HH, HY: HUB_Y, UX }
 }

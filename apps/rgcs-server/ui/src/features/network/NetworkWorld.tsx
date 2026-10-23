@@ -5,7 +5,7 @@ import type { ReactElement } from 'react'
 import type { Dict } from '../../shared/i18n'
 import { IconGlobe, IconLaptop, IconRadioTower, IconRouter, IconServer } from '../../shared/ui/icons'
 import { graphSummary, type NetGraph } from './graph'
-import { clientY, gatewayY, VH, VW, type NetLayout } from './layout'
+import { clientY, gatewayY, linkPillY, VH, VW, type NetLayout } from './layout'
 import { Card, Edge, Node, Pill, SvgIcon, VehicleBlock, Zone, type Kit, type PillState } from './svgParts'
 import type { Lod } from './viewport'
 
@@ -82,7 +82,7 @@ function server(ctx: Ctx): Layers {
   const x = l.vx - 110
   const link = g.link
   const linkPill =
-    link === null ? [] : [<Pill key="link" kit={kit} id={`link:${link.id}`} x={x - 8} y={l.gwY - 1} w={200} label="MAVLink" val={short(link.url)} state={g.status.get(`link:${link.id}`) ?? 'ok'} />]
+    link === null ? [] : [<Pill key="link" kit={kit} id={`link:${link.id}`} x={x} y={linkPillY(l)} w={200} label="MAVLink" val={short(link.url)} state={g.status.get(`link:${link.id}`) ?? 'ok'} />]
   const clientEdges = g.clients.map((c, i) => {
     const cy = clientY(l, i)
     const d = i === 0 ? `M${l.vx},${l.gwY + 48} V${cy}` : `M${l.vx},${l.gwY + 48} V${l.gwY + 80} H${l.vx - 122} V${cy + 24} H${x}`
@@ -97,7 +97,7 @@ function server(ctx: Ctx): Layers {
       <Card key="server" kit={kit} id="server" x={x} y={l.gwY} w={220} h={48} icon={IconServer} title="rgcs-server" sub={`${g.server.listen} · ${dict.netServerSub}`} />,
       ...clients,
       <Card key="ph:gw" kit={kit} id="ph:gw" x={x} y={gatewayY(l, g.clients.length)} w={220} h={48} icon={IconRouter} title={dict.netGateway} sub={dict.netUnconfigured} extra=" ph" />,
-      <text key="fieldop" className="ncolh" x={l.vx + 124} y={l.gwY + 122}>
+      <text key="fieldop" className="ncolh" x={l.vx + 156} y={l.gwY + 74}>
         {dict.netFieldOp}
       </text>,
     ],
