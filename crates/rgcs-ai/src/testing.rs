@@ -1,9 +1,11 @@
-//! Test doubles (feature `fake`): a scripted fake provider HTTP server for both protocols.
+//! Test doubles (feature `fake`): an in-process scripted LLM and a scripted fake provider
+//! HTTP server for both protocols.
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
+use async_trait::async_trait;
 use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
@@ -12,6 +14,8 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::{json, Value};
 use tokio::task::JoinHandle;
+
+use crate::llm::{AiError, Block, LlmClient, LlmRequest, LlmResponse, Stop, Turn, Usage};
 
 const STATUS_KEY: &str = "__fake_status";
 const BODY_KEY: &str = "__fake_body";
@@ -121,5 +125,83 @@ impl FakeProviderServer {
 impl Drop for FakeProviderServer {
     fn drop(&mut self) {
         self.task.abort();
+    }
+}
+
+/// What `ScriptedLlm` answers next.
+enum Script {
+    /// Replies in order; `Err(Malformed)` once exhausted.
+    Fixed(VecDeque<Result<LlmResponse, AiError>>),
+    /// A `list_vehicles` tool use on every call, forever.
+    AlwaysToolUse,
+}
+
+/// An in-process `LlmClient` with scripted replies. Records, per call, whether tools were
+/// offered and the turns that were sent.
+pub struct ScriptedLlm {
+    script: Mutex<Script>,
+    seen: Mutex<Vec<(bool, Vec<Turn>)>>,
+}
+
+impl ScriptedLlm {
+    pub fn new(replies: Vec<LlmResponse>) -> Self {
+        Self::from_results(replies.into_iter().map(Ok).collect())
+    }
+
+    /// Like `new`, but entries may be errors (`Err(AiError::Refused)`, …).
+    pub fn from_results(replies: Vec<Result<LlmResponse, AiError>>) -> Self {
+        Self::with_script(Script::Fixed(replies.into()))
+    }
+
+    /// Answers every call, the forced no-tools one included, with a tool use.
+    pub fn always_tool_use() -> Self {
+        Self::with_script(Script::AlwaysToolUse)
+    }
+
+    fn with_script(script: Script) -> Self {
+        Self {
+            script: Mutex::new(script),
+            seen: Mutex::default(),
+        }
+    }
+
+    /// Per call: `true` when the request offered tools.
+    pub fn calls(&self) -> Vec<bool> {
+        lock(&self.seen).iter().map(|(tools, _)| *tools).collect()
+    }
+
+    /// Per call: the turns sent.
+    pub fn requests(&self) -> Vec<Vec<Turn>> {
+        lock(&self.seen).iter().map(|(_, turns)| turns.clone()).collect()
+    }
+}
+
+fn endless_tool_use(n: usize) -> LlmResponse {
+    LlmResponse {
+        blocks: vec![Block::ToolUse {
+            id: format!("toolu_{n}"),
+            name: "list_vehicles".into(),
+            input: json!({}),
+        }],
+        stop: Stop::ToolUse,
+        usage: Usage {
+            input: 100,
+            output: 10,
+        },
+    }
+}
+
+#[async_trait]
+impl LlmClient for ScriptedLlm {
+    async fn complete(&self, req: LlmRequest<'_>) -> Result<LlmResponse, AiError> {
+        let n = {
+            let mut seen = lock(&self.seen);
+            seen.push((req.tools.is_some(), req.turns.to_vec()));
+            seen.len()
+        };
+        match &mut *lock(&self.script) {
+            Script::Fixed(replies) => replies.pop_front().unwrap_or(Err(AiError::Malformed)),
+            Script::AlwaysToolUse => Ok(endless_tool_use(n)),
+        }
     }
 }
