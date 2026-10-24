@@ -106,6 +106,36 @@ pub fn mode_number(kind: VehicleKind, name: &str) -> Option<u32> {
         .map(|(num, _)| *num)
 }
 
+// Mirror of `MODES.*.all` in apps/rgcs-server/ui/src/features/commands/catalog.ts; keep both in sync.
+const COPTER_ALL: &[&str] = &[
+    "STABILIZE", "ALT_HOLD", "LOITER", "POSHOLD", "BRAKE", "GUIDED", "AUTO", "CIRCLE", "RTL", "SMART_RTL",
+    "LAND", "ACRO", "SPORT", "DRIFT", "AUTOTUNE",
+];
+const PLANE_ALL: &[&str] = &[
+    "MANUAL", "STABILIZE", "ACRO", "TRAINING", "FBWA", "FBWB", "CRUISE", "AUTOTUNE", "TAKEOFF", "LOITER",
+    "CIRCLE", "GUIDED", "AUTO", "RTL", "THERMAL",
+];
+const QUADPLANE_ALL: &[&str] = &[
+    "MANUAL", "STABILIZE", "ACRO", "TRAINING", "FBWA", "FBWB", "CRUISE", "AUTOTUNE", "TAKEOFF", "LOITER",
+    "CIRCLE", "GUIDED", "AUTO", "RTL", "THERMAL", "QSTABILIZE", "QHOVER", "QLOITER", "QLAND", "QRTL",
+    "QAUTOTUNE", "QACRO",
+];
+const ROVER_ALL: &[&str] = &[
+    "MANUAL", "ACRO", "STEERING", "HOLD", "LOITER", "FOLLOW", "SIMPLE", "CIRCLE", "GUIDED", "AUTO", "RTL",
+    "SMART_RTL", "DOCK",
+];
+
+/// Modes the operator can pick for an airframe (the Rust mirror of the UI `modesFor(..).all`);
+/// `Other` gets the copter set, like its icon and model.
+pub fn modes_for(kind: VehicleKind, vtol: bool) -> &'static [&'static str] {
+    match kind {
+        VehicleKind::Plane if vtol => QUADPLANE_ALL,
+        VehicleKind::Plane => PLANE_ALL,
+        VehicleKind::Rover => ROVER_ALL,
+        VehicleKind::Copter | VehicleKind::Other => COPTER_ALL,
+    }
+}
+
 const VTOLS: &[MavType] = &[
     MavType::MAV_TYPE_VTOL_TAILSITTER_DUOROTOR,
     MavType::MAV_TYPE_VTOL_TAILSITTER_QUADROTOR,
@@ -177,5 +207,32 @@ mod tests {
         assert_eq!(vehicle_kind(MavType::MAV_TYPE_GROUND_ROVER), VehicleKind::Rover);
         assert_eq!(vehicle_kind(MavType::MAV_TYPE_FIXED_WING), VehicleKind::Plane);
         assert_eq!(vehicle_kind(MavType::MAV_TYPE_GCS), VehicleKind::Other);
+    }
+
+    #[test]
+    fn modes_for_lists() {
+        let copter = modes_for(VehicleKind::Copter, false);
+        assert_eq!(copter.len(), 15);
+        assert_eq!(&copter[..3], &["STABILIZE", "ALT_HOLD", "LOITER"]);
+        let plane = modes_for(VehicleKind::Plane, false);
+        assert_eq!(plane.len(), 15);
+        assert!(!plane.contains(&"QLOITER"));
+        let quadplane = modes_for(VehicleKind::Plane, true);
+        assert_eq!(quadplane.len(), 22);
+        assert!(quadplane.contains(&"QLOITER"));
+        assert!(modes_for(VehicleKind::Rover, false).contains(&"DOCK"));
+        assert_eq!(modes_for(VehicleKind::Other, false), copter);
+    }
+
+    #[test]
+    fn every_listed_mode_has_a_number() {
+        for kind in [VehicleKind::Copter, VehicleKind::Plane, VehicleKind::Rover, VehicleKind::Other] {
+            let table_kind = if kind == VehicleKind::Other { VehicleKind::Copter } else { kind };
+            for vtol in [false, true] {
+                for name in modes_for(kind, vtol) {
+                    assert!(mode_number(table_kind, name).is_some(), "{kind:?} vtol={vtol} {name}");
+                }
+            }
+        }
     }
 }

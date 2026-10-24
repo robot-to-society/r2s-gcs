@@ -14,6 +14,7 @@ export interface FrameModes {
   readonly all: readonly string[]
 }
 
+// Rust mirror: modes_for() in crates/rgcs-mavlink/src/modes.rs; keep both lists in sync.
 const PLANE_ALL = ['MANUAL', 'STABILIZE', 'ACRO', 'TRAINING', 'FBWA', 'FBWB', 'CRUISE', 'AUTOTUNE', 'TAKEOFF', 'LOITER', 'CIRCLE', 'GUIDED', 'AUTO', 'RTL', 'THERMAL']
 
 const MODES: Readonly<Record<'copter' | 'plane' | 'quadplane' | 'rover', FrameModes>> = {
