@@ -10,6 +10,10 @@ pub const GIMBAL_GROUND_PROJECTION: &str = "map.gimbal_ground_projection";
 pub const TRACK_MINUTES: &str = "map.track_minutes";
 /// Key of the RGCS MAVLink SYSID (1–255).
 pub const GCS_SYSID: &str = "mavlink.gcs_sysid";
+/// Key of the 実験機能 › AI 緊急介入 settings (JSON `GuardSettings`).
+pub const GUARD_SETTINGS: &str = "guard.settings";
+/// Key of the 外的要因データ settings (JSON `EnvSettings`).
+pub const ENV_SETTINGS: &str = "env.settings";
 
 impl Store {
     pub async fn app_setting(&self, key: &str) -> Result<Option<String>> {
@@ -33,6 +37,15 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use crate::Store;
+
+    #[tokio::test]
+    async fn guard_and_env_settings_are_absent_on_a_fresh_db() {
+        let s = Store::open_memory().await.unwrap();
+        assert_eq!(s.app_setting(super::GUARD_SETTINGS).await.unwrap(), None);
+        assert_eq!(s.app_setting(super::ENV_SETTINGS).await.unwrap(), None);
+        assert_eq!(super::GUARD_SETTINGS, "guard.settings");
+        assert_eq!(super::ENV_SETTINGS, "env.settings");
+    }
 
     #[tokio::test]
     async fn app_setting_round_trips_and_survives_a_reopen() {
