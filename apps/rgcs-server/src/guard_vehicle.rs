@@ -40,7 +40,8 @@ impl Ctx<'_> {
     }
 }
 
-/// Work for the hub: alerts go out at once, the rest to its worker in this order.
+/// Work for the hub: alerts go out at once, the action to its execution task, records and
+/// message rows to its writer in this order.
 #[derive(Debug)]
 pub enum Out {
     Alert(GuardAlert),
@@ -291,7 +292,7 @@ impl VehicleGuard {
     pub fn step(&mut self, input: Input<'_>, cx: &Ctx) -> Vec<Out> {
         let (next, effects) = self.machine.step(cx.policy, input);
         self.machine = next;
-        // The decision row is written before the action so its id goes into the audit.
+        // The decision record is queued before the action so its id goes into the audit row.
         let (sends, rest): (Vec<Effect>, Vec<Effect>) = effects
             .into_iter()
             .partition(|e| matches!(e, Effect::SendMode(_)));

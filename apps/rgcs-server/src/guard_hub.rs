@@ -13,33 +13,24 @@ use std::io::Write as _;
 use std::sync::{Arc, Mutex as StdMutex, MutexGuard, OnceLock};
 use std::time::Duration;
 
-use rgcs_core::{
-    GuardAlert, GuardSettings, MessageSource, ServerMessage, SysId, VehicleCommand, VehicleState,
-};
+use rgcs_core::{GuardAlert, GuardSettings, ServerMessage, SysId, VehicleCommand, VehicleState};
 use rgcs_guard::{
     effective, recommended_mode, ExternalContext, Input, Level, Phase, Policy, Sample, TakeoverWhy,
-    ToiletBowlConfig, BY_GUARD,
+    ToiletBowlConfig,
 };
-use rgcs_mavlink::{GuardBody, GuardFrame, Outcome, QueuedCommand, Router};
-use rgcs_store::audit::AuditInput;
-use rgcs_store::guard::NewDecision;
-use rgcs_store::messages::NewMessage;
-use rgcs_store::Store;
-use serde_json::{json, Value};
+use rgcs_mavlink::{GuardBody, GuardFrame, Outcome};
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 
 use crate::app::AppState;
 use crate::guard_settings::{config, policy};
-use crate::guard_vehicle::{airframe, level_str, Ctx, Out, Pos, VehicleGuard, EVENT};
+use crate::guard_vehicle::{airframe, Ctx, Out, Pos, VehicleGuard};
+use crate::guard_worker::{ActionAudit, GuardIo, Job};
+pub use crate::guard_worker::{audit, AUDIT_TARGET, KEEP_DECISIONS};
 
 /// Deadline / takeover-wait resolution and the 1 Hz countdown re-send.
 const TICK: Duration = Duration::from_millis(250);
-/// `guard_decisions` keeps this many rows (ruling 8), pruned every `PRUNE_EVERY` inserts.
-pub const KEEP_DECISIONS: u32 = 5_000;
-const PRUNE_EVERY: u64 = 100;
 /// The only modes the guard may ever send (spec §2, ruling 4).
 pub const ALLOWED_MODES: [&str; 2] = ["ALT_HOLD", "QHOVER"];
-pub const AUDIT_TARGET: &str = "ai_intervention";
 const RCMAP: [&str; 4] = ["RCMAP_ROLL", "RCMAP_PITCH", "RCMAP_THROTTLE", "RCMAP_YAW"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,20 +41,24 @@ pub enum CancelError {
 
 type ClockFn = Arc<dyn Fn() -> u64 + Send + Sync>;
 
-enum Job {
-    Out(Box<Out>),
+/// Work for the execution task: the guard's `SetMode`, never queued behind a SQLite write.
+enum Exec {
+    Run {
+        sysid: SysId,
+        alert_id: String,
+        mode: &'static str,
+    },
     Flush(oneshot::Sender<()>),
 }
 
-/// What the hub's worker needs from `AppState` (no `GuardHub` inside, so no cycle).
-#[derive(Clone)]
-struct GuardIo {
-    store: Store,
-    messages: crate::message_log::MessageLog,
-    flights: crate::flights::FlightTracker,
-    queue: mpsc::Sender<QueuedCommand>,
-    router: Arc<Mutex<Router>>,
-    params: crate::params::ParamCache,
+type Slot<T> = Arc<StdMutex<Option<mpsc::UnboundedReceiver<T>>>>;
+
+fn slot<T>(rx: mpsc::UnboundedReceiver<T>) -> Slot<T> {
+    Arc::new(StdMutex::new(Some(rx)))
+}
+
+fn take<T>(slot: &Slot<T>) -> Option<mpsc::UnboundedReceiver<T>> {
+    slot.lock().unwrap_or_else(|e| e.into_inner()).take()
 }
 
 struct HubState {
@@ -121,7 +116,9 @@ pub struct GuardHub {
     inner: Arc<StdMutex<HubState>>,
     tx: broadcast::Sender<ServerMessage>,
     jobs: mpsc::UnboundedSender<Job>,
-    jobs_rx: Arc<StdMutex<Option<mpsc::UnboundedReceiver<Job>>>>,
+    jobs_rx: Slot<Job>,
+    exec: mpsc::UnboundedSender<Exec>,
+    exec_rx: Slot<Exec>,
     io: Arc<OnceLock<GuardIo>>,
     clock: ClockFn,
     settings_lock: Arc<Mutex<()>>,
@@ -132,11 +129,14 @@ impl GuardHub {
     /// Off (default settings) until `apply_settings`; inert until `attach` / `spawn`.
     pub fn new(tx: broadcast::Sender<ServerMessage>) -> Self {
         let (jobs, rx) = mpsc::unbounded_channel();
+        let (exec, exec_rx) = mpsc::unbounded_channel();
         Self {
             inner: Arc::new(StdMutex::new(HubState::new(GuardSettings::default()))),
             tx,
             jobs,
-            jobs_rx: Arc::new(StdMutex::new(Some(rx))),
+            jobs_rx: slot(rx),
+            exec,
+            exec_rx: slot(exec_rx),
             io: Arc::new(OnceLock::new()),
             clock: Arc::new(crate::app::unix_ms),
             settings_lock: Arc::new(Mutex::new(())),
@@ -157,10 +157,10 @@ impl GuardHub {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Starts the worker (records, message rows, execution) on `app`'s store / queue.
-    /// Idempotent.
+    /// Starts the writer (records, message rows, audit) and the execution task on `app`'s
+    /// store / queue. Idempotent.
     pub fn attach(&self, app: &AppState) {
-        let Some(rx) = self.jobs_rx.lock().unwrap_or_else(|e| e.into_inner()).take() else {
+        let (Some(rx), Some(exec_rx)) = (take(&self.jobs_rx), take(&self.exec_rx)) else {
             return;
         };
         let io = GuardIo {
@@ -172,7 +172,8 @@ impl GuardHub {
             params: app.params.clone(),
         };
         let _ = self.io.set(io.clone());
-        tokio::spawn(self.clone().work(io, rx));
+        tokio::spawn(crate::guard_worker::work(self.tx.clone(), io.clone(), rx));
+        tokio::spawn(self.clone().exec_loop(io, exec_rx));
     }
 
     /// `attach`, then the frame consumer and the tick task for the server's lifetime.
@@ -223,24 +224,43 @@ impl GuardHub {
         let _ = writeln!(f, "{line}");
     }
 
-    /// Alerts go out at once; everything else to the worker, in step order.
+    /// Alerts go out at once, the action to the execution task, records and message rows to
+    /// the writer in step order.
     fn dispatch(&self, outs: Vec<Out>) {
         for o in outs {
             match o {
                 Out::Alert(alert) => {
                     let _ = self.tx.send(ServerMessage::GuardAlert { alert });
                 }
+                Out::Execute {
+                    sysid,
+                    alert_id,
+                    mode,
+                } => {
+                    let _ = self.exec.send(Exec::Run {
+                        sysid,
+                        alert_id,
+                        mode,
+                    });
+                }
                 other => {
-                    let _ = self.jobs.send(Job::Out(Box::new(other)));
+                    if let Some(job) = Job::of(other) {
+                        let _ = self.jobs.send(job);
+                    }
                 }
             }
         }
     }
 
-    /// Waits until the worker has handled everything dispatched so far.
+    /// Waits until the execution task, then the writer, have handled everything dispatched so
+    /// far (an action's rejected audit row is queued by then).
     pub async fn flush(&self) {
         if self.io.get().is_none() {
             return;
+        }
+        let (tx, rx) = oneshot::channel();
+        if self.exec.send(Exec::Flush(tx)).is_ok() {
+            let _ = rx.await;
         }
         let (tx, rx) = oneshot::channel();
         if self.jobs.send(Job::Flush(tx)).is_ok() {
@@ -412,137 +432,65 @@ impl GuardHub {
         self.dispatch(outs);
     }
 
-    async fn work(self, io: GuardIo, mut rx: mpsc::UnboundedReceiver<Job>) {
-        prune(&io.store).await;
-        let mut decision_ids: HashMap<String, i64> = HashMap::new();
-        let mut inserts = 0_u64;
+    async fn exec_loop(self, io: GuardIo, mut rx: mpsc::UnboundedReceiver<Exec>) {
         while let Some(job) = rx.recv().await {
-            let job = match job {
-                Job::Out(out) => Ok(*out),
-                Job::Flush(done) => Err(done),
-            };
             match job {
-                Err(done) => {
-                    let _ = done.send(());
-                }
-                Ok(Out::Record {
-                    sysid,
-                    alert_id,
-                    phase,
-                    level,
-                    record,
-                }) => {
-                    let Some(id) = write_record(&io, sysid, &alert_id, phase, level, &record).await else {
-                        continue;
-                    };
-                    if decision_ids.len() > 1_000 {
-                        decision_ids.clear();
-                    }
-                    decision_ids.insert(alert_id, id);
-                    inserts += 1;
-                    if inserts % PRUNE_EVERY == 0 {
-                        prune(&io.store).await;
-                    }
-                }
-                Ok(Out::Message {
-                    sysid,
-                    severity,
-                    text,
-                    ts,
-                }) => self.message(&io, sysid, severity, text, ts).await,
-                Ok(Out::Execute {
+                Exec::Run {
                     sysid,
                     alert_id,
                     mode,
-                }) => {
-                    let decision = decision_ids.get(&alert_id).copied();
-                    self.execute(&io, sysid, &alert_id, mode, decision).await;
+                } => self.execute(&io, sysid, alert_id, mode).await,
+                Exec::Flush(done) => {
+                    let _ = done.send(());
                 }
-                Ok(Out::Alert(_)) => {}
             }
         }
     }
 
-    async fn message(
-        &self,
-        io: &GuardIo,
-        sysid: SysId,
-        severity: rgcs_core::Severity,
-        text: String,
-        ts: u64,
-    ) {
-        let new = NewMessage {
-            ts,
-            sysid: Some(sysid),
-            source: MessageSource::System,
-            severity,
-            raw_severity: None,
-            text,
+    /// The audit row goes to the writer, behind the action's `Executing` record (its id).
+    fn audit_action(&self, sysid: SysId, alert_id: &str, mode: &'static str, result: &'static str, reason: Option<String>) {
+        let a = ActionAudit {
+            sysid,
+            alert_id: alert_id.to_string(),
+            mode,
+            result,
+            reason,
         };
-        if let Some(entry) = io.messages.record(new).await {
-            let _ = self.tx.send(ServerMessage::LogEntry(entry));
-        }
+        let _ = self.jobs.send(Job::Audit(a));
     }
 
     /// The single guard enqueue site. Re-reads the vehicle, re-checks ruling 4 under the hub
     /// lock (so a takeover / cancel / disable that won the race stops it) and hands
     /// `SetMode {ALT_HOLD | QHOVER}` to the queue; the outcome becomes `Executed` / `Refused`.
-    async fn execute(
-        &self,
-        io: &GuardIo,
-        sysid: SysId,
-        alert_id: &str,
-        mode: &'static str,
-        decision: Option<i64>,
-    ) {
+    async fn execute(&self, io: &GuardIo, sysid: SysId, alert_id: String, mode: &'static str) {
         let v = io.router.lock().await.state(sysid).cloned();
-        let args = json!({ "mode": mode, "alert_id": alert_id, "decision_id": decision });
-        let done = {
+        let sent = {
             let st = self.lock();
-            let sent = match refusal(&st, sysid, alert_id, mode, v.as_ref(), self.now_ms()) {
+            match refusal(&st, sysid, &alert_id, mode, v.as_ref(), self.now_ms()) {
                 Some(reason) => Err(reason),
                 None => enqueue(io, v.as_ref(), mode),
-            };
-            drop(st);
-            sent
-        };
-        let done = match done {
-            Ok(done) => done,
-            Err(reason) => {
-                audit(
-                    &io.store,
-                    BY_GUARD,
-                    Some(sysid),
-                    "set_mode",
-                    args,
-                    "rejected",
-                    Some(reason),
-                )
-                .await;
-                self.action_result(sysid, alert_id, false);
-                return;
             }
         };
-        let (hub, store, alert_id) = (self.clone(), io.store.clone(), alert_id.to_string());
-        tokio::spawn(async move {
-            let outcome = done.await.unwrap_or(Outcome::LinkClosed);
-            let result = match &outcome {
-                Outcome::Accepted => "ok",
-                Outcome::Timeout => "timeout",
-                _ => "failed",
-            };
-            audit(
-                &store,
-                BY_GUARD,
-                Some(sysid),
-                "set_mode",
-                args,
-                result,
-                outcome.reason(),
-            )
-            .await;
-            hub.action_result(sysid, &alert_id, outcome.ok());
-        });
+        match sent {
+            Ok(done) => {
+                tokio::spawn(self.clone().await_outcome(sysid, alert_id, mode, done));
+            }
+            Err(reason) => {
+                self.audit_action(sysid, &alert_id, mode, "rejected", Some(reason));
+                self.action_result(sysid, &alert_id, false);
+            }
+        }
+    }
+
+    async fn await_outcome(self, sysid: SysId, alert_id: String, mode: &'static str, done: oneshot::Receiver<Outcome>) {
+        let outcome = done.await.unwrap_or(Outcome::LinkClosed);
+        let result = match &outcome {
+            Outcome::Accepted => "ok",
+            Outcome::Timeout => "timeout",
+            _ => "failed",
+        };
+        self.audit_action(sysid, &alert_id, mode, result, outcome.reason());
+        self.action_result(sysid, &alert_id, outcome.ok());
     }
 }
 
@@ -660,64 +608,6 @@ fn sticks(chans: &[u16], map: [usize; 4]) -> Option<[u16; 4]> {
     <[u16; 4]>::try_from(picked)
         .ok()
         .filter(|s| s.iter().all(|&v| v != 0 && v != u16::MAX))
-}
-
-async fn write_record(
-    io: &GuardIo,
-    sysid: SysId,
-    alert_id: &str,
-    phase: &str,
-    level: rgcs_core::GuardLevel,
-    record: &rgcs_guard::DecisionRecord,
-) -> Option<i64> {
-    let json = serde_json::to_string(record).ok()?;
-    let row = NewDecision {
-        ts: record.ts_ms,
-        sysid,
-        alert_id,
-        event: EVENT,
-        phase,
-        level: level_str(level),
-        flight_id: io.flights.open_flight(sysid),
-        record: &json,
-    };
-    match io.store.record_decision(row).await {
-        Ok(id) => Some(id),
-        Err(e) => {
-            tracing::error!(error = %e, "guard decision write failed");
-            None
-        }
-    }
-}
-
-async fn prune(store: &Store) {
-    if let Err(e) = store.prune_decisions(KEEP_DECISIONS).await {
-        tracing::warn!(error = %e, "guard decision prune failed");
-    }
-}
-
-/// An `audit_log` row with `target = "ai_intervention"`.
-pub async fn audit(
-    store: &Store,
-    operator: &str,
-    sysid: Option<SysId>,
-    command: &str,
-    args: Value,
-    result: &str,
-    reason: Option<String>,
-) {
-    let entry = AuditInput {
-        operator,
-        sysid,
-        target: AUDIT_TARGET,
-        command,
-        args: Some(args.to_string()),
-        result,
-        reason,
-    };
-    if let Err(e) = store.record_audit(entry).await {
-        tracing::error!(error = %e, "guard audit write failed");
-    }
 }
 
 #[cfg(test)]

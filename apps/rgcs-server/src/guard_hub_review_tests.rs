@@ -159,3 +159,47 @@ async fn an_operator_command_is_shown_as_taken_over() {
     );
     assert_eq!(a.text, "引き継ぎ済み");
 }
+
+// ---- I4: the SetMode does not wait behind SQLite writes ----
+
+#[tokio::test]
+async fn l3_sends_while_the_database_is_busy_and_still_audits() {
+    let mut r = copter_rig().await;
+    r.enable("l3").await;
+    // The in-memory store has one connection: holding it stalls every record / message write.
+    let busy = r.app.store.pool().acquire().await.unwrap();
+    Feed::new(&r, toilet_bowl()).until_alert(&r).await;
+    let wait = std::time::Duration::from_secs(2);
+    let job = tokio::time::timeout(wait, r.queue.recv())
+        .await
+        .expect("SetMode queued while SQLite is busy")
+        .unwrap();
+    assert_eq!(
+        job.cmd,
+        VehicleCommand::SetMode {
+            mode: "ALT_HOLD".into()
+        }
+    );
+    job.done.send(Outcome::Accepted).unwrap();
+    drop(busy);
+    r.wait_phase(GuardPhase::Executed).await;
+    let row = r
+        .audit()
+        .await
+        .into_iter()
+        .find(|e| e.command == "set_mode")
+        .expect("audited");
+    assert_eq!((row.operator.as_str(), row.result.as_str()), ("ai-guard", "ok"));
+    let args: Value = serde_json::from_str(row.args.as_deref().unwrap()).unwrap();
+    assert!(args["decision_id"].is_i64(), "{args}");
+    let phases: Vec<String> = r
+        .app
+        .store
+        .decisions(Some(1), 10)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|d| d.phase)
+        .collect();
+    assert!(phases.contains(&"executing".to_string()), "{phases:?}");
+}

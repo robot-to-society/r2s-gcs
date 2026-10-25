@@ -36,6 +36,7 @@ pub mod guard_api;
 pub mod guard_hub;
 pub mod guard_settings;
 pub mod guard_vehicle;
+pub mod guard_worker;
 pub mod guided;
 pub mod input_api;
 pub mod inspector_api;
