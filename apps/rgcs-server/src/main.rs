@@ -48,6 +48,8 @@ async fn main() -> anyhow::Result<()> {
     let (outgoing_tx, outgoing_rx) = mpsc::channel(64);
     let (acks_tx, _) = broadcast::channel(64);
     let (payload_tx, _) = broadcast::channel(rgcs_mavlink::port::PAYLOAD_CAPACITY);
+    // AI guard telemetry tap (lossy; GuardHub subscribes, ruling 9).
+    let (guard_tx, _) = broadcast::channel(rgcs_mavlink::GUARD_CAPACITY);
     let (queue_tx, queue_rx) = mpsc::channel(32);
     let gcs_sysid = rgcs_server::settings::load_gcs_sysid(&store).await;
     // The camera driver rides the FC link (MAVLink camera ruling 1): clone before the moves below.
@@ -80,6 +82,7 @@ async fn main() -> anyhow::Result<()> {
         inspector: state.inspector.clone(),
         payload: payload_tx,
         stats: state.link_stats.clone(),
+        guard: guard_tx,
     };
     tokio::spawn(rgcs_mavlink::run_link(link, router.clone(), channels));
     tokio::spawn(rgcs_mavlink::run_queue(queue_rx, outgoing_tx, acks_tx));

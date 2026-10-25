@@ -44,6 +44,8 @@ pub struct LinkChannels {
     pub payload: broadcast::Sender<crate::port::PayloadFrame>,
     /// Per-component rates, bytes and sequence loss plus connection state (network view).
     pub stats: crate::link_stats::LinkStats,
+    /// AI guard telemetry (lossy: a slow guard drops frames, the link never waits).
+    pub guard: broadcast::Sender<crate::guard_tap::GuardFrame>,
 }
 
 /// Wall + monotonic clock for the router, anchored at task start (tokio's clock, so tests
@@ -186,6 +188,7 @@ async fn receive_loop(
                     link.inspector.record(rgcs_core::InspectorDir::Rx, &header, &msg, link.inspector.now_ms());
                     ch.stats.record(&header, &msg, ch.stats.now_ms());
                     publish_payload(ch, &header, &msg);
+                    publish_guard(ch, &header, &msg);
                     let evs = router.lock().await.on_message(&header, &msg, now);
                     forward(&ch.events, evs).await?;
                     handle_special(&conn, router, ch, link, &header, &msg, now).await;
@@ -235,6 +238,13 @@ async fn handle_special(
 fn publish_payload(ch: &LinkChannels, header: &MavHeader, msg: &MavMessage) {
     if let Some(frame) = crate::port::tap(header, msg) {
         let _ = ch.payload.send(frame);
+    }
+}
+
+/// Guard frames go to the lossy guard tap; never waits and ignores "no receiver".
+fn publish_guard(ch: &LinkChannels, header: &MavHeader, msg: &MavMessage) {
+    if let Some(frame) = crate::guard_tap::tap(header, msg) {
+        let _ = ch.guard.send(frame);
     }
 }
 
@@ -365,6 +375,7 @@ mod tests {
             inspector: crate::inspector::Inspector::default(),
             payload,
             stats: crate::link_stats::LinkStats::default(),
+            guard: broadcast::channel(1).0,
         };
         let msg = MavMessage::CAMERA_INFORMATION(
             mavlink::dialects::ardupilotmega::CAMERA_INFORMATION_DATA::DEFAULT,
@@ -383,6 +394,7 @@ mod tests {
         let (out_tx, outgoing) = mpsc::channel(1);
         let (acks, _) = broadcast::channel(1);
         let (payload, _) = broadcast::channel(1);
+        let (guard, _) = broadcast::channel(crate::guard_tap::GUARD_CAPACITY);
         let ch = LinkChannels {
             events,
             outgoing,
@@ -391,6 +403,7 @@ mod tests {
             inspector: crate::inspector::Inspector::default(),
             payload,
             stats: crate::link_stats::LinkStats::default(),
+            guard,
         };
         (ch, events_rx, out_tx)
     }
@@ -427,5 +440,95 @@ mod tests {
             .unwrap();
         assert_eq!(rx.try_recv().unwrap(), RouterEvent::Discovered(1));
         assert!(rx.try_recv().is_err());
+    }
+
+    /// A link task on a local TCP pair; returns the peer socket that plays the vehicle.
+    async fn link_pair() -> (Conn, tokio::net::TcpStream) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let address = format!("tcpout:127.0.0.1:{port}");
+        let (conn, accepted) = tokio::join!(
+            mavlink::connect_async::<MavMessage>(&address),
+            listener.accept()
+        );
+        (Arc::from(conn.unwrap()), accepted.unwrap().0)
+    }
+
+    /// Writes MAVLink 2 frames from sysid 1 / compid 1 to the peer socket.
+    async fn send_frames(peer: &mut tokio::net::TcpStream, msgs: &[MavMessage]) {
+        use tokio::io::AsyncWriteExt;
+        let mut bytes = Vec::new();
+        for (i, msg) in msgs.iter().enumerate() {
+            let header = MavHeader {
+                system_id: 1,
+                component_id: 1,
+                sequence: i as u8,
+            };
+            mavlink::write_v2_msg(&mut bytes, header, msg).unwrap();
+        }
+        peer.write_all(&bytes).await.unwrap();
+    }
+
+    fn fc_heartbeat() -> MavMessage {
+        use mavlink::dialects::ardupilotmega::{MavAutopilot, MavType, HEARTBEAT_DATA};
+        MavMessage::HEARTBEAT(HEARTBEAT_DATA {
+            mavtype: MavType::MAV_TYPE_QUADROTOR,
+            autopilot: MavAutopilot::MAV_AUTOPILOT_ARDUPILOTMEGA,
+            ..HEARTBEAT_DATA::DEFAULT
+        })
+    }
+
+    fn ekf_report() -> MavMessage {
+        MavMessage::EKF_STATUS_REPORT(mavlink::dialects::ardupilotmega::EKF_STATUS_REPORT_DATA {
+            compass_variance: 0.62,
+            ..mavlink::dialects::ardupilotmega::EKF_STATUS_REPORT_DATA::DEFAULT
+        })
+    }
+
+    #[tokio::test]
+    async fn received_ekf_reports_reach_a_guard_subscriber() {
+        let (conn, mut peer) = link_pair().await;
+        let (mut ch, _events_rx, _out_tx) = test_channels();
+        let mut guard_rx = ch.guard.subscribe();
+        let router = Arc::new(Mutex::new(Router::default()));
+        let clock = TaskClock {
+            started: Instant::now(),
+        };
+        let task = tokio::spawn(async move {
+            let mut link = LinkState::default();
+            receive_loop(conn, &router, &mut ch, clock, &mut link).await
+        });
+        send_frames(&mut peer, &[ekf_report()]).await;
+        let frame = tokio::time::timeout(Duration::from_secs(5), guard_rx.recv())
+            .await
+            .expect("guard frame in time")
+            .unwrap();
+        assert_eq!((frame.sysid, frame.compid), (1, 1));
+        assert!(matches!(
+            frame.body,
+            crate::guard_tap::GuardBody::Ekf { compass_var, .. } if compass_var == 0.62
+        ));
+        task.abort();
+    }
+
+    #[tokio::test]
+    async fn the_link_keeps_going_without_a_guard_subscriber() {
+        let (conn, mut peer) = link_pair().await;
+        let (mut ch, mut events_rx, _out_tx) = test_channels();
+        assert_eq!(ch.guard.receiver_count(), 0);
+        let router = Arc::new(Mutex::new(Router::default()));
+        let clock = TaskClock {
+            started: Instant::now(),
+        };
+        let task = tokio::spawn(async move {
+            let mut link = LinkState::default();
+            receive_loop(conn, &router, &mut ch, clock, &mut link).await
+        });
+        send_frames(&mut peer, &[ekf_report(), ekf_report(), fc_heartbeat()]).await;
+        let ev = tokio::time::timeout(Duration::from_secs(5), events_rx.recv())
+            .await
+            .expect("the frame after the guard frames is still routed");
+        assert_eq!(ev, Some(RouterEvent::Discovered(1)));
+        task.abort();
     }
 }

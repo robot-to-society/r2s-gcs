@@ -5,6 +5,8 @@ use ts_rs::TS;
 
 use crate::camera::{CameraCaps, CameraSnapshot, CameraState, Deadman, VideoSourceStatus};
 use crate::command::CommandResult;
+use crate::env::EnvSummary;
+use crate::guard::GuardAlert;
 use crate::log::{ackable, severity_of_statustext, LogEntry, MessageSource, Severity};
 use crate::logbook::{Flight, LogFetchProgress};
 use crate::mission::{MissionProgress, MissionTransfer};
@@ -161,6 +163,14 @@ pub enum ServerMessage {
         #[ts(type = "number")]
         ts: u64,
     },
+    /// AI 緊急介入: the full alert on every phase change, 1 Hz while a countdown runs.
+    GuardAlert {
+        alert: GuardAlert,
+    },
+    /// Fused external factors (外的要因), on every change.
+    EnvSummary {
+        summary: EnvSummary,
+    },
     VehicleDiscovered {
         sysid: SysId,
     },
@@ -268,6 +278,26 @@ mod tests {
             json,
             serde_json::json!({"t":"mission_progress","sysid":1,"progress":{"seq":3,"total":21}})
         );
+    }
+
+    #[test]
+    fn guard_alert_and_env_summary_frames() {
+        let alert = crate::guard::tests::sample_alert();
+        let json = serde_json::to_value(ServerMessage::GuardAlert { alert }).unwrap();
+        assert_eq!(json["t"], "guard_alert");
+        assert_eq!(json["alert"]["level"], "l2");
+        assert!(json["alert"]["deadline_ms"].is_u64());
+        let summary = crate::env::EnvSummary {
+            cell: None,
+            factors: vec![],
+            missing: vec!["open_meteo".into()],
+            unavailable: true,
+            notes: vec![],
+            ts: 1,
+        };
+        let json = serde_json::to_value(ServerMessage::EnvSummary { summary }).unwrap();
+        assert_eq!(json["t"], "env_summary");
+        assert_eq!(json["summary"]["unavailable"], true);
     }
 
     #[test]

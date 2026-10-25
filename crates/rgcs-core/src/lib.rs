@@ -9,8 +9,10 @@ pub mod calibration;
 pub mod camera;
 pub mod camera_media;
 pub mod command;
+pub mod env;
 pub mod gcs;
 pub mod geofence;
+pub mod guard;
 pub mod inspector;
 pub mod jst;
 pub mod log;
@@ -44,8 +46,13 @@ pub use camera_media::{
     AI_CENTER_BOX_PX, MT11_PALETTES,
 };
 pub use command::{CommandResult, VehicleCommand};
+pub use env::{EnvClass, EnvFactor, EnvLevel, EnvReading, EnvSettings, EnvSourceStatus, EnvSummary, EnvThresholds};
 pub use gcs::GcsId;
 pub use geofence::{FenceZone, LatLon, RallyPoint};
+pub use guard::{
+    GuardAlert, GuardConsent, GuardLevel, GuardPhase, GuardSettings, GuardSigns, GUARD_COUNTDOWN_S,
+    GUARD_TAKEOVER_WAIT_S,
+};
 pub use inspector::{InspectorDetail, InspectorDir, InspectorRow};
 pub use log::{ackable, severity_of_statustext, LogEntry, MessageSource, Severity};
 pub use logbook::{

@@ -6,6 +6,7 @@ pub mod calib_frame;
 pub mod command;
 pub mod connection;
 pub mod decode;
+pub mod guard_tap;
 pub mod heartbeat;
 pub mod inspector;
 pub mod interval;
@@ -26,6 +27,7 @@ pub use command::{
     encode_param_request_index, encode_param_request_list, encode_param_request_read, encode_param_set,
 };
 pub use connection::{run_link, LinkChannels};
+pub use guard_tap::{GuardBody, GuardFrame, GUARD_CAPACITY};
 pub use inspector::Inspector;
 pub use link::{LinkUrl, LinkUrlError};
 pub use link_stats::{component_kind, frame_bytes, ComponentStats, LinkStats, LinkStatsSnapshot};

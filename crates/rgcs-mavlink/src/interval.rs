@@ -21,6 +21,9 @@ pub const MSG_ID_NAV_CONTROLLER_OUTPUT: u32 = 62;
 pub const MSG_ID_POSITION_TARGET_GLOBAL_INT: u32 = 87;
 pub const MSG_ID_HOME_POSITION: u32 = 242;
 pub const MSG_ID_EXTENDED_SYS_STATE: u32 = 245;
+pub const MSG_ID_EKF_STATUS_REPORT: u32 = 193;
+pub const MSG_ID_RC_CHANNELS: u32 = 65;
+pub const MSG_ID_WIND: u32 = 168;
 
 const GRACE_MS: u64 = 10_000;
 /// Nothing at all by now: the vehicle is not streaming on its own, ask without waiting the grace.
@@ -43,12 +46,22 @@ pub const WANTED: &[(u32, u32)] = &[
     (MSG_ID_POSITION_TARGET_GLOBAL_INT, 1_000_000),
     (MSG_ID_HOME_POSITION, 5_000_000),
     (MSG_ID_EXTENDED_SYS_STATE, 1_000_000),
+    // AI guard: compass variance, RC sticks (takeover) and ArduPilot's wind estimate.
+    (MSG_ID_EKF_STATUS_REPORT, 500_000),
+    (MSG_ID_RC_CHANNELS, 200_000),
+    (MSG_ID_WIND, 1_000_000),
 ];
 
 /// Streams that only flow in some states (POSITION_TARGET_GLOBAL_INT in GUIDED, HOME_POSITION
-/// once home is set, NAV_CONTROLLER_OUTPUT while a plane or rover navigates): asked for once,
-/// never retried, so the FC is not nagged forever. The FC keeps the interval for when they start.
-const ONCE: &[u32] = &[MSG_ID_POSITION_TARGET_GLOBAL_INT, MSG_ID_HOME_POSITION, MSG_ID_NAV_CONTROLLER_OUTPUT];
+/// once home is set, NAV_CONTROLLER_OUTPUT while a plane or rover navigates) or only from some
+/// autopilots (WIND is ArduPilot's): asked for once, never retried, so the FC is not nagged
+/// forever. The FC keeps the interval for when they start.
+const ONCE: &[u32] = &[
+    MSG_ID_POSITION_TARGET_GLOBAL_INT,
+    MSG_ID_HOME_POSITION,
+    MSG_ID_NAV_CONTROLLER_OUTPUT,
+    MSG_ID_WIND,
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IntervalRequest {
@@ -158,6 +171,30 @@ mod tests {
     fn extended_sys_state_is_a_wanted_stream() {
         // ArduPlane does not stream it by default; its vtol_state tells a QuadPlane apart.
         assert!(WANTED.contains(&(MSG_ID_EXTENDED_SYS_STATE, 1_000_000)));
+    }
+
+    #[test]
+    fn guard_streams_are_wanted() {
+        // AI guard (spec 2026-10-24 §5.1): compass variance, RC sticks for takeover, wind.
+        assert!(WANTED.contains(&(MSG_ID_EKF_STATUS_REPORT, 500_000)));
+        assert!(WANTED.contains(&(MSG_ID_RC_CHANNELS, 200_000)));
+        assert!(WANTED.contains(&(MSG_ID_WIND, 1_000_000)));
+        assert_eq!((MSG_ID_EKF_STATUS_REPORT, MSG_ID_RC_CHANNELS, MSG_ID_WIND), (193, 65, 168));
+    }
+
+    #[test]
+    fn wind_is_asked_for_once() {
+        // Only ArduPilot sends WIND: never nag another autopilot for it.
+        assert!(ONCE.contains(&MSG_ID_WIND));
+        let (_, reqs) = beats(IntervalRequester::default(), 10_000, 60_000, flowing_except(MSG_ID_WIND));
+        assert_eq!(reqs, vec![(20_000, MSG_ID_WIND)]);
+    }
+
+    #[test]
+    fn missing_rc_channels_are_retried() {
+        let (_, reqs) = beats(IntervalRequester::default(), 10_000, 30_000, flowing_except(MSG_ID_RC_CHANNELS));
+        let times: Vec<u64> = reqs.iter().map(|(t, _)| *t).collect();
+        assert_eq!(times, vec![20_000, 25_000, 30_000]);
     }
 
     #[test]

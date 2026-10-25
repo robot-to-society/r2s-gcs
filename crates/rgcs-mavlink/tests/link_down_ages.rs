@@ -48,6 +48,7 @@ async fn vehicle_goes_lost_while_the_link_is_down() {
         inspector: rgcs_mavlink::Inspector::default(),
         payload,
         stats: rgcs_mavlink::LinkStats::default(),
+        guard: broadcast::channel(rgcs_mavlink::GUARD_CAPACITY).0,
     };
     let url: LinkUrl = format!("tcp:127.0.0.1:{}", refused_port()).parse().unwrap();
     let task = tokio::spawn(run_link(url, router.clone(), ch));
