@@ -5,7 +5,7 @@ import { t, type Dict } from '../../shared/i18n'
 import { useLang } from '../../shared/i18n/lang'
 import { IconCheck, IconLoader } from '../../shared/ui/icons'
 import { useTheme, type Theme } from '../../shared/theme/theme'
-import type { Phase } from './intro'
+import { isScene, type Phase } from './intro'
 import { introStore, useIntro, type IntroStore } from './introStore'
 import { LoginChrome } from './LoginChrome'
 import { preloadLoginImages } from './loginAssets'
@@ -55,7 +55,8 @@ export function Login({ store = authStore, intro = introStore }: Props) {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (phase === 'gather' || phase === 'done' || phase === 'clear') return
+    // Read the live phase, not this render's: a double Enter must not send two logins.
+    if (isScene(intro.getState().phase)) return
     intro.submit()
     await store.login(username, password)
     const ok = store.getState().status === 'authed'

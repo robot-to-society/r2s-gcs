@@ -128,4 +128,13 @@ describe('Login', () => {
       setThemePref('auto')
     }
   })
+
+  it('sends one login for a double Enter', async () => {
+    const fetchMock = stubServer({ devMode: false, login: { status: 401, code: 'unauthorized' } })
+    render(<Login store={new AuthStore()} intro={new IntroStore()} />)
+    fireEvent.submit(screen.getByRole('form'))
+    fireEvent.submit(screen.getByRole('form'))
+    await screen.findByRole('alert')
+    expect(fetchMock.mock.calls.filter(([u]) => String(u) === '/api/auth/login')).toHaveLength(1)
+  })
 })
