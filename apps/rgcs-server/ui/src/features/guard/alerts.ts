@@ -11,7 +11,7 @@ export const TAKEN_OVER_KEEP_MS = 10_000
 
 // The tone keeps repeating through these phases once an alert has sounded; a cancel (a human
 // pressed 取り消し) or a takeover silences it; `unanswered` arrives with `sound: true` again.
-const KEEPS_SOUNDING: ReadonlySet<GuardPhase> = new Set(['alerting', 'countdown', 'executing', 'executed', 'refused', 'unanswered'])
+const KEEPS_SOUNDING: ReadonlySet<GuardPhase> = new Set(['alerting', 'countdown', 'due', 'executing', 'executed', 'refused', 'unanswered'])
 
 function rebased(a: GuardAlert, now: number, prev: GuardAlert | undefined): GuardAlert {
   const deadline = a.deadline_ms === null ? null : now + Math.max(0, a.deadline_ms - a.ts)

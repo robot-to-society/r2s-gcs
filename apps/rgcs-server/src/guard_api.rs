@@ -77,7 +77,7 @@ pub async fn cancel(State(app): State<AppState>, AuthUser(op): AuthUser, Path(id
         Err(CancelError::NotCancellable) => err(
             StatusCode::CONFLICT,
             "not_cancellable",
-            "only a running countdown can be cancelled",
+            "only a running countdown or a due switch can be cancelled",
         ),
     }
 }

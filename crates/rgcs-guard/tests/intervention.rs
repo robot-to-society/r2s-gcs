@@ -145,7 +145,7 @@ fn l2_rechecks_the_verdict_after_the_countdown() {
             Input::Tick { now_ms: 5000 },
         ],
     );
-    assert_eq!((m.phase, sends(&e)), (Phase::Alerting, 0));
+    assert_eq!((m.phase, sends(&e)), (Phase::Due, 0));
     assert!(!m.acted_this_flight);
 }
 
@@ -161,7 +161,7 @@ fn l2_detected_more_than_one_second_before_the_deadline_does_not_execute() {
             Input::Tick { now_ms: 5000 },
         ],
     );
-    assert_eq!((m.phase, sends(&e)), (Phase::Alerting, 0));
+    assert_eq!((m.phase, sends(&e)), (Phase::Due, 0));
 }
 
 #[test]

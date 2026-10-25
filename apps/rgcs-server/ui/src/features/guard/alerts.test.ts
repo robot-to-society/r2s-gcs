@@ -37,6 +37,8 @@ describe('applyGuardAlert', () => {
     const m1 = applyGuardAlert(EMPTY, guardAlert({ phase: 'alerting', sound: true }), 1_000)
     const m2 = applyGuardAlert(m1, guardAlert({ phase: 'countdown', sound: false, deadline_ms: 6_000, ts: 1_000 }), 1_000)
     expect(soundingIds(m2)).toEqual(['g-1'])
+    const due = applyGuardAlert(m2, guardAlert({ phase: 'due', sound: false }), 1_500)
+    expect(soundingIds(due)).toEqual(['g-1'])
     const m3 = applyGuardAlert(m2, guardAlert({ phase: 'cancelled', sound: false }), 2_000)
     expect(soundingIds(m3)).toEqual([])
     const m4 = applyGuardAlert(m3, guardAlert({ phase: 'unanswered', sound: true }), 3_000)

@@ -779,3 +779,6 @@ async fn disabling_during_a_countdown_sends_nothing() {
 
 #[path = "guard_ai_tools_tests.rs"]
 mod ai_tools;
+
+#[path = "guard_hub_due_tests.rs"]
+mod due;

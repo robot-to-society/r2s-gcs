@@ -362,7 +362,7 @@ impl GuardHub {
         self.dispatch(outs);
     }
 
-    /// 取り消し: only a running countdown; the warning stays (ruling 6).
+    /// 取り消し: only a running countdown or a due action; the warning stays (ruling 6).
     pub fn cancel(&self, alert_id: &str, by: &str) -> Result<GuardAlert, CancelError> {
         let now = self.now_ms();
         let mut st = self.lock();
@@ -373,7 +373,9 @@ impl GuardHub {
             .map(|vg| (vg.sysid, vg.machine.phase));
         let sysid = match sysid {
             None => return Err(CancelError::NotFound),
-            Some((_, phase)) if phase != Phase::Countdown => return Err(CancelError::NotCancellable),
+            Some((_, phase)) if !matches!(phase, Phase::Countdown | Phase::Due) => {
+                return Err(CancelError::NotCancellable)
+            }
             Some((sysid, _)) => sysid,
         };
         let input = || Input::Cancel {

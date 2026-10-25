@@ -50,6 +50,9 @@ pub enum Phase {
     Idle,
     Alerting,
     Countdown,
+    /// The L2 countdown ran out without a fresh `Detected` (review I2): still cancellable, acts on
+    /// the first fresh `Detected` until the detector clears.
+    Due,
     Executing,
     Executed,
     Cancelled,
@@ -184,16 +187,18 @@ impl Intervention {
             ..self.clone()
         };
         match self.phase {
-            Phase::Idle | Phase::Alerting => seen.start(policy, now_ms),
+            Phase::Idle | Phase::Alerting | Phase::Due => seen.start(policy, now_ms),
             _ => (seen, Vec::new()),
         }
     }
 
-    /// A detection from `Idle` (or a fresh one while only alerting): count down, act at
-    /// once, or just alert, by level and latch.
+    /// A detection from `Idle` (or a fresh one while only alerting or due): count down, act
+    /// at once, or just alert, by level and latch. While due (the countdown already ran and
+    /// was not cancelled) the fresh `Detected` acts at once.
     fn start(&self, policy: &Policy, now_ms: u64) -> Step {
         let mode = self.mode.filter(|_| self.may_act());
         match (policy.effective_level(), mode) {
+            (Level::L2, Some(m)) if self.phase == Phase::Due => self.execute(m, false),
             (Level::L2, Some(_)) => {
                 let phase = Phase::Countdown;
                 let next = self.enter(phase, BY_GUARD, Some(now_ms + policy.countdown_ms));
@@ -203,7 +208,7 @@ impl Intervention {
                 )
             }
             (Level::L3, Some(m)) => self.execute(m, true),
-            _ if self.phase == Phase::Idle => {
+            _ if matches!(self.phase, Phase::Idle | Phase::Due) => {
                 let phase = Phase::Alerting;
                 let next = self.enter(phase, BY_GUARD, None);
                 (
@@ -238,28 +243,31 @@ impl Intervention {
         }
     }
 
-    /// Ruling 4, re-checked when the countdown ends.
+    /// Ruling 4, re-checked when the countdown ends. Without a fresh `Detected` the machine
+    /// becomes due (review I2) instead of restarting a full countdown on the next detection.
     fn recheck(&self, policy: &Policy, now_ms: u64) -> Step {
         let fresh = self
             .last_detected_ms
             .is_some_and(|t| now_ms.saturating_sub(t) <= RECHECK_MS);
-        let allowed = policy.effective_level() >= Level::L2 && self.may_act() && fresh;
-        match self.mode.filter(|_| allowed) {
-            Some(m) => self.execute(m, false),
-            None => {
-                let phase = Phase::Alerting;
-                let next = self.enter(phase, BY_GUARD, None);
-                (
-                    next,
-                    vec![Effect::Alert { phase, sound: false }, Effect::Record { phase }],
-                )
-            }
+        let allowed = policy.effective_level() >= Level::L2 && self.may_act();
+        match (self.mode.filter(|_| allowed), fresh) {
+            (Some(m), true) => self.execute(m, false),
+            (Some(_), false) => self.settle(Phase::Due),
+            (None, _) => self.settle(Phase::Alerting),
         }
+    }
+
+    /// A quiet phase change with its alert and record (no tone, no deadline).
+    fn settle(&self, phase: Phase) -> Step {
+        (
+            self.enter(phase, BY_GUARD, None),
+            vec![Effect::Alert { phase, sound: false }, Effect::Record { phase }],
+        )
     }
 
     fn on_cancel(&self, by: String) -> Step {
         match self.phase {
-            Phase::Countdown => self.hands_off_in(Phase::Cancelled, &by, false),
+            Phase::Countdown | Phase::Due => self.hands_off_in(Phase::Cancelled, &by, false),
             _ => self.unchanged(),
         }
     }
@@ -290,7 +298,7 @@ impl Intervention {
     /// A countdown, an action in flight, `Executed` and `Unanswered` are not dropped here.
     fn on_clear(&self) -> Step {
         match self.phase {
-            Phase::Alerting | Phase::Cancelled | Phase::TakenOver | Phase::Refused => {
+            Phase::Alerting | Phase::Due | Phase::Cancelled | Phase::TakenOver | Phase::Refused => {
                 self.to_idle(self.clone())
             }
             _ => self.unchanged(),
@@ -313,12 +321,16 @@ impl Intervention {
         (Self::default(), effects)
     }
 
-    /// Turning the feature off cancels a countdown and drops any other alert (ruling 1).
-    /// A lower level is applied by the countdown re-check.
+    /// Turning the feature off cancels a countdown (or a due action) and drops any other
+    /// alert (ruling 1). A lower level is applied by the countdown re-check, and ends a due
+    /// action at once.
     fn on_policy(&self, p: &Policy) -> Step {
         match (p.effective_level(), self.phase) {
-            (Level::L0, Phase::Countdown) => self.hands_off_in(Phase::Cancelled, BY_DISABLED, false),
+            (Level::L0, Phase::Countdown | Phase::Due) => {
+                self.hands_off_in(Phase::Cancelled, BY_DISABLED, false)
+            }
             (Level::L0, _) => self.to_idle(self.clone()),
+            (Level::L1, Phase::Due) => self.settle(Phase::Alerting),
             _ => self.unchanged(),
         }
     }

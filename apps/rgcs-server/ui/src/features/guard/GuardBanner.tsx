@@ -29,6 +29,8 @@ function phaseLine(a: GuardAlert, now: number, dict: Dict): string | null {
   switch (a.phase) {
     case 'countdown':
       return fill(dict.gaCountdown, { n: secondsLeft(a.deadline_ms, now) ?? 0, mode })
+    case 'due':
+      return fill(dict.gaDue, { mode })
     case 'executing':
       return fill(dict.gaExecuting, { mode })
     case 'executed':
@@ -89,7 +91,7 @@ function GuardRow({ alert: a, now, dict, cancelSent, onCancel, onFocus, extra, c
         {extra}
       </div>
       <div className="guard-actions">
-        {a.phase === 'countdown' && (
+        {(a.phase === 'countdown' || a.phase === 'due') && (
           <button type="button" className="btn btn-danger guard-cancel" disabled={cancelSent} onClick={onCancel}>
             {dict.gaCancel}
           </button>

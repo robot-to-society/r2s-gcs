@@ -385,6 +385,7 @@ impl VehicleGuard {
         let planned = matches!(
             phase,
             GuardPhase::Countdown
+                | GuardPhase::Due
                 | GuardPhase::Executing
                 | GuardPhase::Executed
                 | GuardPhase::Unanswered
@@ -481,6 +482,7 @@ pub fn text(phase: GuardPhase, name: &str, mode: &str, secs_left: u64) -> String
     match phase {
         GuardPhase::Alerting | GuardPhase::Executing => headline(name),
         GuardPhase::Countdown => format!("{secs_left} 秒後に {mode} へ切り替えます"),
+        GuardPhase::Due => format!("兆候が続けば {mode} へ切り替えます"),
         GuardPhase::Executed => format!("{mode} に切り替えました — 風で流れます。手動で引き継いでください"),
         GuardPhase::TakenOver => "引き継ぎ済み".into(),
         GuardPhase::Unanswered => "引き継ぎが確認できません — AI はこれ以上操作しません".into(),
@@ -495,6 +497,7 @@ fn to_guard_phase(p: Phase) -> GuardPhase {
         Phase::Idle => GuardPhase::Cleared,
         Phase::Alerting => GuardPhase::Alerting,
         Phase::Countdown => GuardPhase::Countdown,
+        Phase::Due => GuardPhase::Due,
         Phase::Executing => GuardPhase::Executing,
         Phase::Executed => GuardPhase::Executed,
         Phase::Cancelled => GuardPhase::Cancelled,
@@ -510,6 +513,7 @@ pub fn phase_str(p: Phase) -> &'static str {
         Phase::Idle => "idle",
         Phase::Alerting => "alerting",
         Phase::Countdown => "countdown",
+        Phase::Due => "due",
         Phase::Executing => "executing",
         Phase::Executed => "executed",
         Phase::Cancelled => "cancelled",

@@ -70,6 +70,20 @@ describe('GuardBanner', () => {
     expect(cancel).not.toBeDisabled()
   })
 
+  it('keeps 取り消し while a due switch waits for the signs to continue', () => {
+    const { container, props } = show(mapOf(guardAlert({ phase: 'due', action_mode: 'ALT_HOLD', sound: false })))
+    const banner = container.querySelector('div.guard-banner') as HTMLElement
+    expect(banner).toHaveClass('danger')
+    expect(banner).toHaveTextContent('兆候が続けば ALT_HOLD へ切り替えます')
+    fireEvent.click(screen.getByRole('button', { name: '取り消し' }))
+    expect(props.onCancel).toHaveBeenCalledWith('g-1')
+  })
+
+  it('names QHOVER in the due line for a QuadPlane', () => {
+    show(mapOf(guardAlert({ phase: 'due', action_mode: 'QHOVER', sound: false })), { dict: t('en') })
+    expect(screen.getByText('Switching to QHOVER if the signs continue')).toBeInTheDocument()
+  })
+
   it('shows the executed line without 取り消し', () => {
     show(mapOf(guardAlert({ phase: 'executed', action_mode: 'ALT_HOLD', sound: false })))
     expect(screen.getByText('ALT_HOLD に切り替えました — 風で流れます。手動で引き継いでください')).toBeInTheDocument()

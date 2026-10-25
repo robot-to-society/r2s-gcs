@@ -68,6 +68,9 @@ impl Default for GuardSettings {
 pub enum GuardPhase {
     Alerting,
     Countdown,
+    /// The L2 countdown ended without a fresh detection: still cancellable, switches on the next
+    /// fresh detection until the signs clear.
+    Due,
     Executing,
     Executed,
     Cancelled,
