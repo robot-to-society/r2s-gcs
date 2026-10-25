@@ -60,6 +60,7 @@ async fn main() -> anyhow::Result<()> {
         .with_terrain(config.terrain())
         .with_whep_upstream(&config.whep_upstream)
         .with_data_dir(config.data_dir.clone())
+        .with_ai(rgcs_server::ai_api::build_ai(&config.ai))
         .with_log_fetch(config.log_fetch_enabled())
         .with_network(rgcs_server::network::NetworkConfig {
             listen: config.listen,

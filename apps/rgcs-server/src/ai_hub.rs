@@ -329,17 +329,30 @@ impl AiHub {
         cmd: &VehicleCommand,
         now_ms: u64,
     ) -> ProposalCheck {
-        let s = lock(&self.state);
-        let Some(sp) = s.proposals.get(id) else {
-            return ProposalCheck::NotFound;
-        };
-        if sp.owner != user {
-            return ProposalCheck::Forbidden;
+        check_in(&lock(&self.state), id, user, sysid, cmd, now_ms)
+    }
+
+    /// [`AiHub::check_proposal`] that also marks it executed on `Ok`, in one step, so two
+    /// presses cannot both send it. [`AiHub::release`] undoes it when the send is refused.
+    pub fn claim(
+        &self,
+        id: &str,
+        user: &str,
+        sysid: SysId,
+        cmd: &VehicleCommand,
+        now_ms: u64,
+    ) -> ProposalCheck {
+        let mut s = lock(&self.state);
+        let verdict = check_in(&s, id, user, sysid, cmd, now_ms);
+        if let (ProposalCheck::Ok, Some(sp)) = (verdict, s.proposals.get_mut(id)) {
+            sp.status = ProposalStatus::Executed;
         }
-        if sp.proposal.sysid != sysid || !same_command(&sp.proposal.command, cmd) {
-            return ProposalCheck::Mismatch;
-        }
-        usable(sp, now_ms)
+        verdict
+    }
+
+    /// A claimed proposal whose command was refused before the queue is pending again.
+    pub fn release(&self, id: &str) {
+        self.mark(id, ProposalStatus::Pending);
     }
 
     /// 却下: marks a pending proposal of `user` dismissed.
@@ -363,6 +376,26 @@ impl AiHub {
             sp.status = status;
         }
     }
+}
+
+fn check_in(
+    s: &HubState,
+    id: &str,
+    user: &str,
+    sysid: SysId,
+    cmd: &VehicleCommand,
+    now_ms: u64,
+) -> ProposalCheck {
+    let Some(sp) = s.proposals.get(id) else {
+        return ProposalCheck::NotFound;
+    };
+    if sp.owner != user {
+        return ProposalCheck::Forbidden;
+    }
+    if sp.proposal.sysid != sysid || !same_command(&sp.proposal.command, cmd) {
+        return ProposalCheck::Mismatch;
+    }
+    usable(sp, now_ms)
 }
 
 fn usable(sp: &StoredProposal, now_ms: u64) -> ProposalCheck {

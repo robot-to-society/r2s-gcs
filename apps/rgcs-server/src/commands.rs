@@ -32,6 +32,9 @@ pub struct CommandBody {
     #[serde(flatten)]
     pub command: VehicleCommand,
     pub confirm_token: Option<String>,
+    /// Set when the operator executes an AI proposal (plan ruling 2): single use, checked
+    /// before the confirm token, written into the vehicle audit row.
+    pub ai_proposal_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -129,7 +132,6 @@ pub async fn command(
     Path(sysid): Path<SysId>,
     Json(body): Json<CommandBody>,
 ) -> Response {
-    let cmd = body.command;
     let (vehicle, vtol_seen) = {
         let router = app.router.lock().await;
         let seen = router.message_age_ms(sysid, EXTENDED_SYS_STATE_ID).is_some();
@@ -142,37 +144,107 @@ pub async fn command(
             format!("vehicle {sysid} is not connected"),
         );
     };
-    if let Some(reason) = cmd.invalid() {
-        audit(&app, &op.username, sysid, &cmd, "rejected", Some(&reason)).await;
-        return err(StatusCode::BAD_REQUEST, "invalid", reason);
+    let attempt = Attempt {
+        app: &app,
+        operator: &op.username,
+        sysid,
+        cmd: &body.command,
+        proposal: body.ai_proposal_id.as_deref(),
+    };
+    if let Some(refused) = attempt.claim().await {
+        return refused;
     }
-    if cmd.requires_confirm() {
-        let verdict = body
-            .confirm_token
-            .as_deref()
-            .map(|t| app.consume_confirm(t, sysid, cmd.name()));
-        if let Some(reason) = confirm_failure(verdict) {
-            audit(&app, &op.username, sysid, &cmd, "rejected", Some(reason)).await;
-            return err(StatusCode::CONFLICT, "confirm_required", reason);
+    if let Some(refused) = attempt
+        .admit(&vehicle, body.confirm_token.as_deref(), vtol_seen)
+        .await
+    {
+        attempt.release();
+        return refused;
+    }
+    match attempt.enqueue(&vehicle).await {
+        Some(id) => ok(Queued { id }),
+        None => {
+            attempt.release();
+            err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "link_lost",
+                "command queue is not running",
+            )
         }
     }
-    let refusal = precheck(&cmd, &vehicle).or_else(|| vtol_unknown(&cmd, &vehicle, vtol_seen));
-    if let Some((status, code, reason)) = refusal {
-        audit(&app, &op.username, sysid, &cmd, "rejected", Some(&reason)).await;
-        return err(status, code, reason);
+}
+
+/// One command request on its way to the queue.
+struct Attempt<'a> {
+    app: &'a AppState,
+    operator: &'a str,
+    sysid: SysId,
+    cmd: &'a VehicleCommand,
+    proposal: Option<&'a str>,
+}
+
+impl Attempt<'_> {
+    /// Audits the refusal and builds its error response.
+    async fn reject(&self, status: StatusCode, code: &'static str, reason: &str) -> Response {
+        let (app, op, sysid) = (self.app, self.operator, self.sysid);
+        audit(app, op, sysid, self.cmd, self.proposal, "rejected", Some(reason)).await;
+        err(status, code, reason.to_string())
     }
-    let id = app.next_command_id();
-    let (done_tx, done_rx) = oneshot::channel();
-    let job = queued(&vehicle, cmd.clone(), done_tx);
-    if app.queue.send(job).await.is_err() {
-        return err(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "link_lost",
-            "command queue is not running",
-        );
+
+    /// Takes the AI proposal (if any) for this send; checked before `invalid()` and confirm.
+    async fn claim(&self) -> Option<Response> {
+        let id = self.proposal?;
+        let ai = &self.app.ai;
+        let verdict = ai.claim(id, self.operator, self.sysid, self.cmd, ai.now_ms());
+        let (status, code, reason) = crate::ai_api::proposal_refusal(verdict)?;
+        Some(self.reject(status, code, reason).await)
     }
-    tokio::spawn(finish(app, op.username, id, sysid, cmd, done_rx));
-    ok(Queued { id })
+
+    /// A refused send leaves its proposal pending, so the operator can press again.
+    fn release(&self) {
+        if let Some(id) = self.proposal {
+            self.app.ai.release(id);
+        }
+    }
+
+    async fn admit(&self, v: &VehicleState, token: Option<&str>, vtol_seen: bool) -> Option<Response> {
+        let cmd = self.cmd;
+        if let Some(reason) = cmd.invalid() {
+            return Some(self.reject(StatusCode::BAD_REQUEST, "invalid", &reason).await);
+        }
+        if cmd.requires_confirm() {
+            let verdict = token.map(|t| self.app.consume_confirm(t, self.sysid, cmd.name()));
+            if let Some(reason) = confirm_failure(verdict) {
+                return Some(
+                    self.reject(StatusCode::CONFLICT, "confirm_required", reason)
+                        .await,
+                );
+            }
+        }
+        let (status, code, reason) = precheck(cmd, v).or_else(|| vtol_unknown(cmd, v, vtol_seen))?;
+        Some(self.reject(status, code, &reason).await)
+    }
+
+    /// Hands the job to the queue; `None` when the queue is not running.
+    async fn enqueue(&self, v: &VehicleState) -> Option<u64> {
+        let id = self.app.next_command_id();
+        let (done_tx, done_rx) = oneshot::channel();
+        self.app
+            .queue
+            .send(queued(v, self.cmd.clone(), done_tx))
+            .await
+            .ok()?;
+        let job = Finish {
+            app: self.app.clone(),
+            operator: self.operator.to_string(),
+            id,
+            sysid: self.sysid,
+            cmd: self.cmd.clone(),
+            proposal: self.proposal.map(str::to_string),
+        };
+        tokio::spawn(job.run(done_rx));
+        Some(id)
+    }
 }
 
 pub fn confirm_failure(verdict: Option<Result<(), ConfirmError>>) -> Option<&'static str> {
@@ -185,31 +257,47 @@ pub fn confirm_failure(verdict: Option<Result<(), ConfirmError>>) -> Option<&'st
     }
 }
 
-/// Waits for the queue's verdict, records it and tells every client.
-async fn finish(
+/// A queued command waiting for the queue's verdict.
+struct Finish {
     app: AppState,
     operator: String,
     id: u64,
     sysid: SysId,
     cmd: VehicleCommand,
-    done: oneshot::Receiver<Outcome>,
-) {
-    let outcome = done.await.unwrap_or(Outcome::LinkClosed);
-    let result = match &outcome {
-        Outcome::Accepted => "ok",
-        Outcome::Timeout => "timeout",
-        _ => "failed",
-    };
-    audit(&app, &operator, sysid, &cmd, result, outcome.reason().as_deref()).await;
-    let _ = app.tx.send(ServerMessage::CommandResult(CommandResult {
-        id,
-        sysid,
-        cmd: cmd.name().to_string(),
-        ok: outcome.ok(),
-        reason: outcome.reason(),
-        ts: crate::app::unix_ms(),
-        mav_cmd: cmd.mav_cmd(),
-    }));
+    proposal: Option<String>,
+}
+
+impl Finish {
+    /// Waits for the queue's verdict, records it and tells every client.
+    async fn run(self, done: oneshot::Receiver<Outcome>) {
+        let outcome = done.await.unwrap_or(Outcome::LinkClosed);
+        let result = match &outcome {
+            Outcome::Accepted => "ok",
+            Outcome::Timeout => "timeout",
+            _ => "failed",
+        };
+        let reason = outcome.reason();
+        let (app, cmd, proposal) = (&self.app, &self.cmd, self.proposal.as_deref());
+        audit(
+            app,
+            &self.operator,
+            self.sysid,
+            cmd,
+            proposal,
+            result,
+            reason.as_deref(),
+        )
+        .await;
+        let _ = self.app.tx.send(ServerMessage::CommandResult(CommandResult {
+            id: self.id,
+            sysid: self.sysid,
+            cmd: cmd.name().to_string(),
+            ok: outcome.ok(),
+            reason,
+            ts: crate::app::unix_ms(),
+            mav_cmd: cmd.mav_cmd(),
+        }));
+    }
 }
 
 async fn audit(
@@ -217,6 +305,7 @@ async fn audit(
     operator: &str,
     sysid: SysId,
     cmd: &VehicleCommand,
+    proposal: Option<&str>,
     result: &str,
     reason: Option<&str>,
 ) {
@@ -225,13 +314,24 @@ async fn audit(
         sysid: Some(sysid),
         target: "vehicle",
         command: cmd.name(),
-        args: serde_json::to_string(cmd).ok(),
+        args: audit_args(cmd, proposal),
         result,
         reason: reason.map(str::to_string),
     };
     if let Err(e) = app.store.record_audit(entry).await {
         tracing::error!(error = %e, "audit write failed");
     }
+}
+
+/// `{"cmd":…,"args":…}`, plus `"ai_proposal_id"` when the send executes an AI proposal.
+fn audit_args(cmd: &VehicleCommand, proposal: Option<&str>) -> Option<String> {
+    let Some(id) = proposal else {
+        return serde_json::to_string(cmd).ok();
+    };
+    let value = serde_json::to_value(cmd).ok()?;
+    let mut fields = value.as_object().cloned().unwrap_or_default();
+    fields.insert("ai_proposal_id".into(), crate::ai_api::cut_id(id).into());
+    Some(serde_json::Value::Object(fields).to_string())
 }
 
 #[cfg(test)]

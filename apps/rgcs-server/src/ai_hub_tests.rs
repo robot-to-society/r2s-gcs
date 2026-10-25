@@ -260,3 +260,29 @@ fn the_clock_is_injectable() {
     let h = hub(0).with_clock(Arc::new(|| 42));
     assert_eq!(h.now_ms(), 42);
 }
+
+#[test]
+fn a_claim_is_single_use_until_released() {
+    let h = hub(0);
+    h.add_proposal(proposal("p-1", VehicleCommand::Rtl), "op");
+    let claim = |user: &str, cmd: &VehicleCommand| h.claim("p-1", user, 3, cmd, 2_000);
+    assert_eq!(claim("op", &VehicleCommand::Land), ProposalCheck::Mismatch);
+    assert_eq!(claim("intruder", &VehicleCommand::Rtl), ProposalCheck::Forbidden);
+    assert_eq!(claim("op", &VehicleCommand::Rtl), ProposalCheck::Ok);
+    assert_eq!(
+        claim("op", &VehicleCommand::Rtl),
+        ProposalCheck::Used,
+        "a second press"
+    );
+    assert_eq!(h.dismiss("p-1", "op", 2_000), ProposalCheck::Used);
+    h.release("p-1");
+    assert_eq!(
+        claim("op", &VehicleCommand::Rtl),
+        ProposalCheck::Ok,
+        "a refused send frees it"
+    );
+    assert_eq!(
+        h.claim("p-9", "op", 3, &VehicleCommand::Rtl, 2_000),
+        ProposalCheck::NotFound
+    );
+}

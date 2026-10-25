@@ -366,6 +366,9 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         .route("/vehicles/{sysid}", get(api::get_vehicle))
         .route("/vehicles/{sysid}/confirm", post(commands::confirm))
         .route("/vehicles/{sysid}/command", post(commands::command))
+        .route("/ai/status", get(crate::ai_api::status))
+        .route("/ai/chat", post(crate::ai_api::chat))
+        .route("/ai/proposals/{id}/dismiss", post(crate::ai_api::dismiss))
         .route("/vehicles/{sysid}/guided", post(guided::guided))
         .route(
             "/vehicles/{sysid}/mission",

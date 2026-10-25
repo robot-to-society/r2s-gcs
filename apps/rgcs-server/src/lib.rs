@@ -3,6 +3,7 @@
 //! The binary in `main.rs` only wires configuration and tasks together; everything else lives
 //! here so integration tests can build the axum app in-process.
 
+pub mod ai_api;
 pub mod ai_hub;
 pub mod ai_tools;
 pub mod ai_validate;
