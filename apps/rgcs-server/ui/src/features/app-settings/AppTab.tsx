@@ -1,8 +1,9 @@
-// アプリ設定 tab (spec 10 §7, addendum §5.7): 表示言語, 地図表示, 機体台帳, 操縦者, 点検テンプレート and the
+// アプリ設定 tab (spec 10 §7, addendum §5.7): 表示言語, 表示 (theme), 地図表示, 機体台帳, 操縦者, 点検テンプレート and the
 // link to the ロゴ・提示用トークン sheet. Card grid after the prototype's app tab.
 import type { Operator, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { useLang } from '../../shared/i18n/lang'
+import { DisplayCard } from './DisplayCard'
 import { MapDisplayCard } from './MapDisplayCard'
 import { MavlinkCard } from './MavlinkCard'
 import { PilotForm } from './PilotForm'
@@ -37,6 +38,7 @@ export function AppTab({ sysid, vehicle, me, dict, onOpenPresent }: Props) {
           {dict.lbPresentSettings}
         </button>
       </div>
+      <DisplayCard dict={dict} />
       <MapDisplayCard dict={dict} />
       <MavlinkCard dict={dict} isAdmin={isAdmin} />
       {sysid !== null && <RegistryForm key={sysid} sysid={sysid} vehicle={vehicle} isAdmin={isAdmin} dict={dict} />}

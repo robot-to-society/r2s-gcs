@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { InspectionTemplate, Operator, VehicleRegistry, VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
+import { setThemePref, THEME_KEY } from '../../shared/theme/theme'
 import { AppTab } from './AppTab'
 
 const copter: VehicleState = {
@@ -45,6 +46,16 @@ function setup(role: Operator['role'] = 'admin') {
 
 describe('AppTab', () => {
   afterEach(() => vi.unstubAllGlobals())
+
+  it('display_card_stores_the_theme_choice_per_browser', () => {
+    setup()
+    const card = screen.getByTestId('display-card')
+    expect(within(card).getByRole('button', { name: '自動' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(within(card).getByRole('button', { name: 'ライト' }))
+    expect(localStorage.getItem(THEME_KEY)).toBe('light')
+    expect(within(card).getByRole('button', { name: 'ライト' })).toHaveAttribute('aria-pressed', 'true')
+    setThemePref('auto')
+  })
 
   it('registry_form_loads_and_saves_for_admin', async () => {
     const { calls } = setup()
