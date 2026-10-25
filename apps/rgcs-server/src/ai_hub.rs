@@ -16,6 +16,13 @@ pub const RATE_WINDOW_MS: u64 = 60_000;
 /// A conversation refuses more turns after this many user turns or serialized characters.
 pub const MAX_USER_TURNS: u32 = 20;
 pub const MAX_HISTORY_CHARS: usize = 200_000;
+/// A conversation is full once replaying its history costs `max_tokens_per_chat /` this
+/// many tokens (20 000 by default), so every chat still has room for at least three calls
+/// (two tool rounds and the answer) under the per-chat cap instead of being cut after one.
+pub const HISTORY_TOKEN_SHARE: u64 = 3;
+/// Characters per token when the provider reports no usage (a low guess for JSON, high
+/// for Japanese, where it is about one).
+const CHARS_PER_TOKEN: usize = 4;
 /// Conversations idle this long are forgotten.
 pub const CONVERSATION_TTL_MS: u64 = 30 * 60_000;
 /// Server-wide conversation cap; the least recently used one is evicted.
@@ -60,7 +67,17 @@ struct Conversation {
     turns: Vec<Turn>,
     user_turns: u32,
     chars: usize,
+    /// Reported replay cost of `turns` (input + output of the last call), 0 = unreported.
+    context_tokens: u64,
     last_used_ms: u64,
+}
+
+impl Conversation {
+    /// Estimated tokens to replay the history: the reported cost, or a character estimate.
+    fn replay_tokens(&self) -> u64 {
+        let estimate = u64::try_from(self.chars / CHARS_PER_TOKEN).unwrap_or(u64::MAX);
+        self.context_tokens.max(estimate)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -274,7 +291,8 @@ impl AiHub {
         if c.owner != user {
             return Err(HubRefusal::Forbidden);
         }
-        if c.user_turns >= MAX_USER_TURNS || c.chars >= MAX_HISTORY_CHARS {
+        let too_costly = c.replay_tokens() >= self.limits.max_tokens_per_chat / HISTORY_TOKEN_SHARE;
+        if c.user_turns >= MAX_USER_TURNS || c.chars >= MAX_HISTORY_CHARS || too_costly {
             return Err(HubRefusal::Full);
         }
         Ok((id.to_string(), c.turns.clone()))
@@ -289,7 +307,8 @@ impl AiHub {
         s.spent.push_back((now_ms, tokens));
     }
 
-    pub fn commit(&self, user: &str, id: &str, turns: Vec<Turn>, tokens: u64, now_ms: u64) {
+    /// `context_tokens` = [`rgcs_ai::TurnOutput::context`], the replay cost after this turn.
+    pub fn commit(&self, user: &str, id: &str, turns: Vec<Turn>, tokens: u64, context_tokens: u64, now_ms: u64) {
         let mut s = lock(&self.state);
         s.prune(now_ms);
         s.spent.push_back((now_ms, tokens));
@@ -299,6 +318,7 @@ impl AiHub {
                 user_turns: c.user_turns + 1,
                 chars: c.chars + turn_chars(&turns),
                 turns: c.turns.iter().cloned().chain(turns).collect(),
+                context_tokens,
                 last_used_ms: now_ms,
                 owner: c.owner.clone(),
             },
@@ -308,6 +328,7 @@ impl AiHub {
                 user_turns: 1,
                 chars: turn_chars(&turns),
                 turns,
+                context_tokens,
                 last_used_ms: now_ms,
             },
         };

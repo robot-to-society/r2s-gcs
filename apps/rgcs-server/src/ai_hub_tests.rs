@@ -73,7 +73,7 @@ fn conversations_belong_to_their_owner() {
     let (id, turns) = h.history("op", None, 1_000).unwrap();
     assert!(turns.is_empty());
     assert!(uuid::Uuid::parse_str(&id).is_ok());
-    h.commit("op", &id, exchange("hi"), 10, 1_000);
+    h.commit("op", &id, exchange("hi"), 10, 0, 1_000);
     let (same, turns) = h.history("op", Some(&id), 2_000).unwrap();
     assert_eq!((same.as_str(), turns.len()), (id.as_str(), 2));
     assert!(matches!(
@@ -95,7 +95,7 @@ fn history_is_append_only_and_bounded() {
             let (_, turns) = h.history("op", Some(&id), i).unwrap();
             assert_eq!(turns.len() as u64, i * 2);
         }
-        h.commit("op", &id, exchange(&format!("q{i}")), 1, i);
+        h.commit("op", &id, exchange(&format!("q{i}")), 1, 0, i);
     }
     assert!(matches!(h.history("op", Some(&id), 30), Err(HubRefusal::Full)));
 }
@@ -104,7 +104,28 @@ fn history_is_append_only_and_bounded() {
 fn a_huge_history_is_full() {
     let h = hub(0);
     let (id, _) = h.history("op", None, 0).unwrap();
-    h.commit("op", &id, exchange(&"x".repeat(200_001)), 1, 0);
+    h.commit("op", &id, exchange(&"x".repeat(200_001)), 1, 0, 0);
+    assert!(matches!(h.history("op", Some(&id), 1), Err(HubRefusal::Full)));
+}
+
+#[test]
+fn a_history_costing_a_third_of_the_chat_cap_to_replay_is_full() {
+    let h = hub(0);
+    let share = AiConfig::default().max_tokens_per_chat / HISTORY_TOKEN_SHARE;
+    assert_eq!(share, 20_000);
+    let (a, _) = h.history("op", None, 0).unwrap();
+    h.commit("op", &a, exchange("hi"), 1, share - 1, 0);
+    assert!(h.history("op", Some(&a), 1).is_ok());
+    let (b, _) = h.history("op", None, 0).unwrap();
+    h.commit("op", &b, exchange("hi"), 1, share, 0);
+    assert!(matches!(h.history("op", Some(&b), 1), Err(HubRefusal::Full)));
+}
+
+#[test]
+fn without_reported_usage_the_history_is_estimated_from_its_characters() {
+    let h = hub(0);
+    let (id, _) = h.history("op", None, 0).unwrap();
+    h.commit("op", &id, exchange(&"x".repeat(80_000)), 1, 0, 0);
     assert!(matches!(h.history("op", Some(&id), 1), Err(HubRefusal::Full)));
 }
 
@@ -112,9 +133,9 @@ fn a_huge_history_is_full() {
 fn idle_conversations_expire() {
     let h = hub(0);
     let (id, _) = h.history("op", None, 0).unwrap();
-    h.commit("op", &id, exchange("hi"), 1, 0);
+    h.commit("op", &id, exchange("hi"), 1, 0, 0);
     assert!(h.history("op", Some(&id), 29 * MIN).is_ok());
-    h.commit("op", &id, exchange("again"), 1, 29 * MIN);
+    h.commit("op", &id, exchange("again"), 1, 0, 29 * MIN);
     assert!(h.history("op", Some(&id), 29 * MIN + 31 * MIN).is_err());
     assert!(matches!(
         h.history("op", Some(&id), 29 * MIN + 31 * MIN),
@@ -128,7 +149,7 @@ fn at_most_64_conversations_are_kept() {
     let ids: Vec<String> = (0..65u64)
         .map(|i| {
             let (id, _) = h.history("op", None, i).unwrap();
-            h.commit("op", &id, exchange("hi"), 1, i);
+            h.commit("op", &id, exchange("hi"), 1, 0, i);
             id
         })
         .collect();
@@ -145,10 +166,10 @@ fn the_rolling_budget_spans_conversations() {
     let h = hub(1_000);
     assert_eq!(h.status(0).budget_left, Some(1_000));
     let (a, _) = h.history("op", None, 0).unwrap();
-    h.commit("op", &a, exchange("hi"), 900, 0);
+    h.commit("op", &a, exchange("hi"), 900, 0, 0);
     drop(h.begin("op", 10).expect("900 < 1000"));
     let (b, _) = h.history("op", None, 20).unwrap();
-    h.commit("op", &b, exchange("hi"), 200, 20);
+    h.commit("op", &b, exchange("hi"), 200, 0, 20);
     assert_eq!(h.status(30).budget_left, Some(0));
     assert!(matches!(h.begin("op", 1_100), Err(HubRefusal::Budget)));
     assert!(
@@ -163,7 +184,7 @@ fn the_rolling_budget_spans_conversations() {
 fn an_unlimited_budget_reports_none() {
     let h = hub(0);
     let (a, _) = h.history("op", None, 0).unwrap();
-    h.commit("op", &a, exchange("hi"), 5_000_000, 0);
+    h.commit("op", &a, exchange("hi"), 5_000_000, 0, 0);
     assert!(h.begin("op", 1).is_ok());
     assert_eq!(h.status(1).budget_left, None);
 }

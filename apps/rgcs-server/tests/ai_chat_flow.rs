@@ -205,6 +205,27 @@ async fn a_status_question_is_answered_and_the_conversation_continues() {
 }
 
 #[tokio::test]
+async fn a_history_too_costly_to_replay_is_full_before_any_llm_call() {
+    let heavy = json!({
+        "choices": [{"message": {"role": "assistant", "content": "長い答え"}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 19_000, "completion_tokens": 1_000}
+    });
+    let fake = FakeProviderServer::start(Protocol::OpenAi, vec![heavy, text("not sent")]).await;
+    let f = openai_fixture(&fake).await;
+    let (status, body) = ask(&f, "状態は?").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let id = body["data"]["conversation_id"].as_str().unwrap().to_string();
+    let (status, body) = chat(
+        &f,
+        json!({"sysid": 3, "message": "続けて", "conversation_id": id}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(error_code(&body), "conversation_full");
+    assert_eq!(fake.requests().len(), 1, "no LLM call for a full conversation");
+}
+
+#[tokio::test]
 async fn a_proposal_is_executed_once_through_the_command_path() {
     let script = vec![propose(json!({"cmd": "rtl"})), text("RTL を提案します")];
     let fake = FakeProviderServer::start(Protocol::OpenAi, script).await;

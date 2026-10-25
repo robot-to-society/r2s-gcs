@@ -65,6 +65,10 @@ pub struct TurnOutput {
     pub runs: Vec<ToolRunRecord>,
     pub usage: Usage,
     pub truncated: bool,
+    /// Tokens the history will cost to replay: the last call's input + output as reported
+    /// (0 when the provider reports no usage). The hub refuses a conversation once it is too
+    /// costly for the per-chat cap.
+    pub context: u64,
 }
 
 /// Runs one operator message to its final answer. Errors from the LLM are returned as is;
@@ -87,6 +91,7 @@ pub async fn run_turn(
     loop {
         let tools = (call < input.limits.max_iterations).then_some(specs.as_slice());
         let resp = complete(llm, &turns, tools).await?;
+        let context = resp.usage.total();
         usage = Usage {
             input: usage.input + resp.usage.input,
             output: usage.output + resp.usage.output,
@@ -98,16 +103,12 @@ pub async fn run_turn(
             blocks: storable(resp.blocks, uses.is_empty()),
         });
         if uses.is_empty() {
-            return Ok(finish(
-                turns.split_off(start),
-                runs,
-                usage,
-                stop == Stop::MaxTokens,
-            ));
+            let truncated = stop == Stop::MaxTokens;
+            return Ok(finish(turns.split_off(start), runs, (usage, context), truncated));
         }
         if tools.is_none() || usage.total() > input.limits.max_tokens_per_chat {
             turns.extend(close_unrun(&uses));
-            return Ok(finish(turns.split_off(start), runs, usage, true));
+            return Ok(finish(turns.split_off(start), runs, (usage, context), true));
         }
         let (results, records) = run_tools(host, &uses).await;
         turns.push(results);
@@ -165,7 +166,12 @@ fn storable(blocks: Vec<Block>, is_answer: bool) -> Vec<Block> {
     kept.into_iter().chain([Block::Text(EMPTY_REPLY.into())]).collect()
 }
 
-fn finish(new_turns: Vec<Turn>, runs: Vec<ToolRunRecord>, usage: Usage, truncated: bool) -> TurnOutput {
+fn finish(
+    new_turns: Vec<Turn>,
+    runs: Vec<ToolRunRecord>,
+    (usage, context): (Usage, u64),
+    truncated: bool,
+) -> TurnOutput {
     let text = new_turns.last().map(final_text).unwrap_or_default();
     let reply = if truncated && text.trim().is_empty() {
         TRUNCATED_REPLY.to_string()
@@ -178,6 +184,7 @@ fn finish(new_turns: Vec<Turn>, runs: Vec<ToolRunRecord>, usage: Usage, truncate
         runs,
         usage,
         truncated,
+        context,
     }
 }
 

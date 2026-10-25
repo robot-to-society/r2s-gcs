@@ -251,7 +251,7 @@ fn finish(
     let status_card = status_card(&out.runs);
     let tool_runs = out.runs.iter().map(tool_run).collect();
     // the tokens were charged call by call by `Metered`
-    hub.commit(user, &conversation, out.new_turns, 0, now);
+    hub.commit(user, &conversation, out.new_turns, 0, out.context, now);
     proposals.iter().for_each(|p| hub.add_proposal(p.clone(), user));
     AiChatReply {
         conversation_id: conversation,
