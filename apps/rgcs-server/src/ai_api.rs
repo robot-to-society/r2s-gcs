@@ -104,12 +104,9 @@ pub async fn chat(
         user_text: format!("[対象機体: {name} (sysid {})]\n{}", body.sysid, body.message),
         limits: hub.limits(),
     };
-    let metered = crate::ai_meter::Metered::new(client.as_ref());
+    // every answered call is charged as it answers (success, failure, timeout or a dropped request)
+    let metered = crate::ai_meter::Metered::new(client.as_ref(), &hub);
     let turn = tokio::time::timeout(hub.limits().chat_timeout, run_turn(&metered, &tools, input)).await;
-    if !matches!(turn, Ok(Ok(_))) {
-        // nothing is committed, but the provider billed every call that answered
-        hub.charge(metered.used(), hub.now_ms());
-    }
     match turn {
         Err(_) => provider_failure(&AiError::Timeout),
         Ok(Err(e)) => provider_failure(&e),
@@ -253,7 +250,8 @@ fn finish(
     let now = hub.now_ms();
     let status_card = status_card(&out.runs);
     let tool_runs = out.runs.iter().map(tool_run).collect();
-    hub.commit(user, &conversation, out.new_turns, out.usage.total(), now);
+    // the tokens were charged call by call by `Metered`
+    hub.commit(user, &conversation, out.new_turns, 0, now);
     proposals.iter().for_each(|p| hub.add_proposal(p.clone(), user));
     AiChatReply {
         conversation_id: conversation,

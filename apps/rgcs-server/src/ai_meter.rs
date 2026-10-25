@@ -1,28 +1,22 @@
 //! Token metering for AI chat turns, and the provider-error replies sent to the client.
 
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use rgcs_ai::{AiError, LlmClient, LlmRequest, LlmResponse};
 
-/// Wraps the LLM client and adds up the tokens of every answered call, so a turn that later
-/// fails or times out can still be charged to the budget.
+use crate::ai_hub::AiHub;
+
+/// Wraps the LLM client and charges the tokens of every answered call to the hub's budget the
+/// moment it answers: a turn that later fails, times out or is dropped (client gone) cannot
+/// skip its accounting.
 pub struct Metered<'a> {
     inner: &'a dyn LlmClient,
-    used: AtomicU64,
+    hub: &'a AiHub,
 }
 
 impl<'a> Metered<'a> {
-    pub fn new(inner: &'a dyn LlmClient) -> Self {
-        Self {
-            inner,
-            used: AtomicU64::new(0),
-        }
-    }
-
-    pub fn used(&self) -> u64 {
-        self.used.load(Ordering::Relaxed)
+    pub fn new(inner: &'a dyn LlmClient, hub: &'a AiHub) -> Self {
+        Self { inner, hub }
     }
 }
 
@@ -30,7 +24,7 @@ impl<'a> Metered<'a> {
 impl LlmClient for Metered<'_> {
     async fn complete(&self, req: LlmRequest<'_>) -> Result<LlmResponse, AiError> {
         let resp = self.inner.complete(req).await?;
-        self.used.fetch_add(resp.usage.total(), Ordering::Relaxed);
+        self.hub.charge(resp.usage.total(), self.hub.now_ms());
         Ok(resp)
     }
 }
@@ -74,13 +68,31 @@ mod tests {
         }
     }
 
+    fn hub(budget: u64) -> crate::ai_hub::AiHub {
+        let status = rgcs_core::AiStatus {
+            configured: true,
+            provider: Some(rgcs_core::AiProviderKind::OpenaiCompat),
+            model: Some("fake".into()),
+            reason: None,
+            budget_left: None,
+        };
+        let limits = rgcs_ai::AiConfig::default().limits();
+        crate::ai_hub::AiHub::new(std::sync::Arc::new(ScriptedLlm::new(vec![])), status, limits, budget)
+    }
+
     #[tokio::test]
-    async fn the_meter_counts_every_answered_call_even_when_a_later_call_fails() {
+    async fn each_answered_call_is_charged_at_once_so_a_dropped_turn_cannot_skip_it() {
         let inner = ScriptedLlm::from_results(vec![Ok(reply(100, 20)), Err(AiError::Unreachable)]);
-        let meter = Metered::new(&inner);
-        assert!(meter.complete(req()).await.is_ok());
+        let h = hub(1_000);
+        {
+            let meter = Metered::new(&inner, &h);
+            assert!(meter.complete(req()).await.is_ok());
+            // the turn is dropped here (client gone) before any post-turn accounting
+        }
+        assert_eq!(h.status(h.now_ms()).budget_left, Some(880));
+        let meter = Metered::new(&inner, &h);
         assert!(meter.complete(req()).await.is_err());
-        assert_eq!(meter.used(), 120);
+        assert_eq!(h.status(h.now_ms()).budget_left, Some(880), "a failed call bills nothing");
     }
 
     #[test]
