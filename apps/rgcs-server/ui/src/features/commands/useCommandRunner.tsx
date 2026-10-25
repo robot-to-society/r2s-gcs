@@ -24,14 +24,23 @@ interface Args {
   readonly deps?: RunnerDeps
 }
 
+/** An AI proposal's press: the id goes with the send, the note into the confirm dialog. */
+export interface PickOpts {
+  readonly aiProposalId?: string
+  readonly note?: string
+  /** The final outcome: `queued`, `error`, or `needs_confirm` when the confirm dialog was cancelled. */
+  readonly onResult?: (r: RunResult) => void
+}
+
 interface Pending {
   readonly sysid: number
   readonly command: VehicleCommand
   readonly message?: string
+  readonly opts: PickOpts
 }
 
 export interface Runner {
-  readonly pick: (sysid: number, command: VehicleCommand) => void
+  readonly pick: (sysid: number, command: VehicleCommand, opts?: PickOpts) => void
   readonly feedback: (sysid: number, cmd: string) => BtnState | null
   readonly sending: boolean
   /** The confirm modal, when one is open (render it once, anywhere). */
@@ -55,20 +64,23 @@ export function useCommandRunner({ entries, dict, vehicleOf, onError, deps }: Ar
   const now = useNow(fb.size > 0)
   useEffect(() => setFb((f) => settle(f, entries, Date.now())), [entries])
 
-  const after = (sysid: number, command: VehicleCommand, r: RunResult) => {
+  const after = (sysid: number, command: VehicleCommand, r: RunResult, opts: PickOpts) => {
     if (r.kind === 'needs_confirm') {
       setFb((f) => clearPress(f, sysid, command.cmd))
-      setPending({ sysid, command, message: r.message })
-    } else if (r.kind === 'error') {
+      setPending({ sysid, command, message: r.message, opts })
+      return
+    }
+    if (r.kind === 'error') {
       setFb((f) => failPress(f, sysid, command.cmd, Date.now()))
       onError(sysid, command, errorText(r.code, r.message, dict))
     }
+    opts.onResult?.(r)
   }
-  const pick = (sysid: number, command: VehicleCommand) => {
+  const pick = (sysid: number, command: VehicleCommand, opts: PickOpts = {}) => {
     setFb((f) => press(f, sysid, command.cmd, entries, Date.now()))
     setSending((n) => n + 1)
-    void runCommand(sysid, command, undefined, deps?.send)
-      .then((r) => after(sysid, command, r))
+    void runCommand(sysid, command, undefined, deps?.send, { aiProposalId: opts.aiProposalId })
+      .then((r) => after(sysid, command, r, opts))
       .finally(() => setSending((n) => n - 1))
   }
   const confirm = pending && (
@@ -80,11 +92,16 @@ export function useCommandRunner({ entries, dict, vehicleOf, onError, deps }: Ar
       vehicle={vehicleOf(pending.sysid)}
       dict={dict}
       deps={deps}
-      onCancel={() => setPending(null)}
+      aiProposalId={pending.opts.aiProposalId}
+      note={pending.opts.note}
+      onCancel={() => {
+        setPending(null)
+        pending.opts.onResult?.({ kind: 'needs_confirm' })
+      }}
       onDone={(r) => {
         setPending(null)
         if (r.kind === 'queued') setFb((f) => press(f, pending.sysid, pending.command.cmd, entries, Date.now()))
-        else after(pending.sysid, pending.command, r)
+        after(pending.sysid, pending.command, r, pending.opts)
       }}
     />
   )

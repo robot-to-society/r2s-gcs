@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import { cmdLabel, type Dict } from '../../shared/i18n'
+import { IconSparkles } from '../../shared/ui/icons'
 import { haversineM } from '../mission/geo'
 import { requestConfirm, sendCommand } from './api'
 import { DESTRUCTIVE, takeoffKind } from './catalog'
@@ -24,6 +25,10 @@ interface Props {
   readonly onDone: (result: RunResult) => void
   readonly dict: Dict
   readonly deps?: Deps
+  /** The AI proposal this confirm executes (`ai_proposal_id`). */
+  readonly aiProposalId?: string
+  /** The AI's reason, shown as 「AI の提案: …」. */
+  readonly note?: string
 }
 
 const HOLD_MS = 1500
@@ -81,7 +86,18 @@ function HoldButton({ busy, dict, onFire }: { busy: boolean; dict: Dict; onFire:
 }
 
 /** Confirm step for spec 70 §1 commands: fetch a token, then send with it. */
-export function ConfirmDialog({ sysid, command, vehicleName, vehicle, message, onCancel, onDone, dict, deps }: Props) {
+function AiNote({ note, dict }: { note: string; dict: Dict }) {
+  return (
+    <div className="t3 row confirm-ai" data-testid="confirm-ai-note">
+      <IconSparkles />
+      <span>
+        {dict.aiProposalLabel}: {note}
+      </span>
+    </div>
+  )
+}
+
+export function ConfirmDialog({ sysid, command, vehicleName, vehicle, message, onCancel, onDone, dict, deps, aiProposalId, note }: Props) {
   const [busy, setBusy] = useState(false)
   const running = useRef(false)
   const box = useRef<HTMLDivElement>(null)
@@ -93,7 +109,7 @@ export function ConfirmDialog({ sysid, command, vehicleName, vehicle, message, o
     setBusy(true)
     try {
       const { confirm_token } = await confirm(sysid, command.cmd)
-      onDone(await runCommand(sysid, command, confirm_token, send))
+      onDone(await runCommand(sysid, command, confirm_token, send, { aiProposalId }))
     } catch (e) {
       onDone({ kind: 'error', code: 'unknown', message: e instanceof Error ? e.message : String(e) })
     } finally {
@@ -113,6 +129,7 @@ export function ConfirmDialog({ sysid, command, vehicleName, vehicle, message, o
           <span className="t2">{vehicleName}</span>
         </div>
         {vehicle && <ContextRow v={vehicle} dict={dict} />}
+        {note !== undefined && <AiNote note={note} dict={dict} />}
         {message && <div className="warnbox">{message}</div>}
         <div className="confirm-actions">
           <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy}>

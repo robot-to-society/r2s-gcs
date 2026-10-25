@@ -5,6 +5,7 @@ import { EMPTY_PENDING, cameraErrorText, clearPending, markPending, sendCameraCo
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
 import { DetailPanel, ackMessage } from '../features/detail'
+import { AiPanel, useAiChat } from '../features/ai'
 import { buttonAction, getGimbalProfile, releaseCommand, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
 import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
@@ -23,11 +24,12 @@ import { usePredicted } from '../features/flightpath/usePredicted'
 import { VideoStage } from '../features/video'
 import { Header } from './Header'
 import { NO_MODAL, type Modal } from './modal'
-import type { View } from './view'
 import { useCalibAttention } from '../features/calibration'
 import { panelSysid, togglePin } from './pin'
 import { useCameraSettingsFlow } from './useCameraSettingsFlow'
 import { roiStart, roiStop, runButtonAction, useActiveRoiName } from './roiActions'
+import { usePlace } from './usePlace'
+import { executeProposal } from './aiExecute'
 
 function formatClock(d: Date, lang: Lang): string {
   const p = (n: number) => String(n).padStart(2, '0')
@@ -67,7 +69,8 @@ export function Shell({ me, lang }: Props) {
   const [selected, setSelected] = useState<number | null>(null)
   // 詳細パネルのピン: the panel stays on this vehicle while the selection moves
   const [pinned, setPinned] = useState<number | null>(null)
-  const [view, setView] = useState<View>('ops')
+  const { view, setView, navView, nav, aiOpen, closeAi } = usePlace()
+  const chat = useAiChat()
   const arrival = useOpsArrival(view)
   // 全機体映像: the vehicle in the camera cockpit (null = the grid)
   const [maxVideo, setMaxVideo] = useState<number | null>(null)
@@ -112,7 +115,8 @@ export function Shell({ me, lang }: Props) {
   const dockVehicle = detail ?? currentVehicle
   const maintAttention = useCalibAttention(detail?.sysid ?? null, detail ? calibration.get(detail.sysid)?.phase : undefined)
   // The maintenance and video views take the map's place; the right panel belongs to the operations map.
-  const showDetail = detail !== undefined && view !== 'maint' && view !== 'video'
+  const showDetail = detail !== undefined && view !== 'maint' && view !== 'video' && !aiOpen
+  const showRight = showDetail || aiOpen
   const openCockpit = (sysid: number) => {
     setSelected(sysid)
     setMaxVideo(sysid)
@@ -213,8 +217,8 @@ export function Shell({ me, lang }: Props) {
           dict={dict}
           clock={clock}
           me={me}
-          view={view}
-          onView={setView}
+          view={navView}
+          onView={nav}
           onLogout={() => void authStore.logout()}
           onPresent={() => setModal({ kind: 'present-settings' })}
         />
@@ -239,14 +243,14 @@ export function Shell({ me, lang }: Props) {
             {logDock}
           </main>
         )}
-        <main className={`stage${showDetail ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}${view === 'maint' ? ' maint-on' : ''}${view === 'video' ? ' video-on' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' || view === 'network' ? 'none' : undefined }}>
+        <main className={`stage${showRight ? '' : ' noright'}${mapUi.aside === 'rail' ? ' rail' : ''}${view === 'maint' ? ' maint-on' : ''}${view === 'video' ? ' video-on' : ''}`} style={{ position: 'absolute', inset: 0, display: view === 'mission' || view === 'network' ? 'none' : undefined }}>
           {settings && (
             <MapView
               vehicles={vehicles}
               tracks={tracks}
               follow={mapUi.follow}
               selected={current}
-              padding={padding(mapUi.aside, detail !== undefined)}
+              padding={padding(mapUi.aside, detail !== undefined || aiOpen)}
               style={basemap ? basemapStyle(basemap) : rasterStyle(settings.map_tile_url, settings.map_attribution)}
               basemap={basemap ?? undefined}
               mode={mapMode}
@@ -352,12 +356,15 @@ export function Shell({ me, lang }: Props) {
               feedback={(cmd) => runner.feedback(detail.sysid, cmd)}
             />
           )}
+          {aiOpen && (
+            <AiPanel vehicles={list} target={current} onTarget={setSelected} chat={chat} dict={dict} onExecute={executeProposal(chat, runner, dict)} onClose={closeAi} />
+          )}
           {commandsOpen && view === 'ops' && dockVehicle && (
             <CommandDock
               vehicle={dockVehicle}
               entries={log.entries}
               dict={dict}
-              beside={detail !== undefined}
+              beside={detail !== undefined || aiOpen}
               onClose={() => setCommandsOpen(false)}
               onOpenGuided={(sysid) => setModal({ kind: 'guided', sysid })}
               runner={runner}

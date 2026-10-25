@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthStore } from '../features/auth/store'
 import { App } from './App'
@@ -109,5 +109,54 @@ describe('App auth gate', () => {
     })
     expect(await screen.findByRole('button', { name: 'ログイン' })).toBeInTheDocument()
     await waitFor(() => expect(FakeSocket.instances).toHaveLength(1))
+  })
+})
+
+describe('Shell AI panel', () => {
+  beforeEach(() => {
+    FakeSocket.instances = []
+    vi.stubGlobal('WebSocket', FakeSocket)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  const vehicle = {
+    sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'LOITER', armed: false, lat: 35, lon: 139, alt_rel: 0, alt_msl: 0, hdg: null,
+    ground_speed: 0, climb: 0, battery: { pct: 50, volt: 22, current: null }, link: 'ok', last_rx_ms: 0,
+    gps: { fix: 3, sats: 10, hdop: 1 }, warn: false, unread: 0,
+  }
+
+  async function signedInWithVehicle() {
+    stubMe([200])
+    const { container } = render(<App store={new AuthStore()} />)
+    await screen.findByText('RGCS')
+    await act(async () => {
+      FakeSocket.last!.readyState = 1
+      FakeSocket.last!.onopen?.()
+      FakeSocket.last!.onmessage?.({ data: JSON.stringify({ t: 'snapshot', vehicles: [vehicle], cameras: [], video_sources: [] }) } as MessageEvent<string>)
+    })
+    fireEvent.click(await screen.findByText('UAV-01'))
+    await waitFor(() => expect(container.querySelector('aside.detail')).not.toBeNull())
+    return container
+  }
+
+  it('the AI nav button toggles the AI panel in place of the detail panel', async () => {
+    const container = await signedInWithVehicle()
+    const nav = screen.getByRole('button', { name: 'AIチャット' })
+    fireEvent.click(nav)
+    expect(container.querySelector('aside.ai')).not.toBeNull()
+    expect(container.querySelector('aside.detail')).toBeNull()
+    expect(container.querySelector('main.stage')).not.toHaveClass('noright')
+    fireEvent.click(nav)
+    expect(container.querySelector('aside.ai')).toBeNull()
+    expect(container.querySelector('aside.detail')).not.toBeNull()
+  })
+
+  it('the AI panel close button returns to the detail panel', async () => {
+    const container = await signedInWithVehicle()
+    fireEvent.click(screen.getByRole('button', { name: 'AIチャット' }))
+    const ai = container.querySelector('aside.ai') as HTMLElement
+    fireEvent.click(ai.querySelector('.panel-h button[aria-label="閉じる"]')!)
+    expect(container.querySelector('aside.ai')).toBeNull()
+    expect(container.querySelector('aside.detail')).not.toBeNull()
   })
 })

@@ -134,4 +134,19 @@ describe('ConfirmDialog', () => {
     fireEvent.keyDown(document.body, { key: 'Enter', repeat: true })
     expect(d.confirm).not.toHaveBeenCalled()
   })
+  it('shows the AI note and sends the proposal id with the token', async () => {
+    const confirm = vi.fn().mockResolvedValue({ confirm_token: 'tok', expires_in: 30 })
+    const send = vi.fn().mockResolvedValue({ id: 9 })
+    const onDone = vi.fn()
+    render(
+      <ConfirmDialog sysid={1} command={{ cmd: 'arm' }} vehicleName="UAV-01" aiProposalId="p-1" note="hold short" onCancel={() => {}} onDone={onDone} dict={t('ja')} deps={{ confirm, send }} />,
+    )
+    const note = screen.getByTestId('confirm-ai-note')
+    expect(note).toHaveClass('t3')
+    expect(note).toHaveTextContent('AI の提案: hold short')
+    expect(note.querySelector('.lucide-sparkles')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '実行' }))
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith({ kind: 'queued', id: 9 }))
+    expect(send).toHaveBeenCalledWith(1, { cmd: 'arm' }, 'tok', 'p-1')
+  })
 })
