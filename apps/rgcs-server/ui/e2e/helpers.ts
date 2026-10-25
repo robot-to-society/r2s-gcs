@@ -8,6 +8,8 @@ export async function login(page: Page): Promise<void> {
   await page.getByLabel('パスワード').fill(DEV_USER.password)
   await page.getByRole('button', { name: 'ログイン' }).click()
   await expect(page.locator('header .brand')).toHaveText('RGCS')
+  // The sign-in clouds take ~7 s to gather and clear; the app is interactive once they are gone.
+  await expect(page.locator('.ls-overlay')).toHaveCount(0, { timeout: 20_000 })
 }
 
 const sheet = (page: Page) => page.locator('.logsheet')
