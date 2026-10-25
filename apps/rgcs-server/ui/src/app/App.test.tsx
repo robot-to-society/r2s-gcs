@@ -163,7 +163,7 @@ describe('Shell AI panel', () => {
     const container = await signedInWithVehicle()
     const alert = {
       id: 'g-1', sysid: 1, vehicle_name: 'UAV-01', event: 'toilet_bowl', phase: 'alerting', level: 'l1', confidence: 1,
-      signs: { a: true, b: true, c: false, turn_deg: 300, radius_m: 2, compass_var: null }, deadline_ms: null, action_mode: null,
+      signs: { a: true, b: true, c: false, turn_deg: 300, radius_m: 2, compass_var: null }, deadline_ms: null, action_mode: null, taken_over_by: null, vehicle_mode: 'LOITER',
       rc_stale: false, kp_raised: false, sound: true, text: 'UAV-01 トイレットボウルの兆候 — 手動で引き継いでください', ts: Date.now(),
     }
     await act(async () => {

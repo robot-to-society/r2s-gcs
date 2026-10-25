@@ -6,22 +6,33 @@ import type { GuardAlert, GuardPhase, VehicleState } from '../../shared/api/type
 
 export type AlertMap = ReadonlyMap<string, GuardAlert>
 
-/** A taken-over alert stays visible (neutral) this long, then goes. */
+/** A taken-over alert stays visible (neutral) this long, then goes (not a mode change). */
 export const TAKEN_OVER_KEEP_MS = 10_000
 
 // The tone keeps repeating through these phases once an alert has sounded; a cancel (a human
 // pressed 取り消し) or a takeover silences it; `unanswered` arrives with `sound: true` again.
 const KEEPS_SOUNDING: ReadonlySet<GuardPhase> = new Set(['alerting', 'countdown', 'due', 'executing', 'executed', 'refused', 'unanswered'])
 
+/** A mode change the AI did not make (a pilot's switch or a vehicle failsafe — the server cannot tell
+ * which). The AI stands down, but nobody is known to have taken over: it stays, warned, until cleared. */
+export function modeChanged(a: GuardAlert): boolean {
+  return a.phase === 'taken_over' && a.taken_over_by === 'mode_change'
+}
+
+/** A confirmed takeover (sticks or an operator command). */
+export function takenOver(a: GuardAlert): boolean {
+  return a.phase === 'taken_over' && !modeChanged(a)
+}
+
 function rebased(a: GuardAlert, now: number, prev: GuardAlert | undefined): GuardAlert {
   const deadline = a.deadline_ms === null ? null : now + Math.max(0, a.deadline_ms - a.ts)
-  const sound = KEEPS_SOUNDING.has(a.phase) && (a.sound || (prev?.sound ?? false))
+  const sound = (KEEPS_SOUNDING.has(a.phase) || modeChanged(a)) && (a.sound || (prev?.sound ?? false))
   return { ...a, ts: now, deadline_ms: deadline, sound }
 }
 
 /** Drops taken-over alerts older than 10 s; returns the same map when nothing changes. */
 export function pruneAlerts(m: AlertMap, now: number): AlertMap {
-  const stale = [...m.values()].filter((a) => a.phase === 'taken_over' && now - a.ts > TAKEN_OVER_KEEP_MS)
+  const stale = [...m.values()].filter((a) => takenOver(a) && now - a.ts > TAKEN_OVER_KEEP_MS)
   if (stale.length === 0) return m
   return new Map([...m].filter(([id]) => !stale.some((a) => a.id === id)))
 }
@@ -43,7 +54,7 @@ export function replaceAlerts(list: readonly GuardAlert[], now: number): AlertMa
 
 /** Vehicles to highlight: every live alert except a finished takeover. */
 export function activeSysids(m: AlertMap): ReadonlySet<number> {
-  return new Set([...m.values()].filter((a) => a.phase !== 'taken_over').map((a) => a.sysid))
+  return new Set([...m.values()].filter((a) => !takenOver(a)).map((a) => a.sysid))
 }
 
 /** Alerts whose tone should be repeating, in arrival order. */

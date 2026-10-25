@@ -109,6 +109,16 @@ describe('GuardBanner', () => {
     expect(banner).toHaveTextContent('引き継ぎ済み')
   })
 
+  it('shows a mode change the AI did not make as a warning, not as taken over', () => {
+    const a = guardAlert({ phase: 'taken_over', taken_over_by: 'mode_change', vehicle_mode: 'LAND', sound: false })
+    const { container } = show(mapOf(a))
+    const banner = container.querySelector('div.guard-banner') as HTMLElement
+    expect(banner).toHaveClass('warn')
+    expect(banner).not.toHaveClass('neutral')
+    expect(banner).toHaveTextContent('モードが LAND に変わりました — AI はこれ以上操作しません')
+    expect(banner).not.toHaveTextContent('引き継ぎ済み')
+  })
+
   it('plays the tone at once and every 10 s, and mute stops it across re-renders', () => {
     vi.useFakeTimers()
     const tn = tone()

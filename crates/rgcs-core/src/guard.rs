@@ -110,6 +110,12 @@ pub struct GuardAlert {
     pub deadline_ms: Option<u64>,
     /// `"ALT_HOLD"` / `"QHOVER"` once an action is planned or taken.
     pub action_mode: Option<String>,
+    /// On `taken_over`: `"rc"` (sticks), `"gcs_command"` (an operator command) or
+    /// `"mode_change"` (a mode change the guard did not make: a pilot's mode switch or a vehicle
+    /// failsafe, which the guard cannot tell apart). `null` otherwise.
+    pub taken_over_by: Option<String>,
+    /// The vehicle's flight mode when the alert was built.
+    pub vehicle_mode: String,
     /// No `RC_CHANNELS` for > 2 s: only a GCS command counts as takeover.
     pub rc_stale: bool,
     /// A high Kp raised the detector's sensitivity.
@@ -144,6 +150,8 @@ pub(crate) mod tests {
             },
             deadline_ms: Some(1_761_350_400_000),
             action_mode: Some("ALT_HOLD".into()),
+            taken_over_by: None,
+            vehicle_mode: "LOITER".into(),
             rc_stale: false,
             kp_raised: false,
             sound: true,

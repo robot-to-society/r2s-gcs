@@ -55,6 +55,8 @@
 .guard-banner { pointer-events: auto; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 14px 14px 14px 18px; border-radius: 16px; color: #fff; }
 .guard-banner.danger { background: linear-gradient(180deg, rgba(150, 22, 22, 0.97), rgba(112, 14, 14, 0.97)); border: 2px solid var(--danger); box-shadow: 0 0 0 4px rgba(255, 105, 97, 0.28), 0 18px 48px rgba(0, 0, 0, 0.6); animation: guard-pulse 1.2s ease-in-out infinite alternate; }
 .guard-banner.neutral { background: rgba(18, 23, 31, 0.96); border: 1px solid var(--line-hi); color: var(--text); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); }
+.guard-banner.warn { background: rgba(38, 30, 10, 0.97); border: 2px solid var(--caution); color: var(--text); box-shadow: 0 0 0 4px var(--caution-tint), 0 18px 48px rgba(0, 0, 0, 0.6); }
+.guard-banner.warn .guard-icon { color: var(--caution); }
 .guard-banner .guard-icon { flex: none; }
 .guard-banner.danger .guard-icon { color: #fff; }
 .guard-banner.neutral .guard-icon { color: var(--ok); }

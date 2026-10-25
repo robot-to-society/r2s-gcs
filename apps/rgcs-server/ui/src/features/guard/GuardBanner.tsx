@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { GuardAlert } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconShieldAlert, IconVolume, IconVolumeOff } from '../../shared/ui/icons'
-import { newestFirst, soundingIds, type AlertMap } from './alerts'
+import { modeChanged, newestFirst, soundingIds, takenOver, type AlertMap } from './alerts'
 import { secondsLeft } from './countdown'
 import { loadMuted, saveMuted, type Tone } from './sound'
 
@@ -41,6 +41,8 @@ function phaseLine(a: GuardAlert, now: number, dict: Dict): string | null {
       return fill(dict.gaRefused, { mode })
     case 'unanswered':
       return dict.gaUnanswered
+    case 'taken_over':
+      return modeChanged(a) ? fill(dict.gaModeChanged, { mode: a.vehicle_mode }) : null
     default:
       return null
   }
@@ -73,10 +75,11 @@ interface RowProps {
 }
 
 function GuardRow({ alert: a, now, dict, cancelSent, onCancel, onFocus, extra, controls }: RowProps) {
-  const done = a.phase === 'taken_over'
+  const done = takenOver(a)
+  const tone = done ? 'neutral' : modeChanged(a) ? 'warn' : 'danger'
   const line = phaseLine(a, now, dict)
   return (
-    <div className={`guard-banner ${done ? 'neutral' : 'danger'} ${a.phase}`} role="alert" data-testid={`guard-${a.id}`}>
+    <div className={`guard-banner ${tone} ${a.phase}`} role="alert" data-testid={`guard-${a.id}`}>
       <IconShieldAlert size={28} className="guard-icon" />
       <div className="guard-body">
         <div className="guard-headline">

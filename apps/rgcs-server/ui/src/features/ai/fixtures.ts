@@ -40,6 +40,8 @@ export function guardAlert(over: Partial<GuardAlert> = {}): GuardAlert {
     signs: { a: true, b: true, c: true, turn_deg: 412, radius_m: 3.2, compass_var: 0.61 },
     deadline_ms: null,
     action_mode: null,
+    taken_over_by: null,
+    vehicle_mode: 'LOITER',
     rc_stale: false,
     kp_raised: false,
     sound: true,

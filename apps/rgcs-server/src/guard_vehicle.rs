@@ -344,7 +344,8 @@ impl VehicleGuard {
         self.alert = Some(alert.clone());
         let detection = fresh && sound;
         let mut out = vec![Out::Alert(alert.clone())];
-        if let Some(severity) = message_severity(phase, detection) {
+        let severity = message_severity(phase, detection).or_else(|| mode_changed(&alert).then_some(Severity::Warn));
+        if let Some(severity) = severity {
             let text = if detection {
                 headline(&alert.vehicle_name)
             } else {
@@ -401,7 +402,8 @@ impl VehicleGuard {
     }
 
     fn build_alert(&self, id: String, phase: GuardPhase, sound: bool, cx: &Ctx) -> GuardAlert {
-        let name = self.vehicle().name;
+        let VehicleState { name, mode: vehicle_mode, .. } = self.vehicle();
+        let taken_over_by = (phase == GuardPhase::TakenOver).then(|| self.machine.by.clone());
         let det = self.detected.as_ref();
         let mode = self.machine.mode.unwrap_or("");
         let timed = matches!(phase, GuardPhase::Countdown | GuardPhase::Executed);
@@ -418,7 +420,10 @@ impl VehicleGuard {
         GuardAlert {
             id,
             sysid: self.sysid,
-            text: text(phase, &name, mode, self.secs_left(cx.now)),
+            text: match taken_over_by.as_deref() {
+                Some(MODE_CHANGE) => mode_changed_text(&vehicle_mode),
+                _ => text(phase, &name, mode, self.secs_left(cx.now)),
+            },
             vehicle_name: name,
             event: EVENT.into(),
             phase,
@@ -427,6 +432,8 @@ impl VehicleGuard {
             signs: guard_signs(det),
             deadline_ms: self.machine.deadline_ms.filter(|_| timed),
             action_mode: self.machine.mode.filter(|_| planned).map(str::to_string),
+            taken_over_by,
+            vehicle_mode,
             rc_stale: self.rc.stale(cx.now),
             kp_raised: cx.kp_raised(),
             sound,
@@ -494,6 +501,19 @@ fn message_severity(phase: GuardPhase, detection: bool) -> Option<Severity> {
         GuardPhase::Executed | GuardPhase::Cancelled => Some(Severity::Warn),
         _ => None,
     }
+}
+
+/// `GuardAlert::taken_over_by` for a mode change the guard did not make.
+const MODE_CHANGE: &str = "mode_change";
+
+/// A mode change the guard did not make (a pilot's mode switch or a vehicle failsafe): the guard
+/// stands down, but it is not shown as a confirmed takeover (review I3).
+fn mode_changed(a: &GuardAlert) -> bool {
+    a.phase == GuardPhase::TakenOver && a.taken_over_by.as_deref() == Some(MODE_CHANGE)
+}
+
+pub fn mode_changed_text(vehicle_mode: &str) -> String {
+    format!("モードが {vehicle_mode} に変わりました — AI はこれ以上操作しません")
 }
 
 pub fn headline(name: &str) -> String {

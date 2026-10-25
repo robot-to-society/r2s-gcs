@@ -51,7 +51,7 @@ pub enum CancelError {
 type ClockFn = Arc<dyn Fn() -> u64 + Send + Sync>;
 
 enum Job {
-    Out(Out),
+    Out(Box<Out>),
     Flush(oneshot::Sender<()>),
 }
 
@@ -231,7 +231,7 @@ impl GuardHub {
                     let _ = self.tx.send(ServerMessage::GuardAlert { alert });
                 }
                 other => {
-                    let _ = self.jobs.send(Job::Out(other));
+                    let _ = self.jobs.send(Job::Out(Box::new(other)));
                 }
             }
         }
@@ -417,11 +417,15 @@ impl GuardHub {
         let mut decision_ids: HashMap<String, i64> = HashMap::new();
         let mut inserts = 0_u64;
         while let Some(job) = rx.recv().await {
+            let job = match job {
+                Job::Out(out) => Ok(*out),
+                Job::Flush(done) => Err(done),
+            };
             match job {
-                Job::Flush(done) => {
+                Err(done) => {
                     let _ = done.send(());
                 }
-                Job::Out(Out::Record {
+                Ok(Out::Record {
                     sysid,
                     alert_id,
                     phase,
@@ -440,13 +444,13 @@ impl GuardHub {
                         prune(&io.store).await;
                     }
                 }
-                Job::Out(Out::Message {
+                Ok(Out::Message {
                     sysid,
                     severity,
                     text,
                     ts,
                 }) => self.message(&io, sysid, severity, text, ts).await,
-                Job::Out(Out::Execute {
+                Ok(Out::Execute {
                     sysid,
                     alert_id,
                     mode,
@@ -454,7 +458,7 @@ impl GuardHub {
                     let decision = decision_ids.get(&alert_id).copied();
                     self.execute(&io, sysid, &alert_id, mode, decision).await;
                 }
-                Job::Out(Out::Alert(_)) => {}
+                Ok(Out::Alert(_)) => {}
             }
         }
     }

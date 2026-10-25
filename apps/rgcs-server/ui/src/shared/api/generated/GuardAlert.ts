@@ -21,6 +21,16 @@ deadline_ms: number | null,
  */
 action_mode: string | null, 
 /**
+ * On `taken_over`: `"rc"` (sticks), `"gcs_command"` (an operator command) or
+ * `"mode_change"` (a mode change the guard did not make: a pilot's mode switch or a vehicle
+ * failsafe, which the guard cannot tell apart). `null` otherwise.
+ */
+taken_over_by: string | null, 
+/**
+ * The vehicle's flight mode when the alert was built.
+ */
+vehicle_mode: string, 
+/**
  * No `RC_CHANNELS` for > 2 s: only a GCS command counts as takeover.
  */
 rc_stale: boolean, 

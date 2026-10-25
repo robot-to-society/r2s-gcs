@@ -27,6 +27,16 @@ describe('applyGuardAlert', () => {
     expect(applyGuardAlert(m, other, t + 11_000).has('g-1')).toBe(false)
   })
 
+  it('keeps a mode-change takeover (and its tone) until cleared', () => {
+    const t = 50_000
+    const m1 = applyGuardAlert(EMPTY, guardAlert({ phase: 'alerting', sound: true }), t)
+    const m2 = applyGuardAlert(m1, guardAlert({ phase: 'taken_over', taken_over_by: 'mode_change', vehicle_mode: 'LAND', sound: false }), t)
+    expect(pruneAlerts(m2, t + 60_000).has('g-1')).toBe(true)
+    expect(soundingIds(m2)).toEqual(['g-1'])
+    expect([...activeSysids(m2)]).toEqual([3])
+    expect(applyGuardAlert(m2, guardAlert({ phase: 'cleared' }), t + 61_000).size).toBe(0)
+  })
+
   it('rebases the deadline onto the local clock (server clock skew does not matter)', () => {
     // server clock 1 h behind: ts 1_000, deadline 6_000 → 5 s left from the receipt time
     const m = applyGuardAlert(EMPTY, guardAlert({ phase: 'countdown', ts: 1_000, deadline_ms: 6_000 }), 3_601_000)
