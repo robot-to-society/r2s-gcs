@@ -6,7 +6,9 @@
 //!
 //! `new_turns` never ends with a `tool_use` that lacks its `tool_result`: when the loop stops
 //! on a tool-use response, each call gets an error result and a fixed assistant text closes
-//! the turn. Tool output reaches the model only as tool-result JSON text.
+//! the turn. Tool output reaches the model only as tool-result JSON text. At most
+//! `MAX_TOOL_CALLS_PER_RESPONSE` calls of one response and `MAX_TOOL_CALLS_PER_TURN` calls of
+//! one turn are run (review I3).
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -28,6 +30,10 @@ pub const TRUNCATED_REPLY: &str = "上限に達したため途中で終了しま
 pub const EMPTY_REPLY: &str = "(応答が空でした)";
 /// Longest tool-result text sent to the model (chars).
 pub const MAX_TOOL_RESULT_CHARS: usize = 8_000;
+/// Tool calls run per LLM response; the rest get a `too_many_tool_calls` error result.
+pub const MAX_TOOL_CALLS_PER_RESPONSE: usize = 8;
+/// Tool calls run per operator message, over all responses.
+pub const MAX_TOOL_CALLS_PER_TURN: usize = 16;
 /// Longest tool name kept in a `ToolRunRecord` (the model may send anything).
 const MAX_RECORDED_NAME_CHARS: usize = 64;
 
@@ -110,7 +116,8 @@ pub async fn run_turn(
             turns.extend(close_unrun(&uses));
             return Ok(finish(turns.split_off(start), runs, (usage, context), true));
         }
-        let (results, records) = run_tools(host, &uses).await;
+        let allowed = MAX_TOOL_CALLS_PER_RESPONSE.min(MAX_TOOL_CALLS_PER_TURN.saturating_sub(runs.len()));
+        let (results, records) = run_tools(host, &uses, allowed).await;
         turns.push(results);
         runs.extend(records);
         call += 1;
@@ -217,15 +224,19 @@ fn close_unrun(uses: &[Use]) -> [Turn; 2] {
     ]
 }
 
-/// Runs the calls in order; all results go back in one user turn.
-async fn run_tools(host: &dyn ToolHost, uses: &[Use]) -> (Turn, Vec<ToolRunRecord>) {
+/// Runs the first `allowed` calls in order; the rest are answered with a
+/// `too_many_tool_calls` error without reaching the host (so no query and no audit row), which
+/// keeps every tool_use paired with its result. All results go back in one user turn.
+async fn run_tools(host: &dyn ToolHost, uses: &[Use], allowed: usize) -> (Turn, Vec<ToolRunRecord>) {
     let mut blocks = Vec::with_capacity(uses.len());
-    let mut records = Vec::with_capacity(uses.len());
-    for u in uses {
+    let mut records = Vec::with_capacity(allowed.min(uses.len()));
+    for u in &uses[..allowed.min(uses.len())] {
         let (block, record) = run_tool(host, u).await;
         blocks.push(block);
         records.push(record);
     }
+    let refused = json!({"error": "too_many_tool_calls", "message": "too many tool calls; not run"});
+    blocks.extend(uses.iter().skip(allowed).map(|u| result_block(&u.id, &refused, true)));
     let turn = Turn {
         role: Role::User,
         blocks,

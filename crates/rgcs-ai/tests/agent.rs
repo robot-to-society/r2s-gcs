@@ -4,7 +4,10 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use rgcs_ai::agent::{run_turn, ToolHost, TurnInput, EMPTY_REPLY, TRUNCATED_REPLY};
+use rgcs_ai::agent::{
+    run_turn, ToolHost, TurnInput, EMPTY_REPLY, MAX_TOOL_CALLS_PER_RESPONSE, MAX_TOOL_CALLS_PER_TURN,
+    TRUNCATED_REPLY,
+};
 use rgcs_ai::llm::{AiError, Block, LlmResponse, Role, Stop, Turn, Usage};
 use rgcs_ai::testing::ScriptedLlm;
 use rgcs_ai::{Limits, ToolCall, ToolError};
@@ -358,6 +361,57 @@ async fn long_results_are_capped_and_stay_valid_json() {
     let content: Value = serde_json::from_str(&results[0].1).unwrap();
     assert_eq!(content["truncated"], json!(true));
     assert!(content["partial"].as_str().unwrap().starts_with("{\"blob\""));
+}
+
+fn many_uses(prefix: &str, n: usize) -> LlmResponse {
+    let blocks = (0..n)
+        .map(|i| tool_use(&format!("{prefix}{i}"), "search_log", json!({"query": "x"})))
+        .collect();
+    reply(blocks, Stop::ToolUse)
+}
+
+fn error_code(content: &str) -> Value {
+    serde_json::from_str::<Value>(content).unwrap()["error"].clone()
+}
+
+#[tokio::test]
+async fn at_most_eight_tool_calls_of_one_response_run() {
+    assert_eq!(MAX_TOOL_CALLS_PER_RESPONSE, 8);
+    let llm = ScriptedLlm::new(vec![many_uses("t", 100), text("まとめ")]);
+    let host = RecordingHost::default();
+    let out = run(&llm, &host).await.unwrap();
+    assert_eq!(host.seen().len(), 8);
+    assert_eq!(out.runs.len(), 8);
+    let results = results_of(&out.new_turns[2]);
+    assert_eq!(results.len(), 100, "every tool_use keeps its tool_result");
+    assert!(results[..8].iter().all(|r| !r.2));
+    for r in &results[8..] {
+        assert!(r.2);
+        assert_eq!(error_code(&r.1), json!("too_many_tool_calls"));
+    }
+    assert_eq!(results[99].0, "t99");
+    assert_eq!(out.reply, "まとめ");
+    assert_no_dangling_tool_use(&out.new_turns);
+}
+
+#[tokio::test]
+async fn at_most_sixteen_tool_calls_run_per_turn() {
+    assert_eq!(MAX_TOOL_CALLS_PER_TURN, 16);
+    let llm = ScriptedLlm::new(vec![
+        many_uses("a", 8),
+        many_uses("b", 8),
+        many_uses("c", 8),
+        text("おわり"),
+    ]);
+    let host = RecordingHost::default();
+    let out = run(&llm, &host).await.unwrap();
+    assert_eq!(host.seen().len(), 16);
+    let third = results_of(&out.new_turns[6]);
+    assert_eq!(third.len(), 8);
+    assert!(third
+        .iter()
+        .all(|r| r.2 && error_code(&r.1) == json!("too_many_tool_calls")));
+    assert_eq!(out.reply, "おわり");
 }
 
 #[tokio::test]
