@@ -248,17 +248,19 @@ impl GuardHub {
         }
     }
 
-    /// One guard-tap frame. Off means off: nothing is detected (a disarm still resets).
+    /// One guard-tap frame. Off means off: nothing is detected (a disarm still resets). A
+    /// vehicle is adopted on its first frame even while off, so "first seen armed" (review I1)
+    /// means first seen by this server process.
     pub async fn on_frame(&self, f: GuardFrame) {
         let Some(io) = self.io.get() else {
             return;
         };
         let now = self.now_ms();
-        if !self.lock().policy.enabled {
-            self.each_quiet(Some(f.sysid));
+        if !self.lock().vehicles.contains_key(&f.sysid) && !self.adopt(io, f.sysid).await {
             return;
         }
-        if !self.lock().vehicles.contains_key(&f.sysid) && !self.adopt(io, f.sysid).await {
+        if !self.lock().policy.enabled {
+            self.each_quiet(Some(f.sysid));
             return;
         }
         let map = matches!(f.body, GuardBody::Rc { .. }).then(|| rc_map(&io.params, f.sysid));

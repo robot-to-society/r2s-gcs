@@ -102,17 +102,26 @@ pub struct VehicleGuard {
     commanded: Option<&'static str>,
     pub alert: Option<GuardAlert>,
     countdown_left: Option<u64>,
+    /// First seen already armed (e.g. the server restarted mid-flight, so this flight's latches
+    /// are unknown): alerts only, at L1 at most, until the vehicle disarms once (review I1).
+    alert_only: bool,
 }
 
 impl VehicleGuard {
     pub fn new(sysid: SysId, fc: u8, state: watch::Receiver<VehicleState>) -> Self {
-        let last_mode = Some(state.borrow().mode.clone());
+        let (last_mode, armed) = {
+            let v = state.borrow();
+            (Some(v.mode.clone()), v.armed)
+        };
         Self {
             sysid,
             fc,
             state,
             detector: ToiletBowlDetector::default(),
-            machine: Intervention::default(),
+            machine: Intervention {
+                hands_off: armed,
+                ..Intervention::default()
+            },
             rc: RcWatch::default(),
             last_verdict: None,
             detected: None,
@@ -123,6 +132,16 @@ impl VehicleGuard {
             commanded: None,
             alert: None,
             countdown_left: None,
+            alert_only: armed,
+        }
+    }
+
+    /// The level shown and recorded: capped at L1 while alert-only.
+    fn level(&self, cx: &Ctx) -> GuardLevel {
+        if self.alert_only {
+            cx.level().min(GuardLevel::L1)
+        } else {
+            cx.level()
         }
     }
 
@@ -229,6 +248,9 @@ impl VehicleGuard {
             out.extend(self.step(Input::Disarmed, cx));
             self.commanded = None;
         }
+        if !v.armed {
+            self.alert_only = false;
+        }
         let changed = self.last_mode.as_deref().is_some_and(|m| m != v.mode);
         if changed && self.commanded != Some(v.mode.as_str()) {
             out.extend(self.step(
@@ -249,6 +271,7 @@ impl VehicleGuard {
         if !v.armed {
             self.machine = Intervention::default();
             self.commanded = None;
+            self.alert_only = false;
         }
         self.last_mode = Some(v.mode);
     }
@@ -399,7 +422,7 @@ impl VehicleGuard {
             vehicle_name: name,
             event: EVENT.into(),
             phase,
-            level: cx.level(),
+            level: self.level(cx),
             confidence: det.map_or(0.0, |d| d.confidence),
             signs: guard_signs(det),
             deadline_ms: self.machine.deadline_ms.filter(|_| timed),
@@ -436,7 +459,7 @@ impl VehicleGuard {
             sysid: self.sysid,
             alert_id,
             phase: phase_str(phase),
-            level: cx.level(),
+            level: self.level(cx),
             record: Box::new(record),
         })
     }

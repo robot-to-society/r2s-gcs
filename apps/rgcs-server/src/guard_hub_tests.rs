@@ -153,6 +153,18 @@ impl Rig {
         self.heartbeat(1, MavType::MAV_TYPE_QUADROTOR, mode, armed).await;
     }
 
+    /// The guard sees `sysid` disarmed first (a vehicle first seen armed is alert-only), then
+    /// it arms.
+    async fn boot_then_arm(&self, sysid: u8, mavtype: MavType, mode: u32) {
+        self.heartbeat(sysid, mavtype, mode, false).await;
+        let wind = GuardBody::Wind {
+            dir_deg: 0.0,
+            speed: 0.0,
+        };
+        self.frame(sysid, 1, wind).await;
+        self.heartbeat(sysid, mavtype, mode, true).await;
+    }
+
     async fn frame(&self, sysid: u8, compid: u8, body: GuardBody) {
         self.app.guard.on_frame(GuardFrame { sysid, compid, body }).await;
     }
@@ -322,7 +334,8 @@ impl Feed {
 
 async fn copter_rig() -> Rig {
     let r = Rig::new().await;
-    r.copter(COPTER_LOITER, true).await;
+    r.boot_then_arm(1, MavType::MAV_TYPE_QUADROTOR, COPTER_LOITER)
+        .await;
     r
 }
 
@@ -647,7 +660,7 @@ async fn the_guards_own_mode_change_is_not_a_takeover_but_the_pilots_is() {
 #[tokio::test]
 async fn quadplane_switches_to_qhover() {
     let mut r = Rig::new().await;
-    r.heartbeat(1, MavType::MAV_TYPE_FIXED_WING, PLANE_QLOITER, true)
+    r.boot_then_arm(1, MavType::MAV_TYPE_FIXED_WING, PLANE_QLOITER)
         .await;
     let ext = EXTENDED_SYS_STATE_DATA {
         vtol_state: MavVtolState::MAV_VTOL_STATE_MC,
@@ -782,3 +795,6 @@ mod ai_tools;
 
 #[path = "guard_hub_due_tests.rs"]
 mod due;
+
+#[path = "guard_hub_restart_tests.rs"]
+mod restart;
