@@ -6,6 +6,7 @@ import {
   ArrowDownWideNarrow,
   ArrowUpDown,
   ArrowUpToLine,
+  Bot,
   BotMessageSquare,
   BatteryMedium,
   Cable,
@@ -32,6 +33,7 @@ import {
   Laptop,
   Layers,
   ListChecks,
+  LoaderCircle,
   LocateFixed,
   Map as MapIcon,
   Maximize,
@@ -58,8 +60,10 @@ import {
   Router,
   Scan,
   Search,
+  Send,
   Server,
   Settings,
+  Sparkles,
   StepForward,
   TriangleAlert,
   VideoOff,
@@ -84,6 +88,11 @@ export const IconVideo = ({ size = 20, className }: IconProps) => <Lucide icon={
 export const IconMission = ({ size = 20, className }: IconProps) => <Lucide icon={Route} size={size} className={className} />
 export const IconNetwork = ({ size = 20, className }: IconProps) => <Lucide icon={Network} size={size} className={className} />
 export const IconChat = ({ size = 20, className }: IconProps) => <Lucide icon={BotMessageSquare} size={size} className={className} />
+// AI chat panel (spec 10 §3.4): bot avatar, send, the thinking spinner, the proposal label.
+export const IconBot = ({ size = 16, className }: IconProps) => <Lucide icon={Bot} size={size} className={className} />
+export const IconSend = ({ size = 20, className }: IconProps) => <Lucide icon={Send} size={size} className={className} />
+export const IconLoader = ({ size = 16, className }: IconProps) => <Lucide icon={LoaderCircle} size={size} className={className} />
+export const IconSparkles = ({ size = 14, className }: IconProps) => <Lucide icon={Sparkles} size={size} className={className} />
 export const IconGear = ({ size = 20, className }: IconProps) => <Lucide icon={Settings} size={size} className={className} />
 export const IconUser = ({ size = 18, className }: IconProps) => <Lucide icon={User} size={size} className={className} />
 export const IconClose = ({ size = 20, className }: IconProps) => <Lucide icon={X} size={size} className={className} />

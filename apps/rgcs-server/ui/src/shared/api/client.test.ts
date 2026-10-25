@@ -44,6 +44,15 @@ describe('apiFetch', () => {
     expect((err as ApiError).message).toBe('confirm token required')
   })
 
+  it('keeps retry_after_s of a rate-limit error', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(429, { success: false, error: { code: 'rate_limited', message: 'slow', retry_after_s: 12 } }))
+    const err = await apiFetch('/api/ai/chat', { method: 'POST', body: {} }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err).toMatchObject({ status: 429, code: 'rate_limited', retryAfterS: 12 })
+    fetchMock.mockResolvedValue(jsonResponse(409, { success: false, error: { code: 'ai_busy', message: 'busy' } }))
+    expect(await apiFetch('/api/ai/chat').catch((e: unknown) => e)).toMatchObject({ retryAfterS: undefined })
+  })
+
   it('calls the unauthorized handler once on 401 before throwing', async () => {
     const onUnauthorized = vi.fn()
     setUnauthorizedHandler(onUnauthorized)

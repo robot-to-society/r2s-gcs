@@ -3,5 +3,8 @@ export type View = 'ops' | 'video' | 'mission' | 'network' | 'ai' | 'maint' | 'p
 /** Order of the six header buttons (spec 10 §1, 2026-10-18). `present` is a separate route, not a tab. */
 export const NAV_VIEWS: readonly View[] = ['ops', 'video', 'mission', 'network', 'ai', 'maint']
 
-/** Views that have an implementation; the rest render disabled (P5 adds the rest). */
-export const ENABLED_VIEWS: ReadonlySet<View> = new Set<View>(['ops', 'video', 'mission', 'network', 'maint'])
+/**
+ * Nav buttons that are enabled; the rest render disabled. `ai` opens the AI panel on the ops map
+ * (`rightPanel.navigate`), so `view` itself is never set to `'ai'`.
+ */
+export const ENABLED_VIEWS: ReadonlySet<View> = new Set<View>(['ops', 'video', 'mission', 'network', 'ai', 'maint'])

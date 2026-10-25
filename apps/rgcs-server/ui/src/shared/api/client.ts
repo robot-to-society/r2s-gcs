@@ -13,18 +13,25 @@ export interface ApiInit {
 export const CSRF_HEADER = 'X-Requested-With'
 export const CSRF_VALUE = 'rgcs'
 
+export interface ApiErrorExtra {
+  /** `429 rate_limited`: seconds until the next request is accepted (`error.retry_after_s`). */
+  readonly retryAfterS?: number
+}
+
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
-  constructor(status: number, code: string, message: string) {
+  readonly retryAfterS?: number
+  constructor(status: number, code: string, message: string, extra: ApiErrorExtra = {}) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.retryAfterS = extra.retryAfterS
   }
 }
 
-type Envelope<T> = { success: true; data: T } | { success: false; error: { code: string; message: string } }
+type Envelope<T> = { success: true; data: T } | { success: false; error: { code: string; message: string; retry_after_s?: unknown } }
 
 let onUnauthorized: (() => void) | null = null
 
@@ -57,7 +64,8 @@ export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> 
   const envelope = await parseEnvelope<T>(res)
   if (envelope.success) return envelope.data
   if (res.status === 401) onUnauthorized?.()
-  throw new ApiError(res.status, envelope.error.code, envelope.error.message)
+  const retry = envelope.error.retry_after_s
+  throw new ApiError(res.status, envelope.error.code, envelope.error.message, typeof retry === 'number' ? { retryAfterS: retry } : {})
 }
 
 async function parseEnvelope<T>(res: Response): Promise<Envelope<T>> {

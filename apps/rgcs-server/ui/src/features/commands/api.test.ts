@@ -29,6 +29,14 @@ describe('commands api', () => {
     await sendCommand(2, { cmd: 'pause' })
     expect(JSON.parse(String(fetchMock.mock.calls[1]![1]?.body))).toEqual({ cmd: 'pause' })
   })
+  it('sendCommand carries the AI proposal id', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(ok({ id: 8 })))
+    await sendCommand(3, { cmd: 'rtl' }, undefined, 'p-1')
+    expect(JSON.parse(String(fetchMock.mock.calls[0]![1]?.body))).toEqual({ cmd: 'rtl', ai_proposal_id: 'p-1' })
+    await sendCommand(3, { cmd: 'arm' }, 'tok', 'p-2')
+    expect(JSON.parse(String(fetchMock.mock.calls[1]![1]?.body))).toEqual({ cmd: 'arm', confirm_token: 'tok', ai_proposal_id: 'p-2' })
+  })
+
   it('command requests give up after 10 s instead of hanging on a degraded link', async () => {
     fetchMock.mockImplementation((_url, init) => new Promise((_, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason))))
     vi.useFakeTimers()

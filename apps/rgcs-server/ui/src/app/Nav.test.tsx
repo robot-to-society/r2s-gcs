@@ -9,22 +9,26 @@ describe('Nav', () => {
     expect(container.querySelector('nav.seg.n6')).not.toBeNull()
     const buttons = screen.getAllByRole('button')
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['運用マップ', '全機体映像', 'ミッション', 'ネットワーク', 'AIチャット', 'メンテナンス・設定'])
-    expect(screen.getByRole('button', { name: 'AIチャット' })).toHaveAttribute('aria-disabled', 'true')
     for (const b of buttons) expect(b.querySelector('svg.lucide, svg.ic')).not.toBeNull()
     expect(buttons[0]).toHaveAttribute('aria-current', 'page')
     expect(screen.getByTestId('lens')).toHaveStyle({ transform: 'translateX(0%)' })
   })
 
-  it('does not switch to a view that is not implemented yet', () => {
+  it('ai_chat_is_enabled_and_moves_the_lens', () => {
     const onView = vi.fn()
     render(<Nav view="ops" onView={onView} dict={t('ja')} />)
-    const ai = screen.getByRole('button', { name: 'AIチャット' })
-    expect(ai).toHaveAttribute('aria-disabled', 'true')
-    expect(ai).toHaveAttribute('title', 'AIチャット (準備中)')
+    const ai = screen.getAllByRole('button')[4]!
+    expect(ai).toHaveAccessibleName('AIチャット')
+    expect(ai).not.toHaveAttribute('aria-disabled')
+    expect(ai).toHaveAttribute('title', 'AIチャット')
     fireEvent.click(ai)
-    expect(onView).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: '運用マップ' }))
-    expect(onView).toHaveBeenCalledWith('ops')
+    expect(onView).toHaveBeenCalledWith('ai')
+  })
+
+  it('with view ai the lens sits on the fifth button', () => {
+    render(<Nav view="ai" onView={() => {}} dict={t('ja')} />)
+    expect(screen.getByTestId('lens')).toHaveStyle({ transform: 'translateX(400%)' })
+    expect(screen.getByRole('button', { name: 'AIチャット' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('mission and video tabs are enabled', () => {

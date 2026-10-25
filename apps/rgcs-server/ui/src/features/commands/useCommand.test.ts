@@ -37,4 +37,12 @@ describe('runCommand', () => {
     const boom = vi.fn().mockRejectedValue(new Error('x'))
     expect(await runCommand(1, { cmd: 'pause' }, undefined, boom)).toEqual({ kind: 'error', code: 'unknown', message: 'x' })
   })
+
+  it('passes the AI proposal id to the send', async () => {
+    const send = vi.fn().mockResolvedValue({ id: 9 })
+    expect(await runCommand(3, { cmd: 'rtl' }, undefined, send, { aiProposalId: 'p-1' })).toEqual({ kind: 'queued', id: 9 })
+    expect(send).toHaveBeenLastCalledWith(3, { cmd: 'rtl' }, undefined, 'p-1')
+    expect(await runCommand(3, { cmd: 'arm' }, undefined, send, { aiProposalId: 'p-1' })).toEqual({ kind: 'needs_confirm' })
+    expect(send).toHaveBeenCalledTimes(1)
+  })
 })

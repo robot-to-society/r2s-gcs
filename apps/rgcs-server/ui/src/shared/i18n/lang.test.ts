@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readLang, writeLang, LANG_KEY } from './lang'
 import { dictionaries } from './index'
+import { aiEn, aiJa } from './ai'
 
 describe('language persistence', () => {
   afterEach(() => {
@@ -44,5 +45,11 @@ describe('dictionaries', () => {
   it('carries the network view strings', () => {
     expect(dictionaries.ja).toMatchObject({ netTitle: 'ネットワーク', netLoadFailed: 'ネットワーク情報を取得できません', netUnconfigured: '未構成' })
     expect(dictionaries.en).toHaveProperty('netLoadFailed')
+  })
+
+  it('carries the AI chat strings in both languages', () => {
+    for (const k of Object.keys(aiJa)) expect(aiEn, k).toHaveProperty(k)
+    expect(dictionaries.ja).toMatchObject({ aiTitle: 'AI', aiTarget: '対象', aiThinking: '考えています…', aiUnconfigured: 'AI は未設定です（config.toml の [ai]）', aiAgo: '{n} 秒前' })
+    expect(dictionaries.en).toHaveProperty('aiProposalLabel')
   })
 })
