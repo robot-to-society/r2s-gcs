@@ -33,6 +33,8 @@
 | `maintenance_records` | 点検整備記録 = 様式 3(P5) | 追補 §5.6 |
 | `flight_logs` | 取り出した DataFlash の保管(P5) | 追補 §5.6 |
 | `presentation_tokens` | 観客用画面の提示トークン(P2) | 追補 §5.1 |
+| `guard_decisions` | AI 緊急介入の判定記録(状態が変わるたびに 1 行、再生可) | 2026-10-26、§3.11 |
+| `env_sources` | 外的要因の取得元ごとの有効・間隔・タイムアウト | 2026-10-26、§3.11 |
 
 ## 3. 定義
 
@@ -121,7 +123,7 @@ CREATE TABLE param_history (
 `enabled`, `device_name`, `mode`(`manual_control` / `rc_override`), `axes`(roll / pitch / throttle / yaw)、`buttons`(arm_hold / rtl_hold / mode_x…)、`rate_hz` 50。
 
 ### 3.7 app_settings(key-value)
-`lang`(`ja` / `en`)、`log_dir`、`tile_cache_path`、`terrain_path`、`units`(metric 固定)、`map.gimbal_ground_projection`(bool、既定 false、2026-10-18 追加、40 §7.2)。
+`lang`(`ja` / `en`)、`log_dir`、`tile_cache_path`、`terrain_path`、`units`(metric 固定)、`map.gimbal_ground_projection`(bool、既定 false、2026-10-18 追加、40 §7.2)、`guard.settings`(JSON `GuardSettings`: 有効・同意 3 点と同意者・時刻・レベル・カウントダウン・引き継ぎ待ち・検知の閾値 `params`。既定は無効 / L1 / 5 s / 20 s。検証に通らない保存値は無効として読む)、`env.settings`(JSON `EnvSettings`: 位置の丸めと機種ごとの閾値)。2026-10-26。
 
 ### 3.8 vehicles / missions
 - `vehicles(sysid PK, name, kind, first_seen, last_seen, notes)`。表示名は `UAV-xx` 既定、UI で変更可。
@@ -140,6 +142,10 @@ CREATE TABLE param_history (
 - `maintenance_records(id, sysid, performed_on, total_minutes, detail, reason, place, engineer, notes, supersedes, …)`。
 - `flight_logs(id, sysid, flight_id NULL, fc_log_id NULL, filename, size, source mavlink|upload, fetched_at, created_by)`; 実体は `data_dir/logs/<sysid>/`。
 - 記録系は追記のみ。訂正 = `supersedes = 旧 id` の新規行、一覧は `id NOT IN (SELECT supersedes …)`。
+
+### 3.11 AI 緊急介入で追加した表(2026-10-26、マイグレーション `0013_guard.sql`)
+- `guard_decisions(id PK AUTOINCREMENT, ts INTEGER(unix ms), sysid, alert_id TEXT(g-<uuid>), event 'toilet_bowl', phase, level l0|l1|l2|l3, flight_id NULL, record TEXT)` + 索引 `(sysid, ts)`。`record` は `rgcs_guard::DecisionRecord` の JSON: `{version: 1, config, context, samples(検知の窓、最大 120), last_detected_ms, verdict, phase, action, by, owner: "gcs", ts_ms}`。`rgcs_guard::replay(record)` が記録時の判定を返す。`flight_id` は記録時にアーム中の飛行(`flights` の下書き)。最新 5 000 行を残して古い行を消す(記録系で唯一の削除。監査は `audit_log` に別に残る)。
+- `env_sources(id PK, enabled, interval_s, timeout_ms, updated_at)`。行が無い取得元は既定値(設計 v0.4 §5.4.1)。API キーは DB に置かない(config / 環境変数だけ)。
 
 ## 4. 検証の二重化
 

@@ -36,7 +36,7 @@
 
 ## 4. AI チャット
 
-- 利用できるツール: `get_vehicle_status`, `list_vehicles`, `list_recent_messages`, `search_log`, `propose_command`。
+- 利用できるツール: `get_vehicle_status`, `list_vehicles`, `list_recent_messages`, `search_log`, `propose_command`、読み取り専用の `list_guard_alerts {sysid?}` と `get_external_factors {}`(AI 緊急介入、§4.1。2026-10-26)。
 - **機体・カメラへ送信するツールは存在しない。`propose_command` は検証済みの提案を返すだけで、送信はオペレーターが提案カードの「実行」を押したときに通常のコマンド経路(確認ダイアログ・事前チェック・監査)で行う(2026-10-24)。**
   - サーバーのツール実装(`ai_tools.rs`)はコマンドキュー・カメラ・ROI に触れない。UI は「実行」の `onClick` からだけ送る(副作用の自動実行なし)。
   - 提案の検証(提案時): `other` → `not_allowed`、`change_alt` → `not_implemented`、`set_mode` は機体の種類(Copter / Plane / QuadPlane / Rover)で選べるモードだけ(`invalid_mode`、例: Copter への `QLOITER`)、`change_speed` は 0.5〜40 m/s(`invalid`)。続けて通常のコマンドと同じ値域・事前チェック(`link_lost`、ARM 状態、`vtol_unknown` など、§1)。1 回の応答で提案は 3 件まで(`too_many_proposals`)。拒否はツールのエラーとして AI に返り、カードは出ない。
@@ -47,6 +47,17 @@
 - API キーは `config.toml` の `[ai]`(非推奨)か環境変数(既定 `ANTHROPIC_API_KEY`)からだけ読む。UI・API 応答・ログには出さない(設定の `Debug` は `***`)。OpenAI 互換の接続先へは `ANTHROPIC_API_KEY` を送らない(キーは `api_key` か `api_key_env` を設定したときだけ `Authorization: Bearer` で送る)。
 - プロバイダーのエラー本文(キーや URL を含み得る)はクライアントにもログにも出さない。出すのは HTTP ステータスだけ(`AI provider error (HTTP 401)`、2026-10-25)。
 - 費用の上限: 1 回の質問で全呼び出しの入出力トークン合計 60 000 まで(超えたら途中で打ち切り)、サーバー全体で直近 24 h に 2 000 000 トークンまで(`429 ai_budget`、`0` = 無制限)、ユーザーごとに 60 s で 6 回(`429 rate_limited`)、同時 1 件(`409 ai_busy`)、ツールを使う呼び出しは 6 回まで(7 回目はツールなしで回答させる)。トークンは**応答のあった呼び出しごとにその時点で予算から引く**: 失敗・タイムアウトした質問や、途中でクライアントが切断した質問も、それまでに応答した呼び出しの分を数える(会話には残さない、2026-10-25)。
+
+### 4.1 AI 緊急介入(実験機能、2026-10-26。設計 `docs/superpowers/specs/2026-10-24-ai-intervention-design.md` v0.4)
+
+- **既定オフ。** 有効にできるのは admin だけで、アプリ内ダイアログで 3 点の同意(1 テレメトリの常時監視 = 必須、2 外部データの取得、3 自動操作のリスク)を個別に取る(`window.confirm` は使わない)。無効にすると 3 つの同意は消え、再度有効にするときはまた求める。無効の間は検知も警告も外部取得もしない。同意 2 が無ければ外部取得は一切しない。同意 3 が無ければレベルは L1(警告のみ)が上限。
+- **AI(ガード)が機体に送るのは `SetMode` の 1 種類だけ**: Copter → `ALT_HOLD`、QuadPlane → `QHOVER`(位置保持を使わないモード)。アーム・離陸・パラメータ書込・フェールセーフ解除・フェンス外への移動・人の操作の上書きは一切しない。送る場所はサーバーの `guard_hub.rs` の `execute()` 1 か所だけで、LLM の出力は関与しない(判定は `rgcs-guard` の決め打ちのルール)。
+- 送るのは次がすべて成り立つときだけ(L2 はカウントダウン後に確認し直す): 有効かつ同意 3、レベル L2(カウントダウン経過)または L3、直近 1 s 以内に「検知」、アーム中かつ監視対象モード、リンク正常(`commands::precheck`)、引き継ぎ無し、この飛行(アーム → ディスアーム)でまだ送っていない、取り消し無し。送ったあと・拒否・引き継ぎ・引き継ぎ無し・取り消しのあとは、ディスアームまでその機体に何も送らない。
+- 人の操作は常に勝つ: RC スティック(ch1–4 が警告直前 1 s の中央値から 60 µs 以上を 300 ms 以上)、操作者のコマンド・Guided 目標の受理、AI が命じていないモード変更は引き継ぎとみなし、以後 AI は送らない。ガード自身の `SetMode` は `commands::command` を通らないので引き継ぎと取り違えない。
+- カウントダウン中の「取り消し」はログイン中の誰でもできる(`POST /api/guard/alerts/{id}/cancel`)。
+- 監査(`target = 'ai_intervention'`): 設定は `enable` / `disable` / `set_level` / `set_guard_params` / `env_source_put` / `env_settings_put`(操作した admin)、取り消しは `cancel`(取り消した人、`{"alert_id"}`)、ガードの操作は `set_mode`(operator `ai-guard`、`args {"mode","alert_id","decision_id"}`、`result` = `ok` / `failed` / `timeout` / `rejected`、拒否理由つき)。判定は別に `guard_decisions` に再生できる形で残す(60 §3.11)。
+- 外部送信: 位置は丸めたセル(既定 0.01°)だけを送る。リダイレクトは追わず、本文は 2 MiB まで。取得ログには取得元 ID・ホスト・丸めたセルだけを書き、URL 全体(キーを含みうる)・生の位置は書かない。API キー(OpenWeatherMap / Open-Meteo 商用)は設定ファイル / 環境変数からだけ読み、画面・API には `key_configured` と末尾 4 文字だけを出す。
+- 信頼しないデータ: 機体名・SWPC 警報本文・アメダス観測所名は AI ツール結果の `untrusted_text` にだけ入れる。AI は警告の取り消し・実行・レベル変更ができない(ツールが無い)。
 
 ## 5. 認証・セッション
 
@@ -60,7 +71,7 @@
 
 ## 6. 監査
 
-- 記録対象: 機体コマンド、カメラコマンド(`GimbalRate` は除外、開始 / 停止のみ)、ROI 開始 / 停止、設定保存、パラメータ書込、ログイン / ログアウト、AI ツール実行、機体メッセージの確認(`message_ack`)。
+- 記録対象: 機体コマンド、カメラコマンド(`GimbalRate` は除外、開始 / 停止のみ)、ROI 開始 / 停止、設定保存、パラメータ書込、ログイン / ログアウト、AI ツール実行、機体メッセージの確認(`message_ack`)、AI 緊急介入の設定・取り消し・ガードの操作(`target = 'ai_intervention'`、§4.1)。
 - 記録内容: 時刻、オペレータ、sysid、対象、コマンド、引数(機微情報なし)、結果、理由。
 - 追記のみ。UI の「変更履歴」タブは `param_history`、フッターは `audit_log` の直近。
 
@@ -76,3 +87,4 @@
 - `input_hb` を止めて 1.5 s 後に MT11 疑似サーバーが 0x07(0,0)を受け取る。
 - 0x48 を送ろうとするテストが `CameraError::Forbidden` で失敗する(ユニットテスト)。
 - 401 / 429 / 409 の各経路に統合テストがある。
+- AI 緊急介入: 無効・同意 3 なし・L1 では何も送らない、`execute()` 以外にガードのキュー投入がない(grep テスト)、無効化でカウントダウンが送らずに止まる、引き継ぎ・取り消し後は送らない、外的要因の API 応答・設定の `Debug`・取得エラー文に API キーが現れない(統合テスト)。試験用 SITL での確認は `tests/sitl/guard_toilet_bowl.py`(設計 §8.1)。

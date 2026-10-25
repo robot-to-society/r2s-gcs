@@ -26,6 +26,11 @@
   - `model`(既定 `claude-sonnet-5-5` / `qwen3:8b`)、`base_url`(既定 `https://api.anthropic.com` / `http://127.0.0.1:11434/v1`)。
   - `api_key_env`(Anthropic の既定 `ANTHROPIC_API_KEY`。OpenAI 互換は既定なし)、`api_key`(非推奨、環境変数が優先)。キーは UI・応答・ログに出さない(70 §4)。
   - `effort`(Anthropic `output_config.effort`、既定 `medium`)、`request_timeout_ms`(30 000)、`chat_timeout_ms`(90 000)、`max_tokens_per_chat`(60 000)、`daily_token_budget`(2 000 000、`0` = 無制限)。未知のキーは起動エラー。
+- `config.toml` の `[env]`(外的要因データ、2026-10-26。AI 緊急介入の実験機能が有効で同意 2 があるときだけ外部へ取得に行く):
+  - `openweathermap_api_key_env`(既定 `OWM_API_KEY`)、`open_meteo_api_key_env`(既定 `OPEN_METEO_API_KEY`。設定すると商用ホストへ切替)。キーは環境変数からだけ読み、UI・応答・ログに出さない(70 §4.1)。
+  - `[env.endpoints]`: `open_meteo`, `open_meteo_customer`, `jma`, `swpc`, `gfz`, `owm` の接続先 URL の差し替え(省略時は各サービスの本番。試験用の偽サーバー向け)。
+  - 取得元ごとの有効・間隔・タイムアウトと閾値・位置の丸めは DB(`env_sources`、`app_settings` の `env.settings`、60)。
+- 開発用: 環境変数 `RGCS_GUARD_DUMP=<path>` で検知器への入力(`Sample`)を 1 行 1 件の JSON で追記する(SITL の再生用データを作るため。既定は出さない)。
 
 ## 2. クレート構成
 
@@ -42,6 +47,8 @@ r2s-gcs/
 │  ├─ rgcs-map       # (hub / desktop 向け)MBTiles 配信、タイル取得、地形サンプリング
 │  ├─ rgcs-log       # DataFlash .bin / tlog パーサ、polars 抽出
 │  ├─ rgcs-ai        # LLM アダプタ(Anthropic Messages / OpenAI 互換)、ツール定義、エージェントループ(ルール解析は未実装)
+│  ├─ rgcs-guard     # AI 緊急介入の判定部(純粋。依存は serde だけ): 検知器・状態機械・RC 引き継ぎ・判定記録と再生
+│  ├─ rgcs-env       # 外的要因の規則と解析器(純粋): 取得元ごとの解析、総合判断、位置の丸め、日の出・日没、WMM
 │  ├─ rgcs-store     # sqlx SQLite: users / sessions / audit_log / param_history / camera_profiles / roi_* / gimbal_input_profile / app_settings
 │  └─ rgcs-i18n      # fluent リソース(サーバー側メッセージ)
 ├─ apps/
@@ -53,6 +60,12 @@ r2s-gcs/
 ```
 
 `rgcs-ai`(2026-10-24 実装): axum / `AppState` を知らない。`config`(`AiConfig` と伏字の `Secret`)、`llm`(プロバイダー非依存の `Turn` / `Block` / `LlmClient`)、`anthropic` / `openai`(`reqwest` の JSON、非ストリーミング。Anthropic の assistant ブロックは thinking を含めそのまま再送)、`tools`(5 ツールの JSON スキーマと入力の検証)、`prompt`(固定の日本語システムプロンプト)、`agent`(`run_turn`: ツールループ 6 回 + ツールなしの 1 回、`ToolHost` トレイト越し)、`testing`(feature `fake`: `ScriptedLlm` と両プロトコルの `FakeProviderServer`)。サーバー側は `ai_hub`(会話・レート制限・提案・24 h トークン予算)、`ai_tools`(`ToolHost` の実装。コマンドキュー・カメラには触れない)、`ai_validate`(提案の検証)、`ai_meter`(応答した呼び出しごとの課金と、プロバイダーのエラー本文を出さない応答)、`ai_api`(`/api/ai/*`、50 §2.5)。ルール解析(10 §7 のログ・AI 解析)は未実装。
+
+`rgcs-guard` / `rgcs-env`(2026-10-26、AI 緊急介入。設計 `docs/superpowers/specs/2026-10-24-ai-intervention-design.md` v0.4 §7.1):
+- `rgcs-guard` は I/O・非同期・サーバー型を持たず、将来の機上ノードでもリンクできる。`ToiletBowlDetector::push(&self, sample, cfg) -> (Self, Verdict)`、`Intervention::step(&self, policy, input) -> (Self, Vec<Effect>)`、`RcWatch`、`DecisionRecord` / `replay`。
+- `rgcs-env` は解析と規則だけで、取得はサーバー(`env_fetch` / `env_amedas`: `reqwest`、リダイレクトを追わない、本文 2 MiB まで)。
+- テレメトリは `rgcs-mavlink` の guard タップ(`guard_tap.rs`)が `EKF_STATUS_REPORT` / `RC_CHANNELS` / `WIND` / `GLOBAL_POSITION_INT` / `MISSION_CURRENT` / `EXTENDED_SYS_STATE` を `GuardFrame` にし、`LinkChannels.guard`(`broadcast`、512 件、取りこぼし可)に流す。遅いガードがリンクを止めることはない。要求ストリームに EKF_STATUS_REPORT 500 ms、RC_CHANNELS 200 ms、WIND 1 s(1 回だけ)を追加。
+- サーバー: `guard_hub`(機体ごとの検知器 + 状態機械。モード・機種・アーム状態は `Router::subscribe` の `watch`。ガードのキュー投入は `execute()` 1 か所)、`guard_vehicle`、`guard_settings`、`guard_api`、`env_hub`(取得の予定・状態・総合判断・`ExternalContext` をガードへ)、`env_view`、`env_api`、`ai_tools_guard`(AI の読み取り専用ツール 2 つ)。操作者のコマンド・Guided 目標の受理は `app.guard.note_operator_command(sysid)` で引き継ぎとして伝える。
 
 変更点(旧設計書比): `rgcs-camera` 新規、`rgcs-server` が `rgcs-desktop` の役割を継承、`rgcs-video` は GStreamer を持たない、`rgcs-input` は `gilrs` を持たない。
 

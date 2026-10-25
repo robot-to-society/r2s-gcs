@@ -215,6 +215,27 @@ type ClientSession = { id: number; username: string; role: Role; addr: string | 
 - 率は 1 s 単位で直近 5 s(進行中の秒を除く)。ロス = 欠け ÷(受信 + 欠け)× 100、欠け 128 以上は数えずに同期し直す(80 §4.1)。
 - M5 の項目(現場、ノード、LTE、経路、メッシュの SNR、ユーザー、外部サービス、80 §4.2)は追加的に足し、その分を `unconfigured` から外す。
 
+### 2.9 AI 緊急介入・外的要因(実験機能、2026-10-26。設計 v0.4、70 §4.1)
+
+応答は共通の封筒(`{success, data}` / `{success: false, error: {code, message}}`)。admin とある操作は他のロールで `403 forbidden`。
+
+| メソッド | パス | 本文 / 応答 |
+|---|---|---|
+| GET | `/api/guard/settings` | → `GuardSettings {enabled, consent: {monitoring, external_data, auto_ops, by, at_ms}, toilet_bowl: l0\|l1\|l2\|l3, countdown_s, takeover_wait_s, params}`(ログイン済み) |
+| PUT | `/api/guard/settings` | admin。`{enabled?, consent?: {monitoring, external_data, auto_ops}, toilet_bowl?, countdown_s? (3..=15), takeover_wait_s? (10..=120), params? (null = 既定値)}` → `GuardSettings`。`400 consent_required`(同意 1 なしで有効化)/ `400 auto_ops_consent_required`(同意 3 なしで L2 / L3)/ `400 validation`。無効化で同意は消え、カウントダウン中なら取り消しになる。監査 `enable` / `disable` / `set_level` / `set_guard_params` |
+| GET | `/api/guard/alerts` | → `[GuardAlert]` 有効な警告(機体順、新しい画面向け) |
+| POST | `/api/guard/alerts/{id}/cancel` | ログイン済みの誰でも。→ `GuardAlert`(phase `cancelled`)。`404 not_found` / `409 not_cancellable`(カウントダウン中でない)。監査 `cancel` |
+| GET | `/api/guard/decisions?sysid=&limit=` | admin。→ `[{id, ts, sysid, alert_id, event, phase, level, flight_id, record}]`(新しい `limit` 件を古い順、既定 100 / 上限 500)。`record` は `rgcs_guard::DecisionRecord`(再生できる) |
+| GET | `/api/env/factors` | → `EnvSummary {cell, factors: [EnvFactor {kind, level, unit, value, primary, readings: [EnvReading {source, class, value, at_ms, fresh, note}], disagree}], missing, unavailable, notes, ts}` |
+| GET | `/api/env/sources` | → `[EnvSourceStatus {id, label, enabled, needs_key, key_configured, key_hint, uses_location, interval_s, timeout_ms, last_ok_ms, last_error, next_due_ms, terms}]`。キーは末尾 4 文字(`…ab12`)だけ |
+| PUT | `/api/env/sources/{id}` | admin。`{enabled?, interval_s? (60..=86 400), timeout_ms? (1 000..=30 000)}` → `EnvSourceStatus`。`400 validation` / `404 not_found`。監査 `env_source_put` |
+| POST | `/api/env/sources/{id}/fetch` | admin。今すぐ取得 → `EnvSourceStatus`。`409 guard_disabled`(実験機能オフ)/ `409 consent_required`(同意 2 なし)/ `404 not_found` |
+| GET / PUT | `/api/env/settings` | `EnvSettings {rounding_deg (0.01 \| 0.05 \| 0.1), copter, quadplane, plane: EnvThresholds}`。PUT は admin、どれかを丸ごと。監査 `env_settings_put` |
+
+- 取得元の ID: `open_meteo`, `jma_amedas`, `swpc_kp`, `swpc_kp_1m`, `swpc_kp_forecast`, `swpc_alerts`, `gfz_kp`, `openweathermap`。読み値の `source` にはほかに `vehicle`(機体の WIND・GNSS)、`wmm`(偏角)、`sun`(日没まで)。
+- 取得エラー(`last_error`): `timeout`, `unreachable`, `http_<status>`, `redirect`, `parse`, `too_large`, `no_key`, `no_location`。
+- 外部の接続先は `config.toml` の `[env.endpoints]`(`open_meteo`, `open_meteo_customer`, `jma`, `swpc`, `gfz`, `owm`)で差し替えられる(試験用の偽サーバー向け)。キーは `[env] openweathermap_api_key_env` / `open_meteo_api_key_env` が指す環境変数から。
+
 ## 3. WebSocket `/ws`
 
 - 1 セッション 1 接続。サーバー → クライアントは JSON テキストフレーム `{ "t": "<type>", ... }`。クライアント → サーバーも同形式。
@@ -240,6 +261,8 @@ type ClientSession = { id: number; username: string; role: Role; addr: string | 
 | `calibration` | `{sysid, status: CalibStatus}` | 校正セッションの変化ごと(開始・姿勢要求・コンパス進捗・RC 入力・終了) |
 | `input_state` | `{deadman: ok\|lost}` | 変化時(`input_hb` 1.5 s 途絶で `lost`、サーバーは速度 0 を 1 回送る) |
 | `error` | `{code, message}` | 入力拒否時 |
+| `guard_alert` | `{alert: GuardAlert {id, sysid, vehicle_name, event: "toilet_bowl", phase: alerting\|countdown\|executing\|executed\|cancelled\|taken_over\|unanswered\|refused\|cleared, level, confidence, signs {a, b, c, turn_deg, radius_m, compass_var}, deadline_ms?, action_mode?, rc_stale, kp_raised, sound, text, ts}}` | 状態が変わるたび + カウントダウン中は 1 Hz で再送(2026-10-26、§2.9)。`cleared` で画面から消す |
+| `env_summary` | `{summary: EnvSummary}` | 外的要因の総合結果が変わるたび(取得・機体の WIND / GNSS) |
 
 ### 3.2 クライアント → サーバー
 | `t` | ペイロード | 周期 / 規則 |
