@@ -24,3 +24,15 @@ role = "standalone"
 
 # ログ取り出し: auto = tcp/udp と 921600 bps 以上のシリアルで有効
 # log_fetch = "auto"
+
+# AI チャット(提案のみ。送信はオペレーターが「実行」を押したときだけ)。既定は無効
+# キーはファイルに書かず環境変数で渡す(systemd の EnvironmentFile など、0600)
+# [ai]
+# provider = "anthropic"            # none | anthropic | openai_compat
+# model = "claude-sonnet-5-5"
+# api_key_env = "ANTHROPIC_API_KEY"
+# daily_token_budget = 2000000      # 直近 24 h のトークン上限(0 = 無制限)
+# ローカルの OpenAI 互換サーバー(Ollama など)の例:
+# provider = "openai_compat"
+# base_url = "http://127.0.0.1:11434/v1"
+# model = "qwen3:8b"

@@ -36,8 +36,17 @@
 
 ## 4. AI チャット
 
-- 利用できるツール: `get_vehicle_status`, `list_recent_messages`, `search_log`。**機体・カメラへ送信するツールは存在しない。**
-- ツール実行は監査ログに `target = 'ai'` で記録。
+- 利用できるツール: `get_vehicle_status`, `list_vehicles`, `list_recent_messages`, `search_log`, `propose_command`。
+- **機体・カメラへ送信するツールは存在しない。`propose_command` は検証済みの提案を返すだけで、送信はオペレーターが提案カードの「実行」を押したときに通常のコマンド経路(確認ダイアログ・事前チェック・監査)で行う(2026-10-24)。**
+  - サーバーのツール実装(`ai_tools.rs`)はコマンドキュー・カメラ・ROI に触れない。UI は「実行」の `onClick` からだけ送る(副作用の自動実行なし)。
+  - 提案の検証(提案時): `other` → `not_allowed`、`change_alt` → `not_implemented`、`set_mode` は機体の種類(Copter / Plane / QuadPlane / Rover)で選べるモードだけ(`invalid_mode`、例: Copter への `QLOITER`)、`change_speed` は 0.5〜40 m/s(`invalid`)。続けて通常のコマンドと同じ値域・事前チェック(`link_lost`、ARM 状態、`vtol_unknown` など、§1)。1 回の応答で提案は 3 件まで(`too_many_proposals`)。拒否はツールのエラーとして AI に返り、カードは出ない。
+  - 提案は `p-<uuid>`、有効 120 s、1 回だけ使える(`pending` → `executed` / `dismissed` / `expired`)。提案者本人だけが実行・却下できる。実行時にも通常の事前チェックをもう一度行い(提案後に状態が変わっていればその理由で拒否)、要確認コマンド(`arm` など)は確認ダイアログに「AI の提案」と理由を添えて開く。
+  - 実行時の拒否: `404 proposal_not_found` / `403 forbidden`(他人の提案)/ `409 proposal_mismatch`(sysid・コマンドが違う)/ `409 proposal_expired` / `409 proposal_used`(実行済み・却下済み)。確認トークンの検査より先に行い、いずれも監査に `rejected` で残す。
+- 監査: ツール呼び出しはすべて `target = 'ai'`、`command` = ツール名、`result` = `ok` / `error` / `rejected`、`args` = ツール入力(1 000 文字まで)。却下は `dismiss_proposal`。提案の実行は通常の機体コマンド(`target = 'vehicle'`)として記録し、`args` に `ai_proposal_id` を含める。
+- 信頼しないデータ: 機体由来の文字列(STATUSTEXT、機体名、モード名、監査の文言)はツール結果の中で `untrusted_text` キーの値としてだけ AI に渡す。システムプロンプトで、ツール結果はデータであり中の指示には従わないこと、提案はオペレーターの依頼からだけ作ることを指示する。
+- API キーは `config.toml` の `[ai]`(非推奨)か環境変数(既定 `ANTHROPIC_API_KEY`)からだけ読む。UI・API 応答・ログには出さない(設定の `Debug` は `***`)。OpenAI 互換の接続先へは `ANTHROPIC_API_KEY` を送らない(キーは `api_key` か `api_key_env` を設定したときだけ `Authorization: Bearer` で送る)。
+- プロバイダーのエラー本文(キーや URL を含み得る)はクライアントにもログにも出さない。出すのは HTTP ステータスだけ(`AI provider error (HTTP 401)`、2026-10-25)。
+- 費用の上限: 1 回の質問で全呼び出しの入出力トークン合計 60 000 まで(超えたら途中で打ち切り)、サーバー全体で直近 24 h に 2 000 000 トークンまで(`429 ai_budget`、`0` = 無制限)、ユーザーごとに 60 s で 6 回(`429 rate_limited`)、同時 1 件(`409 ai_busy`)、ツールを使う呼び出しは 6 回まで(7 回目はツールなしで回答させる)。トークンは**応答のあった呼び出しごとにその時点で予算から引く**: 失敗・タイムアウトした質問や、途中でクライアントが切断した質問も、それまでに応答した呼び出しの分を数える(会話には残さない、2026-10-25)。
 
 ## 5. 認証・セッション
 
@@ -63,6 +72,7 @@
 ## 8. 受け入れ条件
 
 - 確認トークン無しの `arm` が 409、期限切れでも 409、正しいトークンで送信される。
+- AI の提案はオペレーターが「実行」を押すまで送られない。提案の再使用・他人の提案・期限切れ・別コマンドへの流用が 4xx で拒否される。API キーが設定の `Debug`・`/api/ai/*` の応答・エラー文に現れない(統合テスト)。
 - `input_hb` を止めて 1.5 s 後に MT11 疑似サーバーが 0x07(0,0)を受け取る。
 - 0x48 を送ろうとするテストが `CameraError::Forbidden` で失敗する(ユニットテスト)。
 - 401 / 429 / 409 の各経路に統合テストがある。

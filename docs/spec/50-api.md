@@ -31,7 +31,7 @@
 |---|---|---|
 | GET | `/api/vehicles` | → `[VehicleSummary]`(sysid, name, type, mode, armed, link, last_rx) |
 | GET | `/api/vehicles/{sysid}` | → `VehicleState` |
-| POST | `/api/vehicles/{sysid}/command` | `{cmd, args, confirm_token?}` → `{id}`(結果は WS `command_result`) |
+| POST | `/api/vehicles/{sysid}/command` | `{cmd, args, confirm_token?, ai_proposal_id?}` → `{id}`(結果は WS `command_result`)。`ai_proposal_id` は下記 |
 | POST | `/api/vehicles/{sysid}/confirm` | `{cmd}` → `{confirm_token, expires_in: 30}`(70 §1) |
 | POST | `/api/vehicles/{sysid}/guided` | `{lat, lon, alt_mode: keep\|set, alt_rel?, confirm_token?}` → `{id, warning?: "fence_unknown"}`。`409 mode_required`(GUIDED 以外)/ `409 confirm_required`(機体ごと初回)/ `409 fence_alt`(`FENCE_ENABLE`=1 かつ `FENCE_ALT_MAX` 超)/ `400 invalid` / `503 link_lost`。フェンス値が未取得なら `PARAM_REQUEST_READ` を送って `fence_unknown` 付きで通す |
 | GET / PUT | `/api/vehicles/{sysid}/params` | GET: `{entries: [{name, value, index, ptype}], progress}` / PUT: `{changes: [{name, value}], confirm_token}` → `[{name, requested, actual, verified, reason?}]`(要確認 `param_write`、アーム中は `409 vehicle_armed`、各変更の前にインターロック再確認、≤ 50 件、名前 ≤ 16 文字) |
@@ -48,6 +48,8 @@
 | POST | `/api/vehicles/{sysid}/motor-test` | `{motor: 1–12, pct: 0<–100, seconds: 0<–10, count?, confirm_token}` → `{ok, reason?}`。`DO_MOTOR_TEST`(p2=0 スロットル %、`count` > 0 で `motor` から順に `count` 個)。要確認 `motor_test`、アーム中 409。実施は `calibrations` に `motor` として記録 |
 
 `cmd` の列挙: `pause`, `resume`, `rtl`, `land`, `change_alt`, `change_speed`, `set_mode`, `mission_start`, `mission_resume`, `takeoff(alt_rel)`, `arm`, `disarm`, `other(mav_cmd, params)`。`other` で送れる MAV_CMD は 70 §1(`422 not_allowed`)。
+
+`ai_proposal_id`(2026-10-24、AI の提案カードの「実行」): 提案(§2.5)が存在し、呼び出したユーザーのもので、`pending`、`(sysid, cmd)` が一致し、期限内(120 s)であること。確認トークンの検査より先に見る。`404 proposal_not_found` / `403 forbidden`(他人の提案)/ `409 proposal_mismatch` / `409 proposal_expired` / `409 proposal_used`(実行済み・却下済み)。いずれも監査に `rejected`。受け付けた時点で `executed` にし(1 回だけ)、値域・確認・事前チェック・キューで拒否されたら `pending` に戻す。監査の `args` は `{"ai_proposal_id":"p-…","args":…,"cmd":"…"}`。
 
 `takeoff`(2026-10-23、要確認): `alt_rel` はホーム相対 m、有限の 1〜1000(外れは `400 invalid`)。ARM 済みのみ(DISARM 中は `409 rejected` "arm first")、Rover / その他は `422 not_allowed`。機体ごとの送り方: Copter と QuadPlane は GUIDED でなければ先に `DO_SET_MODE` GUIDED、ACK 後に `COMMAND_LONG` `MAV_CMD_NAV_TAKEOFF`(param7 = `alt_rel`)。固定翼(VTOL でない Plane)は NAV_TAKEOFF を受け付けないので TAKEOFF モード(custom mode 13)へ切替え、`TKOFF_ALT` まで上昇(`alt_rel` は使わず、パラメータも書かない)。各段の ACK を待ち、どちらかの失敗をそのまま `command_result` の理由にする。
 
@@ -133,7 +135,22 @@ ROI 開始 / 停止は REST のみ(`CameraCommand` ではない)。手動入力�
 - (P8)`VehicleState` に `cog?`、`nav? {target_bearing, wp_dist}`、`target? {lat, lon, alt}`、`home? {lat, lon, alt}`(不明なら省く。差分では消えたとき `null`)。要求ストリームに NAV_CONTROLLER_OUTPUT 500 ms、POSITION_TARGET_GLOBAL_INT 1 s、HOME_POSITION 5 s を追加。
 
 ### 2.5 ログ・AI(M4 / M5)
-`POST /api/logs/open {path}`, `GET /api/logs/{id}/series?keys=`, `POST /api/logs/{id}/analyze`, `POST /api/ai/chat {sysid, message}`(ツールは状態取得 / メッセージ一覧 / ログ検索のみ)。
+`POST /api/logs/open {path}`, `GET /api/logs/{id}/series?keys=`, `POST /api/logs/{id}/analyze`(未実装)。
+
+AI チャット(2026-10-24 実装、提案のみ、70 §4)。ログイン済みの全ユーザー。会話・提案は本人だけが見える。
+
+| メソッド | パス | 本文 / 応答 |
+|---|---|---|
+| GET | `/api/ai/status` | → `AiStatus {configured, provider: anthropic\|openai_compat\|null, model, reason: "disabled"\|"no_api_key"\|null, budget_left}`(`budget_left` は直近 24 h の残りトークン、無制限なら `null`)。キーは返さない |
+| POST | `/api/ai/chat` | `AiChatRequest {sysid, message, conversation_id?}` → `AiChatReply {conversation_id, reply, tool_runs: [AiToolRun {tool, sysid, ok, error, ts}], status_card: AiStatusCard {sysid, name, last_rx_age_ms, video: live\|checking\|down\|none}\|null, proposals: [AiProposal {id, sysid, vehicle_name, command, reason, requires_confirm, created_ms, expires_ms}], truncated, ts}`。ストリーミングなし |
+| POST | `/api/ai/proposals/{id}/dismiss` | → `{id, status: "dismissed"}`。監査 `target = 'ai'`、`dismiss_proposal`。`404 proposal_not_found` / `403 forbidden` / `409 proposal_expired` / `409 proposal_used` |
+
+- `message` は空白以外 1〜2 000 文字(`400 invalid`)。AI へはその前に `[対象機体: <機体名> (sysid N)]` を付けて送る。未知の `sysid` は `404 not_found`。
+- 会話: id は uuid v4、メモリ上だけ(再起動で消える)、追記のみ(古い発言を削らない)。20 往復または履歴 20 万文字で `409 conversation_full`、無操作 30 分で破棄、サーバー全体で 64 件(最も古く使われたものから破棄)。知らない id は `404 conversation_not_found`(UI は id なしで 1 回送り直す)、他人の会話は `403 forbidden`。失敗・タイムアウトした質問は会話に残さない。
+- エラー: `503 ai_unconfigured`(最初に判定)/ `429 rate_limited`(ユーザーごと 60 s に 6 回、`error.retry_after_s` と `Retry-After` ヘッダー)/ `429 ai_budget`(直近 24 h のトークン上限 `daily_token_budget`)/ `409 ai_busy`(同じユーザーの質問が回答中)/ `504 ai_timeout`(質問全体 90 s、または 1 回の呼び出し 30 s)/ `502 ai_refused`(「AI が応答を拒否しました」)/ `502 ai_provider_error`。
+- `ai_provider_error` の文言はサーバーが決めたものだけ: `AI provider error (HTTP <status>)` / `AI provider unreachable` / `unexpected AI provider response`。プロバイダーのエラー本文(キー・URL を含み得る)はクライアントにもログにも出さない(2026-10-25)。
+- トークンは応答のあった LLM 呼び出しごとに、その時点で `daily_token_budget` から引く。失敗・タイムアウトした質問、途中でクライアントが切断した質問も、応答済みの呼び出し分は数える(2026-10-25)。1 回の質問の合計が `max_tokens_per_chat`(60 000)を超えたら打ち切って `truncated: true`(「上限に達したため途中で終了しました」)。
+- ツール: `get_vehicle_status {sysid}`、`list_vehicles {}`、`list_recent_messages {sysid?, limit 1〜50(既定 20)}`、`search_log {query 1〜100 文字, sysid?, since?(unix ms)}`(保存済みメッセージログ `messages` の大文字小文字を区別しない部分一致、30 件まで。DataFlash / tlog は対象外)、`propose_command {sysid, command, reason}`(1 応答 3 件まで)。ツール結果の JSON は 8 000 文字まで(`"truncated": true`)。機体由来の文字列は `untrusted_text` の値として渡す。ツールを使う呼び出しは 6 回まで、7 回目はツールなしで回答させる。
 
 ### 2.6 観客用(`/present/*`、2026-10-17 追補 §5.1)
 セッションではなく `?t=<token>` で守る(無効 / 失効は `401 invalid_token`)。

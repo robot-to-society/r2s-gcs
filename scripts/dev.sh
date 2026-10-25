@@ -169,6 +169,14 @@ CONFIG="$DEV_DIR/config.toml"
   echo "telemetry_interval_ms = 100"
   if [ "$VIDEO" = 1 ]; then echo "whep_upstream = \"http://127.0.0.1:8889/video1/whep\""; fi
   if [ "$MODE" = "built" ]; then echo "ui_dir = \"$UI_DIR/dist\""; fi
+  # AI chat stays off in dev (no LLM calls). Keep [ai] last: TOML keys after it belong to it.
+  echo ''
+  echo '[ai]'
+  echo 'provider = "none"'
+  echo '# provider = "openai_compat"  # local OpenAI-compatible endpoint, e.g. Ollama'
+  echo '# base_url = "http://127.0.0.1:11434/v1"'
+  echo '# model = "qwen3:8b"'
+  echo '# provider = "anthropic"      # key from the ANTHROPIC_API_KEY env var, never in this file'
 } >"$CONFIG"
 
 if [ "$MODE" = "built" ] && [ ! -f "$UI_DIR/dist/index.html" ]; then

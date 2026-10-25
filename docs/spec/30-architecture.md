@@ -21,6 +21,11 @@
 - tokio マルチスレッドランタイム 1 つ。ブロッキング I/O(シリアル直結時、SQLite)は `spawn_blocking`。
 - ブラウザから必要なポート: 8000(HTTP / WS)、8189(WebRTC UDP、不通なら TCP)。Android ソース使用時は追加の UDP。
 - 設定ファイル `/etc/rgcs/config.toml`(リッスン、MAVLink URL、データディレクトリ `/var/lib/rgcs`、役割)。カメラ・ROI・入力設定は SQLite(60)。
+- `config.toml` の `[ai]`(AI チャット、2026-10-24。無い・`provider = "none"` なら無効):
+  - `provider` = `none` | `anthropic` | `openai_compat`。
+  - `model`(既定 `claude-sonnet-5-5` / `qwen3:8b`)、`base_url`(既定 `https://api.anthropic.com` / `http://127.0.0.1:11434/v1`)。
+  - `api_key_env`(Anthropic の既定 `ANTHROPIC_API_KEY`。OpenAI 互換は既定なし)、`api_key`(非推奨、環境変数が優先)。キーは UI・応答・ログに出さない(70 §4)。
+  - `effort`(Anthropic `output_config.effort`、既定 `medium`)、`request_timeout_ms`(30 000)、`chat_timeout_ms`(90 000)、`max_tokens_per_chat`(60 000)、`daily_token_budget`(2 000 000、`0` = 無制限)。未知のキーは起動エラー。
 
 ## 2. クレート構成
 
@@ -36,7 +41,7 @@ r2s-gcs/
 │  ├─ rgcs-mission   # Mission Protocol 状態機械、.waypoints / .rgcsmission、検証
 │  ├─ rgcs-map       # (hub / desktop 向け)MBTiles 配信、タイル取得、地形サンプリング
 │  ├─ rgcs-log       # DataFlash .bin / tlog パーサ、polars 抽出
-│  ├─ rgcs-ai        # ルール解析、LLM アダプタ、ツール定義
+│  ├─ rgcs-ai        # LLM アダプタ(Anthropic Messages / OpenAI 互換)、ツール定義、エージェントループ(ルール解析は未実装)
 │  ├─ rgcs-store     # sqlx SQLite: users / sessions / audit_log / param_history / camera_profiles / roi_* / gimbal_input_profile / app_settings
 │  └─ rgcs-i18n      # fluent リソース(サーバー側メッセージ)
 ├─ apps/
@@ -46,6 +51,8 @@ r2s-gcs/
 │  └─ rgcs-desktop   # (将来)Tauri 殻。M1〜M4 では空
 └─ tests/            # SITL 統合(docker: ArduCopter × N)、MT11 疑似サーバー(Python 版の挙動を再現)
 ```
+
+`rgcs-ai`(2026-10-24 実装): axum / `AppState` を知らない。`config`(`AiConfig` と伏字の `Secret`)、`llm`(プロバイダー非依存の `Turn` / `Block` / `LlmClient`)、`anthropic` / `openai`(`reqwest` の JSON、非ストリーミング。Anthropic の assistant ブロックは thinking を含めそのまま再送)、`tools`(5 ツールの JSON スキーマと入力の検証)、`prompt`(固定の日本語システムプロンプト)、`agent`(`run_turn`: ツールループ 6 回 + ツールなしの 1 回、`ToolHost` トレイト越し)、`testing`(feature `fake`: `ScriptedLlm` と両プロトコルの `FakeProviderServer`)。サーバー側は `ai_hub`(会話・レート制限・提案・24 h トークン予算)、`ai_tools`(`ToolHost` の実装。コマンドキュー・カメラには触れない)、`ai_validate`(提案の検証)、`ai_meter`(応答した呼び出しごとの課金と、プロバイダーのエラー本文を出さない応答)、`ai_api`(`/api/ai/*`、50 §2.5)。ルール解析(10 §7 のログ・AI 解析)は未実装。
 
 変更点(旧設計書比): `rgcs-camera` 新規、`rgcs-server` が `rgcs-desktop` の役割を継承、`rgcs-video` は GStreamer を持たない、`rgcs-input` は `gilrs` を持たない。
 
