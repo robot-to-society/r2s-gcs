@@ -4,6 +4,7 @@ import type { AiStatus, VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 import { AiPanel } from './AiPanel'
 import { EMPTY_CHAT, type ChatItem, type ChatState } from './chat'
+import { guardAlert } from './fixtures'
 import type { AiChat } from './useAiChat'
 
 const dict = t('ja')
@@ -140,5 +141,19 @@ describe('AiPanel', () => {
     const items: ChatItem[] = [{ kind: 'user', id: 'u0', text: 'hi', ts: at }]
     rerender(<AiPanel vehicles={[v(3)]} target={3} onTarget={() => {}} chat={fakeChat({ items })} dict={dict} onExecute={() => {}} onClose={() => {}} />)
     expect((container.querySelector('.ai-list') as HTMLElement).scrollTop).toBe(640)
+  })
+
+  it('shows a guard alert as a local item with the shield icon and the alert text', () => {
+    const alert = guardAlert({ ts: at })
+    const items: ChatItem[] = [{ kind: 'guard', id: 'guard:g-1', alert, ts: at }]
+    const { container, chat } = setup(fakeChat({ items }))
+    const card = container.querySelector('.ai-list .inset.ai-guard')
+    expect(card).not.toBeNull()
+    expect(card!.querySelector('.lucide-shield-alert')).not.toBeNull()
+    expect(card).toHaveTextContent('AI 緊急介入')
+    expect(card).toHaveTextContent('UAV-03 トイレットボウルの兆候 — 手動で引き継いでください')
+    expect(card).toHaveTextContent('12:17')
+    expect(card!.querySelector('button')).toBeNull()
+    expect(chat.send).not.toHaveBeenCalled()
   })
 })

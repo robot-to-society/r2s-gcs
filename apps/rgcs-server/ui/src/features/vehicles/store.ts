@@ -1,15 +1,22 @@
 import { useSyncExternalStore } from 'react'
 import { WsClient, defaultWsUrl } from '../../shared/ws/client'
-import type { ClientMessage, CommandResult, Mission } from '../../shared/api/types'
+import type { ClientMessage, CommandResult, Mission, ServerMessage } from '../../shared/api/types'
 import { logReduce, type LogEvent } from '../log/store'
 import { addResult, initialState, reduce, setLink, withAck, withVehicleMission, type VehiclesState } from './reducer'
 
 type Listener = () => void
+type FrameListener = (msg: ServerMessage) => void
+
+/** Raw WebSocket frames for consumers that keep their own state (the AI panel's guard items). */
+export interface FrameSource {
+  readonly onFrame: (listener: FrameListener) => () => void
+}
 
 /** Single source of truth for vehicle state, fed by the WebSocket. */
-export class VehicleStore {
+export class VehicleStore implements FrameSource {
   private state: VehiclesState = initialState
   private readonly listeners = new Set<Listener>()
+  private readonly frameListeners = new Set<FrameListener>()
   private client: WsClient | null = null
 
   getState = (): VehiclesState => this.state
@@ -19,11 +26,21 @@ export class VehicleStore {
     return () => this.listeners.delete(listener)
   }
 
+  onFrame = (listener: FrameListener): (() => void) => {
+    this.frameListeners.add(listener)
+    return () => {
+      this.frameListeners.delete(listener)
+    }
+  }
+
   /** `onClose` receives the WebSocket close code so the shell can re-check the session. */
   connect(url: string = defaultWsUrl(), onClose?: (code: number) => void): void {
     if (this.client) return
     this.client = new WsClient(url, {
-      onMessage: (msg) => this.set(reduce(this.state, msg)),
+      onMessage: (msg) => {
+        this.set(reduce(this.state, msg))
+        this.frameListeners.forEach((l) => l(msg))
+      },
       onOpen: () => this.set(setLink(this.state, 'open')),
       onClose: (code) => {
         this.set(setLink(this.state, 'closed'))

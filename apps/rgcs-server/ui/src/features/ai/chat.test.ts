@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { chatReducer, EMPTY_CHAT, type ChatState } from './chat'
-import { proposal, reply } from './fixtures'
+import { chatReducer, EMPTY_CHAT, withGuardAlert, type ChatState } from './chat'
+import { guardAlert, proposal, reply } from './fixtures'
 
 function deepFreeze<T>(v: T): T {
   if (typeof v === 'object' && v !== null) {
@@ -71,6 +71,7 @@ describe('chatReducer', () => {
       { t: 'reply', reply: reply({ conversation_id: 'c-2' }) },
       { t: 'fail', code: 'ai_busy', message: 'busy', ts: 500 },
       { t: 'proposal', id: 'p-1', state: 'sending' },
+      { t: 'guard', alert: guardAlert() },
       { t: 'reset' },
     ] as const
     for (const a of actions) {
@@ -79,5 +80,30 @@ describe('chatReducer', () => {
       if (a.t !== 'reset') expect(next.items).not.toBe(base.items)
     }
     expect(JSON.stringify(base)).toBe(snapshot)
+  })
+})
+
+describe('withGuardAlert', () => {
+  it('adds one guard item per alert id and updates it in place by id', () => {
+    const one = withGuardAlert(sent().items, guardAlert())
+    expect(one.map((i) => i.kind)).toEqual(['user', 'guard'])
+    expect(one[1]).toMatchObject({ kind: 'guard', alert: { id: 'g-1', phase: 'alerting' }, ts: 3_000 })
+    const before = one[1]
+    const updated = withGuardAlert(one, guardAlert({ phase: 'countdown', text: '5 秒後に ALT_HOLD へ切り替えます', ts: 4_000 }))
+    expect(updated).not.toBe(one)
+    expect(updated).toHaveLength(2)
+    expect(updated[1]).toMatchObject({ kind: 'guard', alert: { phase: 'countdown' }, ts: 4_000 })
+    expect(updated[0]).toBe(one[0])
+    expect(before).toMatchObject({ alert: { phase: 'alerting' } })
+    const other = withGuardAlert(updated, guardAlert({ id: 'g-2', sysid: 4 }))
+    expect(other.map((i) => i.kind)).toEqual(['user', 'guard', 'guard'])
+    expect(new Set(other.map((i) => i.id)).size).toBe(3)
+  })
+
+  it('the guard action keeps pending and the conversation as they are', () => {
+    const s = chatReducer(sent(), { t: 'guard', alert: guardAlert() })
+    expect(s.pending).toBe(true)
+    expect(s.conversationId).toBeNull()
+    expect(s.items).toHaveLength(2)
   })
 })

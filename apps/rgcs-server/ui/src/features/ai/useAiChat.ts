@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { ApiError } from '../../shared/api/client'
 import type { AiChatReply, AiStatus } from '../../shared/api/types'
+import { vehicleStore, type FrameSource } from '../vehicles/store'
 import { dismissProposal, getAiStatus, postChat } from './api'
 import { chatReducer, EMPTY_CHAT, type ChatAction, type ChatState, type ProposalState } from './chat'
 
@@ -45,9 +46,11 @@ function useAiStatus(): AiStatus | null {
   return status
 }
 
-export function useAiChat(): AiChat {
+export function useAiChat(frames: FrameSource = vehicleStore): AiChat {
   const [state, dispatch] = useReducer(chatReducer, EMPTY_CHAT)
   const status = useAiStatus()
+  // AI 緊急介入 alerts become local items: no LLM request, nothing sent anywhere.
+  useEffect(() => frames.onFrame((msg) => msg.t === 'guard_alert' && dispatch({ t: 'guard', alert: msg.alert })), [frames])
   // Read inside callbacks so a quick second press sees the in-flight flag and the latest id.
   const conversation = useRef<string | null>(null)
   useEffect(() => {

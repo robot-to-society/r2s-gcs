@@ -21,6 +21,8 @@ describe('ai format', () => {
     expect(toolLabel('search_log', false, ja)).toBe('ログ検索・失敗')
     expect(toolLabel('list_vehicles', true, en)).toBe('Vehicle list · done')
     expect(toolLabel('mystery', true, ja)).toBe('mystery・完了')
+    expect(toolLabel('list_guard_alerts', true, ja)).toBe('AI 緊急介入の警告取得・完了')
+    expect(toolLabel('get_external_factors', true, en)).toBe('External factors · done')
   })
 
   it('proposalText labels the command and its argument', () => {

@@ -63,6 +63,7 @@ import {
   Send,
   Server,
   Settings,
+  ShieldAlert,
   Sparkles,
   StepForward,
   TriangleAlert,
@@ -89,6 +90,7 @@ export const IconMission = ({ size = 20, className }: IconProps) => <Lucide icon
 export const IconNetwork = ({ size = 20, className }: IconProps) => <Lucide icon={Network} size={size} className={className} />
 export const IconChat = ({ size = 20, className }: IconProps) => <Lucide icon={BotMessageSquare} size={size} className={className} />
 // AI chat panel (spec 10 §3.4): bot avatar, send, the thinking spinner, the proposal label.
+export const IconShieldAlert = ({ size = 16, className }: IconProps) => <Lucide icon={ShieldAlert} size={size} className={className} />
 export const IconBot = ({ size = 16, className }: IconProps) => <Lucide icon={Bot} size={size} className={className} />
 export const IconSend = ({ size = 20, className }: IconProps) => <Lucide icon={Send} size={size} className={className} />
 export const IconLoader = ({ size = 16, className }: IconProps) => <Lucide icon={LoaderCircle} size={size} className={className} />

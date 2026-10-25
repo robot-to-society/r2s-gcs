@@ -113,7 +113,7 @@ async fn anthropic_tool_use_maps_blocks_usage_and_request() {
     for absent in ["temperature", "tool_choice", "thinking"] {
         assert!(body.get(absent).is_none(), "{absent} must not be sent");
     }
-    assert_eq!(body["tools"].as_array().unwrap().len(), 5);
+    assert_eq!(body["tools"].as_array().unwrap().len(), rgcs_ai::TOOL_NAMES.len());
     assert_eq!(body["tools"][0]["name"], "get_vehicle_status");
     assert!(body["tools"][0]["input_schema"].is_object());
     assert_eq!(
@@ -198,7 +198,7 @@ async fn anthropic_forced_text_call_keeps_tools_defined_but_disabled() {
     assert!(reqs[0].1.get("tools").is_none());
     assert!(reqs[0].1.get("tool_choice").is_none());
     assert_eq!(reqs[1].1["tool_choice"], json!({"type": "none"}));
-    assert_eq!(reqs[1].1["tools"].as_array().unwrap().len(), 5);
+    assert_eq!(reqs[1].1["tools"].as_array().unwrap().len(), rgcs_ai::TOOL_NAMES.len());
 }
 
 #[tokio::test]

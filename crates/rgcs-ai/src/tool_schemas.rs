@@ -42,9 +42,9 @@ fn spec(name: &'static str, description: &'static str, schema: Value) -> ToolSpe
     }
 }
 
-/// The five tools, in [`TOOL_NAMES`] order.
+/// The seven tools, in [`TOOL_NAMES`] order.
 pub fn tool_specs() -> Vec<ToolSpec> {
-    let [status, list, recent, search, propose] = TOOL_NAMES;
+    let [status, list, recent, search, propose, alerts, factors] = TOOL_NAMES;
     vec![
         spec(
             status,
@@ -97,6 +97,27 @@ pub fn tool_specs() -> Vec<ToolSpec> {
                 }),
                 &["sysid", "command", "reason"],
             ),
+        ),
+        spec(
+            alerts,
+            "Active AI 緊急介入 (AI emergency intervention, experimental) alerts: event, phase, \
+             level, signs, countdown deadline and the planned no-position-hold mode. These are \
+             deterministic detections by fixed rules, not your judgement. You cannot cancel, \
+             trigger or execute an alert or change its level; explain and suggest only. The \
+             vehicle name is under untrusted_text. Returns {enabled: false} while the feature is off.",
+            object(
+                json!({"sysid": sysid_schema("Only this vehicle; omit for all")}),
+                &[],
+            ),
+        ),
+        spec(
+            factors,
+            "External factors (wind, gust, precipitation, temperature, Kp, magnetic declination, \
+             GNSS, daylight) fused on the safety side. Every reading carries its source, class \
+             (measured / observed / nowcast / forecast), at_ms (unix ms of the reading) and fresh; \
+             stale readings do not count. Space-weather notices and station names are under \
+             untrusted_text. External sources are fetched only while the operator allows it.",
+            object(json!({}), &[]),
         ),
     ]
 }

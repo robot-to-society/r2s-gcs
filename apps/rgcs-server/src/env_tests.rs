@@ -717,3 +717,6 @@ async fn the_clock_drives_freshness() {
     assert!(s.unavailable);
     assert_eq!(rig.app.guard.context(), ExternalContext::default());
 }
+
+#[path = "env_ai_tools_tests.rs"]
+mod ai_tools;

@@ -1,6 +1,8 @@
-//! The AI's tools on the live server (plan rulings 2, 8, 9, 10): read the router, the message
-//! log and the video status, and validate proposals. Nothing here can send: there is no path to
-//! the command queue, the link, the cameras or ROI. Every call is audited with target `ai`.
+//! The AI's tools on the live server (plan rulings 2, 8, 9, 10; guard ruling 15): read the
+//! router, the message log, the video status, the AI 緊急介入 alerts and the external factors,
+//! and validate proposals. Nothing here can send: there is no path to the vehicle command
+//! channel, the link, the cameras or ROI, and nothing here can cancel, trigger or change a
+//! guard alert or its level. Every call is audited with target `ai`.
 
 use std::sync::Mutex as StdMutex;
 
@@ -14,6 +16,7 @@ use rgcs_store::messages::SeverityFilter;
 use serde_json::{json, Map, Value};
 
 use crate::ai_hub::PROPOSAL_TTL_MS;
+use crate::ai_tools_guard::{alerts_json, factors_json};
 use crate::ai_validate::validate_proposal;
 use crate::app::AppState;
 use crate::commands::EXTENDED_SYS_STATE_ID;
@@ -89,6 +92,12 @@ impl ServerTools {
                 command,
                 reason,
             } => self.propose(*sysid, command, reason).await,
+            ToolCall::ListGuardAlerts { sysid } => Ok(alerts_json(
+                &self.app.guard.settings(),
+                &self.app.guard.active_alerts(),
+                *sysid,
+            )),
+            ToolCall::GetExternalFactors => Ok(factors_json(&self.app.env.summary(), self.app.env.gate())),
         }
     }
 
@@ -308,6 +317,8 @@ fn call_args(call: &ToolCall) -> Value {
             put("command", serde_json::to_value(command).unwrap_or(Value::Null));
             put("reason", json!(reason));
         }
+        ToolCall::ListGuardAlerts { sysid } => put("sysid", json!(sysid)),
+        ToolCall::GetExternalFactors => {}
     }
     Value::Object(m)
 }

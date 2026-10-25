@@ -43,6 +43,20 @@ describe('VehicleStore', () => {
     expect(store.getState().link).toBe('closed')
   })
 
+  it('hands every parsed frame to frame listeners until they unsubscribe', () => {
+    const store = new VehicleStore()
+    const frames: string[] = []
+    const off = store.onFrame((m) => frames.push(m.t))
+    store.connect('ws://x/ws')
+    const s = FakeSocket.last!
+    s.onmessage?.({ data: '{"t":"vehicle_discovered","sysid":4}' } as MessageEvent<string>)
+    s.onmessage?.({ data: 'garbage' } as MessageEvent<string>)
+    off()
+    s.onmessage?.({ data: '{"t":"vehicle_discovered","sysid":5}' } as MessageEvent<string>)
+    expect(frames).toEqual(['vehicle_discovered'])
+    store.disconnect()
+  })
+
   it('connect is idempotent', () => {
     const store = new VehicleStore()
     store.connect('ws://x/ws')

@@ -776,3 +776,6 @@ async fn disabling_during_a_countdown_sends_nothing() {
     assert!(r.app.guard.active_alerts().is_empty());
     assert!(r.alerts().is_empty());
 }
+
+#[path = "guard_ai_tools_tests.rs"]
+mod ai_tools;

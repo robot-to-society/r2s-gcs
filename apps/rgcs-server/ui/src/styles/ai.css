@@ -46,3 +46,11 @@
 
 .confirm-ai { gap: 6px; font-size: 12px; margin-top: 6px; color: var(--accent); }
 .confirm-ai span { color: var(--text-3); overflow-wrap: anywhere; }
+
+/* AI 緊急介入 alert as a local chat item (guard plan Task 8). */
+.ai-guard { margin-left: 40px; padding: 10px 12px; font-size: 13px; border-left: 3px solid var(--danger); display: flex; flex-direction: column; gap: 4px; }
+.ai-guard-h { gap: 6px; color: var(--danger); font-size: 12px; font-weight: 500; }
+.ai-guard.taken_over, .ai-guard.cleared { border-left-color: var(--line-soft); }
+.ai-guard.taken_over .ai-guard-h, .ai-guard.cleared .ai-guard-h { color: var(--text-2); }
+.ai-guard-text { line-height: 1.5; overflow-wrap: anywhere; }
+.ai-guard-note { font-size: 11px; }

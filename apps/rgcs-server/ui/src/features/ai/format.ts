@@ -15,6 +15,8 @@ const TOOL_LABEL: Readonly<Record<string, keyof Dict>> = {
   list_recent_messages: 'aiToolMessages',
   search_log: 'aiToolSearch',
   propose_command: 'aiToolPropose',
+  list_guard_alerts: 'aiToolGuard',
+  get_external_factors: 'aiToolFactors',
 }
 
 /** 「状態取得・完了」 / 「ログ検索・失敗」; an unknown tool keeps its raw name. */

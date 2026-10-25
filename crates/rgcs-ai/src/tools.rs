@@ -1,7 +1,8 @@
 //! Tool calls the LLM may make: names, input parsing and limits (ruling 9).
 //!
 //! Inputs are parsed as JSON values, never string-matched. Every tool only reads or proposes;
-//! none sends anything to a vehicle or a camera.
+//! none sends anything to a vehicle or a camera, and none can trigger, cancel or change the
+//! level of an AI 緊急介入 alert.
 
 use std::fmt;
 
@@ -10,12 +11,14 @@ use serde_json::{Map, Value};
 
 pub use crate::tool_schemas::{tool_specs, ToolSpec};
 
-pub const TOOL_NAMES: [&str; 5] = [
+pub const TOOL_NAMES: [&str; 7] = [
     "get_vehicle_status",
     "list_vehicles",
     "list_recent_messages",
     "search_log",
     "propose_command",
+    "list_guard_alerts",
+    "get_external_factors",
 ];
 
 /// `cmd` values `propose_command` accepts (`change_alt` and `other` are absent).
@@ -58,17 +61,25 @@ pub enum ToolCall {
         command: VehicleCommand,
         reason: String,
     },
+    /// AI 緊急介入 alerts (deterministic detections), read only.
+    ListGuardAlerts {
+        sysid: Option<SysId>,
+    },
+    /// The fused external factors (each reading with source and time), read only.
+    GetExternalFactors,
 }
 
 impl ToolCall {
     pub fn name(&self) -> &'static str {
-        let [status, list, recent, search, propose] = TOOL_NAMES;
+        let [status, list, recent, search, propose, alerts, factors] = TOOL_NAMES;
         match self {
             Self::GetVehicleStatus { .. } => status,
             Self::ListVehicles => list,
             Self::ListRecentMessages { .. } => recent,
             Self::SearchLog { .. } => search,
             Self::ProposeCommand { .. } => propose,
+            Self::ListGuardAlerts { .. } => alerts,
+            Self::GetExternalFactors => factors,
         }
     }
 
@@ -76,8 +87,10 @@ impl ToolCall {
     pub fn sysid(&self) -> Option<SysId> {
         match self {
             Self::GetVehicleStatus { sysid } | Self::ProposeCommand { sysid, .. } => Some(*sysid),
-            Self::ListRecentMessages { sysid, .. } | Self::SearchLog { sysid, .. } => *sysid,
-            Self::ListVehicles => None,
+            Self::ListRecentMessages { sysid, .. }
+            | Self::SearchLog { sysid, .. }
+            | Self::ListGuardAlerts { sysid } => *sysid,
+            Self::ListVehicles | Self::GetExternalFactors => None,
         }
     }
 }
@@ -128,6 +141,10 @@ pub fn parse_call(name: &str, input: &Value) -> Result<ToolCall, ToolError> {
         "list_vehicles" => Ok(ToolCall::ListVehicles),
         "list_recent_messages" => parse_recent(args),
         "search_log" => parse_search(args),
+        "list_guard_alerts" => Ok(ToolCall::ListGuardAlerts {
+            sysid: optional_sysid(args)?,
+        }),
+        "get_external_factors" => Ok(ToolCall::GetExternalFactors),
         _ => parse_propose(args),
     }
 }
@@ -360,6 +377,71 @@ mod tests {
             ToolCall::ListVehicles
         );
         assert_eq!(code(parse_call("list_vehicles", &json!([1]))), "invalid");
+    }
+
+    #[test]
+    fn seven_tools_in_order() {
+        let names: Vec<&str> = tool_specs().iter().map(|s| s.name).collect();
+        assert_eq!(
+            names,
+            [
+                "get_vehicle_status",
+                "list_vehicles",
+                "list_recent_messages",
+                "search_log",
+                "propose_command",
+                "list_guard_alerts",
+                "get_external_factors",
+            ]
+        );
+    }
+
+    #[test]
+    fn guard_and_env_tools_parse() {
+        assert_eq!(
+            parse_call("list_guard_alerts", &json!({})).unwrap(),
+            ToolCall::ListGuardAlerts { sysid: None }
+        );
+        assert_eq!(
+            parse_call("list_guard_alerts", &json!({"sysid": 2})).unwrap(),
+            ToolCall::ListGuardAlerts { sysid: Some(2) }
+        );
+        assert_eq!(
+            code(parse_call("list_guard_alerts", &json!({"sysid": 300}))),
+            "invalid"
+        );
+        assert_eq!(
+            code(parse_call("list_guard_alerts", &json!({"sysid": "1"}))),
+            "invalid"
+        );
+        assert_eq!(
+            parse_call("get_external_factors", &json!({})).unwrap(),
+            ToolCall::GetExternalFactors
+        );
+        assert_eq!(
+            parse_call("get_external_factors", &serde_json::Value::Null).unwrap(),
+            ToolCall::GetExternalFactors
+        );
+        let names = [
+            ToolCall::ListGuardAlerts { sysid: Some(4) }.name(),
+            ToolCall::GetExternalFactors.name(),
+        ];
+        assert_eq!(names, ["list_guard_alerts", "get_external_factors"]);
+        assert_eq!(ToolCall::ListGuardAlerts { sysid: Some(4) }.sysid(), Some(4));
+        assert_eq!(ToolCall::GetExternalFactors.sysid(), None);
+    }
+
+    #[test]
+    fn guard_and_env_descriptions_say_what_the_data_is() {
+        let specs = tool_specs();
+        let find = |n: &str| specs.iter().find(|s| s.name == n).unwrap().description;
+        let alerts = find("list_guard_alerts");
+        assert!(
+            alerts.contains("deterministic") && alerts.contains("cannot"),
+            "{alerts}"
+        );
+        let env = find("get_external_factors");
+        assert!(env.contains("source") && env.contains("at_ms"), "{env}");
     }
 
     #[test]

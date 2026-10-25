@@ -1,6 +1,7 @@
 // Pure state of the AI chat panel: the items shown, the conversation id and the in-flight flag.
-// Append-only like the server conversation; only a proposal's state changes in place (as a new item).
-import type { AiChatReply, AiProposal, AiStatusCard, AiToolRun } from '../../shared/api/types'
+// Append-only like the server conversation; only a proposal's state and a guard alert's phase
+// change in place (as a new item). Guard items are local: they never reach the LLM.
+import type { AiChatReply, AiProposal, AiStatusCard, AiToolRun, GuardAlert } from '../../shared/api/types'
 
 export type ProposalState = 'pending' | 'sending' | 'executed' | 'dismissed' | 'failed' | 'expired'
 
@@ -10,6 +11,7 @@ export type ChatItem =
   | { readonly kind: 'tool'; readonly id: string; readonly card: AiStatusCard | null; readonly runs: readonly AiToolRun[]; readonly ts: number }
   | { readonly kind: 'proposal'; readonly id: string; readonly proposal: AiProposal; readonly state: ProposalState; readonly error?: string }
   | { readonly kind: 'error'; readonly id: string; readonly code: string; readonly message: string; readonly ts: number; readonly retryAfterS?: number }
+  | { readonly kind: 'guard'; readonly id: string; readonly alert: GuardAlert; readonly ts: number }
 
 export interface ChatState {
   readonly conversationId: string | null
@@ -26,6 +28,7 @@ export type ChatAction =
   | { readonly t: 'reply'; readonly reply: AiChatReply }
   | { readonly t: 'fail'; readonly code: string; readonly message: string; readonly ts: number; readonly retryAfterS?: number }
   | { readonly t: 'proposal'; readonly id: string; readonly state: ProposalState; readonly error?: string }
+  | { readonly t: 'guard'; readonly alert: GuardAlert }
   | { readonly t: 'reset' }
 
 function replyItems(r: AiChatReply, n: number): ChatItem[] {
@@ -48,6 +51,14 @@ function withProposal(items: readonly ChatItem[], a: Extract<ChatAction, { t: 'p
   })
 }
 
+/** One guard item per alert id (AI 緊急介入, guard ruling 15): a new id appends, a known id is replaced. */
+export function withGuardAlert(items: readonly ChatItem[], a: GuardAlert): readonly ChatItem[] {
+  const item: ChatItem = { kind: 'guard', id: `guard:${a.id}`, alert: a, ts: a.ts }
+  const known = items.some((it) => it.kind === 'guard' && it.alert.id === a.id)
+  if (!known) return [...items, item]
+  return items.map((it) => (it.kind === 'guard' && it.alert.id === a.id ? item : it))
+}
+
 export function chatReducer(s: ChatState, a: ChatAction): ChatState {
   const n = s.items.length
   switch (a.t) {
@@ -59,6 +70,8 @@ export function chatReducer(s: ChatState, a: ChatAction): ChatState {
       return { ...s, items: [...s.items, failItem(a, n)], pending: false, full: s.full || a.code === 'conversation_full' }
     case 'proposal':
       return { ...s, items: withProposal(s.items, a) }
+    case 'guard':
+      return { ...s, items: withGuardAlert(s.items, a.alert) }
     case 'reset':
       return EMPTY_CHAT
   }

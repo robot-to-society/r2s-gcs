@@ -1,10 +1,11 @@
 // One entry of the AI chat list (prototype lines 666–681): user / bot bubbles, the tool card,
-// a proposal card, or a failed request shown as a danger-coloured bot bubble.
+// a proposal card, a failed request shown as a danger-coloured bot bubble, or a local AI 緊急介入
+// alert (no LLM request; read only: cancelling is the banner's job).
 import type { ReactNode } from 'react'
-import type { AiProposal } from '../../shared/api/types'
+import type { AiProposal, GuardAlert } from '../../shared/api/types'
 import { hhmm } from '../../shared/format/time'
 import type { Dict } from '../../shared/i18n'
-import { IconBot, IconLoader } from '../../shared/ui/icons'
+import { IconBot, IconLoader, IconShieldAlert } from '../../shared/ui/icons'
 import type { ChatItem } from './chat'
 import { aiErrorText } from './format'
 import { ProposalCard } from './ProposalCard'
@@ -43,6 +44,21 @@ export function ThinkingRow({ dict }: { dict: Dict }) {
   )
 }
 
+function GuardCard({ alert, dict }: { alert: GuardAlert; dict: Dict }) {
+  return (
+    <div className={`inset ai-guard ${alert.phase}`} role="status">
+      <div className="row ai-guard-h">
+        <IconShieldAlert size={16} />
+        <span>{dict.aiGuardTitle}</span>
+        <span className="t3">{alert.vehicle_name}</span>
+        <span className="t4 num ai-run-time">{hhmm(alert.ts)}</span>
+      </div>
+      <div className="ai-guard-text">{alert.text}</div>
+      <div className="t4 ai-guard-note">{dict.aiGuardNote}</div>
+    </div>
+  )
+}
+
 export function ChatItemView({ item, names, dict, now, onExecute, onDismiss }: Props) {
   switch (item.kind) {
     case 'user':
@@ -69,5 +85,7 @@ export function ChatItemView({ item, names, dict, now, onExecute, onDismiss }: P
           {aiErrorText(item.code, item.message, dict, item.retryAfterS)}
         </BotRow>
       )
+    case 'guard':
+      return <GuardCard alert={item.alert} dict={dict} />
   }
 }

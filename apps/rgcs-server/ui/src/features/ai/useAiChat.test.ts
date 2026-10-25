@@ -1,7 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../shared/api/client'
-import { proposal, reply } from './fixtures'
+import type { ServerMessage } from '../../shared/api/types'
+import { guardAlert, proposal, reply } from './fixtures'
 
 const api = { getAiStatus: vi.fn(), postChat: vi.fn(), dismissProposal: vi.fn() }
 vi.mock('./api', () => ({
@@ -11,6 +12,21 @@ vi.mock('./api', () => ({
 }))
 
 const { useAiChat } = await import('./useAiChat')
+
+/** A frame source like the vehicle store's WebSocket feed. */
+function fakeFrames() {
+  const listeners = new Set<(m: ServerMessage) => void>()
+  return {
+    onFrame: (l: (m: ServerMessage) => void) => {
+      listeners.add(l)
+      return () => {
+        listeners.delete(l)
+      }
+    },
+    emit: (m: ServerMessage) => act(() => listeners.forEach((l) => l(m))),
+    count: () => listeners.size,
+  }
+}
 
 const STATUS = { configured: true, provider: 'anthropic', model: 'claude-sonnet-5-5', reason: null, budget_left: null }
 
@@ -91,5 +107,22 @@ describe('useAiChat', () => {
     act(() => result.current.reset())
     expect(result.current.state.items).toEqual([])
     expect(result.current.state.conversationId).toBeNull()
+  })
+
+  it('a guard_alert frame adds one local guard item, updated by id, without any LLM request', async () => {
+    const frames = fakeFrames()
+    const { result, unmount } = renderHook(() => useAiChat(frames))
+    await waitFor(() => expect(result.current.status).toEqual(STATUS))
+    frames.emit({ t: 'guard_alert', alert: guardAlert() })
+    frames.emit({ t: 'input_state', deadman: 'ok' } as ServerMessage)
+    expect(result.current.state.items).toHaveLength(1)
+    expect(result.current.state.items[0]).toMatchObject({ kind: 'guard', alert: { id: 'g-1', phase: 'alerting' } })
+    frames.emit({ t: 'guard_alert', alert: guardAlert({ phase: 'taken_over', text: '引き継ぎ済み' }) })
+    expect(result.current.state.items).toHaveLength(1)
+    expect(result.current.state.items[0]).toMatchObject({ kind: 'guard', alert: { phase: 'taken_over' } })
+    expect(api.postChat).not.toHaveBeenCalled()
+    expect(api.dismissProposal).not.toHaveBeenCalled()
+    unmount()
+    expect(frames.count()).toBe(0)
   })
 })
