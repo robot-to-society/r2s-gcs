@@ -281,6 +281,14 @@ impl AiHub {
     }
 
     /// Appends one finished chat (its new turns) and charges its tokens to the budget.
+    /// Spends the tokens of a turn that failed or timed out (nothing is committed to the
+    /// conversation, but the provider still billed them).
+    pub fn charge(&self, tokens: u64, now_ms: u64) {
+        let mut s = lock(&self.state);
+        s.prune(now_ms);
+        s.spent.push_back((now_ms, tokens));
+    }
+
     pub fn commit(&self, user: &str, id: &str, turns: Vec<Turn>, tokens: u64, now_ms: u64) {
         let mut s = lock(&self.state);
         s.prune(now_ms);

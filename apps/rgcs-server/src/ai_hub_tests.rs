@@ -286,3 +286,12 @@ fn a_claim_is_single_use_until_released() {
         ProposalCheck::NotFound
     );
 }
+
+#[test]
+fn a_failed_or_timed_out_turn_still_spends_its_tokens() {
+    let h = hub(1_000);
+    h.charge(700, 0);
+    assert_eq!(h.status(10).budget_left, Some(300));
+    h.charge(400, 20);
+    assert!(matches!(h.begin("op", 30), Err(HubRefusal::Budget)));
+}

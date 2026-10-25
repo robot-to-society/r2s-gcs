@@ -104,17 +104,14 @@ pub async fn chat(
         user_text: format!("[対象機体: {name} (sysid {})]\n{}", body.sysid, body.message),
         limits: hub.limits(),
     };
-    let turn = tokio::time::timeout(
-        hub.limits().chat_timeout,
-        run_turn(client.as_ref(), &tools, input),
-    )
-    .await;
+    let metered = crate::ai_meter::Metered::new(client.as_ref());
+    let turn = tokio::time::timeout(hub.limits().chat_timeout, run_turn(&metered, &tools, input)).await;
+    if !matches!(turn, Ok(Ok(_))) {
+        // nothing is committed, but the provider billed every call that answered
+        hub.charge(metered.used(), hub.now_ms());
+    }
     match turn {
-        Err(_) => err(
-            StatusCode::GATEWAY_TIMEOUT,
-            "ai_timeout",
-            "the AI did not answer in time",
-        ),
+        Err(_) => provider_failure(&AiError::Timeout),
         Ok(Err(e)) => provider_failure(&e),
         Ok(Ok(out)) => ok(finish(
             &hub,
@@ -240,12 +237,9 @@ fn rate_limited(retry_after_s: u64) -> Response {
 }
 
 fn provider_failure(e: &AiError) -> Response {
-    tracing::warn!(error = %e, "AI chat failed");
-    match e {
-        AiError::Timeout => err(StatusCode::GATEWAY_TIMEOUT, "ai_timeout", e.to_string()),
-        AiError::Refused => err(StatusCode::BAD_GATEWAY, "ai_refused", "AI が応答を拒否しました"),
-        _ => err(StatusCode::BAD_GATEWAY, "ai_provider_error", e.to_string()),
-    }
+    let (status, code, message) = crate::ai_meter::provider_error(e);
+    tracing::warn!(code, %message, "AI chat failed");
+    err(status, code, message)
 }
 
 /// Commits the finished turn, stores its proposals and builds the reply.
