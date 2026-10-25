@@ -21,6 +21,8 @@ interface Props {
   readonly me: Operator
   /** Opens the ロゴ・提示用トークン sheet (アプリ設定 tab). */
   readonly onOpenPresent?: () => void
+  readonly onOpenGuard?: () => void
+  readonly onOpenEnv?: () => void
   readonly flightDrafts?: ReadonlyMap<SysId, Flight>
   readonly logFetch?: ReadonlyMap<SysId, LogFetchProgress>
   /** Last `calibration` frame per vehicle. */
@@ -28,7 +30,7 @@ interface Props {
 }
 
 /** メンテナンス・設定 (spec 10 §7) after the prototype's maint screen: header row, tab strip, body. */
-export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, me, onOpenPresent, flightDrafts, logFetch, calibration }: Props) {
+export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, me, onOpenPresent, onOpenGuard, onOpenEnv, flightDrafts, logFetch, calibration }: Props) {
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const [picked, setPicked] = useState<SysId | null>(null)
   const wanted = selected === undefined ? picked : selected
@@ -112,7 +114,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
         />
       )}
       {tab === 'inspector' && <InspectorTab dict={dict} />}
-      {tab === 'app' && <AppTab sysid={sysid} vehicle={vehicle} me={me} dict={dict} onOpenPresent={onOpenPresent ?? (() => {})} />}
+      {tab === 'app' && <AppTab sysid={sysid} vehicle={vehicle} me={me} dict={dict} onOpenPresent={onOpenPresent ?? (() => {})} onOpenGuard={onOpenGuard ?? (() => {})} onOpenEnv={onOpenEnv ?? (() => {})} />}
       {tab === 'history' && (
         <div className="maint-body">
           <HistoryTab sysid={sysid} vehicles={vehicles} dict={dict} version={writes} />

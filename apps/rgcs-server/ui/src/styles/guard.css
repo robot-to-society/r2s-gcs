@@ -1,0 +1,50 @@
+/* 実験機能 sheet and the 3-part consent dialog (plan 2026-10-25-ai-guard Task 9). Prototype classes first
+   (.modal-backdrop, .g-strong, .confirm, .inset, .setrow, .seg, .warnbox); only layout lives here. */
+.launch-card-head { gap: 8px; color: var(--text-2); }
+.launch-card-head .h1 { color: var(--text); }
+
+.guard-settings { width: 600px; max-height: calc(100% - 48px); overflow-y: auto; }
+.guard-head { gap: 8px; color: var(--text-2); }
+.guard-head .h2 { color: var(--text); }
+.guard-feature, .guard-events { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.guard-state-box { gap: 10px; }
+.guard-state { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--line-hi); color: var(--text-2); }
+.guard-state.on { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent); }
+.guard-disable { margin-top: 0; flex-wrap: wrap; }
+.guard-disable .grow { flex: 1 1 260px; }
+.guard-consent { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line-soft); font-size: 13px; }
+.guard-consent-row { gap: 8px; color: var(--text-3); }
+.guard-consent-row.on { color: var(--text); }
+.guard-consent-row.on .ic { color: var(--ok); }
+.guard-consent-row .t3 { margin-left: auto; font-size: 12px; }
+.guard-consent-foot { justify-content: space-between; gap: 8px; font-size: 12px; min-height: 32px; }
+.guard-section { font-size: 12px; font-weight: 500; letter-spacing: 0.02em; }
+.guard-level { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.guard-level .seg { width: 232px; }
+.guard-note { font-size: 12px; }
+.guard-times { display: flex; flex-direction: column; gap: 12px; }
+.guard-times-actions { justify-content: flex-end; gap: 10px; }
+.guard-times-actions .settings-issue { grid-column: auto; }
+.guard-error { pointer-events: auto; text-align: left; border-radius: var(--r-ctl); }
+
+/* consent dialog: above the sheet that opened it */
+.consent-backdrop { z-index: 10; }
+.consent-dialog { width: 560px; max-height: calc(100% - 48px); overflow-y: auto; }
+.consent-head { gap: 8px; }
+.consent-icon { color: var(--caution); }
+.consent-intro { font-size: 13px; line-height: 1.6; }
+.consent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.consent-item { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 12px 14px; transition: border-color 0.15s, background 0.15s; }
+.consent-item.on { border-color: var(--accent-line); background: var(--accent-tint); }
+.consent-item input[type='checkbox'] { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); cursor: pointer; }
+.consent-copy { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.consent-line { gap: 8px; align-items: flex-start; }
+.consent-n { flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: rgba(255, 255, 255, 0.08); color: var(--text-2); }
+.consent-text { font-size: 13px; font-weight: 500; line-height: 1.55; cursor: pointer; }
+.consent-meta { gap: 8px; align-items: flex-start; padding-left: 26px; }
+.consent-tag { flex: none; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line-hi); color: var(--text-3); }
+.consent-tag.req { border-color: var(--caution-line); color: var(--caution); }
+.consent-risk { font-size: 12px; line-height: 1.55; }
+.consent-admin { margin-top: 0; align-items: flex-start; line-height: 1.5; }
+.consent-admin .ic { flex: none; margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .consent-item { transition: none; } }

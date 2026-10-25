@@ -4,6 +4,8 @@ import { CommandDock, ConfirmDialog, FleetConfirm, fleetTargets, localResult, us
 import { EMPTY_PENDING, cameraErrorText, clearPending, markPending, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
+import { GuardSettingsSheet } from '../features/guard'
+import { EnvSourcesSheet } from '../features/env'
 import { DetailPanel, ackMessage } from '../features/detail'
 import { AiPanel, useAiChat } from '../features/ai'
 import { buttonAction, getGimbalProfile, releaseCommand, useGimbalJoystick } from '../features/gimbal-joystick'
@@ -277,7 +279,7 @@ export function Shell({ me, lang }: Props) {
           {view === 'maint' && (
             <>
               <div className="maint-backdrop" />
-              <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} selected={current} onSelect={setSelected} me={me} flightDrafts={flightDrafts} logFetch={logFetch} calibration={calibration} onOpenPresent={() => setModal({ kind: 'present-settings' })} />
+              <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} selected={current} onSelect={setSelected} me={me} flightDrafts={flightDrafts} logFetch={logFetch} calibration={calibration} onOpenPresent={() => setModal({ kind: 'present-settings' })} onOpenGuard={() => setModal({ kind: 'guard-settings' })} onOpenEnv={() => setModal({ kind: 'env-sources' })} />
             </>
           )}
           {view === 'video' && settings && (
@@ -452,6 +454,8 @@ export function Shell({ me, lang }: Props) {
           {modal.kind === 'present-settings' && (
             <PresentSettings isAdmin={me.role === 'admin'} logo={false} dict={dict} onClose={() => setModal(NO_MODAL)} />
           )}
+          {modal.kind === 'guard-settings' && <GuardSettingsSheet isAdmin={me.role === 'admin'} dict={dict} onClose={() => setModal(NO_MODAL)} />}
+          {modal.kind === 'env-sources' && <EnvSourcesSheet isAdmin={me.role === 'admin'} dict={dict} onClose={() => setModal(NO_MODAL)} />}
           {modal.kind === 'confirm' && (
             <ConfirmDialog
               sysid={modal.sysid}

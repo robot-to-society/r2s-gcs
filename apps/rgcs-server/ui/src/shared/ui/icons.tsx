@@ -11,6 +11,7 @@ import {
   BatteryMedium,
   Cable,
   Camera,
+  CloudSun,
   Car,
   ChartArea,
   ChevronDown,
@@ -20,9 +21,11 @@ import {
   Cpu,
   Crosshair,
   Ellipsis,
+  ExternalLink,
   Eye,
   EyeOff,
   FileUp,
+  FlaskConical,
   Gauge,
   Globe,
   Grid3x3,
@@ -55,6 +58,7 @@ import {
   Power,
   PowerOff,
   RadioTower,
+  RefreshCw,
   Repeat,
   Route,
   Router,
@@ -69,6 +73,8 @@ import {
   TriangleAlert,
   VideoOff,
   User,
+  Volume2,
+  VolumeX,
   Wrench,
   X,
 } from 'lucide-react'
@@ -198,3 +204,10 @@ export const IconCpu = ({ size = 16, className }: IconProps) => <Lucide icon={Cp
 export const IconRadioTower = ({ size = 16, className }: IconProps) => <Lucide icon={RadioTower} size={size} className={className} />
 export const IconScan = ({ size = 16, className }: IconProps) => <Lucide icon={Scan} size={size} className={className} />
 export const IconCable = ({ size = 16, className }: IconProps) => <Lucide icon={Cable} size={size} className={className} />
+// 実験機能 / 外的要因データ (plan 2026-10-25-ai-guard Task 9): the cards, 今すぐ取得, the banner's mute, links out.
+export const IconFlask = ({ size = 18, className }: IconProps) => <Lucide icon={FlaskConical} size={size} className={className} />
+export const IconCloudSun = ({ size = 18, className }: IconProps) => <Lucide icon={CloudSun} size={size} className={className} />
+export const IconRefresh = ({ size = 14, className }: IconProps) => <Lucide icon={RefreshCw} size={size} className={className} />
+export const IconVolume = ({ size = 16, className }: IconProps) => <Lucide icon={Volume2} size={size} className={className} />
+export const IconVolumeOff = ({ size = 16, className }: IconProps) => <Lucide icon={VolumeX} size={size} className={className} />
+export const IconExternalLink = ({ size = 12, className }: IconProps) => <Lucide icon={ExternalLink} size={size} className={className} />

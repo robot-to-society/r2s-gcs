@@ -39,9 +39,11 @@ function setup(role: Operator['role'] = 'admin') {
     }),
   )
   const onOpenPresent = vi.fn()
+  const onOpenGuard = vi.fn()
+  const onOpenEnv = vi.fn()
   const me: Operator = { username: 'admin', role, dev_mode: true }
-  render(<AppTab sysid={1} vehicle={copter} me={me} dict={t('ja')} onOpenPresent={onOpenPresent} />)
-  return { calls, onOpenPresent }
+  render(<AppTab sysid={1} vehicle={copter} me={me} dict={t('ja')} onOpenPresent={onOpenPresent} onOpenGuard={onOpenGuard} onOpenEnv={onOpenEnv} />)
+  return { calls, onOpenPresent, onOpenGuard, onOpenEnv }
 }
 
 describe('AppTab', () => {
@@ -105,6 +107,19 @@ describe('AppTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ロゴ・提示用トークン' }))
     expect(onOpenPresent).toHaveBeenCalled()
     expect(screen.getByRole('button', { name: '日本語' }).className).toContain('on')
+  })
+  it('experimental_and_external_factor_cards_open_their_sheets', () => {
+    const { onOpenGuard, onOpenEnv } = setup('operator')
+    const guard = screen.getByTestId('guard-card')
+    expect(within(guard).getByText('実験機能')).toBeInTheDocument()
+    expect(within(guard).getByText(/AI 緊急介入/)).toBeInTheDocument()
+    fireEvent.click(within(guard).getByRole('button', { name: '設定' }))
+    expect(onOpenGuard).toHaveBeenCalledTimes(1)
+    const env = screen.getByTestId('env-card')
+    expect(within(env).getByText('外的要因データ')).toBeInTheDocument()
+    fireEvent.click(within(env).getByRole('button', { name: '設定' }))
+    expect(onOpenEnv).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('display-card')).toBeInTheDocument()
   })
   it('map_display_switch_toggles_and_saves', async () => {
     const { calls } = setup()

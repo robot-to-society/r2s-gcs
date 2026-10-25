@@ -1,9 +1,12 @@
-// アプリ設定 tab (spec 10 §7, addendum §5.7): 表示言語, 表示 (theme), 地図表示, 機体台帳, 操縦者, 点検テンプレート and the
+// アプリ設定 tab (spec 10 §7, addendum §5.7): 表示言語, 表示 (theme), 地図表示, 機体台帳, 操縦者, 点検テンプレート, the
+// 実験機能 / 外的要因データ cards (plan 2026-10-25-ai-guard Task 9) and the
 // link to the ロゴ・提示用トークン sheet. Card grid after the prototype's app tab.
 import type { Operator, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { useLang } from '../../shared/i18n/lang'
+import { IconCloudSun, IconFlask } from '../../shared/ui/icons'
 import { DisplayCard } from './DisplayCard'
+import { LaunchCard } from './LaunchCard'
 import { MapDisplayCard } from './MapDisplayCard'
 import { MavlinkCard } from './MavlinkCard'
 import { PilotForm } from './PilotForm'
@@ -16,9 +19,11 @@ interface Props {
   readonly me: Operator
   readonly dict: Dict
   readonly onOpenPresent: () => void
+  readonly onOpenGuard: () => void
+  readonly onOpenEnv: () => void
 }
 
-export function AppTab({ sysid, vehicle, me, dict, onOpenPresent }: Props) {
+export function AppTab({ sysid, vehicle, me, dict, onOpenPresent, onOpenGuard, onOpenEnv }: Props) {
   const [lang, setLang] = useLang()
   const isAdmin = me.role === 'admin'
   return (
@@ -41,6 +46,8 @@ export function AppTab({ sysid, vehicle, me, dict, onOpenPresent }: Props) {
       <DisplayCard dict={dict} />
       <MapDisplayCard dict={dict} />
       <MavlinkCard dict={dict} isAdmin={isAdmin} />
+      <LaunchCard testId="guard-card" icon={<IconFlask />} title={dict.guardCardTitle} note={dict.guardCardNote} dict={dict} onOpen={onOpenGuard} />
+      <LaunchCard testId="env-card" icon={<IconCloudSun />} title={dict.envCardTitle} note={dict.envCardNote} dict={dict} onOpen={onOpenEnv} />
       {sysid !== null && <RegistryForm key={sysid} sysid={sysid} vehicle={vehicle} isAdmin={isAdmin} dict={dict} />}
       <PilotForm dict={dict} />
       <TemplateEditor dict={dict} isAdmin={isAdmin} />
