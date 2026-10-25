@@ -39,7 +39,9 @@ describe('Login', () => {
     stubServer({ devMode: true, login: { status: 200, code: '' } })
     const { unmount } = render(<Login store={new AuthStore()} intro={new IntroStore()} />)
     expect(await screen.findByText('開発用')).toBeInTheDocument()
-    expect(screen.getByText('開発用アカウント admin / admin')).toBeInTheDocument()
+    // label and account on their own lines, the account never split
+    expect(screen.getByText('開発用アカウント')).toBeInTheDocument()
+    expect(screen.getByText('admin / admin')).toHaveClass('ls-cred')
     expect(screen.getByText(/pi-01/)).toBeInTheDocument()
     unmount()
     stubServer({ devMode: false, login: { status: 200, code: '' } })

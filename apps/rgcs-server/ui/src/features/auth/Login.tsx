@@ -133,7 +133,14 @@ function CardFoot({ dev, dict }: { readonly dev: boolean; readonly dict: Dict })
   const [lang, setLang] = useLang()
   return (
     <div className="ls-foot">
-      <span className="ls-note">{dev ? dict.devNote : ''}</span>
+      <span className="ls-note">
+        {dev && (
+          <>
+            <span>{dict.devNote}</span>
+            <span className="ls-cred">admin / admin</span>
+          </>
+        )}
+      </span>
       <div className="ls-seg" role="group" aria-label="language">
         <span className="ls-lens" style={{ transform: `translateX(${lang === 'ja' ? 0 : 100}%)` }} />
         <button type="button" className={lang === 'ja' ? 'on' : ''} aria-pressed={lang === 'ja'} onClick={() => setLang('ja')}>

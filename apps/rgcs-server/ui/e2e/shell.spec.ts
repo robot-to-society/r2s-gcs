@@ -1,15 +1,14 @@
 import { expect, test } from '@playwright/test'
 import { login } from './helpers'
 
-test('six navigation views; operations map, mission and maintenance enabled, the rest disabled', async ({ page }) => {
+test('six navigation views, all enabled', async ({ page }) => {
   await login(page)
   const nav = page.locator('nav.seg button')
   await expect(nav).toHaveCount(6)
   const labels = ['運用マップ', '全機体映像', 'ミッション', 'ネットワーク', 'AIチャット', 'メンテナンス・設定']
   for (const [i, label] of labels.entries()) await expect(nav.nth(i)).toHaveAttribute('aria-label', label)
   await expect(nav.nth(0)).toHaveAttribute('aria-current', 'page')
-  for (const i of [1, 3, 4]) await expect(nav.nth(i)).toHaveAttribute('aria-disabled', 'true')
-  for (const i of [2, 5]) await expect(nav.nth(i)).not.toHaveAttribute('aria-disabled')
+  for (const i of [0, 1, 2, 3, 4, 5]) await expect(nav.nth(i)).not.toHaveAttribute('aria-disabled')
 })
 
 test('user popover opens and closes; empty vehicle list hint without a link', async ({ page }) => {

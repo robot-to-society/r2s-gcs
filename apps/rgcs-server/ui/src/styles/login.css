@@ -117,7 +117,8 @@
 @keyframes ls-spin { to { transform: rotate(360deg); } }
 
 .ls-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
-.ls-note { font-family: var(--mono); font-size: 11px; }
+.ls-note { display: flex; flex-direction: column; gap: 1px; font-size: 11px; line-height: 1.35; }
+.ls-cred { font-family: var(--mono); white-space: nowrap; }
 .ls-ui[data-theme='dark'] .ls-note { color: rgba(242, 245, 248, 0.55); }
 .ls-ui[data-theme='light'] .ls-note { color: #5a6474; }
 .ls-seg { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; flex: none; width: 168px; height: 34px; padding: 3px; border-radius: 999px; }
