@@ -10,4 +10,4 @@ description = "Portable AI-guard detectors and policy: pure, no I/O, no async, n
 serde = { workspace = true }
 
 [dev-dependencies]
-serde_json = { workspace = true }
+serde_json = { workspace = true, features = ["float_roundtrip"] }
