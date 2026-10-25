@@ -25,7 +25,7 @@ pub struct AnthropicClient {
 impl AnthropicClient {
     pub fn new(r: &ResolvedAi) -> Self {
         Self {
-            http: reqwest::Client::new(),
+            http: llm::http_client(),
             url: llm::endpoint(&r.base_url, "/v1/messages"),
             model: r.model.clone(),
             key: r.key.clone().unwrap_or_else(|| Secret::new("")),

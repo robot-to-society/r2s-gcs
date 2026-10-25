@@ -435,3 +435,36 @@ async fn closed_port_is_unreachable() {
         assert!(matches!(err, AiError::Unreachable), "{err:?}");
     }
 }
+
+/// Answers every connection with `307` to `location` (a raw socket; reads the request first).
+async fn redirect_server(location: String) -> String {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move {
+        while let Ok((mut sock, _)) = listener.accept().await {
+            let mut buf = vec![0u8; 64 * 1024];
+            let _ = sock.read(&mut buf).await;
+            let resp = format!(
+                "HTTP/1.1 307 Temporary Redirect\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            );
+            let _ = sock.write_all(resp.as_bytes()).await;
+        }
+    });
+    url
+}
+
+#[tokio::test]
+async fn redirects_are_not_followed_so_the_key_stays_with_the_configured_host() {
+    for (kind, protocol, path) in [
+        (ProviderKind::Anthropic, Protocol::Anthropic, "/v1/messages"),
+        (ProviderKind::OpenaiCompat, Protocol::OpenAi, "/chat/completions"),
+    ] {
+        let elsewhere = FakeProviderServer::start(protocol, vec![]).await;
+        let url = redirect_server(format!("{}{path}", elsewhere.url)).await;
+        let client = client_for(&resolved(kind, &url, Some(KEY), 5_000));
+        let err = call(client.as_ref(), &[user("a")], true).await.unwrap_err();
+        assert!(matches!(err, AiError::Provider { status: 307, .. }), "{err:?}");
+        assert!(elsewhere.requests().is_empty(), "the request (and key) followed the redirect");
+    }
+}

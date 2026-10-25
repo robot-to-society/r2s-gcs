@@ -24,7 +24,7 @@ pub struct OpenAiClient {
 impl OpenAiClient {
     pub fn new(r: &ResolvedAi) -> Self {
         Self {
-            http: reqwest::Client::new(),
+            http: llm::http_client(),
             url: llm::endpoint(&r.base_url, "/chat/completions"),
             model: r.model.clone(),
             key: r.key.clone(),

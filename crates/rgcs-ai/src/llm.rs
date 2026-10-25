@@ -111,6 +111,17 @@ pub fn client_for(r: &ResolvedAi) -> Box<dyn LlmClient> {
     }
 }
 
+/// The HTTP client of both adapters. Redirects are never followed: reqwest would resend the
+/// `x-api-key` header to the redirect target, so a 3xx is a provider error instead.
+/// Panics like `reqwest::Client::new` when the TLS backend cannot start (never falls back to a
+/// client that follows redirects).
+pub(crate) fn http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("the HTTP client (TLS backend) failed to initialise")
+}
+
 /// `base_url` + `path` without a doubled slash.
 pub(crate) fn endpoint(base_url: &str, path: &str) -> String {
     format!("{}{path}", base_url.trim_end_matches('/'))
