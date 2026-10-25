@@ -51,17 +51,6 @@
 .vrail .btn-icon.sel { color: var(--text); background: var(--accent-tint); }
 .empty { padding: 40px 16px; text-align: center; color: var(--text-3); font-size: 13px; }
 
-/* ---- login (prototype .login/.card) ---- */
-.login-screen { position: fixed; inset: 0; background: var(--base); }
-.login .brand { font-size: 26px; font-weight: 600; letter-spacing: 0.02em; line-height: 1; }
-.login-brand { gap: 12px; }
-.login-host { font-size: 12px; margin-top: -6px; }
-.login-field { margin-top: 6px; }
-.login .err.danger { color: var(--danger); }
-.login-foot { justify-content: space-between; margin-top: 4px; }
-.login-note { font-size: 11px; }
-.login-lang { width: 150px; }
-
 /* ---- footer log pill (prototype footer, 2026-10-18) ---- */
 .footer-log { bottom: 12px; height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 16px; width: min(620px, calc(100% - var(--aside-w) - var(--right-w) - 72px)); z-index: 3; font-size: 12px; border-radius: 999px; white-space: nowrap; }
 .footer-clock { padding-left: 12px; border-left: 1px solid var(--line-hi); padding-right: 8px; }

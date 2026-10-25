@@ -157,6 +157,7 @@ const { MapView } = await import('./MapView')
 const { rasterStyle } = await import('./style')
 const { emptyTargets } = await import('../roi/schema')
 const { roiTargetsStore } = await import('../roi/targetsStore')
+const { IntroStore } = await import('../auth/introStore')
 
 const v = (sysid: number, fix: number, lon = 139.37, lat = 36.16): VehicleState => ({
   sysid, name: `UAV-0${sysid}`, kind: 'copter', mode: 'AUTO', armed: true, lat, lon, alt_rel: 50, alt_msl: 0, hdg: 10,
@@ -185,6 +186,26 @@ describe('MapView', () => {
     act(() => map.fire('load'))
     const last = map.sources.get('mission-path')!.setData.mock.calls.at(-1)![0] as { features: unknown[] }
     expect(last.features).toHaveLength(1)
+  })
+
+  it('reports its first idle frame to the sign-in transition (interactive map only)', () => {
+    vi.useFakeTimers()
+    try {
+      const intro = new IntroStore({ now: () => Date.now(), reducedMotion: () => false })
+      intro.submit()
+      intro.authResult(true)
+      vi.advanceTimersByTime(2400)
+      expect(intro.getState().phase).toBe('done')
+      render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} interactive={false} />)
+      act(() => created.maps[0]!.fire('idle'))
+      vi.advanceTimersByTime(700)
+      expect(intro.getState().phase).toBe('done')
+      render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} />)
+      act(() => created.maps[1]!.fire('idle'))
+      expect(intro.getState().phase).toBe('clear')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('creates markers only for positioned vehicles and removes them when they vanish', () => {

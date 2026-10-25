@@ -2,6 +2,7 @@ import maplibregl, { type ExpressionSpecification, type Map as MlMap, type Marke
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FeatureCollection } from 'geojson'
 import type { Basemap, CameraSnapshot, Mission, RoiStatus, VehicleState } from '../../shared/api/types'
+import { markAppPainted } from '../../shared/ui/appPaint'
 import { useRoiLayer } from '../roi/useRoiLayer'
 import { hasPosition as itemHasPosition, pathGeoJson, placeTakeoffs, takeoffAnchor } from '../mission/geo'
 import { badgeText } from '../mission/mapEdit'
@@ -128,6 +129,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     if (interactive) {
       m.addControl(new maplibregl.NavigationControl({ showZoom: false, visualizePitch: false }), 'top-right')
       m.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right')
+      // The sign-in clouds clear once the operations map has drawn its first tiles.
+      m.once('idle', markAppPainted)
     }
     m.on('load', () => {
       m.addSource(TRACKS, { type: 'geojson', data: EMPTY })

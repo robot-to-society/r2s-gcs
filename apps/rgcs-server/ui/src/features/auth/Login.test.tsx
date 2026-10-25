@@ -1,5 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { setLang } from '../../shared/i18n/lang'
+import { setThemePref } from '../../shared/theme/theme'
+import { IntroStore } from './introStore'
 import { AuthStore } from './store'
 import { Login } from './Login'
 
@@ -26,25 +29,28 @@ function stubServer(opts: { devMode: boolean; login: { status: number; code: str
 }
 
 describe('Login', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => {
+    localStorage.clear()
+    setLang('ja')
+  })
   afterEach(() => vi.unstubAllGlobals())
 
   it('shows the dev badge and note only when dev_mode is true', async () => {
     stubServer({ devMode: true, login: { status: 200, code: '' } })
-    const { unmount } = render(<Login store={new AuthStore()} />)
+    const { unmount } = render(<Login store={new AuthStore()} intro={new IntroStore()} />)
     expect(await screen.findByText('開発用')).toBeInTheDocument()
     expect(screen.getByText('開発用アカウント admin / admin')).toBeInTheDocument()
     expect(screen.getByText(/pi-01/)).toBeInTheDocument()
     unmount()
     stubServer({ devMode: false, login: { status: 200, code: '' } })
-    render(<Login store={new AuthStore()} />)
+    render(<Login store={new AuthStore()} intro={new IntroStore()} />)
     await screen.findByText(/pi-01/)
     expect(screen.queryByText('開発用')).not.toBeInTheDocument()
   })
 
   it('submits on Enter and shows the invalid-credentials error', async () => {
     const fetchMock = stubServer({ devMode: true, login: { status: 401, code: 'unauthorized' } })
-    render(<Login store={new AuthStore()} />)
+    render(<Login store={new AuthStore()} intro={new IntroStore()} />)
     fireEvent.change(screen.getByLabelText('ユーザー名'), { target: { value: 'admin' } })
     fireEvent.change(screen.getByLabelText('パスワード'), { target: { value: 'nope' } })
     fireEvent.submit(screen.getByRole('form'))
@@ -57,7 +63,7 @@ describe('Login', () => {
 
   it('clears the error when the input changes', async () => {
     stubServer({ devMode: true, login: { status: 401, code: 'unauthorized' } })
-    render(<Login store={new AuthStore()} />)
+    render(<Login store={new AuthStore()} intro={new IntroStore()} />)
     fireEvent.submit(screen.getByRole('form'))
     await screen.findByRole('alert')
     fireEvent.change(screen.getByLabelText('パスワード'), { target: { value: 'a' } })
@@ -66,16 +72,60 @@ describe('Login', () => {
 
   it('shows the locked message on 429', async () => {
     stubServer({ devMode: true, login: { status: 429, code: 'locked' } })
-    render(<Login store={new AuthStore()} />)
+    render(<Login store={new AuthStore()} intro={new IntroStore()} />)
     fireEvent.submit(screen.getByRole('form'))
     expect(await screen.findByRole('alert')).toHaveTextContent('しばらく待ってから再試行してください')
   })
 
   it('switches language with the segment and persists it', async () => {
     stubServer({ devMode: false, login: { status: 200, code: '' } })
-    render(<Login store={new AuthStore()} />)
+    render(<Login store={new AuthStore()} intro={new IntroStore()} />)
     fireEvent.click(screen.getByRole('button', { name: 'English' }))
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
     expect(localStorage.getItem('rgcs.lang')).toBe('en')
+  })
+
+  it('is a real form for password managers', async () => {
+    stubServer({ devMode: false, login: { status: 200, code: '' } })
+    render(<Login store={new AuthStore()} intro={new IntroStore()} />)
+    expect(screen.getByLabelText('ユーザー名')).toHaveAttribute('autocomplete', 'username')
+    expect(screen.getByLabelText('パスワード')).toHaveAttribute('autocomplete', 'current-password')
+    expect(screen.getByRole('form').tagName).toBe('FORM')
+    expect(screen.getByText('出典: 国土地理院(シームレス空中写真)')).toBeInTheDocument()
+    await screen.findByText(/pi-01/)
+  })
+
+  it('says Signing in while the clouds gather, then marks the fields and focuses the password on failure', async () => {
+    stubServer({ devMode: true, login: { status: 401, code: 'unauthorized' } })
+    render(<Login store={new AuthStore()} intro={new IntroStore()} />)
+    fireEvent.change(screen.getByLabelText('パスワード'), { target: { value: 'nope' } })
+    fireEvent.submit(screen.getByRole('form'))
+    const button = screen.getByRole('button', { name: 'サインイン中…' })
+    expect(button).toBeDisabled()
+    expect(document.querySelector('[aria-live="polite"]')).toHaveTextContent('サインイン中…')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByLabelText('パスワード')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('ユーザー名')).toHaveAttribute('aria-invalid', 'true')
+    await waitFor(() => expect(screen.getByLabelText('パスワード')).toHaveFocus())
+    expect(screen.getByRole('button', { name: 'ログイン' })).toBeEnabled()
+  })
+
+  it('follows the theme setting: dark by default here, light with its subtitle when chosen', async () => {
+    stubServer({ devMode: false, login: { status: 200, code: '' } })
+    const { container, unmount } = render(<Login store={new AuthStore()} intro={new IntroStore()} />)
+    expect(container.querySelector('.ls-ui')).toHaveAttribute('data-theme', 'dark')
+    expect(screen.queryByText('直射日光の下でも読みやすく。')).not.toBeInTheDocument()
+    await screen.findByText(/pi-01/)
+    unmount()
+    setThemePref('light')
+    try {
+      const view = render(<Login store={new AuthStore()} intro={new IntroStore()} />)
+      expect(view.container.querySelector('.ls-ui')).toHaveAttribute('data-theme', 'light')
+      expect(screen.getByText('直射日光の下でも読みやすく。')).toBeInTheDocument()
+      await screen.findByText(/pi-01/)
+    } finally {
+      setThemePref('auto')
+    }
   })
 })
