@@ -26,6 +26,8 @@ rgcs-input = { workspace = true }
 rgcs-mission = { workspace = true }
 rgcs-ai = { workspace = true }
 rgcs-guard = { workspace = true }
+rgcs-env = { workspace = true }
+reqwest = { workspace = true, features = ["json", "rustls-tls"] }
 thiserror = { workspace = true }
 async-trait = "0.1"
 mavlink = { workspace = true }

@@ -73,12 +73,23 @@ async fn main() -> anyhow::Result<()> {
             timeout: Duration::from_millis(config.video_probe_timeout_ms),
             ..rgcs_video::Timings::default()
         });
+    // 外的要因: configured hosts (or `[env.endpoints]` overrides); keys from env vars only.
+    let env_endpoints = config
+        .env
+        .endpoints
+        .apply(rgcs_server::env_fetch::EnvEndpoints::real());
+    let env_keys = rgcs_server::env_fetch::EnvKeys::resolve(&config.env, &|name| std::env::var(name).ok());
+    let env = rgcs_server::env_hub::EnvHub::new(env_endpoints, env_keys, tx.clone(), state.guard.clone());
+    let state = state.with_env(env);
     state.gcs.set(gcs_sysid);
     // AI 緊急介入: stored settings (off by default), then subscribe before `guard_tx` moves.
     state
         .guard
         .apply_settings(rgcs_server::guard_settings::load(&state.store).await);
     state.guard.spawn(state.clone(), guard_tx.subscribe());
+    // Fetches nothing external until the guard is enabled with consent 2 (ruling 1).
+    state.env.load(&state.store).await;
+    state.env.spawn(state.clone(), guard_tx.subscribe());
     let channels = LinkChannels {
         events: events_tx,
         outgoing: outgoing_rx,

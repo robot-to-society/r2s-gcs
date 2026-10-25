@@ -343,6 +343,11 @@ impl GuardHub {
         st.ext = ctx;
     }
 
+    /// The external context in use (set by `EnvHub`).
+    pub fn context(&self) -> ExternalContext {
+        self.lock().ext
+    }
+
     /// An accepted operator command / guided target for `sysid` counts as takeover (ruling 5).
     pub fn note_operator_command(&self, sysid: SysId) {
         let now = self.now_ms();

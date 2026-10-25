@@ -100,6 +100,54 @@ pub struct Config {
     pub terrain_tiles: String,
     /// AI chat provider (spec 70 §4); absent → disabled.
     pub ai: rgcs_ai::AiConfig,
+    /// External-factor sources (外的要因): key env-var names and base-URL overrides.
+    pub env: EnvConfig,
+}
+
+/// `[env]`: API keys come only from the environment variables named here (never the file).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct EnvConfig {
+    pub open_meteo_api_key_env: String,
+    pub openweathermap_api_key_env: String,
+    /// `[env.endpoints]`: base-URL overrides (the live check points these at a local fake).
+    pub endpoints: EnvEndpointOverrides,
+}
+
+impl Default for EnvConfig {
+    fn default() -> Self {
+        Self {
+            open_meteo_api_key_env: "OPEN_METEO_API_KEY".into(),
+            openweathermap_api_key_env: "OWM_API_KEY".into(),
+            endpoints: EnvEndpointOverrides::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct EnvEndpointOverrides {
+    pub open_meteo: Option<String>,
+    pub open_meteo_customer: Option<String>,
+    pub jma: Option<String>,
+    pub swpc: Option<String>,
+    pub gfz: Option<String>,
+    pub owm: Option<String>,
+}
+
+impl EnvEndpointOverrides {
+    /// `base` with every configured override applied.
+    pub fn apply(&self, base: crate::env_fetch::EnvEndpoints) -> crate::env_fetch::EnvEndpoints {
+        let pick = |o: &Option<String>, d: String| o.clone().unwrap_or(d);
+        crate::env_fetch::EnvEndpoints {
+            open_meteo: pick(&self.open_meteo, base.open_meteo),
+            open_meteo_customer: pick(&self.open_meteo_customer, base.open_meteo_customer),
+            jma: pick(&self.jma, base.jma),
+            swpc: pick(&self.swpc, base.swpc),
+            gfz: pick(&self.gfz, base.gfz),
+            owm: pick(&self.owm, base.owm),
+        }
+    }
 }
 
 impl Default for Config {
@@ -119,6 +167,7 @@ impl Default for Config {
             basemaps: Vec::new(),
             terrain_tiles: DEFAULT_TERRAIN_TILES.into(),
             ai: rgcs_ai::AiConfig::default(),
+            env: EnvConfig::default(),
         }
     }
 }
@@ -247,6 +296,22 @@ mod tests {
         assert_eq!(c.ai.provider, rgcs_ai::ProviderKind::OpenaiCompat);
         assert_eq!(c.ai.model.as_deref(), Some("fake"));
         assert!(Config::parse("[ai]\nprovidr = 'none'").is_err());
+    }
+
+    #[test]
+    fn the_env_section_names_key_variables_and_overrides_endpoints() {
+        let d = Config::default().env;
+        assert_eq!(d.openweathermap_api_key_env, "OWM_API_KEY");
+        assert_eq!(d.open_meteo_api_key_env, "OPEN_METEO_API_KEY");
+        let c = Config::parse(
+            "[env]\nopenweathermap_api_key_env = 'MY_OWM'\n[env.endpoints]\nswpc = 'http://127.0.0.1:18111'",
+        )
+        .unwrap();
+        assert_eq!(c.env.openweathermap_api_key_env, "MY_OWM");
+        let ep = c.env.endpoints.apply(crate::env_fetch::EnvEndpoints::all("http://fake.local"));
+        assert_eq!(ep.swpc, "http://127.0.0.1:18111");
+        assert_eq!(ep.jma, "http://fake.local");
+        assert!(Config::parse("[env]\nopenweathermap_api_key = 'k'").is_err());
     }
 
     #[test]

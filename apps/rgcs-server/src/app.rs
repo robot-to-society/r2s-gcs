@@ -70,6 +70,8 @@ pub struct AppState {
     pub ai: crate::ai_hub::AiHub,
     /// AI 緊急介入 (experimental): per-vehicle detection, alerts, the guarded L2 / L3 action.
     pub guard: crate::guard_hub::GuardHub,
+    /// External factors (外的要因): fetchers, fusion, the guard's `ExternalContext`.
+    pub env: crate::env_hub::EnvHub,
     /// Per-component receive rates and sequence loss of the FC link (network view).
     pub link_stats: rgcs_mavlink::LinkStats,
     /// `config.toml` listen / link / role, for the network view.
@@ -123,6 +125,13 @@ impl AppState {
         let calib = crate::calibration::CalibHub::new(tx.clone(), store.clone());
         let messages = crate::message_log::MessageLog::spawn(store.clone(), tx.clone());
         let guard = crate::guard_hub::GuardHub::new(tx.clone());
+        // Offline until main installs the configured hub: nothing here can reach the internet.
+        let env = crate::env_hub::EnvHub::new(
+            crate::env_fetch::EnvEndpoints::offline(),
+            crate::env_fetch::EnvKeys::default(),
+            tx.clone(),
+            guard.clone(),
+        );
         let whep = WhepRelay::new(&crate::config::Config::default().whep_upstream)
             .expect("default whep upstream parses");
         Self {
@@ -145,6 +154,7 @@ impl AppState {
             sessions: crate::sessions::SessionRegistry::default(),
             ai: crate::ai_hub::AiHub::disabled(rgcs_ai::Unconfigured::Disabled),
             guard,
+            env,
             link_stats: rgcs_mavlink::LinkStats::default(),
             network: Arc::new(crate::network::NetworkConfig::default()),
             media: crate::media_probe::MediaProbe::default(),
@@ -179,7 +189,15 @@ impl AppState {
 
     /// Installs a guard hub (tests: one with a manual clock). Call before `GuardHub::spawn`.
     pub fn with_guard(self, guard: crate::guard_hub::GuardHub) -> Self {
-        Self { guard, ..self }
+        let env = self.env.clone().with_guard(guard.clone());
+        Self { guard, env, ..self }
+    }
+
+    /// Installs the external-factor hub (main: configured endpoints + keys; tests: the fake).
+    /// It is re-pointed at this state's guard hub.
+    pub fn with_env(self, env: crate::env_hub::EnvHub) -> Self {
+        let env = env.with_guard(self.guard.clone());
+        Self { env, ..self }
     }
 
     /// `config.toml` `log_fetch` resolved for this link (see `Config::log_fetch_enabled`).
@@ -386,6 +404,14 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         .route("/guard/alerts", get(crate::guard_api::alerts))
         .route("/guard/alerts/{id}/cancel", post(crate::guard_api::cancel))
         .route("/guard/decisions", get(crate::guard_api::decisions))
+        .route("/env/factors", get(crate::env_api::factors))
+        .route("/env/sources", get(crate::env_api::sources))
+        .route("/env/sources/{id}", axum::routing::put(crate::env_api::put_source))
+        .route("/env/sources/{id}/fetch", post(crate::env_api::fetch))
+        .route(
+            "/env/settings",
+            get(crate::env_api::get_settings).put(crate::env_api::put_settings),
+        )
         .route(
             "/vehicles/{sysid}/mission",
             get(mission_api::get_mission).put(mission_api::put_mission),
