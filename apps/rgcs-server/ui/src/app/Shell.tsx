@@ -4,8 +4,8 @@ import { CommandDock, ConfirmDialog, FleetConfirm, fleetTargets, localResult, us
 import { EMPTY_PENDING, cameraErrorText, clearPending, markPending, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
-import { GuardSettingsSheet } from '../features/guard'
-import { EnvSourcesSheet } from '../features/env'
+import { GuardBanner, GuardSettingsSheet, cancelGuardAlert, guardedVehicles, useGuardAlerts, useGuardEnabled, webAudioTone } from '../features/guard'
+import { EnvSourcesSheet, EnvSummaryChip, useEnvSummary } from '../features/env'
 import { DetailPanel, ackMessage } from '../features/detail'
 import { AiPanel, useAiChat } from '../features/ai'
 import { buttonAction, getGimbalProfile, releaseCommand, useGimbalJoystick } from '../features/gimbal-joystick'
@@ -56,7 +56,12 @@ interface Props {
 /** The signed-in application: header, stage with floating panels, footer. */
 export function Shell({ me, lang }: Props) {
   const dict = t(lang)
-  const { vehicles, link, log, cameras, videoSources, roi, deadman, missionProgress, missionTransfers, vehicleMissions, paramProgress, flightDrafts, logFetch, calibration, network } = useVehicles()
+  const { vehicles: liveVehicles, link, log, cameras, videoSources, roi, deadman, missionProgress, missionTransfers, vehicleMissions, paramProgress, flightDrafts, logFetch, calibration, network } = useVehicles()
+  // AI 緊急介入: a vehicle with an active alert gets the warn visual on the map marker and the list dot
+  const guard = useGuardAlerts()
+  const vehicles = useMemo(() => guardedVehicles(liveVehicles, guard.active), [liveVehicles, guard.active])
+  const tone = useMemo(() => webAudioTone(), [])
+  const envSummary = useEnvSummary()
   const [pending, setPending] = useState<PendingState>(EMPTY_PENDING)
   const [gimbalProfile, setGimbalProfile] = useState<GimbalInputProfile | null>(null)
   useEffect(() => {
@@ -77,6 +82,8 @@ export function Shell({ me, lang }: Props) {
   // 全機体映像: the vehicle in the camera cockpit (null = the grid)
   const [maxVideo, setMaxVideo] = useState<number | null>(null)
   const [modal, setModal] = useState<Modal>(NO_MODAL)
+  // re-read after the 実験機能 sheet (any modal) closes; off means no 外的要因 chip (ruling 1)
+  const guardOn = useGuardEnabled(modal.kind)
   // The command panel is a tool, not a dialog: open until closed, across commands and selections.
   const [commandsOpen, setCommandsOpen] = useState(false)
   // Fleet command being confirmed, with its targets fixed when the dialog opened.
@@ -136,6 +143,12 @@ export function Shell({ me, lang }: Props) {
     setView('ops')
     mapUiStore.update((s) => requestFocus(s, sysid))
   }
+  const cancelAlert = (id: string) =>
+    cancelGuardAlert(id).catch((e: unknown) => {
+      const sysid = guard.alerts.get(id)?.sysid ?? 0
+      vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'guard_cancel', ok: false, reason: `${dict.gaCancelFailed}: ${e instanceof Error ? e.message : String(e)}`, ts: Date.now() })
+      throw e
+    })
   const logDock = <LogDock log={log} names={names} dict={dict} clock={clock.slice(-5)} lead={view !== 'maint'} deadmanLost={deadman === 'lost'} onFocusVehicle={focusVehicle} />
   const ackAlert = (sysid: number, id: number) => {
     ackMessage(sysid, id)
@@ -275,6 +288,7 @@ export function Shell({ me, lang }: Props) {
             />
           )}
           {view === 'ops' && settings && <MapModeToggle mode={mapMode} available={settings.terrain_tiles !== null} dict={dict} onChange={saveMapMode} />}
+          {view === 'ops' && settings && guardOn && <EnvSummaryChip summary={envSummary} dict={dict} now={Date.now()} />}
           {view === 'ops' && settings && basemap && settings.basemaps.length > 1 && <BasemapPicker basemaps={settings.basemaps} current={basemap.id} dict={dict} onPick={saveBasemapChoice} className="float map-r top2" />}
           {view === 'maint' && (
             <>
@@ -317,6 +331,7 @@ export function Shell({ me, lang }: Props) {
             onFollow={(sysid) => mapUiStore.update((s) => (s.follow === sysid ? clearFollow(s) : setFollow(s, sysid)))}
             following={mapUi.follow}
             onFleet={view === 'ops' ? (command) => setFleet({ command, targets: fleetTargets(list) }) : undefined}
+            guarded={guard.active}
           />
           )}
           {mapUi.follow !== null && view === 'ops' && (
@@ -471,6 +486,8 @@ export function Shell({ me, lang }: Props) {
           {view !== 'mission' && view !== 'network' && logDock}
         </main>
       </div>
+      {/* one banner for every view, fixed to the viewport (the frame scrolls on a phone) */}
+      <GuardBanner alerts={guard.alerts} now={guard.now} dict={dict} tone={tone} onCancel={cancelAlert} onFocus={focusVehicle} />
     </div>
   )
 }

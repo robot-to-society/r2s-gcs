@@ -159,4 +159,25 @@ describe('Shell AI panel', () => {
     expect(container.querySelector('aside.ai')).toBeNull()
     expect(container.querySelector('aside.detail')).not.toBeNull()
   })
+  it('a guard_alert frame shows the banner and highlights the vehicle row', async () => {
+    const container = await signedInWithVehicle()
+    const alert = {
+      id: 'g-1', sysid: 1, vehicle_name: 'UAV-01', event: 'toilet_bowl', phase: 'alerting', level: 'l1', confidence: 1,
+      signs: { a: true, b: true, c: false, turn_deg: 300, radius_m: 2, compass_var: null }, deadline_ms: null, action_mode: null,
+      rc_stale: false, kp_raised: false, sound: true, text: 'UAV-01 トイレットボウルの兆候 — 手動で引き継いでください', ts: Date.now(),
+    }
+    await act(async () => {
+      FakeSocket.last!.onmessage?.({ data: JSON.stringify({ t: 'guard_alert', alert }) } as MessageEvent<string>)
+    })
+    const banner = container.querySelector('div.guard-banner.danger') as HTMLElement
+    expect(banner).not.toBeNull()
+    expect(banner).toHaveTextContent('UAV-01 トイレットボウルの兆候 — 手動で引き継いでください')
+    const row = container.querySelector('.vrow') as HTMLElement
+    expect(row).toHaveClass('guard')
+    expect(row.querySelector('[data-testid="dot"]')).toHaveClass('warn')
+    await act(async () => {
+      FakeSocket.last!.onmessage?.({ data: JSON.stringify({ t: 'guard_alert', alert: { ...alert, phase: 'cleared', sound: false } }) } as MessageEvent<string>)
+    })
+    expect(container.querySelector('div.guard-banner')).toBeNull()
+  })
 })

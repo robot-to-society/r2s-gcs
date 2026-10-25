@@ -48,3 +48,43 @@
 .consent-admin { margin-top: 0; align-items: flex-start; line-height: 1.5; }
 .consent-admin .ic { flex: none; margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) { .consent-item { transition: none; } }
+
+/* ---- AI 緊急介入 alert banner (Task 10): fixed to the viewport under the header, above every panel
+   and dialog, centred between the vehicle list and the right panel on a desktop ---- */
+.guard-stack { position: fixed; top: 72px; left: 50%; transform: translateX(-50%); z-index: 50; width: min(640px, max(480px, calc(100vw - 792px))); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.guard-banner { pointer-events: auto; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 14px 14px 14px 18px; border-radius: 16px; color: #fff; }
+.guard-banner.danger { background: linear-gradient(180deg, rgba(150, 22, 22, 0.97), rgba(112, 14, 14, 0.97)); border: 2px solid var(--danger); box-shadow: 0 0 0 4px rgba(255, 105, 97, 0.28), 0 18px 48px rgba(0, 0, 0, 0.6); animation: guard-pulse 1.2s ease-in-out infinite alternate; }
+.guard-banner.neutral { background: rgba(18, 23, 31, 0.96); border: 1px solid var(--line-hi); color: var(--text); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); }
+.guard-banner .guard-icon { flex: none; }
+.guard-banner.danger .guard-icon { color: #fff; }
+.guard-banner.neutral .guard-icon { color: var(--ok); }
+.guard-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.guard-headline { font-size: 17px; font-weight: 600; line-height: 1.4; }
+.guard-name { all: unset; cursor: pointer; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.guard-name:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 4px; }
+.guard-line { font-size: 15px; font-weight: 600; }
+.guard-line.num { font-size: 18px; }
+.guard-extra { font-size: 13px; opacity: 0.92; }
+.guard-sound-hint { font-style: italic; }
+.guard-actions { display: flex; align-items: center; gap: 8px; }
+.guard-banner .btn.btn-danger.guard-cancel { height: 52px; min-width: 132px; padding: 0 24px; font-size: 17px; font-weight: 700; border-radius: 14px; background: #fff; border-color: #fff; color: #9b1111; }
+.guard-banner .btn.btn-danger.guard-cancel:hover:not(:disabled) { background: #ffe3e1; border-color: #ffe3e1; }
+.guard-banner .btn.btn-danger.guard-cancel:disabled { opacity: 0.55; }
+.guard-banner .btn.btn-danger.guard-cancel:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.guard-mute { width: 44px; height: 44px; color: inherit; border-radius: 12px; background: rgba(255, 255, 255, 0.12); }
+.guard-mute.on { background: rgba(0, 0, 0, 0.35); }
+@keyframes guard-pulse { from { box-shadow: 0 0 0 3px rgba(255, 105, 97, 0.2), 0 18px 48px rgba(0, 0, 0, 0.6); } to { box-shadow: 0 0 0 9px rgba(255, 105, 97, 0.42), 0 18px 48px rgba(0, 0, 0, 0.6); } }
+@media (prefers-reduced-motion: reduce) { .guard-banner.danger { animation: none; } }
+/* phone / narrow window: full width, the cancel button below the text across the whole row */
+@media (max-width: 900px) {
+  .guard-stack { top: 64px; left: 8px; right: 8px; width: auto; transform: none; }
+  .guard-banner { grid-template-columns: auto 1fr; padding: 12px; gap: 10px 12px; }
+  .guard-actions { grid-column: 1 / -1; }
+  .guard-banner .btn.btn-danger.guard-cancel { flex: 1; height: 56px; }
+  .guard-actions .guard-mute { margin-left: auto; }
+  .guard-headline { font-size: 16px; }
+}
+
+/* the vehicle row of a guarded vehicle */
+.vrow.guard { border-color: var(--danger); background: var(--danger-tint); }
+.vrail .btn-icon.guard { box-shadow: inset 0 0 0 2px var(--danger); }

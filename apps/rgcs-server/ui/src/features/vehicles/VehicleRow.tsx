@@ -11,6 +11,8 @@ interface Props {
   readonly onSelect: (sysid: number) => void
   readonly onFollow?: (sysid: number) => void
   readonly following?: boolean
+  /** An active AI 緊急介入 alert on this vehicle. */
+  readonly guard?: boolean
 }
 
 function signalTop(v: VehicleState): string {
@@ -20,10 +22,10 @@ function signalTop(v: VehicleState): string {
 }
 
 /** Prototype `.vrow`: icon column, name row (dot, name, mode, following, battery), stat row. Double-click follows (memory: ops map). */
-export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, following = false }: Props) {
+export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, following = false, guard = false }: Props) {
   return (
     <div
-      className={selected ? 'vrow sel' : 'vrow'}
+      className={`vrow${selected ? ' sel' : ''}${guard ? ' guard' : ''}`}
       role="option"
       aria-selected={selected}
       tabIndex={0}

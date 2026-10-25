@@ -21,6 +21,8 @@ interface Props {
   readonly onToggleAside?: () => void
   /** Fleet pause / RTL (shown with two or more vehicles that have a link). */
   readonly onFleet?: (command: VehicleCommand) => void
+  /** Vehicles with an active AI 緊急介入 alert (danger highlight on the row). */
+  readonly guarded?: ReadonlySet<number>
 }
 
 const FLEET: readonly VehicleCommand[] = [{ cmd: 'pause' }, { cmd: 'rtl' }]
@@ -37,7 +39,7 @@ function FleetRow({ dict, onFleet }: { dict: Dict; onFleet: (c: VehicleCommand) 
   )
 }
 
-export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, following = null, aside = 'full', onToggleAside, onFleet }: Props) {
+export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, following = null, aside = 'full', onToggleAside, onFleet, guarded }: Props) {
   const [query, setQuery] = useState('')
   const sort = useVehicleSort()
   const shown = sortVehicles(vehicles.filter((v) => matches(v, query, dict)), sort)
@@ -49,7 +51,7 @@ export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, foll
             <IconMenu />
           </button>
           {vehicles.map((v) => (
-            <button key={v.sysid} type="button" className={`btn-icon${v.sysid === selected ? ' sel' : ''}`} title={v.name} aria-label={v.name} onClick={() => onSelect(v.sysid)}>
+            <button key={v.sysid} type="button" className={`btn-icon${v.sysid === selected ? ' sel' : ''}${guarded?.has(v.sysid) ? ' guard' : ''}`} title={v.name} aria-label={v.name} onClick={() => onSelect(v.sysid)}>
               <KindIcon kind={v.kind} size={20} />
               <span className={dotClass(v)} style={{ width: 7, height: 7 }} />
             </button>
@@ -85,7 +87,7 @@ export function VehicleList({ vehicles, selected, dict, onSelect, onFollow, foll
       <div className="vlist-body" role="listbox">
         {shown.length === 0 && <div className="empty">{dict.noVehicles}</div>}
         {shown.map((v) => (
-          <VehicleRow key={v.sysid} vehicle={v} selected={v.sysid === selected} dict={dict} onSelect={onSelect} onFollow={onFollow} following={following === v.sysid} />
+          <VehicleRow key={v.sysid} vehicle={v} selected={v.sysid === selected} dict={dict} onSelect={onSelect} onFollow={onFollow} following={following === v.sysid} guard={guarded?.has(v.sysid) ?? false} />
         ))}
       </div>
     </aside>
