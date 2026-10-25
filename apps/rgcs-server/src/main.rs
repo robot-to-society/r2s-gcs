@@ -74,6 +74,11 @@ async fn main() -> anyhow::Result<()> {
             ..rgcs_video::Timings::default()
         });
     state.gcs.set(gcs_sysid);
+    // AI 緊急介入: stored settings (off by default), then subscribe before `guard_tx` moves.
+    state
+        .guard
+        .apply_settings(rgcs_server::guard_settings::load(&state.store).await);
+    state.guard.spawn(state.clone(), guard_tx.subscribe());
     let channels = LinkChannels {
         events: events_tx,
         outgoing: outgoing_rx,

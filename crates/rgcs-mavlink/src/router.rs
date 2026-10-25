@@ -183,7 +183,7 @@ impl Router {
                 });
             }
             slot.state = next.clone();
-            let _ = slot.tx.send(next);
+            slot.tx.send_replace(next);
             events.push(RouterEvent::Updated(sysid));
         }
         events
@@ -223,7 +223,7 @@ impl Router {
                     ..slot.state.clone()
                 };
                 slot.state = next.clone();
-                let _ = slot.tx.send(next);
+                slot.tx.send_replace(next);
                 events.push(RouterEvent::Updated(*sysid));
             }
         }
@@ -555,6 +555,18 @@ mod tests {
         assert_eq!(rx.borrow().sysid, 1);
         assert_eq!(r.last_seen(1).get(&74), Some(&50));
         assert_eq!(r.last_seen(1).get(&0), Some(&0));
+    }
+
+    #[test]
+    fn a_late_subscriber_sees_the_current_state() {
+        // Updates made while nobody watches must still land in the channel (the AI guard
+        // subscribes on a vehicle's first guard frame, long after discovery).
+        let mut r = Router::default();
+        r.on_message(&header(1), &fc_heartbeat(), clock(0));
+        r.tick(clock(11_000));
+        let rx = r.subscribe(1).unwrap();
+        assert_eq!(rx.borrow().link, LinkStatus::Lost);
+        assert_eq!(*rx.borrow(), *r.state(1).unwrap());
     }
 
     #[test]

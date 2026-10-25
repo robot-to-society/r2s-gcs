@@ -234,6 +234,8 @@ impl Attempt<'_> {
             .send(queued(v, self.cmd.clone(), done_tx))
             .await
             .ok()?;
+        // An accepted operator send is a takeover for the AI guard (plan ruling 5).
+        self.app.guard.note_operator_command(self.sysid);
         let job = Finish {
             app: self.app.clone(),
             operator: self.operator.to_string(),

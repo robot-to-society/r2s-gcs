@@ -2015,6 +2015,7 @@ dependencies = [
  "rgcs-ai",
  "rgcs-camera",
  "rgcs-core",
+ "rgcs-guard",
  "rgcs-input",
  "rgcs-mavlink",
  "rgcs-mission",

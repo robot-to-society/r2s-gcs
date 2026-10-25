@@ -134,6 +134,8 @@ pub async fn guided(
         );
     }
     app.mark_guided_confirmed(sysid);
+    // A guided target sent by the operator is a takeover for the AI guard (plan ruling 5).
+    app.guard.note_operator_command(sysid);
     let id = app.next_command_id();
     audit(&app, &op.username, sysid, &body, "ok", None).await;
     let _ = app.tx.send(ServerMessage::CommandResult(CommandResult {

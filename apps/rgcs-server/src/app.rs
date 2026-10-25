@@ -68,6 +68,8 @@ pub struct AppState {
     pub sessions: crate::sessions::SessionRegistry,
     /// AI chat: conversations, rate limit, budget and proposals (`config.toml [ai]`).
     pub ai: crate::ai_hub::AiHub,
+    /// AI 緊急介入 (experimental): per-vehicle detection, alerts, the guarded L2 / L3 action.
+    pub guard: crate::guard_hub::GuardHub,
     /// Per-component receive rates and sequence loss of the FC link (network view).
     pub link_stats: rgcs_mavlink::LinkStats,
     /// `config.toml` listen / link / role, for the network view.
@@ -120,6 +122,7 @@ impl AppState {
         let logs = crate::logs::LogHub::new(tx.clone(), true);
         let calib = crate::calibration::CalibHub::new(tx.clone(), store.clone());
         let messages = crate::message_log::MessageLog::spawn(store.clone(), tx.clone());
+        let guard = crate::guard_hub::GuardHub::new(tx.clone());
         let whep = WhepRelay::new(&crate::config::Config::default().whep_upstream)
             .expect("default whep upstream parses");
         Self {
@@ -141,6 +144,7 @@ impl AppState {
             messages,
             sessions: crate::sessions::SessionRegistry::default(),
             ai: crate::ai_hub::AiHub::disabled(rgcs_ai::Unconfigured::Disabled),
+            guard,
             link_stats: rgcs_mavlink::LinkStats::default(),
             network: Arc::new(crate::network::NetworkConfig::default()),
             media: crate::media_probe::MediaProbe::default(),
@@ -171,6 +175,11 @@ impl AppState {
     /// Installs the AI hub built from `config.toml [ai]` (or a test fake).
     pub fn with_ai(self, ai: crate::ai_hub::AiHub) -> Self {
         Self { ai, ..self }
+    }
+
+    /// Installs a guard hub (tests: one with a manual clock). Call before `GuardHub::spawn`.
+    pub fn with_guard(self, guard: crate::guard_hub::GuardHub) -> Self {
+        Self { guard, ..self }
     }
 
     /// `config.toml` `log_fetch` resolved for this link (see `Config::log_fetch_enabled`).
@@ -370,6 +379,13 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         .route("/ai/chat", post(crate::ai_api::chat))
         .route("/ai/proposals/{id}/dismiss", post(crate::ai_api::dismiss))
         .route("/vehicles/{sysid}/guided", post(guided::guided))
+        .route(
+            "/guard/settings",
+            get(crate::guard_api::get_settings).put(crate::guard_api::put_settings),
+        )
+        .route("/guard/alerts", get(crate::guard_api::alerts))
+        .route("/guard/alerts/{id}/cancel", post(crate::guard_api::cancel))
+        .route("/guard/decisions", get(crate::guard_api::decisions))
         .route(
             "/vehicles/{sysid}/mission",
             get(mission_api::get_mission).put(mission_api::put_mission),

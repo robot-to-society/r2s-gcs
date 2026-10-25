@@ -235,6 +235,12 @@ impl FlightTracker {
         }
     }
 
+    /// The open flight of an armed vehicle (guard decision records, ruling 8).
+    pub fn open_flight(&self, sysid: SysId) -> Option<i64> {
+        let tracks = self.tracks.lock().unwrap_or_else(|e| e.into_inner());
+        tracks.get(&sysid).filter(|t| t.armed).and_then(|t| t.open)
+    }
+
     fn set_open(&self, sysid: SysId, id: Option<i64>) {
         let mut tracks = self.tracks.lock().unwrap_or_else(|e| e.into_inner());
         tracks.entry(sysid).or_default().open = id;
@@ -376,6 +382,17 @@ mod tests {
             }]
         ));
         assert!(step(&mut tracks, 61_000, &[state(false)]).is_empty());
+    }
+
+    #[tokio::test]
+    async fn open_flight_is_only_the_armed_vehicles_draft() {
+        let (tx, _rx) = broadcast::channel(4);
+        let tracker = FlightTracker::new(Store::open_memory().await.unwrap(), tx);
+        assert_eq!(tracker.open_flight(1), None);
+        *tracker.tracks.lock().unwrap() = tracks_with_open(5, 100);
+        assert_eq!(tracker.open_flight(1), None, "landed, waiting for a re-ARM");
+        tracker.tracks.lock().unwrap().get_mut(&1).unwrap().armed = true;
+        assert_eq!(tracker.open_flight(1), Some(5));
     }
 
     #[test]
