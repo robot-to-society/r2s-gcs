@@ -113,6 +113,27 @@ describe('AiPanel', () => {
     expect(chat.reset).toHaveBeenCalled()
   })
 
+  it('offers 新しい会話 after any error in a running conversation, keeping the input open', () => {
+    const items: ChatItem[] = [
+      { kind: 'user', id: 'u0', text: 'hi', ts: at },
+      { kind: 'error', id: 'e1', code: 'ai_provider_error', message: 'AI provider error (HTTP 400)', ts: at },
+    ]
+    const { chat } = setup(fakeChat({ conversationId: 'c1', items }))
+    expect(screen.getByText('うまく続かない場合は新しい会話を始めてください')).toBeInTheDocument()
+    expect(input()).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: '新しい会話' }))
+    expect(chat.reset).toHaveBeenCalled()
+  })
+
+  it('does not offer 新しい会話 after an error before any conversation, or once answered', () => {
+    const error: ChatItem = { kind: 'error', id: 'e1', code: 'ai_timeout', message: 'x', ts: at }
+    const { rerender } = setup(fakeChat({ items: [error] }))
+    expect(screen.queryByRole('button', { name: '新しい会話' })).toBeNull()
+    const answered: ChatItem[] = [error, { kind: 'bot', id: 'b2', text: 'ok', ts: at, truncated: false }]
+    rerender(<AiPanel vehicles={[v(3)]} target={3} onTarget={() => {}} chat={fakeChat({ conversationId: 'c1', items: answered })} dict={dict} onExecute={() => {}} onClose={() => {}} />)
+    expect(screen.queryByRole('button', { name: '新しい会話' })).toBeNull()
+  })
+
   it('scrolls the message list to the bottom on a new item', () => {
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(640)
     const { container, rerender } = setup()

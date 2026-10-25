@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use rgcs_ai::agent::{run_turn, ToolHost, TurnInput, TRUNCATED_REPLY};
+use rgcs_ai::agent::{run_turn, ToolHost, TurnInput, EMPTY_REPLY, TRUNCATED_REPLY};
 use rgcs_ai::llm::{AiError, Block, LlmResponse, Role, Stop, Turn, Usage};
 use rgcs_ai::testing::ScriptedLlm;
 use rgcs_ai::{Limits, ToolCall, ToolError};
@@ -358,6 +358,37 @@ async fn long_results_are_capped_and_stay_valid_json() {
     let content: Value = serde_json::from_str(&results[0].1).unwrap();
     assert_eq!(content["truncated"], json!(true));
     assert!(content["partial"].as_str().unwrap().starts_with("{\"blob\""));
+}
+
+#[tokio::test]
+async fn an_empty_reply_after_tool_results_is_never_stored_empty() {
+    let llm = ScriptedLlm::new(vec![
+        reply(vec![tool_use("t1", "list_vehicles", json!({}))], Stop::ToolUse),
+        reply(vec![], Stop::EndTurn),
+    ]);
+    let out = run(&llm, &RecordingHost::default()).await.unwrap();
+    assert_eq!(EMPTY_REPLY, "(応答が空でした)");
+    assert_eq!(out.reply, EMPTY_REPLY);
+    assert_eq!(
+        out.new_turns.last().map(|t| t.blocks.clone()),
+        Some(vec![Block::Text(EMPTY_REPLY.into())])
+    );
+    assert!(out.new_turns.iter().all(|t| !t.blocks.is_empty()));
+}
+
+#[tokio::test]
+async fn empty_text_blocks_are_dropped_and_opaque_only_replies_get_the_fixed_text() {
+    let thinking = Block::Opaque(json!({"type": "thinking", "signature": "s"}));
+    let llm = ScriptedLlm::new(vec![reply(
+        vec![thinking.clone(), Block::Text(String::new())],
+        Stop::EndTurn,
+    )]);
+    let out = run(&llm, &RecordingHost::default()).await.unwrap();
+    assert_eq!(out.reply, EMPTY_REPLY);
+    assert_eq!(
+        out.new_turns[1].blocks,
+        vec![thinking, Block::Text(EMPTY_REPLY.into())]
+    );
 }
 
 fn assert_no_dangling_tool_use(turns: &[Turn]) {

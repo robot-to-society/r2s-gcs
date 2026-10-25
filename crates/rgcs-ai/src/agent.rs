@@ -23,6 +23,9 @@ use crate::tools::{parse_call, tool_specs, ToolCall, ToolError, ToolSpec};
 
 /// The reply when the iteration or token cap ends the loop without a text answer.
 pub const TRUNCATED_REPLY: &str = "上限に達したため途中で終了しました";
+/// Stored and shown in place of an assistant reply with no text (`content: []`, `""`): an
+/// empty assistant message in the history makes every later Anthropic request a 400.
+pub const EMPTY_REPLY: &str = "(応答が空でした)";
 /// Longest tool-result text sent to the model (chars).
 pub const MAX_TOOL_RESULT_CHARS: usize = 8_000;
 /// Longest tool name kept in a `ToolRunRecord` (the model may send anything).
@@ -92,7 +95,7 @@ pub async fn run_turn(
         let stop = resp.stop;
         turns.push(Turn {
             role: Role::Assistant,
-            blocks: resp.blocks,
+            blocks: storable(resp.blocks, uses.is_empty()),
         });
         if uses.is_empty() {
             return Ok(finish(
@@ -146,6 +149,20 @@ fn tool_uses(blocks: &[Block]) -> Vec<Use> {
             _ => None,
         })
         .collect()
+}
+
+/// The response blocks as they may be stored: blank text blocks dropped (the API refuses
+/// them in history) and, for a final answer with no text left, [`EMPTY_REPLY`] appended.
+fn storable(blocks: Vec<Block>, is_answer: bool) -> Vec<Block> {
+    let kept: Vec<Block> = blocks
+        .into_iter()
+        .filter(|b| !matches!(b, Block::Text(t) if t.trim().is_empty()))
+        .collect();
+    let has_text = kept.iter().any(|b| matches!(b, Block::Text(_)));
+    if !is_answer || has_text {
+        return kept;
+    }
+    kept.into_iter().chain([Block::Text(EMPTY_REPLY.into())]).collect()
 }
 
 fn finish(new_turns: Vec<Turn>, runs: Vec<ToolRunRecord>, usage: Usage, truncated: bool) -> TurnOutput {

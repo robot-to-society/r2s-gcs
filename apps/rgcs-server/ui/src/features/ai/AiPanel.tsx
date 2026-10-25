@@ -62,6 +62,11 @@ function Composer({ locked, busy, dict, onSend }: { locked: boolean; busy: boole
   )
 }
 
+/** The last answer of a running conversation was an error: the stored history may be what fails, so offer a fresh one. */
+function stuck(state: AiChat['state']): boolean {
+  return state.conversationId !== null && state.items.at(-1)?.kind === 'error'
+}
+
 export function AiPanel({ vehicles, target, onTarget, chat, dict, onExecute, onClose }: AiPanelProps) {
   const { state, status } = chat
   const now = useNow()
@@ -95,9 +100,9 @@ export function AiPanel({ vehicles, target, onTarget, chat, dict, onExecute, onC
           <ChatItemView key={item.id} item={item} names={names} dict={dict} now={now} onExecute={onExecute} onDismiss={chat.dismiss} />
         ))}
         {state.pending && <ThinkingRow dict={dict} />}
-        {state.full && (
+        {(state.full || stuck(state)) && (
           <div className="inset ai-notice row">
-            <span className="grow">{dict.aiFull}</span>
+            <span className="grow">{state.full ? dict.aiFull : dict.aiStuck}</span>
             <button type="button" className="btn btn-sm" onClick={chat.reset}>
               {dict.aiNewChat}
             </button>
