@@ -98,6 +98,8 @@ pub struct Config {
     pub basemaps: Vec<Basemap>,
     /// Terrarium DEM tile template for the 3D map; `""` turns 3D off (offline sites).
     pub terrain_tiles: String,
+    /// AI chat provider (spec 70 §4); absent → disabled.
+    pub ai: rgcs_ai::AiConfig,
 }
 
 impl Default for Config {
@@ -116,6 +118,7 @@ impl Default for Config {
             log_fetch: LogFetch::Auto,
             basemaps: Vec::new(),
             terrain_tiles: DEFAULT_TERRAIN_TILES.into(),
+            ai: rgcs_ai::AiConfig::default(),
         }
     }
 }
@@ -232,6 +235,18 @@ mod tests {
         assert_eq!(d.video_probe_timeout_ms, 2000);
         let c = Config::parse("whep_upstream = 'http://10.0.0.2:8889/cam/whep'").unwrap();
         assert_eq!(c.whep_upstream, "http://10.0.0.2:8889/cam/whep");
+    }
+
+    #[test]
+    fn the_ai_section_is_optional_and_parsed() {
+        assert_eq!(Config::default().ai.provider, rgcs_ai::ProviderKind::None);
+        let c = Config::parse(
+            "[ai]\nprovider = 'openai_compat'\nbase_url = 'http://127.0.0.1:18110/v1'\nmodel = 'fake'",
+        )
+        .unwrap();
+        assert_eq!(c.ai.provider, rgcs_ai::ProviderKind::OpenaiCompat);
+        assert_eq!(c.ai.model.as_deref(), Some("fake"));
+        assert!(Config::parse("[ai]\nprovidr = 'none'").is_err());
     }
 
     #[test]

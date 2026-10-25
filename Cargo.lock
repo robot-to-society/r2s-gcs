@@ -2004,6 +2004,7 @@ dependencies = [
  "mime_guess",
  "printpdf",
  "regex",
+ "rgcs-ai",
  "rgcs-camera",
  "rgcs-core",
  "rgcs-input",

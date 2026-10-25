@@ -24,6 +24,7 @@ rgcs-camera = { workspace = true }
 rgcs-video = { workspace = true }
 rgcs-input = { workspace = true }
 rgcs-mission = { workspace = true }
+rgcs-ai = { workspace = true }
 thiserror = { workspace = true }
 async-trait = "0.1"
 mavlink = { workspace = true }
@@ -53,6 +54,7 @@ embed-ui = []
 sim = ["rgcs-camera/sim"]
 
 [dev-dependencies]
+rgcs-ai = { workspace = true, features = ["fake"] }
 regex = "1"
 uuid = { workspace = true }
 rgcs-server = { path = ".", features = ["sim"] }

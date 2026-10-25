@@ -51,6 +51,16 @@ fn entry_of(r: &sqlx::sqlite::SqliteRow) -> Result<LogEntry> {
     })
 }
 
+/// `text` with the LIKE wildcards and the escape character itself escaped by `\\`.
+fn like_escaped(text: &str) -> String {
+    text.chars()
+        .flat_map(|c| match c {
+            '%' | '_' | '\\' => vec!['\\', c],
+            _ => vec![c],
+        })
+        .collect()
+}
+
 impl Store {
     pub async fn record_message(&self, m: &NewMessage) -> Result<LogEntry> {
         let res = sqlx::query(
@@ -92,6 +102,28 @@ impl Store {
         .bind(sysid.map(i64::from))
         .bind(since)
         .bind(i64::from(filter == SeverityFilter::Alerts))
+        .bind(i64::from(limit))
+        .fetch_all(&self.pool)
+        .await?;
+        rows.iter().map(entry_of).collect()
+    }
+
+    /// Rows whose text contains `query` (case-insensitive for ASCII; `%`, `_` and `\\` match
+    /// literally), newest first; `since` keeps rows with `ts >= since` (unix ms).
+    pub async fn search_messages(
+        &self,
+        query: &str,
+        sysid: Option<SysId>,
+        since: Option<i64>,
+        limit: u32,
+    ) -> Result<Vec<LogEntry>> {
+        let rows = sqlx::query(
+            "SELECT * FROM messages WHERE text LIKE ?1 ESCAPE '\\' AND (?2 IS NULL OR sysid = ?2) \
+             AND (?3 IS NULL OR ts >= ?3) ORDER BY id DESC LIMIT ?4",
+        )
+        .bind(format!("%{}%", like_escaped(query)))
+        .bind(sysid.map(i64::from))
+        .bind(since)
         .bind(i64::from(limit))
         .fetch_all(&self.pool)
         .await?;
@@ -199,6 +231,41 @@ mod tests {
             s.messages(None, None, SeverityFilter::All, 1).await.unwrap()[0].id,
             b.id
         );
+    }
+
+    #[tokio::test]
+    async fn search_is_a_case_insensitive_escaped_substring() {
+        let s = Store::open_memory().await.unwrap();
+        let seed = [
+            (Some(3), 1_000, "PreArm: GPS not healthy"),
+            (Some(1), 2_000, "EKF variance"),
+            (None, 3_000, "100%_done"),
+        ];
+        for (sysid, ts, text) in seed {
+            let m = NewMessage {
+                ts,
+                ..msg(sysid, MessageSource::Vehicle, Severity::Warn, text)
+            };
+            s.record_message(&m).await.unwrap();
+        }
+        let texts = |rows: Vec<rgcs_core::LogEntry>| rows.into_iter().map(|e| e.text).collect::<Vec<_>>();
+        assert_eq!(
+            texts(s.search_messages("prearm", None, None, 30).await.unwrap()),
+            vec!["PreArm: GPS not healthy"]
+        );
+        assert_eq!(texts(s.search_messages("%", None, None, 30).await.unwrap()), vec!["100%_done"]);
+        assert_eq!(texts(s.search_messages("_", None, None, 30).await.unwrap()), vec!["100%_done"]);
+        assert!(s.search_messages("\\", None, None, 30).await.unwrap().is_empty());
+        assert_eq!(
+            texts(s.search_messages("e", Some(1), None, 30).await.unwrap()),
+            vec!["EKF variance"]
+        );
+        assert_eq!(
+            texts(s.search_messages("e", None, Some(2_000), 30).await.unwrap()),
+            vec!["100%_done", "EKF variance"],
+            "newest first, ts >= since"
+        );
+        assert_eq!(s.search_messages("e", None, None, 1).await.unwrap().len(), 1);
     }
 
     #[tokio::test]

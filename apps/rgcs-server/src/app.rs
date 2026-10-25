@@ -66,6 +66,8 @@ pub struct AppState {
     pub messages: crate::message_log::MessageLog,
     /// Live WebSocket sessions (network view client list).
     pub sessions: crate::sessions::SessionRegistry,
+    /// AI chat: conversations, rate limit, budget and proposals (`config.toml [ai]`).
+    pub ai: crate::ai_hub::AiHub,
     /// Per-component receive rates and sequence loss of the FC link (network view).
     pub link_stats: rgcs_mavlink::LinkStats,
     /// `config.toml` listen / link / role, for the network view.
@@ -138,6 +140,7 @@ impl AppState {
             calib,
             messages,
             sessions: crate::sessions::SessionRegistry::default(),
+            ai: crate::ai_hub::AiHub::disabled(rgcs_ai::Unconfigured::Disabled),
             link_stats: rgcs_mavlink::LinkStats::default(),
             network: Arc::new(crate::network::NetworkConfig::default()),
             media: crate::media_probe::MediaProbe::default(),
@@ -163,6 +166,11 @@ impl AppState {
 
     pub fn with_outgoing(self, outgoing: mpsc::Sender<Outgoing>) -> Self {
         Self { outgoing, ..self }
+    }
+
+    /// Installs the AI hub built from `config.toml [ai]` (or a test fake).
+    pub fn with_ai(self, ai: crate::ai_hub::AiHub) -> Self {
+        Self { ai, ..self }
     }
 
     /// `config.toml` `log_fetch` resolved for this link (see `Config::log_fetch_enabled`).
