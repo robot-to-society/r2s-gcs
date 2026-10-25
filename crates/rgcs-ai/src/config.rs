@@ -124,6 +124,21 @@ pub struct ResolvedAi {
     pub limits: Limits,
 }
 
+impl ResolvedAi {
+    /// `url` reduced to scheme + host + port for the log: userinfo (`user:key@`), path,
+    /// query (`?api-key=`) and fragment can carry credentials and are dropped.
+    pub fn loggable_url(url: &str) -> String {
+        let (scheme, rest) = url.split_once("://").map_or(("", url), |(s, r)| (s, r));
+        let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+        let host = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
+        if scheme.is_empty() {
+            host.to_string()
+        } else {
+            format!("{scheme}://{host}")
+        }
+    }
+}
+
 impl AiConfig {
     /// Resolve defaults and the key. `env` stands in for `std::env::var` (tests pass a stub).
     pub fn resolve_with(&self, env: &dyn Fn(&str) -> Option<String>) -> Result<ResolvedAi, Unconfigured> {
@@ -262,6 +277,19 @@ mod tests {
         assert!(text.contains("Secret(***)"), "{text}");
         let r = cfg.resolve_with(&no_env).unwrap();
         assert!(!format!("{r:?}").contains("sk-test-123"));
+    }
+
+    #[test]
+    fn loggable_url_keeps_only_scheme_host_and_port() {
+        let cases = [
+            ("https://user:sk-secret@proxy.example:8443/v1?api-key=sk-q#f", "https://proxy.example:8443"),
+            ("http://127.0.0.1:11434/v1", "http://127.0.0.1:11434"),
+            ("https://api.anthropic.com", "https://api.anthropic.com"),
+            ("host-only?key=sk-q", "host-only"),
+        ];
+        for (url, want) in cases {
+            assert_eq!(ResolvedAi::loggable_url(url), want, "{url}");
+        }
     }
 
     #[test]

@@ -32,7 +32,7 @@ pub fn build_ai(config: &AiConfig) -> AiHub {
 }
 
 /// [`build_ai`] with an injectable environment (tests never read the real one). Logs the
-/// provider, model and base URL only, never the key.
+/// provider, model and the base URL's scheme + host + port only, never the key.
 pub fn build_ai_with(config: &AiConfig, env: &dyn Fn(&str) -> Option<String>) -> AiHub {
     let resolved = match config.resolve_with(env) {
         Ok(r) => r,
@@ -44,7 +44,7 @@ pub fn build_ai_with(config: &AiConfig, env: &dyn Fn(&str) -> Option<String>) ->
     tracing::info!(
         provider = ?resolved.kind,
         model = %resolved.model,
-        base_url = %resolved.base_url,
+        base_url = %rgcs_ai::ResolvedAi::loggable_url(&resolved.base_url),
         "AI chat enabled"
     );
     let provider = match resolved.kind {
