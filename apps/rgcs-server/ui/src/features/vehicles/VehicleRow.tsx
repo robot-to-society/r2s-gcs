@@ -1,9 +1,10 @@
 import type { Dict } from '../../shared/i18n'
 import { KindIcon } from '../../shared/ui/KindIcon'
 import type { VehicleState } from '../../shared/api/types'
-import { IconAltitude, IconFollow, IconHouse, IconNav, IconPower, IconSignal, IconSpeed } from '../../shared/ui/icons'
-import { altText, battText, dotClass, homeDistText, modeLabel, speedText } from './format'
+import { IconAltitude, IconFollow, IconHouse, IconNav, IconSignal, IconSpeed } from '../../shared/ui/icons'
+import { altText, battText, dotClass, homeDistText, speedText } from './format'
 import { BattBar } from './BattBar'
+import { ModeBadge } from './ModeBadge'
 
 interface Props {
   readonly vehicle: VehicleState
@@ -48,14 +49,7 @@ export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, fol
       <div className="row">
         <span className={dotClass(v)} data-testid="dot" />
         <span className="nm">{v.name}</span>
-        <span className={v.armed ? 'badge armed' : 'badge'} title={`${modeLabel(v, dict)} · ${v.armed ? dict.armedState : dict.disarmedState}`}>
-          {v.armed && (
-            <span className="arm-mark" role="img" aria-label={dict.armedState}>
-              <IconPower size={11} />
-            </span>
-          )}
-          {modeLabel(v, dict)}
-        </span>
+        <ModeBadge v={v} dict={dict} />
         {following && (
           <span className="follow-mark" title={dict.following} aria-label={dict.following} role="img">
             <IconFollow />

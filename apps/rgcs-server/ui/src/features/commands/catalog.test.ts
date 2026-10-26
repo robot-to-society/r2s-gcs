@@ -23,12 +23,14 @@ describe('command catalog', () => {
     expect(catalogGroups().map((g) => g.group)).toEqual(['flight', 'move', 'mode', 'payload'])
   })
 
-  it('ARM is disabled when armed, DISARM when disarmed, camera always in P1', () => {
+  it('ARM is disabled when armed, DISARM when disarmed; camera opens its settings and nothing is dead (UX-26)', () => {
     const by = (n: string) => CATALOG.find((i) => i.name === n)!
     expect(by('arm').enabled(v(true))).toBe(false)
     expect(by('arm').enabled(v(false))).toBe(true)
     expect(by('disarm').enabled(v(false))).toBe(false)
-    expect(by('camera').enabled(v(false))).toBe(false)
+    expect(by('camera').enabled(v(false))).toBe(true)
+    expect(by('camera').opens).toBe('camera')
+    expect(CATALOG.some((i) => i.name === 'other')).toBe(false)
   })
 
   it('builds parameterised commands in the real serde shape', () => {
@@ -39,9 +41,9 @@ describe('command catalog', () => {
     expect(commandName({ cmd: 'change_speed', args: { mps: 3 } })).toBe('change_speed')
   })
 
-  it('takeoff leads the flight group, needs an armed vehicle and builds the serde shape', () => {
+  it('arm / disarm lead the flight group before takeoff (UX-27); takeoff needs an armed vehicle and builds the serde shape', () => {
     const by = (n: string) => CATALOG.find((i) => i.name === n)!
-    expect(catalogGroups()[0]!.items[0]!.name).toBe('takeoff')
+    expect(catalogGroups()[0]!.items.slice(0, 3).map((i) => i.name)).toEqual(['arm', 'disarm', 'takeoff'])
     expect(by('takeoff').enabled(v(false))).toBe(false)
     expect(by('takeoff').enabled(v(true))).toBe(true)
     expect(by('takeoff').build!({ value: 25 })).toEqual({ cmd: 'takeoff', args: { alt_rel: 25 } })

@@ -38,6 +38,14 @@ describe('CommandsSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Guided移動' }))
     expect(onOpen).toHaveBeenCalledWith('guided')
   })
+  it('カメラ・ジンバル opens the camera settings (UX-26)', () => {
+    const onOpen = vi.fn()
+    render(<CommandsSheet vehicle={v(true)} onPick={() => {}} onOpen={onOpen} onClose={() => {}} dict={t('ja')} />)
+    fireEvent.click(screen.getByRole('button', { name: 'カメラ・ジンバル' }))
+    expect(onOpen).toHaveBeenCalledWith('camera')
+    expect(screen.queryByRole('button', { name: 'その他の対応コマンド' })).toBeNull()
+  })
+
   it('quick mode chips switch mode in one click and mark the current one', () => {
     const onPick = vi.fn()
     render(<CommandsSheet vehicle={v(true)} onPick={onPick} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
@@ -80,7 +88,8 @@ describe('CommandsSheet', () => {
     const { rerender } = render(<CommandsSheet vehicle={v(false)} onPick={onPick} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
     const btn = screen.getByRole('button', { name: '離陸' })
     expect(btn).toBeDisabled()
-    expect(btn).toHaveAttribute('title', 'アームしてから')
+    // the reason is on screen, not only in a hover title (UX-27)
+    expect(screen.getByText('アーム後に使用できます')).toBeInTheDocument()
     rerender(<CommandsSheet vehicle={{ ...v(true), alt_rel: 12 }} onPick={onPick} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
     fireEvent.click(screen.getByRole('button', { name: '離陸' }))
     expect(screen.getByLabelText('離陸')).toHaveValue('30')

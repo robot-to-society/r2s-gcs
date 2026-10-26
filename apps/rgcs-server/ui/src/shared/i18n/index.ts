@@ -23,6 +23,7 @@ import { aiEn, aiJa } from './ai'
 import { guardEn, guardJa } from './guard'
 import { guardAlertEn, guardAlertJa } from './guardAlert'
 import { uxEn, uxJa } from './ux'
+import { inputFnsEn, inputFnsJa } from './inputFns'
 
 export type Lang = 'ja' | 'en'
 
@@ -62,7 +63,7 @@ const baseJa = {
   cmd_rtl: '帰還',
   cmd_land: '着陸',
   cmd_takeoff: '離陸',
-  armFirst: 'アームしてから',
+  armFirst: 'アーム後に使用できます',
   takeoffToTkoffAlt: 'TKOFF_ALT まで上昇',
   vtolUnknown: '機体の種類(VTOL)を確認中です。数秒後にもう一度',
   cmd_pause: '一時停止',
@@ -347,7 +348,7 @@ const baseJa = {
   cmd_param_write: 'パラメータ書込',
 } as const
 
-const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa, ...plannerJa, ...calibJa, ...briefingJa, ...surveyJa, ...instrumentsJa, ...wpGoJa, ...inspRateJa, ...roiJa, ...cameraMediaJa, ...mavlinkCameraJa, ...cameraVideoJa, ...missionItemsJa, ...networkJa, ...aiJa, ...loginJa, ...guardJa, ...guardAlertJa, ...uxJa } as const
+const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa, ...plannerJa, ...calibJa, ...briefingJa, ...surveyJa, ...instrumentsJa, ...wpGoJa, ...inspRateJa, ...roiJa, ...cameraMediaJa, ...mavlinkCameraJa, ...cameraVideoJa, ...missionItemsJa, ...networkJa, ...aiJa, ...loginJa, ...guardJa, ...guardAlertJa, ...uxJa, ...inputFnsJa } as const
 
 const baseEn: Record<keyof typeof baseJa, string> = {
   vehicles: 'Vehicles',
@@ -385,7 +386,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   cmd_rtl: 'RTL',
   cmd_land: 'Land',
   cmd_takeoff: 'Takeoff',
-  armFirst: 'Arm first',
+  armFirst: 'Available after arming',
   takeoffToTkoffAlt: 'Climbs to TKOFF_ALT',
   vtolUnknown: 'Checking whether this plane is a VTOL; try again in a few seconds',
   cmd_pause: 'Pause',
@@ -670,7 +671,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   cmd_param_write: 'Parameter write',
 }
 
-const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn, ...videoEn, ...planeCmdEn, ...plannerEn, ...calibEn, ...briefingEn, ...surveyEn, ...instrumentsEn, ...wpGoEn, ...inspRateEn, ...roiEn, ...cameraMediaEn, ...mavlinkCameraEn, ...cameraVideoEn, ...missionItemsEn, ...networkEn, ...aiEn, ...loginEn, ...guardEn, ...guardAlertEn, ...uxEn }
+const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn, ...videoEn, ...planeCmdEn, ...plannerEn, ...calibEn, ...briefingEn, ...surveyEn, ...instrumentsEn, ...wpGoEn, ...inspRateEn, ...roiEn, ...cameraMediaEn, ...mavlinkCameraEn, ...cameraVideoEn, ...missionItemsEn, ...networkEn, ...aiEn, ...loginEn, ...guardEn, ...guardAlertEn, ...uxEn, ...inputFnsEn }
 
 export type Dict = Record<keyof typeof ja, string>
 

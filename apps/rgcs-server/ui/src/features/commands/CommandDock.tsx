@@ -17,6 +17,8 @@ interface Props {
   readonly beside?: boolean
   readonly onClose: () => void
   readonly onOpenGuided: (sysid: number) => void
+  /** カメラ・ジンバル: the camera settings sheet (UX-26). */
+  readonly onOpenCamera?: (sysid: number) => void
   /** Sends, confirms and per-button feedback (shared with the detail panel). */
   readonly runner: Runner
 }
@@ -38,14 +40,14 @@ function LastResult({ sysid, entries, sending, dict }: { sysid: number; entries:
   )
 }
 
-export function CommandDock({ vehicle, entries, dict, beside = false, onClose, onOpenGuided, runner }: Props) {
+export function CommandDock({ vehicle, entries, dict, beside = false, onClose, onOpenGuided, onOpenCamera, runner }: Props) {
   return (
     <CommandsSheet
       vehicle={vehicle}
       dict={dict}
       beside={beside}
       onClose={onClose}
-      onOpen={(target) => target === 'guided' && onOpenGuided(vehicle.sysid)}
+      onOpen={(target) => (target === 'guided' ? onOpenGuided(vehicle.sysid) : onOpenCamera?.(vehicle.sysid))}
       // The target is fixed when the button is pressed, even if the selection changes meanwhile.
       onPick={(command) => runner.pick(vehicle.sysid, command)}
       feedback={(cmd) => runner.feedback(vehicle.sysid, cmd)}

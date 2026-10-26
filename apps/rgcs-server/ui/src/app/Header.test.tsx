@@ -39,10 +39,13 @@ describe('Header', () => {
         onLogout={() => {}}
       />,
     )
-    expect(screen.getByTitle('Copters')).toHaveTextContent('2')
+    expect(screen.getByTitle('Multicopters')).toHaveTextContent('2')
     expect(screen.getByTitle('Rovers')).toHaveTextContent('1')
-    // no planes: the design's two counts only
-    expect(screen.queryByTitle('Planes')).not.toBeInTheDocument()
+    // a zero count hides, whatever the airframe (UX-03)
+    expect(screen.queryByTitle('Fixed-wing & VTOL')).not.toBeInTheDocument()
+    // one vehicle with link trouble: the warning count is labelled and drawn as a warning (UX-02)
+    expect(screen.getByTitle('Vehicles with warnings')).toHaveTextContent('1')
+    expect(screen.getByTitle('Vehicles with warnings').className).toContain('on')
     expect(screen.getByTestId('link')).toHaveAttribute('title', 'Server connected')
     expect(screen.getByText('2026/10/16 (Thu) 12:00')).toBeInTheDocument()
   })
@@ -51,8 +54,11 @@ describe('Header', () => {
     render(
       <Header vehicles={[mk(1, 'plane', 'ok'), mk(2, 'plane', 'ok'), mk(3, 'copter', 'ok')]} link="open" dict={t('en')} clock="" me={{ username: 'op', role: 'operator', dev_mode: false, hostname: 'rgcs' }} view="ops" onView={() => {}} onLogout={() => {}} />,
     )
-    expect(screen.getByTitle('Planes')).toHaveTextContent('2')
-    expect(screen.getByTitle('Copters')).toHaveTextContent('1')
+    expect(screen.getByTitle('Fixed-wing & VTOL')).toHaveTextContent('2')
+    expect(screen.getByTitle('Multicopters')).toHaveTextContent('1')
+    expect(screen.queryByTitle('Rovers')).not.toBeInTheDocument()
+    // no warnings: muted, not amber (UX-02)
+    expect(screen.getByTitle('Vehicles with warnings').className).not.toContain('on')
   })
 
   it('shows the disconnected state', () => {

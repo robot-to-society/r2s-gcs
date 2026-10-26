@@ -398,6 +398,7 @@ export function Shell({ me, lang }: Props) {
               beside={detail !== undefined || aiOpen}
               onClose={() => setCommandsOpen(false)}
               onOpenGuided={(sysid) => setModal({ kind: 'guided', sysid })}
+              onOpenCamera={(sysid) => setModal({ kind: 'camera-settings', sysid })}
               runner={runner}
             />
           )}

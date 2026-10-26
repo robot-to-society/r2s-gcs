@@ -4,8 +4,8 @@ import type { RecordingState, VehicleState, VideoSourceStatus } from '../../shar
 import type { Dict } from '../../shared/i18n'
 import { IconMaximize, IconVideoOff, IconWarn } from '../../shared/ui/icons'
 import { isLive, recDuration, useRecElapsed, useWhepFeed } from '../camera'
-import { modeLabel } from '../vehicles/format'
 import { StatLine } from './StatLine'
+import { ModeBadge } from '../vehicles/ModeBadge'
 
 interface Props {
   readonly vehicles: readonly VehicleState[]
@@ -62,9 +62,7 @@ function VideoTile({ vehicle: v, status, recording, selected, dict, onSelect, on
         <div className="row" style={{ gap: 10 }}>
           <KindIcon kind={v.kind} />
           <span style={{ fontSize: 17, fontWeight: 500 }}>{v.name}</span>
-          <span className="badge" style={{ color: v.armed ? 'var(--accent)' : 'var(--text-2)' }}>
-            {modeLabel(v, dict)}
-          </span>
+          <ModeBadge v={v} dict={dict} />
           {v.warn && <IconWarn size={20} />}
           <div className="grow" />
           {recording === 'recording' && (
@@ -76,7 +74,8 @@ function VideoTile({ vehicle: v, status, recording, selected, dict, onSelect, on
             <IconMaximize />
           </button>
         </div>
-        <div className="row num" style={{ gap: 18, fontSize: 14, paddingLeft: 32, color: 'var(--text-2)' }}>
+        {/* the cockpit's glass pill: readable over bright video (UX-43) */}
+        <div className="g-ctl row num vtile-stat">
           <StatLine v={v} />
         </div>
       </div>

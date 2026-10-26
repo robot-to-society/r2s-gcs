@@ -26,6 +26,10 @@ export const uxJa = {
   yesterday: '昨日',
   paramCached: '{n} 件 (前回取得)',
   calMotorStart: 'テストを開始',
+  kindCopter: 'マルチコプター',
+  kindRover: 'ローバー',
+  kindPlane: '固定翼・VTOL',
+  warnVehicles: '警告中の機体',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -54,4 +58,8 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   yesterday: 'Yesterday',
   paramCached: '{n} (last download)',
   calMotorStart: 'Start test',
+  kindCopter: 'Multicopters',
+  kindRover: 'Rovers',
+  kindPlane: 'Fixed-wing & VTOL',
+  warnVehicles: 'Vehicles with warnings',
 }

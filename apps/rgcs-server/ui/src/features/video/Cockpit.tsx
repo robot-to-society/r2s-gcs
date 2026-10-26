@@ -4,8 +4,8 @@ import type { CameraCommand, CameraSnapshot, RoiStatus, RoiTarget, VehicleState,
 import type { Dict } from '../../shared/i18n'
 import { IconMinimize, IconVideoOff, IconWarn } from '../../shared/ui/icons'
 import { isLive, recDuration, useCameraProfile, useRecElapsed, useWhepFeed } from '../camera'
-import { modeLabel } from '../vehicles/format'
 import { StatLine } from './StatLine'
+import { ModeBadge } from '../vehicles/ModeBadge'
 import { CamBar } from './CamBar'
 import { CamCard } from './CamCard'
 import { latencyText } from './cockpitView'
@@ -81,9 +81,7 @@ export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, 
             <KindIcon kind={v.kind} />
             <span style={{ fontSize: 19, fontWeight: 500 }}>{v.name}</span>
             {v.warn && <IconWarn size={20} />}
-            <span className="badge" style={{ color: v.armed ? 'var(--accent)' : 'var(--text-2)' }}>
-              {modeLabel(v, dict)}
-            </span>
+            <ModeBadge v={v} dict={dict} />
           </div>
           <div className="g-ctl row num" style={{ gap: 18, fontSize: 14, padding: '6px 14px', borderRadius: 999, color: 'var(--text-2)' }}>
             <StatLine v={v} />

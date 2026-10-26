@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Basemap } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconCheck, IconLayers } from '../../shared/ui/icons'
@@ -15,8 +15,10 @@ interface Props {
 /** Map type button + menu (top right of the visible map, under the 2D / 3D control). */
 export function BasemapPicker({ basemaps, current, dict, onPick, className = 'float map-r top1' }: Props) {
   const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useDismiss(open, box, () => setOpen(false))
   return (
-    <div className={`basemap-picker ${className}`}>
+    <div ref={box} className={`basemap-picker ${className}`}>
       <button type="button" className="g-ctl btn-icon" aria-label={dict.basemap} title={dict.basemap} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <IconLayers />
       </button>
@@ -42,4 +44,21 @@ export function BasemapPicker({ basemaps, current, dict, onPick, className = 'fl
       )}
     </div>
   )
+}
+
+/** Closes the menu on Escape or a press outside it, like the user popover (UX-06). */
+function useDismiss(open: boolean, box: React.RefObject<HTMLDivElement | null>, close: () => void): void {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close()
+    const onDown = (e: PointerEvent) => {
+      if (e.target instanceof Node && !box.current?.contains(e.target)) close()
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('pointerdown', onDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('pointerdown', onDown)
+    }
+  }, [open, box, close])
 }

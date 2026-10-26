@@ -19,4 +19,22 @@ describe('BasemapPicker', () => {
     expect(onPick).toHaveBeenCalledWith('satellite')
     expect(screen.queryByRole('menu')).toBeNull()
   })
+
+  it('closes on Escape and on a press outside (UX-06)', () => {
+    render(
+      <div>
+        <span>outside</span>
+        <BasemapPicker basemaps={list} current="map" dict={t('ja')} onPick={() => {}} />
+      </div>,
+    )
+    const toggle = screen.getByRole('button', { name: 'マップタイプ' })
+    fireEvent.click(toggle)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    fireEvent.click(toggle)
+    fireEvent.pointerDown(screen.getByRole('menu'))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.pointerDown(screen.getByText('outside'))
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
 })

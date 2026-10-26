@@ -87,6 +87,9 @@ const simple = (cmd: 'pause' | 'resume' | 'rtl' | 'land' | 'mission_start' | 'mi
 const numeric = (value: number | undefined): value is number => value !== undefined && !Number.isNaN(value)
 
 export const CATALOG: readonly CatalogItem[] = [
+  // arm / disarm first: takeoff waits for an arm (UX-27)
+  { name: 'arm', group: 'flight', enabled: (v) => !v.armed, build: simple('arm') },
+  { name: 'disarm', group: 'flight', enabled: (v) => v.armed, build: simple('disarm') },
   {
     name: 'takeoff',
     group: 'flight',
@@ -120,11 +123,8 @@ export const CATALOG: readonly CatalogItem[] = [
   { name: 'set_mode', group: 'mode', enabled: always, param: 'mode', build: ({ mode }) => (mode ? { cmd: 'set_mode', args: { mode } } : null) },
   { name: 'mission_start', group: 'mode', enabled: always, build: simple('mission_start') },
   { name: 'mission_resume', group: 'mode', enabled: always, build: simple('mission_resume') },
-  // Prototype order: arm / disarm / camera / other under 機体・ペイロード.
-  { name: 'arm', group: 'payload', enabled: (v) => !v.armed, build: simple('arm') },
-  { name: 'disarm', group: 'payload', enabled: (v) => v.armed, build: simple('disarm') },
-  { name: 'camera', group: 'payload', enabled: () => false, opens: 'camera' },
-  { name: 'other', group: 'payload', enabled: () => false },
+  // カメラ・ジンバル opens the camera settings; the dead 「その他の対応コマンド」 is gone (UX-26).
+  { name: 'camera', group: 'payload', enabled: always, opens: 'camera' },
 ]
 
 const GROUP_ORDER: readonly CommandGroup[] = ['flight', 'move', 'mode', 'payload']

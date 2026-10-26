@@ -106,6 +106,8 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
   const q = query.trim().toLowerCase()
   const shown = CATALOG.filter((i) => (i.available?.(vehicle) ?? true) && (q === '' || label(i, dict).toLowerCase().includes(q) || i.name.includes(q)))
 
+  // why a button is disabled, shown under it (UX-27)
+  const why = (item: CatalogItem): string | null => (!item.enabled(vehicle) && item.disabledHint ? dict[item.disabledHint] : null)
   const pick = (item: CatalogItem) => {
     if (item.opens) return onOpen(item.opens)
     if (item.param && open !== item.name) {
@@ -182,7 +184,7 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
                       type="button"
                       className={`cmd-btn${item.name === 'guided' ? ' full' : ''}${open === item.name ? ' on' : ''}${fb ? ` ${fb}` : ''}`}
                       disabled={!item.enabled(vehicle)}
-                      title={!item.enabled(vehicle) && item.disabledHint ? dict[item.disabledHint] : undefined}
+                      aria-describedby={why(item) ? `why-${item.name}` : undefined}
                       onClick={() => pick(item)}
                     >
                       <span className="glyph" aria-hidden="true">
@@ -191,6 +193,11 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
                       <span className="ell">{label(item, dict)}</span>
                       {fb && <span className="cmd-fb" aria-hidden="true">{FB_ICON[fb]()}</span>}
                     </button>
+                    {why(item) && (
+                      <div className="cmd-why t3" id={`why-${item.name}`}>
+                        {why(item)}
+                      </div>
+                    )}
                     {open === item.name && item.param && paramRow(item)}
                     {item.name === 'arm' && !vehicle.armed && prearm.length > 0 && (
                       <ul className="cmd-prearm" data-testid="prearm">

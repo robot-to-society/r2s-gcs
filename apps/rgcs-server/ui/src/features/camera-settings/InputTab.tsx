@@ -1,4 +1,5 @@
 import type { GimbalInputProfile } from '../../shared/api/types'
+import { axisFnLabel, buttonFnLabel } from './fnLabels'
 import type { Dict } from '../../shared/i18n'
 import { AXIS_FUNCTIONS, BUTTON_FUNCTIONS } from '../gimbal-joystick'
 import type { Issue } from './schema'
@@ -69,7 +70,7 @@ export function InputTab({ draft, issue, gamepadIds, onChange, onCenter, dict }:
                   <select className="in" aria-label={dict.axisFunction.replace('{n}', String(i))} value={axis(i).fn} onChange={(e) => setAxis(i, { fn: e.target.value as (typeof AXIS_FUNCTIONS)[number] })}>
                     {AXIS_FUNCTIONS.map((f) => (
                       <option key={f} value={f}>
-                        {f}
+                        {axisFnLabel(f, dict)}
                       </option>
                     ))}
                   </select>
@@ -104,7 +105,7 @@ export function InputTab({ draft, issue, gamepadIds, onChange, onCenter, dict }:
                   <select className="in" aria-label={dict.buttonFunction.replace('{n}', String(i))} value={button(i)} onChange={(e) => setButton(i, e.target.value as (typeof BUTTON_FUNCTIONS)[number])}>
                     {BUTTON_FUNCTIONS.map((f) => (
                       <option key={f} value={f}>
-                        {f}
+                        {buttonFnLabel(f, dict)}
                       </option>
                     ))}
                   </select>

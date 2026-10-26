@@ -42,23 +42,29 @@ export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout
         )}
       </div>
       <div className="row num counts">
-        <span className="row" title="Copters">
-          <IconCopter size={18} />
-          <span>{copters}</span>
-        </span>
-        <span className="row" title="Rovers">
-          <IconRover size={18} />
-          <span>{rovers}</span>
-        </span>
+        {/* every zero count hides alike (UX-03) */}
+        {copters > 0 && (
+          <span className="row" title={dict.kindCopter}>
+            <IconCopter size={18} />
+            <span>{copters}</span>
+          </span>
+        )}
+        {rovers > 0 && (
+          <span className="row" title={dict.kindRover}>
+            <IconRover size={18} />
+            <span>{rovers}</span>
+          </span>
+        )}
         {planes > 0 && (
-          <span className="row" title="Planes">
+          <span className="row" title={dict.kindPlane}>
             <IconPlane size={18} />
             <span>{planes}</span>
           </span>
         )}
-        <span className="row warn">
+        {/* amber only while a vehicle has a warning (UX-02) */}
+        <span className={warns > 0 ? 'row warn on' : 'row warn'} title={dict.warnVehicles} aria-label={`${dict.warnVehicles} ${warns}`}>
           <IconWarn />
-          <span className="warn">{warns}</span>
+          <span>{warns}</span>
         </span>
       </div>
       <div className="grow" />
