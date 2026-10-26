@@ -36,4 +36,11 @@ describe('summary', () => {
     expect(codes).not.toContain('first_not_takeoff')
     expect(codes).not.toContain('no_land_or_rtl')
   })
+  it('a rover mission needs no takeoff and may end on a waypoint', () => {
+    const wps = [item(16, 36.25, 137.63, 0), item(16, 36.251, 137.631, 0)]
+    const codes = localWarnings(wps, 2, 'rover').map((w) => w.code)
+    expect(codes).not.toContain('first_not_takeoff')
+    expect(codes).not.toContain('no_land_or_rtl')
+    expect(localWarnings(wps, 2, 'copter').map((w) => w.code)).toContain('first_not_takeoff')
+  })
 })

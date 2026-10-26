@@ -330,7 +330,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         sysid={sysid}
         kind={vehicle?.kind ?? null}
         stats={st}
-        warnings={localWarnings(draft.items, draft.mission.speed)}
+        warnings={localWarnings(draft.items, draft.mission.speed, vehicle?.kind ?? null)}
         findings={ui.findings}
         dirty={ui.dirty}
         busy={ui.busy !== 'idle'}

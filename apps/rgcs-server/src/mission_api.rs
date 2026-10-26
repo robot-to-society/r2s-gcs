@@ -126,12 +126,13 @@ async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) ->
     let mission = &sent;
     // ArduPilot accepts a mission while armed (a flying vehicle picks up the new one); only the
     // link and the transfer lock gate a write.
-    if let Err(r) = vehicle_for_write(app, sysid).await {
-        return *r;
-    }
+    let kind = match vehicle_for_write(app, sysid).await {
+        Ok(v) => Some(v.kind),
+        Err(r) => return *r,
+    };
     // Structural problems are refused before anything goes to the link (Review Focus 4); the
     // fence check then waits briefly for parameters that may still be in flight.
-    let pre = mission.validate(&fence_from_cache(app, sysid));
+    let pre = mission.validate_for(&fence_from_cache(app, sysid), kind);
     if Mission::has_fatal(&pre) {
         audit(
             app,
@@ -146,7 +147,7 @@ async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) ->
         return invalid_response(&pre);
     }
     let fence = await_fence(app, sysid).await;
-    let findings = mission.validate(&fence);
+    let findings = mission.validate_for(&fence, kind);
     if Mission::has_fatal(&findings) {
         audit(
             app,
@@ -503,16 +504,17 @@ pub async fn validate_mission(
     axum::extract::Query(q): axum::extract::Query<ValidateQuery>,
     Json(mission): Json<Mission>,
 ) -> Response {
-    let fence = match q.sysid {
+    let (fence, kind) = match q.sysid {
         Some(sysid) => {
             let f = fence_from_cache(&app, sysid);
             request_missing_fence_params(&app, sysid, &f);
-            f
+            let kind = app.router.lock().await.state(sysid).map(|v| v.kind);
+            (f, kind)
         }
-        None => FenceInfo::default(),
+        None => (FenceInfo::default(), None),
     };
     ok(ValidateReply {
-        findings: mission.validate(&fence),
+        findings: mission.validate_for(&fence, kind),
         stats: mission.stats(),
     })
 }

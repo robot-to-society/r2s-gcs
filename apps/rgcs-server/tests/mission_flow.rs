@@ -142,6 +142,22 @@ async fn fatal_findings_refuse_the_upload() {
 }
 
 #[tokio::test]
+async fn a_rover_uploads_a_waypoint_only_mission() {
+    // a rover drives from its first waypoint: no takeoff item (user report 2026-10-26)
+    let (app, state, rx) = spawn_app_with_link().await;
+    seed_rover(&state, 1).await;
+    let cookie = login(&app).await;
+    let _fake = fake_vehicle_mission(rx, state.missions.clone(), 1, stored(), FakeMode::Normal);
+    let mut m = demo20();
+    m.items.remove(0);
+    m.items.pop();
+    assert_ne!(m.items[0].command, 22);
+    let (status, body) = put_mission(&app, &cookie, &m).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["verified"], true);
+}
+
+#[tokio::test]
 async fn concurrent_upload_is_busy() {
     let (app, state, rx) = spawn_app_with_link().await;
     seed_vehicle(&state, 1, false, false).await;

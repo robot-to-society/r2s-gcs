@@ -152,6 +152,15 @@ pub async fn seed_vehicle(app: &AppState, sysid: u8, armed: bool, lost: bool) {
 }
 
 pub async fn seed_copter(app: &AppState, sysid: u8, custom_mode: u32, armed: bool, lost: bool) {
+    seed_type(app, sysid, MavType::MAV_TYPE_QUADROTOR, custom_mode, armed, lost).await;
+}
+
+/// A disarmed ArduRover in HOLD (custom mode 4).
+pub async fn seed_rover(app: &AppState, sysid: u8) {
+    seed_type(app, sysid, MavType::MAV_TYPE_GROUND_ROVER, 4, false, false).await;
+}
+
+async fn seed_type(app: &AppState, sysid: u8, mavtype: MavType, custom_mode: u32, armed: bool, lost: bool) {
     let header = MavHeader {
         system_id: sysid,
         component_id: 1,
@@ -163,7 +172,7 @@ pub async fn seed_copter(app: &AppState, sysid: u8, custom_mode: u32, armed: boo
     }
     let hb = HEARTBEAT_DATA {
         custom_mode,
-        mavtype: MavType::MAV_TYPE_QUADROTOR,
+        mavtype,
         autopilot: MavAutopilot::MAV_AUTOPILOT_ARDUPILOTMEGA,
         base_mode,
         system_status: MavState::MAV_STATE_ACTIVE,
