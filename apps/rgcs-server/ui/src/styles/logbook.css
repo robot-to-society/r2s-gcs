@@ -54,3 +54,8 @@
 .lb-template-items li { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 6px; align-items: center; }
 .lb-template-items .btn.sm { padding: 0 8px; }
 .lb-inline-actions { display: inline-flex; gap: 6px; }
+/* the record table scrolls inside the maintenance panel instead of running under the footer (UX-51) */
+.maint-body > .surface:has(> .lb-table), .maint-body > .surface:has(> * > .lb-table) { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.lb-table { padding-bottom: 8px; }
+/* export links are buttons: no anchor underline (UX-51) */
+a.btn { text-decoration: none; }

@@ -146,6 +146,8 @@
 /* the vehicle marker stays above waypoint badges and the home tile it hovers over (UX-17):
    `rg-mk` sits on the marker element itself, so `:has()` never matched */
 .maplibregl-marker.rg-mk { z-index: 3; }
+/* marker z-indices stay inside the map: the maintenance / video panels drawn over it remain on top */
+.maplibregl-map { isolation: isolate; }
 
 /* ---- selected vehicle lock-on (user request 2026-10-19): corner brackets + beacon pulse ---- */
 .vmk .lock, .vmk .beacon { display: none; position: absolute; pointer-events: none; }

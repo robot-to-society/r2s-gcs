@@ -6,13 +6,17 @@ import { formatNumber } from './changes'
 /** Rows rendered at once; the rest is reached by narrowing the search. */
 export const MAX_ROWS = 300
 
-export function progressText(p: ParamProgress | null): string {
+/** Parameters already listed but nothing received this session: the list is the last download (UX-49). */
+const cached = (p: ParamProgress | null, listed: number): boolean => listed > 0 && (p === null || (p.received === 0 && !p.downloading))
+
+export function progressText(p: ParamProgress | null, listed: number, dict: Dict): string {
+  if (cached(p, listed)) return dict.paramCached.replace('{n}', String(listed))
   if (p === null) return '–'
   return `${p.received} / ${p.total ?? '?'}`
 }
 
-export function progressPct(p: ParamProgress | null): number | null {
-  if (p === null || p.total === null || p.total === 0) return null
+export function progressPct(p: ParamProgress | null, listed: number): number | null {
+  if (cached(p, listed) || p === null || p.total === null || p.total === 0) return null
   return Math.min(100, Math.round((p.received / p.total) * 100))
 }
 

@@ -3,12 +3,8 @@
 .stage.maint-on .maplibregl-control-container { display: none; }
 .maint-backdrop { position: absolute; inset: 0; z-index: 1; background: var(--base); }
 .maint { right: 12px; bottom: 64px; display: flex; flex-direction: column; gap: 12px; min-width: 0; z-index: 2; }
-.maint-head { gap: 14px; flex-wrap: wrap; padding: 0 4px; position: relative; z-index: 1; }
-.maint-head label { font-size: 14px; }
-.maint-head select { min-width: 150px; font-size: 15px; font-weight: 500; }
+.maint-head { gap: 12px; flex-wrap: wrap; padding: 0 4px; position: relative; z-index: 1; min-height: 40px; align-items: center; }
 .maint-kind { display: grid; }
-.maint-arm { font-size: 13px; }
-.maint-arm.armed { color: var(--caution); font-weight: 600; }
 .maint-tabs { height: 46px; flex: none; position: relative; z-index: 1; }
 .seg.n6 .lens { width: calc((100% - 6px) / 6); }
 .maint-tabs button { font-size: 14px; }

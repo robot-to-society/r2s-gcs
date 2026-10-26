@@ -47,6 +47,13 @@ function setup(opts: { progress?: typeof done; armed?: boolean } = {}) {
 describe('MaintView', () => {
   afterEach(() => vi.unstubAllGlobals())
 
+  it('the vehicle header is hidden on the app-wide アプリ設定 tab (UX-48)', () => {
+    setup()
+    expect(screen.getByTestId('maint-head')).toHaveTextContent('ディスアーム')
+    fireEvent.click(screen.getByRole('button', { name: 'アプリ設定' }))
+    expect(screen.queryByTestId('maint-head')).toBeNull()
+  })
+
   it('every maintenance tab is enabled, 点検・校正 opens the calibration cards', () => {
     setup()
     for (const name of ['点検・校正', '日常点検', '飛行日誌', 'アプリ設定']) expect(screen.getByRole('button', { name })).not.toHaveAttribute('aria-disabled')
@@ -57,7 +64,9 @@ describe('MaintView', () => {
   it('maint_view_shows_progress_then_rows_and_writes_a_change_set', async () => {
     const { calls } = setup()
     // header + tabs
-    expect(screen.getByRole('combobox', { name: '接続機体' })).toHaveValue('1')
+    // one vehicle selector: the list on the left; the header names the vehicle the tabs act on (UX-48)
+    expect(screen.queryByRole('combobox', { name: '対象機体' })).toBeNull()
+    expect(screen.getByTestId('maint-head')).toHaveTextContent('対象機体UAV-01')
     expect(screen.getByRole('button', { name: 'パラメータ' }).className).toContain('on')
     // the list loads, metadata attaches
     await waitFor(() => expect(screen.getByText('Fence Maximum Altitude')).toBeInTheDocument())
@@ -130,7 +139,7 @@ describe('MaintView', () => {
   it('armed_vehicle_disables_writing', async () => {
     setup({ armed: true })
     await waitFor(() => expect(screen.getByText('Fence Maximum Altitude')).toBeInTheDocument())
-    expect(screen.getByText('ARMED')).toBeInTheDocument()
+    expect(screen.getByTestId('maint-head')).toHaveTextContent('アーム中')
     const input = within(screen.getByText('FENCE_ALT_MAX').closest('tr')!).getByRole('spinbutton')
     fireEvent.change(input, { target: { value: '150' } })
     fireEvent.blur(input)

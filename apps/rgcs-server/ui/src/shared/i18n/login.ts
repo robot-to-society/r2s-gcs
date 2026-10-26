@@ -8,11 +8,11 @@ export const loginJa = {
   loginCredit: '出典: 国土地理院(シームレス空中写真)',
   loginServerUp: 'サーバー稼働中',
   loginServerUnknown: 'サーバー状態不明',
-  themeTitle: '表示',
+  themeTitle: 'ログイン画面のテーマ',
   themeAuto: '自動',
   themeDark: 'ダーク',
   themeLight: 'ライト',
-  themeNote: '自動は OS の設定に従います。ライトはログイン画面に適用され、アプリ本体は常にダーク表示です。',
+  themeNote: '自動は OS の設定に従います。',
 }
 
 export const loginEn: Record<keyof typeof loginJa, string> = {
@@ -23,9 +23,9 @@ export const loginEn: Record<keyof typeof loginJa, string> = {
   loginCredit: '出典: 国土地理院(シームレス空中写真)',
   loginServerUp: 'Server up',
   loginServerUnknown: 'Server status unknown',
-  themeTitle: 'Appearance',
+  themeTitle: 'Sign-in screen theme',
   themeAuto: 'Auto',
   themeDark: 'Dark',
   themeLight: 'Light',
-  themeNote: 'Auto follows the OS setting. Light applies to the sign-in screen; the app itself always stays dark.',
+  themeNote: 'Auto follows the OS setting.',
 }

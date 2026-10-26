@@ -104,7 +104,7 @@ describe('AppTab', () => {
 
   it('present_button_calls_the_callback_and_language_toggles', async () => {
     const { onOpenPresent } = setup()
-    fireEvent.click(screen.getByRole('button', { name: 'ロゴ・提示用トークン' }))
+    fireEvent.click(screen.getByRole('button', { name: 'リンクとロゴを管理…' }))
     expect(onOpenPresent).toHaveBeenCalled()
     expect(screen.getByRole('button', { name: '日本語' }).className).toContain('on')
   })

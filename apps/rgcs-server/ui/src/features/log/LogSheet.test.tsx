@@ -38,7 +38,7 @@ describe('LogSheet', () => {
     expect(rows[2]).toHaveTextContent('通信喪失')
     expect(within(rows[3]).getByText('システム')).toBeInTheDocument()
     expect(screen.getByText('4')).toBeInTheDocument()
-    expect(screen.getByText(/直近 500 件を表示/)).toBeInTheDocument()
+    expect(screen.getByText('直近 500 件を表示しています。')).toBeInTheDocument()
   })
 
   it('filters to alerts and to one vehicle, whose name becomes a filter button', () => {

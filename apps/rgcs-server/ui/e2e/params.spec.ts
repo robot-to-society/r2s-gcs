@@ -20,7 +20,7 @@ test('download all parameters, search, write FENCE_ALT_MAX with confirmation, se
   test.skip(!process.env.RGCS_E2E_SITL, 'needs SITL')
   test.setTimeout(180_000)
   await openMaint(page)
-  await expect(page.getByRole('combobox', { name: '接続機体' })).toHaveValue('1')
+  await expect(page.getByTestId('maint-head')).toContainText('対象機体')
   const refresh = page.getByRole('button', { name: '更新' })
   await expect(refresh).toBeEnabled({ timeout: 20_000 })
   await refresh.click()

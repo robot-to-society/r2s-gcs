@@ -303,7 +303,7 @@ const baseJa = {
   cmd_mission_export: 'ミッション書き出し',
   cmd_mission_import: 'ミッション読み込み',
   cmd_mission_open: 'ミッションを開く',
-  maintConnected: '接続機体',
+  maintConnected: '対象機体',
   tabParams: 'パラメータ',
   tabCalib: '点検・校正',
   tabDaily: '日常点検',

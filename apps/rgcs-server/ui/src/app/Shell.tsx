@@ -307,7 +307,7 @@ export function Shell({ me, lang }: Props) {
           {view === 'maint' && (
             <>
               <div className="maint-backdrop" />
-              <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} selected={current} onSelect={setSelected} me={me} flightDrafts={flightDrafts} logFetch={logFetch} calibration={calibration} onOpenPresent={() => setModal({ kind: 'present-settings' })} onOpenGuard={() => setModal({ kind: 'guard-settings' })} onOpenEnv={() => setModal({ kind: 'env-sources' })} />
+              <MaintView vehicles={vehicles} paramProgress={paramProgress} dict={dict} selected={current} me={me} flightDrafts={flightDrafts} logFetch={logFetch} calibration={calibration} onOpenPresent={() => setModal({ kind: 'present-settings' })} onOpenGuard={() => setModal({ kind: 'guard-settings' })} onOpenEnv={() => setModal({ kind: 'env-sources' })} />
             </>
           )}
           {view === 'video' && settings && (

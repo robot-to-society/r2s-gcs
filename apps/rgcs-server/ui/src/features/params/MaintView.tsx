@@ -10,16 +10,16 @@ import { HistoryTab } from './HistoryTab'
 import { InspectorTab } from '../inspector/InspectorTab'
 import { ParamsPane } from './ParamsPane'
 import { ENABLED_TABS, MAINT_TABS, TAB_LABEL, type MaintTab } from './tabs'
+import { ArmChip } from '../vehicles/ArmChip'
 
 interface Props {
   readonly vehicles: ReadonlyMap<SysId, VehicleState>
   readonly paramProgress: ReadonlyMap<SysId, ParamProgress>
   readonly dict: Dict
-  /** Controlled selection (the shell shares it with the vehicle list); uncontrolled when omitted. */
+  /** The vehicle picked in the shell's vehicle list (the only selector, UX-48); the first one when omitted. */
   readonly selected?: SysId | null
-  readonly onSelect?: (sysid: SysId) => void
   readonly me: Operator
-  /** Opens the ロゴ・提示用トークン sheet (アプリ設定 tab). */
+  /** Opens the 観客用画面 links and logo sheet (アプリ設定 tab). */
   readonly onOpenPresent?: () => void
   readonly onOpenGuard?: () => void
   readonly onOpenEnv?: () => void
@@ -30,15 +30,9 @@ interface Props {
 }
 
 /** メンテナンス・設定 (spec 10 §7) after the prototype's maint screen: header row, tab strip, body. */
-export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, me, onOpenPresent, onOpenGuard, onOpenEnv, flightDrafts, logFetch, calibration }: Props) {
+export function MaintView({ vehicles, paramProgress, dict, selected, me, onOpenPresent, onOpenGuard, onOpenEnv, flightDrafts, logFetch, calibration }: Props) {
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
-  const [picked, setPicked] = useState<SysId | null>(null)
-  const wanted = selected === undefined ? picked : selected
-  const sysid = wanted !== null && vehicles.has(wanted) ? wanted : (list[0]?.sysid ?? null)
-  const pick = (id: SysId) => {
-    setPicked(id)
-    onSelect?.(id)
-  }
+  const sysid = selected != null && vehicles.has(selected) ? selected : (list[0]?.sysid ?? null)
   const vehicle = sysid === null ? undefined : vehicles.get(sysid)
   const [tab, setTab] = useState<MaintTab>('params')
   const [writes, setWrites] = useState(0)
@@ -54,22 +48,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
   return (
     <section className="float map-l top1 maint" data-testid="maint-view">
       <div className="aurora" />
-      <div className="row maint-head">
-        <label className="t2" htmlFor="maint-vehicle">
-          {dict.maintConnected}
-        </label>
-        <select id="maint-vehicle" className="in lg" value={sysid ?? ''} onChange={(e) => pick(Number(e.target.value))} disabled={list.length === 0}>
-          {list.length === 0 && <option value="">{dict.noVehicles}</option>}
-          {list.map((v) => (
-            <option key={v.sysid} value={v.sysid}>
-              {v.name}
-            </option>
-          ))}
-        </select>
-        {vehicle && <span className="t2 maint-kind"><KindIcon kind={vehicle.kind} /></span>}
-        {vehicle && <span className="badge t2">{vehicle.mode}</span>}
-        {vehicle && <span className={`t3 num maint-arm${vehicle.armed ? ' armed' : ''}`}>{vehicle.armed ? 'ARMED' : 'DISARMED'}</span>}
-      </div>
+      {tab !== 'app' && <MaintHead vehicle={vehicle} dict={dict} />}
       <div className={`seg n${MAINT_TABS.length} lg g-ctl maint-tabs`}>
         <span className="lens" style={{ transform: `translateX(${tabIndex * 100}%)` }} />
         {MAINT_TABS.map((tb) => {
@@ -121,5 +100,29 @@ export function MaintView({ vehicles, paramProgress, dict, selected, onSelect, m
         </div>
       )}
     </section>
+  )
+}
+
+/**
+ * The vehicle the tabs act on (UX-48): picked in the vehicle list on the left (the only selector),
+ * with its mode and arm state in words. The app-wide アプリ設定 tab has no vehicle header.
+ */
+function MaintHead({ vehicle, dict }: { readonly vehicle: VehicleState | undefined; readonly dict: Dict }) {
+  return (
+    <div className="row maint-head" data-testid="maint-head">
+      <span className="t2">{dict.maintConnected}</span>
+      {vehicle ? (
+        <>
+          <span className="h1">{vehicle.name}</span>
+          <span className="t2 maint-kind">
+            <KindIcon kind={vehicle.kind} />
+          </span>
+          <span className="badge t2">{vehicle.mode}</span>
+          <ArmChip armed={vehicle.armed} dict={dict} />
+        </>
+      ) : (
+        <span className="t3">{dict.noVehicles}</span>
+      )}
+    </div>
   )
 }

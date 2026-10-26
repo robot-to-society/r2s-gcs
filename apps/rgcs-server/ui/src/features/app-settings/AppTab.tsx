@@ -1,6 +1,6 @@
 // アプリ設定 tab (spec 10 §7, addendum §5.7): 表示言語, 表示 (theme), 地図表示, 機体台帳, 操縦者, 点検テンプレート, the
 // 実験機能 / 外的要因データ cards (plan 2026-10-25-ai-guard Task 9) and the
-// link to the ロゴ・提示用トークン sheet. Card grid after the prototype's app tab.
+// 観客用画面 card opening the links and logo sheet (UX-53). Card grid after the prototype's app tab.
 import type { Operator, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { useLang } from '../../shared/i18n/lang'
@@ -39,6 +39,9 @@ export function AppTab({ sysid, vehicle, me, dict, onOpenPresent, onOpenGuard, o
             English
           </button>
         </div>
+      </div>
+      <div className="surface" data-testid="present-card">
+        <div className="h1">{dict.presentTitle}</div>
         <button type="button" className="btn" style={{ alignSelf: 'flex-start' }} onClick={onOpenPresent}>
           {dict.lbPresentSettings}
         </button>

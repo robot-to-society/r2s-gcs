@@ -105,14 +105,14 @@ function ValueCell({ row, pendingValue, dict, onChange }: { row: ParamRow; pendi
 
 /** Toolbar (search, progress, refresh) and the table (spec 10 §7.1, addendum §5.4). */
 export function ParamsTab({ rows, total, progress, query, changes, busy, dict, onQuery, onRefresh, onChange }: Props) {
-  const pct = progressPct(progress)
+  const pct = progressPct(progress, total)
   const shown = rows.slice(0, MAX_ROWS)
   return (
     <div className="surface params-tab">
       <div className="row hair params-toolbar">
         <input type="search" className="in grow" placeholder={dict.paramSearch} aria-label={dict.paramSearch} value={query} onChange={(e) => onQuery(e.target.value)} />
         <span className="params-progress num t2" title={dict.paramProgress}>
-          {progressText(progress)}
+          {progressText(progress, total, dict)}
           {pct !== null && (
             <span className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={dict.paramProgress}>
               <span style={{ width: `${pct}%` }} />

@@ -24,6 +24,8 @@ export const uxJa = {
   mRestart: '最初から再実行',
   mRestartNote: 'ミッションは完了しています。WP 1 から再実行します。',
   yesterday: '昨日',
+  paramCached: '{n} 件 (前回取得)',
+  calMotorStart: 'テストを開始',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -50,4 +52,6 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   mRestart: 'Restart',
   mRestartNote: 'The mission is complete. It will run again from WP 1.',
   yesterday: 'Yesterday',
+  paramCached: '{n} (last download)',
+  calMotorStart: 'Start test',
 }

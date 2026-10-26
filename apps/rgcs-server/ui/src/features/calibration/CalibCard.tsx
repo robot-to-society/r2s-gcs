@@ -61,7 +61,7 @@ export function CalibCard(p: Props) {
       <div className="t3 num calib-status">{live ? dict.calRunning : card.text}</div>
       {open ? <Body {...p} /> : (
         <button type="button" className="btn calib-start" disabled={p.locked} onClick={p.onOpen}>
-          {dict.calStart}
+          {kind === 'motor' ? dict.calMotorStart : dict.calStart}
         </button>
       )}
       {open && p.error && <div className="t3 sev-error">{p.error}</div>}

@@ -43,7 +43,7 @@ afterEach(() => vi.unstubAllGlobals())
 describe('CalibTab', () => {
   it('shows one card per calibration with its last date', async () => {
     setup({ records: [{ kind: 'compass', ok: true, at: Date.UTC(2026, 9, 1, 16), operator: 'op', detail: null }] })
-    for (const label of ['加速度計', 'コンパス', '水平レベル', 'RCキャリブレーション', 'ESCキャリブレーション', 'モーターテスト']) {
+    for (const label of ['加速度計', 'コンパス', '水平レベル', 'RC 校正', 'ESC 校正', 'モーターテスト']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
     expect(await screen.findByText('校正済み · 2026/10/02')).toBeInTheDocument()
@@ -91,7 +91,8 @@ describe('CalibTab', () => {
   it('motors spin only after the propellers-off switch, with a confirm token', async () => {
     const { posts } = setup()
     const card = screen.getByTestId('calib-motor')
-    fireEvent.click(within(card).getByRole('button', { name: '校正を開始' }))
+    // the motor test is not a calibration (UX-50)
+    fireEvent.click(within(card).getByRole('button', { name: 'テストを開始' }))
     const m2 = await within(card).findByRole('button', { name: 'B' })
     expect(m2).toBeDisabled()
     fireEvent.click(within(card).getByRole('switch', { name: 'プロペラを外しました' }))
@@ -107,7 +108,7 @@ describe('CalibTab', () => {
   it('nothing starts on an armed vehicle', async () => {
     setup({ vehicle: { ...copter, armed: true } })
     await act(async () => {})
-    for (const b of screen.getAllByRole('button', { name: '校正を開始' })) expect(b).toBeDisabled()
+    for (const b of screen.getAllByRole('button', { name: /校正を開始|テストを開始/ })) expect(b).toBeDisabled()
     expect(screen.getByText(dict.calArmed)).toBeInTheDocument()
   })
 
