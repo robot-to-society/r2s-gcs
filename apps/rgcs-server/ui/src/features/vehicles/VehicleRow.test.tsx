@@ -37,4 +37,15 @@ describe('VehicleRow', () => {
     expect((bar.firstElementChild as HTMLElement).style.width).toBe('0%')
     expect(within(r).getByText('—')).toBeInTheDocument()
   })
+
+  it('the lead heading arrow turns with the heading; none without one (UX-15)', () => {
+    const r = row({ hdg: 90 })
+    const nav = within(r).getByRole('img', { name: '方位 90°' })
+    expect((nav.firstElementChild as SVGElement).style.transform).toBe('rotate(90deg)')
+  })
+
+  it('no heading arrow when the heading is unknown (UX-15)', () => {
+    const r = row({ hdg: null })
+    expect(within(r).queryByRole('img', { name: /方位/ })).not.toBeInTheDocument()
+  })
 })

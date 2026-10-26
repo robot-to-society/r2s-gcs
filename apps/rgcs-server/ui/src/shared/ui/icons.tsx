@@ -5,7 +5,6 @@ import {
   ArrowDownToLine,
   ArrowDownWideNarrow,
   ArrowUpDown,
-  ArrowUpToLine,
   Bot,
   BotMessageSquare,
   BatteryMedium,
@@ -136,7 +135,6 @@ export const IconRover = ({ size = 22, className }: IconProps) => <Lucide icon={
 export const IconWarn = ({ size = 18, className }: IconProps) => <Lucide icon={TriangleAlert} size={size} className={className} />
 export const IconPin = ({ size = 18, className }: IconProps) => <Lucide icon={Pin} size={size} className={className} />
 export const IconGrid = ({ size = 22, className }: IconProps) => <Lucide icon={Grip} size={size} className={className} />
-export const IconHeading = ({ size = 14, className }: IconProps) => <Lucide icon={ArrowUpToLine} size={size} className={className} />
 export const IconHouse = ({ size = 16, className }: IconProps) => <Lucide icon={House} size={size} className={className} />
 export const IconMinus = ({ size = 16, className }: IconProps) => <Lucide icon={Minus} size={size} className={className} />
 export const IconPlus = ({ size = 16, className }: IconProps) => <Lucide icon={Plus} size={size} className={className} />

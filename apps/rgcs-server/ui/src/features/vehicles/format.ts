@@ -36,9 +36,9 @@ export function matches(v: VehicleState, query: string, dict: Dict): boolean {
   return q === '' || v.name.toLowerCase().includes(q) || modeLabel(v, dict).toLowerCase().includes(q)
 }
 
-/** Status dot colour class (prototype: blue copter, amber warn / delay, red lost, green ground). */
+/** Status dot: link / health only (UX-14): green OK, amber warn / delay, red lost. The kind icon shows the airframe. */
 export function dotClass(v: VehicleState): string {
   if (v.link === 'lost') return 'dot lost'
   if (v.warn || v.link === 'delay') return 'dot warn'
-  return v.kind === 'copter' ? 'dot copter' : 'dot ok'
+  return 'dot ok'
 }

@@ -276,6 +276,7 @@ export function Shell({ me, lang }: Props) {
               focus={mapUi.focus}
               arrival={arrival}
               showAll={showAll}
+              homeTitle={(sysid) => dict.homeOf.replace('{name}', names.get(sysid) ?? `#${sysid}`)}
               mission={currentMission}
               predicted={predicted}
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}

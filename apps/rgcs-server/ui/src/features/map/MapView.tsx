@@ -67,6 +67,8 @@ interface Props {
   readonly roi?: ReadonlyMap<number, RoiStatus>
   /** 「全機を表示」: each new value frames every vehicle with a position (UX-10). */
   readonly showAll?: number
+  /** The home tile's tooltip per vehicle, e.g. 「UAV-01 のホーム」 (UX-17). */
+  readonly homeTitle?: (sysid: number) => string
 }
 
 /** Follow / focus moves are programmatic (no originalEvent) and leave anchored popovers alone. */
@@ -76,6 +78,7 @@ function watchViewMoves(m: MlMap, cb: { readonly current: (() => void) | undefin
 }
 
 const HOME: [number, number] = [139.372, 36.162]
+const defaultHomeTitle = (sysid: number) => `Home #${sysid}`
 const TRACKS = 'tracks'
 const GUIDED = 'guided'
 const MISSION = 'mission-path'
@@ -92,7 +95,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint, onViewMove, arrival = 0, roi = NO_ROI, showAll = 0 }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint, onViewMove, arrival = 0, roi = NO_ROI, showAll = 0, homeTitle = defaultHomeTitle }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -265,8 +268,11 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     const markers = homeMarkers.current
     homes.forEach((h, sysid) => {
       const existing = markers.get(sysid)
-      if (existing) existing.setLngLat([h.lon, h.lat])
-      else markers.set(sysid, new maplibregl.Marker({ element: homeEl() }).setLngLat([h.lon, h.lat]).addTo(m))
+      const title = homeTitle(sysid)
+      if (existing) {
+        existing.setLngLat([h.lon, h.lat])
+        existing.getElement().title = title
+      } else markers.set(sysid, new maplibregl.Marker({ element: homeEl(title) }).setLngLat([h.lon, h.lat]).addTo(m))
     })
     markers.forEach((marker, sysid) => {
       if (!homes.has(sysid)) {

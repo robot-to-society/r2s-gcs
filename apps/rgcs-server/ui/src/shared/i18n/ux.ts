@@ -17,6 +17,7 @@ export const uxJa = {
   fleetSkippedTitle: '対象外の機体',
   battUnknown: 'バッテリー残量不明',
   showAll: '全機を表示',
+  homeOf: '{name} のホーム',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -36,4 +37,5 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   fleetSkippedTitle: 'Skipped vehicles',
   battUnknown: 'Battery level unknown',
   showAll: 'Show all vehicles',
+  homeOf: 'Home of {name}',
 }
