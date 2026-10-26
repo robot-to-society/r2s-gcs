@@ -9,7 +9,7 @@ interface Props {
   readonly dict: Dict
 }
 
-/** The sign-in screen's top corners: brand + DEV badge on the left; 2D/3D chip (dark) or server pill (light) on the right. */
+/** The sign-in screen's top corners: brand + DEV badge on the left, the server pill on the right. */
 export function LoginChrome({ theme, dev, host, up, dict }: Props) {
   return (
     <>
@@ -17,18 +17,11 @@ export function LoginChrome({ theme, dev, host, up, dict }: Props) {
         <span className="ls-logo">RGCS</span>
         {dev && <span className="ls-dev">{dict.devBadge}</span>}
       </div>
-      {theme === 'dark' ? (
-        // The design's view chip: decoration on this screen (the map mode is chosen inside the app).
-        <div className="ls-chips ls-pill" aria-hidden="true">
-          <span>2D</span>
-          <span className="on">3D</span>
-        </div>
-      ) : (
-        <div className="ls-host ls-pill" title={up ? dict.loginServerUp : dict.loginServerUnknown}>
-          <span className={`ls-dot${up ? ' up' : ''}`} aria-hidden="true" />
-          <span className="ls-hostname">{host}</span>
-        </div>
-      )}
+      {/* the server pill in both themes; no inert 2D / 3D chip (UX-08) */}
+      <div className="ls-host ls-pill" title={`${dict.loginServer}: ${host} · ${up ? dict.loginServerUp : dict.loginServerUnknown}`}>
+        <span className={`ls-dot${up ? ' up' : ''}`} aria-hidden="true" />
+        <span className="ls-hostname">{host}</span>
+      </div>
     </>
   )
 }

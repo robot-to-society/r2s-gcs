@@ -113,19 +113,23 @@ describe('Login', () => {
     expect(screen.getByRole('button', { name: 'ログイン' })).toBeEnabled()
   })
 
-  it('follows the theme setting: dark by default here, light with its subtitle when chosen', async () => {
+  it('follows the theme setting; both themes show the same server pill, no inert 2D/3D chip and no slogan (UX-07, UX-08, UX-09)', async () => {
     stubServer({ devMode: false, login: { status: 200, code: '' } })
     const { container, unmount } = render(<Login store={new AuthStore()} intro={new IntroStore()} />)
     expect(container.querySelector('.ls-ui')).toHaveAttribute('data-theme', 'dark')
-    expect(screen.queryByText('直射日光の下でも読みやすく。')).not.toBeInTheDocument()
-    await screen.findByText(/pi-01/)
+    expect(screen.queryByText('2D')).not.toBeInTheDocument()
+    expect(container.querySelector('.ls-host')).not.toBeNull()
+    expect(screen.queryByText(/SERVER/)).not.toBeInTheDocument()
+    // the host is named once, in the pill, titled 接続先 (UX-09)
+    expect((await screen.findByText('pi-01')).closest('.ls-host')?.getAttribute('title')).toMatch(/^接続先: pi-01/)
     unmount()
     setThemePref('light')
     try {
       const view = render(<Login store={new AuthStore()} intro={new IntroStore()} />)
       expect(view.container.querySelector('.ls-ui')).toHaveAttribute('data-theme', 'light')
-      expect(screen.getByText('直射日光の下でも読みやすく。')).toBeInTheDocument()
-      await screen.findByText(/pi-01/)
+      expect(screen.queryByText('直射日光の下でも読みやすく。')).not.toBeInTheDocument()
+      expect(view.container.querySelector('.ls-host')).not.toBeNull()
+      await screen.findAllByText(/pi-01/)
     } finally {
       setThemePref('auto')
     }

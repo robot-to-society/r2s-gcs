@@ -4,7 +4,7 @@ import type { Health } from '../../shared/api/types'
 import { t, type Dict } from '../../shared/i18n'
 import { useLang } from '../../shared/i18n/lang'
 import { IconCheck, IconLoader } from '../../shared/ui/icons'
-import { useTheme, type Theme } from '../../shared/theme/theme'
+import { useTheme } from '../../shared/theme/theme'
 import { isScene, type Phase } from './intro'
 import { introStore, useIntro, type IntroStore } from './introStore'
 import { LoginChrome } from './LoginChrome'
@@ -74,7 +74,7 @@ export function Login({ store = authStore, intro = introStore }: Props) {
     <div className="ls-ui" data-theme={theme}>
       <LoginChrome theme={theme} dev={health?.dev_mode === true} host={host} up={health !== null} dict={dict} />
       <form className="ls-card" aria-label={dict.login} onSubmit={onSubmit} data-error={error ? '' : undefined}>
-        <CardHead theme={theme} host={host} dict={dict} />
+        <CardHead dict={dict} />
         <label className="ls-field">
           {dict.username}
           <input className="ls-in" autoComplete="username" autoCapitalize="none" spellCheck={false} aria-invalid={error ? true : undefined} value={username} onChange={(e) => onChange(setUsername)(e.target.value)} />
@@ -103,16 +103,10 @@ function statusText(phase: Phase, dict: Dict): string {
   return ''
 }
 
-function CardHead({ theme, host, dict }: { readonly theme: Theme; readonly host: string; readonly dict: Dict }) {
+function CardHead({ dict }: { readonly dict: Dict }) {
   return (
     <div className="ls-head">
-      {theme === 'dark' && (
-        <div className="ls-eyebrow">
-          {dict.loginServer} <span>{host}</span>
-        </div>
-      )}
       <h1 className="ls-title">{dict.login}</h1>
-      {theme === 'light' && <p className="ls-sub">{dict.loginSubtitle}</p>}
     </div>
   )
 }

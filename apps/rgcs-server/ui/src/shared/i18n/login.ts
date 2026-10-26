@@ -1,8 +1,7 @@
 // Copy for the sign-in screen, its cloud transition and the 表示 (theme) setting (2026-10-25).
 
 export const loginJa = {
-  loginServer: 'SERVER',
-  loginSubtitle: '直射日光の下でも読みやすく。',
+  loginServer: '接続先',
   loginSigningIn: 'サインイン中…',
   loginSignedIn: 'サインインしました',
   loginCredit: '出典: 国土地理院(シームレス空中写真)',
@@ -16,8 +15,7 @@ export const loginJa = {
 }
 
 export const loginEn: Record<keyof typeof loginJa, string> = {
-  loginServer: 'SERVER',
-  loginSubtitle: 'Readable in direct sunlight.',
+  loginServer: 'Server',
   loginSigningIn: 'Signing in…',
   loginSignedIn: 'Signed in',
   loginCredit: '出典: 国土地理院(シームレス空中写真)',
