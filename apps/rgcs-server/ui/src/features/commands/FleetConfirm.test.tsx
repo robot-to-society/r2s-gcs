@@ -24,6 +24,19 @@ describe('FleetConfirm', () => {
     expect(within(dialog).getByTestId('fleet-2').className).toContain('fail')
     expect(within(dialog).getByRole('button', { name: '閉じる' })).toBeInTheDocument()
   })
+  it('says who is targeted and lists the skipped vehicles with the reason (UX-29)', () => {
+    const skipped = [{ vehicle: v(2), reason: 'disarmed' as const }, { vehicle: v(3), reason: 'lost' as const }]
+    render(<FleetConfirm command={{ cmd: 'rtl' }} targets={[v(1)]} skipped={skipped} dict={t('ja')} onClose={() => {}} onResult={() => {}} deps={{ confirm: vi.fn(), send: vi.fn() }} />)
+    const dialog = screen.getByRole('dialog', { name: '全機 帰還' })
+    expect(within(dialog).getByTestId('fleet-scope')).toHaveTextContent('対象: アーム中の 1 機 (2 機は対象外)')
+    expect(within(dialog).getByTestId('fleet-skip-2')).toHaveTextContent('UAV-02未アーム')
+    expect(within(dialog).getByTestId('fleet-skip-3')).toHaveTextContent('UAV-03通信断')
+  })
+  it('with nothing armed the run is disabled and says so (UX-29)', () => {
+    render(<FleetConfirm command={{ cmd: 'pause' }} targets={[]} skipped={[{ vehicle: v(1), reason: 'disarmed' }]} dict={t('ja')} onClose={() => {}} onResult={() => {}} deps={{ confirm: vi.fn(), send: vi.fn() }} />)
+    expect(screen.getByText('アーム中の機体がありません')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '実行' })).toBeDisabled()
+  })
   it('escape closes before running', () => {
     const onClose = vi.fn()
     render(<FleetConfirm command={{ cmd: 'rtl' }} targets={[v(1)]} dict={t('ja')} onClose={onClose} onResult={() => {}} deps={{ confirm: vi.fn(), send: vi.fn() }} />)

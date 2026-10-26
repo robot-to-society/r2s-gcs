@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../shared/api/client'
 import type { VehicleState } from '../../shared/api/types'
-import { fleetTargets, runFleet } from './fleet'
+import { fleetSkipped, fleetTargets, runFleet } from './fleet'
 
 const v = (sysid: number, link: VehicleState['link'] = 'ok', armed = true) => ({ sysid, name: `UAV-0${sysid}`, link, armed }) as VehicleState
 
@@ -11,6 +11,15 @@ describe('fleetTargets', () => {
   })
   it('leaves vehicles on the pad alone (pause = BRAKE, which then refuses to arm)', () => {
     expect(fleetTargets([v(1), v(2, 'ok', false)]).map((x) => x.sysid)).toEqual([1])
+  })
+})
+
+describe('fleetSkipped (UX-29)', () => {
+  it('names every vehicle left out and why: lost link first, else disarmed', () => {
+    expect(fleetSkipped([v(3, 'ok', false), v(1), v(2, 'lost', true)]).map((s) => [s.vehicle.sysid, s.reason])).toEqual([
+      [2, 'lost'],
+      [3, 'disarmed'],
+    ])
   })
 })
 

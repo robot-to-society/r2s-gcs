@@ -9,6 +9,12 @@ export const uxJa = {
   armedState: 'アーム中',
   disarmedState: 'ディスアーム',
   groupDrive: '走行',
+  fleetScope: '対象: アーム中の {n} 機',
+  fleetSkippedN: '({n} 機は対象外)',
+  fleetNone: 'アーム中の機体がありません',
+  fleetSkipDisarmed: '未アーム',
+  fleetSkipLost: '通信断',
+  fleetSkippedTitle: '対象外の機体',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -20,4 +26,10 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   armedState: 'ARMED',
   disarmedState: 'Disarmed',
   groupDrive: 'Drive',
+  fleetScope: 'Targets: {n} armed vehicle(s)',
+  fleetSkippedN: '({n} skipped)',
+  fleetNone: 'No armed vehicles',
+  fleetSkipDisarmed: 'Disarmed',
+  fleetSkipLost: 'Link lost',
+  fleetSkippedTitle: 'Skipped vehicles',
 }

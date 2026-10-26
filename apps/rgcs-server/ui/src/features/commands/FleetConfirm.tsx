@@ -4,11 +4,13 @@ import { cmdLabel, type Dict } from '../../shared/i18n'
 import { requestConfirm, sendCommand } from './api'
 import { DESTRUCTIVE } from './catalog'
 import { useConfirmKeys } from './confirmKeys'
-import { runFleet, type FleetDeps } from './fleet'
+import { runFleet, type FleetDeps, type Skipped } from './fleet'
 
 interface Props {
   readonly command: VehicleCommand
   readonly targets: readonly VehicleState[]
+  /** Vehicles left out (disarmed / no link), listed with the reason. */
+  readonly skipped?: readonly Skipped[]
   readonly dict: Dict
   readonly onClose: () => void
   /** Each vehicle's outcome (failures are logged like any command result). */
@@ -19,12 +21,12 @@ interface Props {
 type Status = 'sending' | 'ok' | 'fail'
 
 /** Confirm + progress for a fleet command: the targets are listed by name before anything is sent. */
-export function FleetConfirm({ command, targets, dict, onClose, onResult, deps }: Props) {
+export function FleetConfirm({ command, targets, skipped = [], dict, onClose, onResult, deps }: Props) {
   const [status, setStatus] = useState<ReadonlyMap<number, Status> | null>(null)
   const box = useRef<HTMLDivElement>(null)
   const title = `${dict.fleet} ${cmdLabel(command.cmd, dict)}`
   const execute = () => {
-    if (status) return
+    if (status || targets.length === 0) return
     setStatus(new Map(targets.map((v) => [v.sysid, 'sending'])))
     void runFleet(
       command,
@@ -42,6 +44,7 @@ export function FleetConfirm({ command, targets, dict, onClose, onResult, deps }
     <div className="modal-backdrop">
       <div ref={box} className="g-strong confirm" role="dialog" aria-label={title}>
         <div className="h2">{title}</div>
+        <Scope targets={targets.length} skipped={skipped} dict={dict} />
         <ul className="fleet-list">
           {targets.map((v) => (
             <li key={v.sysid} data-testid={`fleet-${v.sysid}`} className={status?.get(v.sysid) ?? ''}>
@@ -50,6 +53,7 @@ export function FleetConfirm({ command, targets, dict, onClose, onResult, deps }
             </li>
           ))}
         </ul>
+        <SkippedList skipped={skipped} dict={dict} />
         <div className="confirm-actions">
           {status ? (
             <button type="button" className="btn btn-ghost" onClick={onClose}>
@@ -60,7 +64,7 @@ export function FleetConfirm({ command, targets, dict, onClose, onResult, deps }
               <button type="button" className="btn btn-ghost" onClick={onClose}>
                 {dict.cancel}
               </button>
-              <button type="button" className={`btn ${DESTRUCTIVE.has(command.cmd) ? 'btn-danger' : 'btn-primary'}`} onClick={execute}>
+              <button type="button" className={`btn ${DESTRUCTIVE.has(command.cmd) ? 'btn-danger' : 'btn-primary'}`} disabled={targets.length === 0} onClick={execute}>
                 {dict.execute}
               </button>
             </>
@@ -68,5 +72,29 @@ export function FleetConfirm({ command, targets, dict, onClose, onResult, deps }
         </div>
       </div>
     </div>
+  )
+}
+
+/** 「対象: アーム中の 1 機 (3 機は対象外)」; the skipped vehicles follow the targets with their reason. */
+function Scope({ targets, skipped, dict }: { readonly targets: number; readonly skipped: readonly Skipped[]; readonly dict: Dict }) {
+  const scope = targets === 0 ? dict.fleetNone : dict.fleetScope.replace('{n}', String(targets)) + (skipped.length > 0 ? ` ${dict.fleetSkippedN.replace('{n}', String(skipped.length))}` : '')
+  return (
+    <div className={targets === 0 ? 'hint caution fleet-scope' : 't2 fleet-scope'} data-testid="fleet-scope">
+      {scope}
+    </div>
+  )
+}
+
+function SkippedList({ skipped, dict }: { readonly skipped: readonly Skipped[]; readonly dict: Dict }) {
+  if (skipped.length === 0) return null
+  return (
+    <ul className="fleet-list skipped" aria-label={dict.fleetSkippedTitle}>
+      {skipped.map(({ vehicle, reason }) => (
+        <li key={vehicle.sysid} data-testid={`fleet-skip-${vehicle.sysid}`}>
+          <span>{vehicle.name}</span>
+          <span className="t3">{reason === 'lost' ? dict.fleetSkipLost : dict.fleetSkipDisarmed}</span>
+        </li>
+      ))}
+    </ul>
   )
 }

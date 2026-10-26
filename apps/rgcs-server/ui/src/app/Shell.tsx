@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { authStore } from '../features/auth/store'
-import { CommandDock, ConfirmDialog, FleetConfirm, fleetTargets, localResult, useCommandRunner, type RunResult } from '../features/commands'
+import { CommandDock, ConfirmDialog, FleetConfirm, fleetSkipped, fleetTargets, type Skipped, localResult, useCommandRunner, type RunResult } from '../features/commands'
 import { EMPTY_PENDING, cameraErrorText, clearPending, markPending, sendCameraCommand, type PendingState } from '../features/camera'
 import { CameraSettingsSheet } from '../features/camera-settings'
 import { PresentSettings } from '../features/present-settings'
@@ -91,7 +91,7 @@ export function Shell({ me, lang }: Props) {
   // 「このWPへ行く」: the mission badge clicked on the operations map
   const [wpGo, setWpGo] = useState<WaypointPick | null>(null)
   useEffect(() => setWpGo(null), [view])
-  const [fleet, setFleet] = useState<{ command: VehicleCommand; targets: VehicleState[] } | null>(null)
+  const [fleet, setFleet] = useState<{ command: VehicleCommand; targets: VehicleState[]; skipped: Skipped[] } | null>(null)
   const runner = useCommandRunner({
     entries: log.entries,
     dict,
@@ -330,7 +330,7 @@ export function Shell({ me, lang }: Props) {
             onSelect={setSelected}
             onFollow={(sysid) => mapUiStore.update((s) => (s.follow === sysid ? clearFollow(s) : setFollow(s, sysid)))}
             following={mapUi.follow}
-            onFleet={view === 'ops' ? (command) => setFleet({ command, targets: fleetTargets(list) }) : undefined}
+            onFleet={view === 'ops' ? (command) => setFleet({ command, targets: fleetTargets(list), skipped: fleetSkipped(list) }) : undefined}
             guarded={guard.active}
           />
           )}
@@ -408,6 +408,7 @@ export function Shell({ me, lang }: Props) {
             <FleetConfirm
               command={fleet.command}
               targets={fleet.targets}
+              skipped={fleet.skipped}
               dict={dict}
               onClose={() => setFleet(null)}
               onResult={(sysid, ok, reason) => !ok && vehicleStore.pushLocalResult({ id: -Date.now() - sysid, sysid, cmd: fleet.command.cmd, ok, reason: reason ?? null, ts: Date.now() })}

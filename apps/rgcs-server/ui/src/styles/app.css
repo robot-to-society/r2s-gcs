@@ -212,6 +212,8 @@
 .fleet-list li.sending { border-color: var(--accent-line); }
 .fleet-list li.ok { border-color: var(--ok); }
 .fleet-list li.fail { border-color: var(--danger); color: var(--danger); }
+.fleet-scope { margin-top: 8px; font-size: 13px; }
+.fleet-list.skipped li { color: var(--text-3); border-style: dashed; }
 .ctx-menu .ctx-head { padding: 4px 10px 2px; font-size: 11px; }
 .ctx-menu button:disabled { opacity: 0.4; cursor: not-allowed; }
 .warn-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--caution); color: var(--on-caution); font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }

@@ -22,6 +22,21 @@ export function fleetTargets(vehicles: readonly VehicleState[]): VehicleState[] 
   return vehicles.filter((v) => v.link !== 'lost' && v.armed).sort((a, b) => a.sysid - b.sysid)
 }
 
+export type SkipReason = 'lost' | 'disarmed'
+
+export interface Skipped {
+  readonly vehicle: VehicleState
+  readonly reason: SkipReason
+}
+
+/** The vehicles fleetTargets leaves out, by sysid, with why: the confirm names them (UX-29). */
+export function fleetSkipped(vehicles: readonly VehicleState[]): Skipped[] {
+  return vehicles
+    .filter((v) => v.link === 'lost' || !v.armed)
+    .sort((a, b) => a.sysid - b.sysid)
+    .map((vehicle) => ({ vehicle, reason: vehicle.link === 'lost' ? 'lost' : 'disarmed' }))
+}
+
 async function one(command: VehicleCommand, sysid: number, deps: FleetDeps): Promise<FleetResult> {
   try {
     const token = REQUIRES_CONFIRM.has(command.cmd) ? (await deps.confirm(sysid, command.cmd)).confirm_token : undefined
