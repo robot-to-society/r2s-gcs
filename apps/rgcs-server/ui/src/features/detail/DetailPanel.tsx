@@ -3,7 +3,8 @@ import type { BtnState } from '../commands'
 import { CameraStatusRow, CameraStrip, VideoThumb } from '../camera'
 import type { Dict } from '../../shared/i18n'
 import { IconClose, IconPin } from '../../shared/ui/icons'
-import { battText, battWidth, dotClass, modeLabel } from '../vehicles/format'
+import { battText, dotClass, modeLabel } from '../vehicles/format'
+import { BattBar } from '../vehicles/BattBar'
 import { ArmChip } from '../vehicles/ArmChip'
 import { DetailMessages } from './DetailMessages'
 import { EmergencyRow } from './EmergencyRow'
@@ -114,9 +115,7 @@ export function DetailPanel(p: Props) {
             <span className="big" data-testid="batt">
               {battText(v)}
             </span>
-            <span className="batt">
-              <span style={{ width: battWidth(v) }} />
-            </span>
+            <BattBar v={v} dict={dict} />
           </span>
         </div>
         {p.onCommand && <EmergencyRow vehicle={v} dict={dict} onCommand={p.onCommand} feedback={p.feedback} />}

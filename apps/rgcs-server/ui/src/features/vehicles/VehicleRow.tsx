@@ -2,7 +2,8 @@ import type { Dict } from '../../shared/i18n'
 import { KindIcon } from '../../shared/ui/KindIcon'
 import type { VehicleState } from '../../shared/api/types'
 import { IconFollow, IconHeading, IconPower, IconSignal, IconSpeed } from '../../shared/ui/icons'
-import { altText, battLow, battText, battWidth, dotClass, modeLabel, speedText } from './format'
+import { altText, battText, dotClass, modeLabel, speedText } from './format'
+import { BattBar } from './BattBar'
 
 interface Props {
   readonly vehicle: VehicleState
@@ -60,9 +61,7 @@ export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, fol
           </span>
         )}
         <div className="grow" />
-        <span className={battLow(v) ? 'batt low' : 'batt'}>
-          <span style={{ width: battWidth(v) }} />
-        </span>
+        <BattBar v={v} dict={dict} />
         <span className="num batt-text">{battText(v)}</span>
       </div>
       <div className="row num stat">

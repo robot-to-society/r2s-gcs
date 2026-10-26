@@ -45,6 +45,9 @@
 .vrow > .row:not(.stat) { gap: 6px; }
 .vrow .badge { display: block; line-height: 18px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vrow .batt { flex: none; }
+/* unknown level (UX-11): empty, dashed outline, never drawn full */
+.batt.unknown { border-style: dashed; border-color: var(--line-hi); }
+.batt.unknown::after { background: var(--line-hi); }
 /* arm state without colour alone (UX-12): a Power mark and a filled mode badge while armed */
 .vrow .badge { color: var(--text-2); }
 .vrow .badge.armed, .badge.armed { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }

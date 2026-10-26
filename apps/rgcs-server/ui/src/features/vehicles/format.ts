@@ -25,8 +25,9 @@ export function battLow(v: VehicleState): boolean {
   return v.battery.pct !== null && v.battery.pct < 50
 }
 
+/** Bar fill; 0 % when unknown: an unknown battery must never look full (UX-11). */
 export function battWidth(v: VehicleState): string {
-  return `${v.battery.pct ?? 100}%`
+  return `${v.battery.pct ?? 0}%`
 }
 
 /** Case-insensitive filter on name and mode, like the prototype's search box. */

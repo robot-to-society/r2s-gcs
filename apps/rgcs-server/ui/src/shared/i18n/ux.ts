@@ -15,6 +15,7 @@ export const uxJa = {
   fleetSkipDisarmed: '未アーム',
   fleetSkipLost: '通信断',
   fleetSkippedTitle: '対象外の機体',
+  battUnknown: 'バッテリー残量不明',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -32,4 +33,5 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   fleetSkipDisarmed: 'Disarmed',
   fleetSkipLost: 'Link lost',
   fleetSkippedTitle: 'Skipped vehicles',
+  battUnknown: 'Battery level unknown',
 }

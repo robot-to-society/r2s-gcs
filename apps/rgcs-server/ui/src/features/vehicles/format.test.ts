@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { t } from '../../shared/i18n'
 import type { VehicleState } from '../../shared/api/types'
-import { battLow, battText, matches, modeLabel } from './format'
+import { battLow, battText, battWidth, matches, modeLabel } from './format'
 
 const dict = t('ja')
 const v: VehicleState = {
@@ -40,6 +40,11 @@ describe('vehicle formatting', () => {
 
   it('shows a dash, not 0.0 V, for a vehicle without a battery monitor', () => {
     expect(battText({ ...v, battery: { pct: null, volt: 0, current: null } })).toBe('—')
+  })
+
+  it('an unknown percentage draws an empty bar, never a full one (UX-11)', () => {
+    expect(battWidth({ ...v, battery: { pct: null, volt: 12.6, current: null } })).toBe('0%')
+    expect(battWidth({ ...v, battery: { pct: 64, volt: 22, current: null } })).toBe('64%')
   })
 
   it('filters by name or mode, ignoring case', () => {

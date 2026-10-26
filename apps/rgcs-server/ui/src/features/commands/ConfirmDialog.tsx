@@ -51,7 +51,7 @@ export const needsHold = (command: VehicleCommand, v: VehicleState | undefined):
 /** What the operator needs to judge the command: mode, altitude, battery, distance from home. */
 function ContextRow({ v, dict }: { v: VehicleState; dict: Dict }) {
   const home = v.home && !(v.home.lat === 0 && v.home.lon === 0) ? Math.round(haversineM(v.lat, v.lon, v.home.lat, v.home.lon)) : null
-  const parts = [v.mode, `${dict.ctxAlt} ${Math.round(v.alt_rel)} m`, `${dict.ctxBattery} ${v.battery.pct ?? '—'}%`, home === null ? null : `${dict.fromHome} ${home} m`]
+  const parts = [v.mode, `${dict.ctxAlt} ${Math.round(v.alt_rel)} m`, `${dict.ctxBattery} ${v.battery.pct === null ? '—' : `${v.battery.pct}%`}`, home === null ? null : `${dict.fromHome} ${home} m`]
   return (
     <div className="confirm-ctx num t2" data-testid="confirm-ctx">
       {parts.filter(Boolean).join(' · ')}

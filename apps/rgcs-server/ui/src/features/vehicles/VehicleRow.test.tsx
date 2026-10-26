@@ -28,4 +28,13 @@ describe('VehicleRow', () => {
     expect(within(r).getByText('HOLD').className).not.toContain('armed')
     expect(within(r).getByText('HOLD').getAttribute('title')).toBe('HOLD · ディスアーム')
   })
+
+  it('an_unknown_battery_is_an_empty_dashed_bar_with_a_dash (UX-11)', () => {
+    const r = row({ battery: { pct: null, volt: 0, current: null } })
+    const bar = r.querySelector('.batt')!
+    expect(bar.className).toContain('unknown')
+    expect(bar.getAttribute('title')).toBe('バッテリー残量不明')
+    expect((bar.firstElementChild as HTMLElement).style.width).toBe('0%')
+    expect(within(r).getByText('—')).toBeInTheDocument()
+  })
 })
