@@ -1,6 +1,7 @@
 // Altitudes for the 3D map (memory: RGCS mission UI conventions). Vehicles fly at the DEM ground
 // of their home plus the relative altitude — `alt_msl` is not used: SITL's MSL and a real GPS's
 // geoid need not match the DEM, while "home ground + rel" always puts the vehicle over its take-off.
+// It is clamped to the DEM under the vehicle; rovers and disarmed vehicles sit on it.
 import type { MissionItem, VehicleState } from '../../shared/api/types'
 import type { LatLon } from './store'
 
@@ -30,7 +31,11 @@ export function vehicleAmsl(v: VehicleState, home: LatLon | null, elevAt: ElevAt
   const homeGround = elevAt(home.lon, home.lat)
   if (!finite(homeGround) || !Number.isFinite(v.alt_rel)) return null
   const under = elevAt(v.lon, v.lat)
-  return { ground: finite(under) ? under : homeGround, amsl: homeGround + v.alt_rel }
+  const ground = finite(under) ? under : homeGround
+  // a rover or a disarmed vehicle stands on the DEM; a flying one never draws inside it (SITL's
+  // world is flat at home and a GPS altitude drifts, while the DEM follows the real hills)
+  const onGround = v.kind === 'rover' || !v.armed
+  return { ground, amsl: onGround ? ground : Math.max(homeGround + v.alt_rel, ground) }
 }
 
 export function itemAmsl(item: MissionItem, home: LatLon | null, elevAt: ElevAt): number | null {

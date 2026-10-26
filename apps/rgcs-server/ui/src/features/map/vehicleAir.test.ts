@@ -4,7 +4,7 @@ import { toMercator } from './air'
 import { vehicleAirData, vehicleModels } from './vehicleAir'
 import type { Mission } from '../../shared/api/types'
 
-const v = (sysid: number, alt_rel: number, lon = 139.37, lat = 36.16) => ({ sysid, lat, lon, alt_rel, gps: { fix: 3 }, link: 'ok', armed: false, mode: 'LOITER', ground_speed: 0, climb: 0 }) as unknown as VehicleState
+const v = (sysid: number, alt_rel: number, lon = 139.37, lat = 36.16) => ({ sysid, lat, lon, alt_rel, gps: { fix: 3 }, link: 'ok', armed: true, mode: 'LOITER', ground_speed: 0, climb: 0 }) as unknown as VehicleState
 
 describe('vehicleModels', () => {
   it('gives each airframe its own model: a VTOL plane is a QuadPlane, unknown kinds fly as copters', () => {
@@ -24,10 +24,10 @@ describe('vehicleAirData', () => {
     expect(d.discs.features).toHaveLength(1)
     expect(d.alts.get(1)).toBe(130)
   })
-  it('a landed vehicle has an altitude but no post', () => {
-    const d = vehicleAirData(new Map([[1, v(1, 0.4)]]), null, homes, new Map(), () => 100)
+  it('a landed (disarmed) vehicle stands on the ground with no post', () => {
+    const d = vehicleAirData(new Map([[1, { ...v(1, 0.4), armed: false } as VehicleState]]), null, homes, new Map(), () => 100)
     expect(d.posts).toHaveLength(0)
-    expect(d.alts.get(1)).toBeCloseTo(100.4)
+    expect(d.alts.get(1)).toBe(100)
   })
   it('falls back to the first track point for home, and to the ground while the DEM is missing', () => {
     const tracks = new Map([[2, [[139.36, 36.15, 0, 0]] as const]])

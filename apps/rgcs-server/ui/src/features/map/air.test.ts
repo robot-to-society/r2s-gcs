@@ -4,7 +4,7 @@ import { climbColor, itemAmsl, mercatorLine, vehicleAmsl, type ElevAt } from './
 
 const flat = (h: number): ElevAt => () => h
 const none: ElevAt = () => null
-const v = (over: Partial<VehicleState> = {}) => ({ sysid: 1, lat: 36.16, lon: 139.37, alt_rel: 30, alt_msl: 430 }) as unknown as VehicleState & typeof over
+const v = (over: Partial<VehicleState> = {}) => ({ sysid: 1, kind: 'copter', armed: true, lat: 36.16, lon: 139.37, alt_rel: 30, alt_msl: 430 }) as unknown as VehicleState & typeof over
 const item = (frame: MissionItem['frame'], alt: number): MissionItem => ({ command: 16, frame, params: [0, 0, 0, 0], lat: 36.17, lon: 139.38, alt, autocontinue: true })
 const HOME = { lat: 36.16, lon: 139.37 }
 
@@ -24,6 +24,20 @@ describe('vehicleAmsl', () => {
     expect(vehicleAmsl(v(), null, flat(100))).toBeNull()
     expect(vehicleAmsl(v(), HOME, none)).toBeNull()
     expect(vehicleAmsl({ ...v(), lat: 0, lon: 0 } as VehicleState, HOME, flat(100))).toBeNull()
+  })
+  it('never draws a flying vehicle below the ground under it', () => {
+    // SITL's world is flat at home: 350 m away the DEM is 40 m higher than the home ground
+    const elev: ElevAt = (lon) => (lon === HOME.lon ? 100 : 140)
+    const flying = { ...v(), lon: 139.4, armed: true, kind: 'copter' } as VehicleState
+    expect(vehicleAmsl(flying, HOME, elev)).toEqual({ ground: 140, amsl: 140 })
+  })
+  it('puts a rover and a disarmed vehicle on the ground under it', () => {
+    const elev: ElevAt = (lon) => (lon === HOME.lon ? 100 : 140)
+    const rover = { ...v(), lon: 139.4, alt_rel: 0, armed: true, kind: 'rover' } as VehicleState
+    expect(vehicleAmsl(rover, HOME, elev)).toEqual({ ground: 140, amsl: 140 })
+    const low = (lon: number) => (lon === HOME.lon ? 100 : 80)
+    const landed = { ...v(), lon: 139.4, alt_rel: 0.4, armed: false, kind: 'copter' } as VehicleState
+    expect(vehicleAmsl(landed, HOME, low)).toEqual({ ground: 80, amsl: 80 })
   })
   it('never returns NaN', () => {
     expect(vehicleAmsl({ ...v(), alt_rel: Number.NaN } as VehicleState, HOME, flat(100))).toBeNull()
