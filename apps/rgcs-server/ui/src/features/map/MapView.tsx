@@ -9,11 +9,12 @@ import { badgeText } from '../mission/mapEdit'
 import type { Predicted } from '../mission/missionAir'
 import { addPredictedLayer, setPredicted } from './predictedLayer'
 import { cmdKeyOf } from '../mission/cmds'
-import { firstView, follow3dCamera, followTarget, needsRecenter, type Padding } from './follow'
+import { follow3dCamera, followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
 import { KEEP_ELEVATION, type MapMode } from './mapMode'
 import { useVehicleAir } from './vehicleAir'
 import { useArrival } from './useArrival'
+import { useFleetView } from './useFleetView'
 import { MODE_EASE_MS } from './air3d'
 import { courseGeoJson, metresPerPixel } from './course'
 import { footprintsGeoJson, projectedIds } from './footprints'
@@ -64,6 +65,8 @@ interface Props {
   readonly onViewMove?: () => void
   /** Live GPS ROI status per vehicle: the active preset marker and the sight line's end. */
   readonly roi?: ReadonlyMap<number, RoiStatus>
+  /** 「全機を表示」: each new value frames every vehicle with a position (UX-10). */
+  readonly showAll?: number
 }
 
 /** Follow / focus moves are programmatic (no originalEvent) and leave anchored popovers alone. */
@@ -89,7 +92,7 @@ const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
-export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint, onViewMove, arrival = 0, roi = NO_ROI }: Props) {
+export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint, onViewMove, arrival = 0, roi = NO_ROI, showAll = 0 }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
   const loaded = useRef(false)
@@ -353,19 +356,8 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
     m.easeTo({ center: cam.center, bearing: cam.bearing, duration: 250, ...KEEP_ELEVATION })
   }
 
-  // The map opens on the vehicles (not the built-in default spot) the first time any has a position.
-  const opened = useRef(false)
-  useEffect(() => {
-    const m = map.current
-    if (!m || opened.current || follow !== null) return
-    const view = firstView(vehicles)
-    if (!view) return
-    opened.current = true
-    if ('center' in view) m.jumpTo({ center: view.center })
-    else m.fitBounds(view.bounds, { padding, maxZoom: 16, duration: 0 })
-    // padding is read when the view is first set; later changes are applied by their own effect
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicles, follow])
+  // The map opens on the vehicles (not the built-in default spot); 「全機を表示」 frames them again.
+  useFleetView(map, vehicles, follow, padding, showAll)
 
   const focused = useRef(0)
   useEffect(() => {

@@ -16,6 +16,7 @@ export const uxJa = {
   fleetSkipLost: '通信断',
   fleetSkippedTitle: '対象外の機体',
   battUnknown: 'バッテリー残量不明',
+  showAll: '全機を表示',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -34,4 +35,5 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   fleetSkipLost: 'Link lost',
   fleetSkippedTitle: 'Skipped vehicles',
   battUnknown: 'Battery level unknown',
+  showAll: 'Show all vehicles',
 }

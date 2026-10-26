@@ -14,7 +14,7 @@ import { MissionWriteSheet, MissionView, getKnownMission, getMission, uploadSave
 import { useOpsArrival } from './opsArrival'
 import { MaintView } from '../features/params'
 import { NetworkView } from '../features/network'
-import { BasemapPicker, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks, NO_PADDING, WpGoPopover, type WaypointPick } from '../features/map'
+import { BasemapPicker, ShowAllButton, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks, NO_PADDING, WpGoPopover, type WaypointPick } from '../features/map'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
@@ -91,6 +91,8 @@ export function Shell({ me, lang }: Props) {
   // 「このWPへ行く」: the mission badge clicked on the operations map
   const [wpGo, setWpGo] = useState<WaypointPick | null>(null)
   useEffect(() => setWpGo(null), [view])
+  // 「全機を表示」: each press frames the fleet once (UX-10)
+  const [showAll, setShowAll] = useState(0)
   const [fleet, setFleet] = useState<{ command: VehicleCommand; targets: VehicleState[]; skipped: Skipped[] } | null>(null)
   const runner = useCommandRunner({
     entries: log.entries,
@@ -273,6 +275,7 @@ export function Shell({ me, lang }: Props) {
               target={mapUi.target}
               focus={mapUi.focus}
               arrival={arrival}
+              showAll={showAll}
               mission={currentMission}
               predicted={predicted}
               missionCurrent={current === null ? null : (missionProgress.get(current)?.seq ?? null)}
@@ -290,6 +293,16 @@ export function Shell({ me, lang }: Props) {
           {view === 'ops' && settings && <MapModeToggle mode={mapMode} available={settings.terrain_tiles !== null} dict={dict} onChange={saveMapMode} />}
           {view === 'ops' && settings && guardOn && <EnvSummaryChip summary={envSummary} dict={dict} now={Date.now()} />}
           {view === 'ops' && settings && basemap && settings.basemaps.length > 1 && <BasemapPicker basemaps={settings.basemaps} current={basemap.id} dict={dict} onPick={saveBasemapChoice} className="float map-r top2" />}
+          {view === 'ops' && settings && (
+            <ShowAllButton
+              dict={dict}
+              className={`float map-r ${basemap && settings.basemaps.length > 1 ? 'top3' : 'top2'}`}
+              onClick={() => {
+                mapUiStore.update(clearFollow)
+                setShowAll((n) => n + 1)
+              }}
+            />
+          )}
           {view === 'maint' && (
             <>
               <div className="maint-backdrop" />

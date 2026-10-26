@@ -1,4 +1,5 @@
 export { MapView } from './MapView'
+export { ShowAllButton } from './ShowAllButton'
 export { BasemapPicker } from './BasemapPicker'
 export { basemapStyle, chooseBasemap, saveBasemapChoice, useBasemapChoice } from './basemaps'
 export { missionHomes, vehicleHomes } from './homes'

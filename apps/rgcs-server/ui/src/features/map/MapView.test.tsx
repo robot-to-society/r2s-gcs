@@ -522,6 +522,30 @@ describe('MapView', () => {
     expect(m2.fits).toEqual([{ b: [[137.63, 36.2], [137.7, 36.25]], o: { padding: pad, maxZoom: 16, duration: 0 } }])
   })
 
+  it('frames the fleet on the live map under StrictMode, not only on the thrown-away first map (UX-10)', () => {
+    const props = { tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    render(
+      <StrictMode>
+        <MapView {...props} vehicles={new Map([[1, v(1, 3, 137.63, 36.25)], [2, v(2, 3, 137.7, 36.2)]])} />
+      </StrictMode>,
+    )
+    const live = created.maps.at(-1)!
+    expect(live.fits).toEqual([{ b: [[137.63, 36.2], [137.7, 36.25]], o: { padding: pad, maxZoom: 16, duration: 0 } }])
+  })
+
+  it('a show-all request frames every vehicle with a position, once per request (UX-10)', () => {
+    const vehicles = new Map([[1, v(1, 3, 137.63, 36.25)], [2, v(2, 3, 137.7, 36.2)], [3, v(3, 0)]])
+    const props = { vehicles, tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} showAll={0} />)
+    const m = created.maps.at(-1)!
+    const before = m.fits.length
+    rerender(<MapView {...props} showAll={1} />)
+    expect(m.fits.length).toBe(before + 1)
+    expect(m.fits.at(-1)).toEqual({ b: [[137.63, 36.2], [137.7, 36.25]], o: { padding: pad, maxZoom: 16, duration: 600 } })
+    rerender(<MapView {...props} showAll={1} vehicles={new Map(vehicles)} />)
+    expect(m.fits.length).toBe(before + 1)
+  })
+
   it('a focus request centres the map on that vehicle once per request', () => {
     const vehicles = new Map([[2, v(2, 3, 139.39, 36.17)]])
     const props = { vehicles, tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
