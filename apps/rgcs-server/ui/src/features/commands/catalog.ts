@@ -80,6 +80,8 @@ export function commandName(c: VehicleCommand): string {
 }
 
 const always = () => true
+/** Every airframe but a rover leaves the ground. */
+export const flies = (v: Pick<VehicleState, 'kind'>): boolean => v.kind !== 'rover'
 const simple = (cmd: 'pause' | 'resume' | 'rtl' | 'land' | 'mission_start' | 'mission_resume' | 'arm' | 'disarm') => (): VehicleCommand => ({ cmd })
 
 const numeric = (value: number | undefined): value is number => value !== undefined && !Number.isNaN(value)
@@ -97,12 +99,14 @@ export const CATALOG: readonly CatalogItem[] = [
   { name: 'pause', group: 'flight', enabled: always, build: simple('pause') },
   { name: 'resume', group: 'flight', enabled: always, build: simple('resume') },
   { name: 'rtl', group: 'flight', enabled: always, build: simple('rtl') },
-  { name: 'land', group: 'flight', enabled: always, build: simple('land') },
+  // a rover cannot land or change altitude (UX-18)
+  { name: 'land', group: 'flight', enabled: always, available: flies, build: simple('land') },
   { name: 'guided', group: 'move', enabled: always, opens: 'guided' },
   {
     name: 'change_alt',
     group: 'move',
     enabled: always,
+    available: flies,
     param: 'alt',
     build: ({ value }) => (value === undefined || Number.isNaN(value) ? null : { cmd: 'change_alt', args: { alt_rel: value } }),
   },

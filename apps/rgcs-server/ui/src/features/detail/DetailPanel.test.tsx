@@ -173,6 +173,12 @@ describe('DetailPanel', () => {
     expect(onCommand).toHaveBeenLastCalledWith({ cmd: 'land' })
     expect(screen.getByRole('button', { name: '帰還' }).className).toContain('sending')
   })
+  it('a rover has no 着陸 in the emergency row (UX-18)', () => {
+    render(<DetailPanel {...base} vehicle={{ ...v, kind: 'rover', mode: 'AUTO' }} onCommand={() => {}} />)
+    const row = screen.getByRole('group', { name: '緊急操作' })
+    expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['一時停止', '帰還'])
+  })
+
   it('emergency buttons stay usable but marked when the link is lost', () => {
     render(<DetailPanel {...base} vehicle={{ ...v, link: 'lost' }} onCommand={() => {}} />)
     const b = screen.getByRole('button', { name: '一時停止' })

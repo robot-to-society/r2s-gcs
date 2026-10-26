@@ -8,6 +8,7 @@ export const uxJa = {
   mWriteGo: '書き込む',
   armedState: 'アーム中',
   disarmedState: 'ディスアーム',
+  groupDrive: '走行',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -18,4 +19,5 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   mWriteGo: 'Write',
   armedState: 'ARMED',
   disarmedState: 'Disarmed',
+  groupDrive: 'Drive',
 }

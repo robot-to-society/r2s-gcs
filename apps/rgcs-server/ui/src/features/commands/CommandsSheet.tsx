@@ -20,7 +20,7 @@ import {
   IconSpeed,
   IconStepForward,
 } from '../../shared/ui/icons'
-import { CATALOG, TAKEOFF_ALT_DEFAULT, catalogGroups, modesFor, takeoffKind, type CatalogItem, type CommandGroup, type ModalTarget } from './catalog'
+import { CATALOG, TAKEOFF_ALT_DEFAULT, catalogGroups, flies, modesFor, takeoffKind, type CatalogItem, type CommandGroup, type ModalTarget } from './catalog'
 import type { BtnState } from './feedback'
 
 interface Props {
@@ -172,7 +172,7 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
         {q === '' && <QuickModes modes={modes.quick} current={vehicle.mode} dict={dict} onPick={onPick} />}
         {catalogGroups(shown).map(({ group, items }) => (
           <div key={group}>
-            <div className="cmd-group-title">{dict[GROUP_LABEL[group]]}</div>
+            <div className="cmd-group-title">{dict[group === 'flight' && !flies(vehicle) ? 'groupDrive' : GROUP_LABEL[group]]}</div>
             <div className="cmd-grid">
               {items.map((item) => {
                 const fb = item.build ? (feedback?.(item.name) ?? null) : null

@@ -103,6 +103,15 @@ describe('CommandsSheet', () => {
     expect(screen.queryByRole('button', { name: '離陸' })).toBeNull()
   })
 
+  it('a rover gets no land or altitude change, and its first group is 走行 (UX-18)', () => {
+    render(<CommandsSheet vehicle={{ ...v(true), kind: 'rover', mode: 'AUTO' }} onPick={() => {}} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
+    expect(screen.queryByRole('button', { name: '着陸' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '高度変更' })).toBeNull()
+    const titles = [...document.querySelectorAll('.cmd-group-title')].map((e) => e.textContent)
+    expect(titles[0]).toBe('走行')
+    expect(titles).not.toContain('飛行')
+  })
+
   it('shows why the vehicle refused to arm under ARM while disarmed', () => {
     const { rerender } = render(<CommandsSheet vehicle={v(false)} prearm={['PreArm: Compass not calibrated']} onPick={() => {}} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
     expect(screen.getByTestId('prearm')).toHaveTextContent('PreArm: Compass not calibrated')
