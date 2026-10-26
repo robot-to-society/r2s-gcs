@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { SysId } from '../../shared/api/types'
 import { msgStamp } from '../../shared/format/time'
 import type { Dict } from '../../shared/i18n'
@@ -39,6 +40,8 @@ function Filters({ log, names, dict, onFilter }: Omit<Props, 'onClose'>) {
 
 /** メッセージ履歴 (prototype `.logsheet`): filters, newest 500 rows, the note about older entries. */
 export function LogSheet({ log, names, dict, onFilter, onClose, onFocusVehicle }: Props) {
+  // when the sheet opened: dates entries not from that day (UX-21), pure during render
+  const [now] = useState(() => Date.now())
   const rows = shown(log)
   return (
     <div className="g-strong float map-c logsheet" role="dialog" aria-label={dict.logTitle}>
@@ -55,7 +58,7 @@ export function LogSheet({ log, names, dict, onFilter, onClose, onFocusVehicle }
         {rows.map((e) => (
           <div key={e.id} className={`logrow ${e.severity}`} data-testid="logrow">
             <SevIcon severity={e.severity} size={15} />
-            <span className="num t3">{msgStamp(e.ts, Date.now(), dict.yesterday)}</span>
+            <span className="num t3">{msgStamp(e.ts, now, dict.yesterday)}</span>
             {e.sysid !== null && onFocusVehicle ? (
               <button type="button" className="src link" title={dict.focusVehicle} onClick={() => onFocusVehicle(e.sysid!)}>
                 {entrySource(e, names, dict)}

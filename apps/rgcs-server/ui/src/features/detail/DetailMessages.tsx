@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { LogEntry, SysId } from '../../shared/api/types'
 import { msgStamp } from '../../shared/format/time'
 import type { Dict } from '../../shared/i18n'
@@ -16,6 +17,8 @@ interface Props {
 }
 
 function Row({ e, dict, onAck }: { readonly e: LogEntry; readonly dict: Dict; readonly onAck: () => void }) {
+  // the day the row was first drawn: enough to date an old alert (UX-21), and pure during render
+  const [now] = useState(() => Date.now())
   const acked = isAlert(e) && e.acked_by !== null
   const body = e.source === 'link' && e.text === 'comms_delay' ? dict.commDelayBody : ''
   return (
@@ -23,7 +26,7 @@ function Row({ e, dict, onAck }: { readonly e: LogEntry; readonly dict: Dict; re
       <SevIcon severity={e.severity} size={16} />
       <div style={{ minWidth: 0 }}>
         <div className="row" style={{ gap: 10, fontSize: 13.5 }}>
-          <span className="num t3">{msgStamp(e.ts, Date.now(), dict.yesterday)}</span>
+          <span className="num t3">{msgStamp(e.ts, now, dict.yesterday)}</span>
           <span className="ttl ell" style={{ fontWeight: 500 }}>
             {entryText(e, dict)}
           </span>
