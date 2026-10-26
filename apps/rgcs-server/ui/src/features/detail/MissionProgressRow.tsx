@@ -36,16 +36,17 @@ export function MissionProgressRow({ progress, mission, vehicle, dict, onWrite, 
           {progressText(progress, mission, total, dict)}
           {remaining !== null && ` · ${dict.mRemaining} ${km(remaining)}`}
         </span>
-        <span className="grow" />
-        <button type="button" className="btn btn-sm nowrap" onClick={onWrite}>
-          <IconUpload size={14} />
-          {dict.mWriteShort}
-        </button>
-        {mission && (
-          <button type="button" className="btn btn-primary btn-sm nowrap" onClick={() => onStart(done)}>
-            {done ? dict.mRestart : dict.mStart}
+        <span className="mp-btns">
+          <button type="button" className="btn btn-sm nowrap" onClick={onWrite}>
+            <IconUpload size={14} />
+            {dict.mWriteShort}
           </button>
-        )}
+          {mission && (
+            <button type="button" className="btn btn-primary btn-sm nowrap" onClick={() => onStart(done)}>
+              {done ? dict.mRestart : dict.mStart}
+            </button>
+          )}
+        </span>
       </div>
       {(transfer?.phase === 'write' || transfer?.phase === 'verify') && (
         <div style={{ padding: '0 12px 8px' }}>

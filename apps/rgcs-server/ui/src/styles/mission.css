@@ -46,6 +46,9 @@
 /* label and value never wrap mid-word (UX-19) */
 .mission-progress .nowrap { white-space: nowrap; }
 .mission-progress .btn { gap: 6px; }
+/* the buttons stay together and drop to their own line when 最初から再実行 does not fit */
+.mission-progress { flex-wrap: wrap; row-gap: 6px; }
+.mission-progress .mp-btns { display: flex; gap: 8px; margin-left: auto; }
 /* 3D editing: the floating badge drags up / down (altitude), the ground foot drags across (position). */
 .mission-map.is-3d .rg-wp .dot, .mission-map.is-3d .rg-wp .chip { cursor: ns-resize; }
 .mission-map.is-3d .rg-wp { touch-action: none; }

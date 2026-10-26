@@ -1,6 +1,7 @@
 // 「ミッション書込」 from the ops detail panel (UX-30): a click only selects a saved mission; the
 // footer button asks in-app, naming the mission and the vehicle, before anything is written.
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { MissionSummaryRow } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconUpload } from '../../shared/ui/icons'
@@ -67,11 +68,12 @@ interface ConfirmProps {
   readonly onWrite: () => void
 }
 
-/** The standard confirm (ConfirmDialog's look): what is written, to which vehicle. */
+/** The standard confirm (ConfirmDialog's look): what is written, to which vehicle. Portalled to the
+ * body: the sheet's backdrop filter would otherwise confine the full-screen backdrop to the sheet. */
 function WriteConfirm({ mission, vehicleName, dict, onCancel, onWrite }: ConfirmProps) {
   const box = useRef<HTMLDivElement>(null)
   useConfirmKeys(box, onWrite, onCancel)
-  return (
+  return createPortal(
     <div className="modal-backdrop">
       <div ref={box} className="g-strong confirm" role="alertdialog" aria-label={dict.mWriteAsk}>
         <div className="h2">{dict.mWriteAsk}</div>
@@ -89,6 +91,7 @@ function WriteConfirm({ mission, vehicleName, dict, onCancel, onWrite }: Confirm
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
