@@ -45,6 +45,17 @@ describe('PresentSettings', () => {
     await waitFor(() => expect(fetchMock.mock.calls.some(([u, i]) => String(u) === '/api/settings/presentation/tokens/abcdef' && i?.method === 'DELETE')).toBe(true))
   })
 
+  it('the token table has column headers (UX-60)', async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input)
+      if (url === '/api/settings/presentation/tokens') return envelope(200, { success: true, data: [{ label: 'x', token_prefix: 'abcdef', created_at: 1, revoked_at: null }] })
+      return envelope(404, { success: false, error: { code: 'not_found', message: url } })
+    })
+    render(<PresentSettings isAdmin logo={false} onClose={() => {}} dict={t('ja')} />)
+    expect(await screen.findByRole('columnheader', { name: 'トークン' })).toBeInTheDocument()
+    for (const name of ['ラベル', '状態']) expect(screen.getByRole('columnheader', { name })).toBeInTheDocument()
+  })
+
   it('logo upload PUTs the file with its content-type; operators see no admin controls', async () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input)
@@ -53,6 +64,8 @@ describe('PresentSettings', () => {
       return envelope(404, { success: false, error: { code: 'not_found', message: url } })
     })
     const { unmount } = render(<PresentSettings isAdmin logo={false} onClose={() => {}} dict={t('ja')} />)
+    // an app button, not the browser's native "Choose File" (UX-60)
+    expect(await screen.findByText('ロゴを選択…')).toBeInTheDocument()
     const file = new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' })
     fireEvent.change(await screen.findByLabelText('ロゴ画像'), { target: { files: [file] } })
     await waitFor(() => expect(fetchMock.mock.calls.some(([u, i]) => String(u) === '/api/settings/branding/logo' && i?.method === 'PUT')).toBe(true))

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { IconImageUp } from '../../shared/ui/icons'
 import type { Dict } from '../../shared/i18n'
 import { createToken, deleteLogo, listTokens, revokeToken, uploadLogo, type PresentationToken } from './api'
 
@@ -74,6 +75,16 @@ export function PresentSettings({ isAdmin, logo, onClose, dict }: Props) {
           </div>
         )}
         <table className="tbl compact">
+          {tokens.length > 0 && (
+            <thead>
+              <tr>
+                <th>{dict.psLabel}</th>
+                <th>{dict.psToken}</th>
+                <th>{dict.psState}</th>
+                <th />
+              </tr>
+            </thead>
+          )}
           <tbody>
             {tokens.map((tk) => (
               <tr key={tk.token_prefix}>
@@ -93,8 +104,13 @@ export function PresentSettings({ isAdmin, logo, onClose, dict }: Props) {
         </table>
         {isAdmin && (
           <div className="form wide">
-            <label htmlFor="present-logo">{dict.presentLogo}</label>
-            <input id="present-logo" type="file" accept="image/png,image/svg+xml" onChange={(e) => void onFile(e.target.files?.[0])} />
+            <span>{dict.presentLogo}</span>
+            {/* an app button over a hidden input: no browser-language "Choose File" (UX-60) */}
+            <label className="btn btn-sm present-logo-pick">
+              <IconImageUp size={14} />
+              {dict.psPickLogo}
+              <input type="file" className="sr-only" aria-label={dict.presentLogo} accept="image/png,image/svg+xml" onChange={(e) => void onFile(e.target.files?.[0])} />
+            </label>
             <span className="t3">{hasLogo ? dict.logoSet : dict.logoUnset}</span>
             <button
               type="button"

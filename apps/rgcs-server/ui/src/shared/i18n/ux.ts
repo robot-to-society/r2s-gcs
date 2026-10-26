@@ -50,6 +50,12 @@ export const uxJa = {
   netKindCompanion: 'コンパニオンコンピューター',
   netKindGcs: '地上局',
   netKindOther: 'その他',
+  histVerify: '検証',
+  verifiedOk: '検証済み',
+  psLabel: 'ラベル',
+  psToken: 'トークン',
+  psState: '状態',
+  psPickLogo: 'ロゴを選択…',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -102,4 +108,10 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   netKindCompanion: 'Companion computer',
   netKindGcs: 'Ground station',
   netKindOther: 'Other',
+  histVerify: 'Verified',
+  verifiedOk: 'Verified',
+  psLabel: 'Label',
+  psToken: 'Token',
+  psState: 'Status',
+  psPickLogo: 'Choose logo…',
 }

@@ -96,7 +96,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, me, onOpenP
       {tab === 'app' && <AppTab sysid={sysid} vehicle={vehicle} me={me} dict={dict} onOpenPresent={onOpenPresent ?? (() => {})} onOpenGuard={onOpenGuard ?? (() => {})} onOpenEnv={onOpenEnv ?? (() => {})} />}
       {tab === 'history' && (
         <div className="maint-body">
-          <HistoryTab sysid={sysid} vehicles={vehicles} dict={dict} version={writes} />
+          <HistoryTab sysid={sysid} dict={dict} version={writes} />
         </div>
       )}
     </section>

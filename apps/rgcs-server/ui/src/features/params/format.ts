@@ -20,15 +20,17 @@ export function progressPct(p: ParamProgress | null, listed: number): number | n
   return Math.min(100, Math.round((p.received / p.total) * 100))
 }
 
+/** Why a write is not verified; empty when it is (the caller shows a Lucide check, UX-52). */
 export function resultText(r: ParamWriteResult, dict: Dict): string {
-  if (r.verified) return '✓'
+  if (r.verified) return ''
   const why = r.reason === 'vehicle_armed' ? dict.paramArmedAbort : r.reason === 'mismatch' ? dict.paramMismatch : dict.paramNoEcho
   return `${dict.paramUnverified} (${why})`
 }
 
+/** `NAME: old → new`; whether it was verified is its own column (UX-52). */
 export function historyText(e: ParamHistoryEntry): string {
   const old = e.old_value === null ? '?' : formatNumber(e.old_value)
-  return `${e.name}: ${old} → ${formatNumber(e.new_value)} ${e.verified ? '✓' : '⚠'}`
+  return `${e.name}: ${old} → ${formatNumber(e.new_value)}`
 }
 
 /** Local wall time `YYYY-MM-DD HH:MM:SS` of a store timestamp. */

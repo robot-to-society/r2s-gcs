@@ -97,7 +97,8 @@ describe('MaintView', () => {
     const results = screen.getByTestId('param-results')
     expect(within(results).getByText('FENCE_ALT_MAX').closest('li')!.textContent).toContain('未検証')
     const baudRow = within(results).getByText('SERIAL1_BAUD').closest('li')!
-    expect(baudRow.textContent).toContain('✓')
+    // a Lucide check, not a ✓ glyph (UX-52)
+    expect(baudRow.querySelector('[aria-label="検証済み"]')).not.toBeNull()
     expect(baudRow.textContent).toContain('再起動が必要')
     expect(within(results).getByText('再起動が必要な項目は再起動後に反映されます')).toBeInTheDocument()
     const put = calls.find((c) => c.init?.method === 'PUT')!
@@ -129,10 +130,13 @@ describe('MaintView', () => {
   it('history_tab_lists_changes', async () => {
     setup()
     fireEvent.click(screen.getByRole('button', { name: '変更履歴' }))
-    await waitFor(() => expect(screen.getByText('FENCE_ALT_MAX: 100 → 150 ✓')).toBeInTheDocument())
-    const row = screen.getByText('FENCE_ALT_MAX: 100 → 150 ✓').closest('tr')!
+    await waitFor(() => expect(screen.getByText('FENCE_ALT_MAX: 100 → 150')).toBeInTheDocument())
+    const row = screen.getByText('FENCE_ALT_MAX: 100 → 150').closest('tr')!
     expect(within(row).getByText('admin')).toBeInTheDocument()
-    expect(within(row).getByText('UAV-01')).toBeInTheDocument()
+    // a 検証 column with an icon; no 機体 column, the list is already this vehicle's (UX-52)
+    expect(within(row).getByLabelText('検証済み')).toBeInTheDocument()
+    expect(within(row).queryByText('UAV-01')).toBeNull()
+    expect(screen.getByRole('columnheader', { name: '検証' })).toBeInTheDocument()
     expect(within(row).getByText(/^2026-10-1[78] \d\d:02:03$/)).toBeInTheDocument()
   })
 

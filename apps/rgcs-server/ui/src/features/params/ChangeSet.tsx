@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { VerifiedMark } from './VerifiedMark'
 import type { ParamEntry, ParamWriteResult } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { formatValue, rebootNeeded, type Changes } from './changes'
@@ -81,7 +82,7 @@ export function ChangeSet({ changes, entries, meta, results, armed, downloading,
                   <span className="num t2">{r.actual === null ? '–' : formatValue(r.actual, meta[r.name])}</span>
                   {meta[r.name]?.reboot && <span className="badge reboot">{dict.paramReboot}</span>}
                   <span className="grow" />
-                  <span className={r.verified ? 'ok' : 'warn'}>{resultText(r, dict)}</span>
+                  <span className={r.verified ? 'ok' : 'warn'}>{r.verified ? <VerifiedMark ok dict={dict} /> : resultText(r, dict)}</span>
                 </li>
               ))}
             </ul>

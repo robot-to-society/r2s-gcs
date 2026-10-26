@@ -47,13 +47,13 @@ test('download all parameters, search, write FENCE_ALT_MAX with confirmation, se
     await dialog.getByRole('button', { name: '実行' }).click()
     const results = page.getByTestId('param-results')
     await expect(results).toBeVisible({ timeout: 15_000 })
-    await expect(results.locator('li').filter({ hasText: 'FENCE_ALT_MAX' })).toContainText('✓')
+    await expect(results.locator('li').filter({ hasText: 'FENCE_ALT_MAX' }).getByLabel('検証済み')).toBeVisible()
     await expect(input).toHaveValue(String(value))
   }
   await write(target)
   await page.getByRole('button', { name: '変更履歴' }).click()
   const hist = page.locator('.params-history tbody tr').first()
-  await expect(hist).toContainText(`FENCE_ALT_MAX: ${before} → ${target} ✓`)
+  await expect(hist).toContainText(`FENCE_ALT_MAX: ${before} → ${target}`)
   await expect(hist).toContainText('admin')
   // restore
   await page.getByRole('button', { name: 'パラメータ' }).click()

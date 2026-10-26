@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
-import type { ParamHistoryEntry, SysId, VehicleState } from '../../shared/api/types'
+import type { ParamHistoryEntry, SysId } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { getParamHistory } from './api'
 import { historyText, historyTime } from './format'
+import { VerifiedMark } from './VerifiedMark'
 
 interface Props {
   readonly sysid: SysId | null
-  readonly vehicles: ReadonlyMap<SysId, VehicleState>
   readonly dict: Dict
   /** Bumped by the parent after a write so the table reloads. */
   readonly version: number
 }
 
-/** `param_history` for the selected vehicle (prototype history tab: 時刻 / オペレータ / 機体 / 変更内容). */
-export function HistoryTab({ sysid, vehicles, dict, version }: Props) {
+/** `param_history` for the selected vehicle: 時刻 / オペレータ / 変更内容 / 検証 (no 機体 column: the list is that vehicle's, UX-52). */
+export function HistoryTab({ sysid, dict, version }: Props) {
   const [rows, setRows] = useState<readonly ParamHistoryEntry[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -35,8 +35,8 @@ export function HistoryTab({ sysid, vehicles, dict, version }: Props) {
             <tr>
               <th>{dict.histTime}</th>
               <th>{dict.histOperator}</th>
-              <th>{dict.histVehicle}</th>
               <th>{dict.histChange}</th>
+              <th>{dict.histVerify}</th>
             </tr>
           </thead>
           <tbody>
@@ -44,8 +44,10 @@ export function HistoryTab({ sysid, vehicles, dict, version }: Props) {
               <tr key={e.id} className={e.verified ? undefined : 'unverified'}>
                 <td className="num t2">{historyTime(e.ts)}</td>
                 <td>{e.operator}</td>
-                <td>{vehicles.get(e.sysid)?.name ?? `#${e.sysid}`}</td>
                 <td className="num">{historyText(e)}</td>
+                <td>
+                  <VerifiedMark ok={e.verified} dict={dict} />
+                </td>
               </tr>
             ))}
           </tbody>
