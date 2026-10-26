@@ -43,6 +43,9 @@
 .wp-mk.current { background: var(--caution); color: var(--on-caution); box-shadow: 0 0 0 4px rgba(242, 181, 68, 0.3), 0 2px 8px rgba(0, 0, 0, 0.45); }
 .mission-progress { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line-soft); font-size: 12px; }
 .mission-progress .num { font-family: var(--mono); }
+/* label and value never wrap mid-word (UX-19) */
+.mission-progress .nowrap { white-space: nowrap; }
+.mission-progress .btn { gap: 6px; }
 /* 3D editing: the floating badge drags up / down (altitude), the ground foot drags across (position). */
 .mission-map.is-3d .rg-wp .dot, .mission-map.is-3d .rg-wp .chip { cursor: ns-resize; }
 .mission-map.is-3d .rg-wp { touch-action: none; }

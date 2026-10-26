@@ -1,5 +1,5 @@
 import type { LogEntry, SysId } from '../../shared/api/types'
-import { hhmmss } from '../../shared/format/time'
+import { msgStamp } from '../../shared/format/time'
 import type { Dict } from '../../shared/i18n'
 import { IconChevron } from '../../shared/ui/icons'
 import { entryText } from '../log/format'
@@ -23,7 +23,7 @@ function Row({ e, dict, onAck }: { readonly e: LogEntry; readonly dict: Dict; re
       <SevIcon severity={e.severity} size={16} />
       <div style={{ minWidth: 0 }}>
         <div className="row" style={{ gap: 10, fontSize: 13.5 }}>
-          <span className="num t3">{hhmmss(e.ts)}</span>
+          <span className="num t3">{msgStamp(e.ts, Date.now(), dict.yesterday)}</span>
           <span className="ttl ell" style={{ fontWeight: 500 }}>
             {entryText(e, dict)}
           </span>

@@ -381,7 +381,7 @@ export function Shell({ me, lang }: Props) {
               missionProgress={missionProgress.get(detail.sysid)}
               missionTransfer={missionTransfers.get(detail.sysid)}
               onWriteMission={() => setModal({ kind: 'mission-pick', sysid: detail.sysid })}
-              onStartMission={() => setModal({ kind: 'confirm', sysid: detail.sysid, command: { cmd: 'mission_start' } })}
+              onStartMission={(restart) => setModal({ kind: 'confirm', sysid: detail.sysid, command: { cmd: 'mission_start' }, message: restart ? dict.mRestartNote : undefined })}
               commandsOpen={commandsOpen}
               onCommand={(command) => runner.pick(detail.sysid, command)}
               feedback={(cmd) => runner.feedback(detail.sysid, cmd)}

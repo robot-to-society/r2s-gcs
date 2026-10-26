@@ -24,3 +24,13 @@ describe('app date-time', () => {
     expect(ymdHm(new Date(2026, 0, 2, 3, 4).getTime())).toBe('2026/01/02 03:04')
   })
 })
+
+describe('message stamps (UX-21)', () => {
+  it('today shows the time; yesterday says so; older shows the date', async () => {
+    const { msgStamp } = await import('./time')
+    const now = new Date(2026, 9, 26, 13, 47).getTime()
+    expect(msgStamp(new Date(2026, 9, 26, 9, 5, 7).getTime(), now, '昨日')).toBe('09:05:07')
+    expect(msgStamp(new Date(2026, 9, 25, 21, 29, 32).getTime(), now, '昨日')).toBe('昨日 21:29')
+    expect(msgStamp(new Date(2026, 9, 20, 8, 1).getTime(), now, '昨日')).toBe('10/20 08:01')
+  })
+})

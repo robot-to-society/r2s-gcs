@@ -19,6 +19,11 @@ export const uxJa = {
   showAll: '全機を表示',
   homeOf: '{name} のホーム',
   f_rover_takeoff: 'ローバーは離陸コマンドを無視します',
+  mTotalUnknown: '機体のミッション件数を未取得',
+  mWriteShort: '書込…',
+  mRestart: '最初から再実行',
+  mRestartNote: 'ミッションは完了しています。WP 1 から再実行します。',
+  yesterday: '昨日',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -40,4 +45,9 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   showAll: 'Show all vehicles',
   homeOf: 'Home of {name}',
   f_rover_takeoff: 'Rovers ignore TAKEOFF',
+  mTotalUnknown: 'Mission size not read yet',
+  mWriteShort: 'Write…',
+  mRestart: 'Restart',
+  mRestartNote: 'The mission is complete. It will run again from WP 1.',
+  yesterday: 'Yesterday',
 }

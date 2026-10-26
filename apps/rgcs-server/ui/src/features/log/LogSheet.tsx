@@ -1,5 +1,5 @@
 import type { SysId } from '../../shared/api/types'
-import { hhmmss } from '../../shared/format/time'
+import { msgStamp } from '../../shared/format/time'
 import type { Dict } from '../../shared/i18n'
 import { IconClose } from '../../shared/ui/icons'
 import { entrySource, entryText } from './format'
@@ -55,7 +55,7 @@ export function LogSheet({ log, names, dict, onFilter, onClose, onFocusVehicle }
         {rows.map((e) => (
           <div key={e.id} className={`logrow ${e.severity}`} data-testid="logrow">
             <SevIcon severity={e.severity} size={15} />
-            <span className="num t3">{hhmmss(e.ts)}</span>
+            <span className="num t3">{msgStamp(e.ts, Date.now(), dict.yesterday)}</span>
             {e.sysid !== null && onFocusVehicle ? (
               <button type="button" className="src link" title={dict.focusVehicle} onClick={() => onFocusVehicle(e.sysid!)}>
                 {entrySource(e, names, dict)}

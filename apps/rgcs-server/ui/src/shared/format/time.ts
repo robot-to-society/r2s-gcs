@@ -18,6 +18,21 @@ export function ymdHm(ts: number): string {
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${hhmm(ts)}`
 }
 
+const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+
+/**
+ * A message's time (UX-21): `HH:MM:SS` today, `<yesterday> HH:MM` for yesterday, `MM/DD HH:MM`
+ * before that, so an old alert never reads as current.
+ */
+export function msgStamp(ts: number, now: number, yesterday: string): string {
+  const d = new Date(ts)
+  if (dayKey(d) === dayKey(new Date(now))) return hhmmss(ts)
+  const y = new Date(now)
+  y.setDate(y.getDate() - 1)
+  if (dayKey(d) === dayKey(y)) return `${yesterday} ${hhmm(ts)}`
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${hhmm(ts)}`
+}
+
 const JST = 'Asia/Tokyo'
 const jstTimeFmt = new Intl.DateTimeFormat('en-GB', { timeZone: JST, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 const jstDateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: JST, year: 'numeric', month: '2-digit', day: '2-digit' })
