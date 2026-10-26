@@ -40,6 +40,10 @@ function setup(fetchImpl?: (url: string, init?: RequestInit) => Response, transf
   return { ...utils, fetchMock, store, briefing }
 }
 
+/** The write target is never implied (UX-32): the operator picks it in the right panel. */
+const target = (sysid = '1') => {
+  fireEvent.change(within(screen.getByRole('complementary', { name: 'editor' })).getByLabelText('対象機体'), { target: { value: sysid } })
+}
 const addPoints = (n: number) => {
   for (let i = 0; i < n; i++) fireEvent.click(screen.getByText('map-add'))
 }
@@ -129,11 +133,13 @@ describe('MissionView', () => {
 
   it('shows_the_write_progress_of_the_target_vehicle', () => {
     setup(undefined, new Map([[1, { phase: 'verify', done: 5, total: 21 } as MissionTransfer]]))
+    target()
     expect(screen.getByRole('progressbar', { name: 'ミッション書込' })).toHaveTextContent('読み戻して照合中 5 / 21')
   })
 
   it('the_elevation_profile_opens_from_the_map', () => {
     setup()
+    target()
     addPoints(2)
     fireEvent.click(screen.getByRole('button', { name: '標高プロファイル' }))
     expect(screen.getByRole('region', { name: '標高プロファイル' }).querySelectorAll('.rg-elev-pt')).toHaveLength(3)
@@ -183,6 +189,7 @@ describe('MissionView', () => {
   it('fence_tab_draws_a_polygon_by_clicks_and_writes_it_to_the_vehicle', async () => {
     localStorage.removeItem('rgcs.planTab')
     const { fetchMock, container } = setup((url, init) => (url.endsWith('/fence') && init?.method === 'PUT' ? envelope({ items: 3, verified: true, mismatched: [], findings: [] }) : envelope([])))
+    target()
     fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Fence' }))
     expect(screen.getByTestId('mission-map').dataset.tab).toBe('fence')
     fireEvent.click(screen.getByRole('button', { name: '包含ポリゴン' }))
@@ -190,6 +197,8 @@ describe('MissionView', () => {
     fireEvent.keyDown(container.firstChild as Element, { key: 'Enter' })
     expect(screen.getByTestId('fence-row').querySelector('.fence-title')?.textContent).toBe('包含ポリゴン · 3 点')
     expect(screen.queryByRole('button', { name: '完了' })).not.toBeInTheDocument()
+    // the fence panel names the vehicle it writes to
+    expect(within(screen.getByRole('complementary', { name: 'フェンス設定' })).getByText('対象機体: UAV-01')).toBeInTheDocument()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'フェンスを機体に書込' }))
     })
@@ -208,6 +217,7 @@ describe('MissionView', () => {
       { kind: 'polygon', inclusion: false, vertices: [{ lat: 36, lon: 137 }, { lat: 36, lon: 137.02 }, { lat: 36.02, lon: 137.02 }] },
     ]
     setup((url) => (url.endsWith('/fence') ? envelope({ zones: fromVehicle }) : envelope([])))
+    target()
     fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Fence' }))
     fireEvent.click(screen.getByRole('button', { name: '包含ポリゴン' }))
     fireEvent.click(screen.getByText('map-plan'))
@@ -235,6 +245,7 @@ describe('MissionView', () => {
         ? new Response(JSON.stringify({ success: false, error: { code: 'mission_timeout', message: 'the vehicle did not answer in time' } }), { status: 504, headers: { 'content-type': 'application/json' } })
         : envelope([]),
     )
+    target()
     fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Rally' }))
     fireEvent.click(screen.getByText('map-plan'))
     await act(async () => {
@@ -285,12 +296,13 @@ describe('MissionView', () => {
       return envelope([])
     })
     addPoints(2)
+    target()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
     })
     expect(screen.getByText('先頭が TAKEOFF ではありません')).toBeInTheDocument()
     // the planner reads the target vehicle's FENCE_* and path parameters on its own: not part of this flow
-    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params') && !c.includes('/params/pick'))
+    const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params') && !c.includes('/params/pick') && !c.endsWith('/registry'))
     expect(calls).toEqual(['POST /api/missions/validate?sysid=1'])
   })
 
@@ -303,6 +315,7 @@ describe('MissionView', () => {
       return envelope([])
     }, new Map(), two)
     addPoints(2)
+    target()
     fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
     const sheet = screen.getByRole('dialog', { name: '書き込む機体を選択' })
     // the lost vehicle is not offered
@@ -326,6 +339,7 @@ describe('MissionView', () => {
       return envelope([])
     }, new Map(), two)
     addPoints(2)
+    target()
     fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
     fireEvent.click(screen.getByRole('button', { name: 'すべて選択' }))
     await act(async () => {

@@ -1,6 +1,6 @@
 // The write target with several missions open (spec 2026-10-20 §8): exactly the active row's
-// assignment; the right panel's vehicle select assigns the row only. A single mission keeps the
-// fallbacks of today (the mission's own vehicle, then the first connected one).
+// assignment; the right panel's vehicle select assigns the row only. A single mission has no
+// fallback either (UX review 2026-10-26): the write goes exactly where the UI says, or nowhere.
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
@@ -65,15 +65,20 @@ describe('MissionView write target (§8)', () => {
     expect(editor().getByText('一覧で機体を割り当てると書き込めます')).toBeInTheDocument()
   })
 
-  it('a_single_mission_defaults_to_the_first_vehicle_and_keeps_its_own', async () => {
+  it('a_single_unassigned_mission_cannot_be_written_until_a_vehicle_is_picked', async () => {
     const { store, briefing } = setup()
     await pick([missionFile('Alpha', 36)])
     expect(briefRows()).toHaveLength(1)
-    expect(panelSelect().value).toBe('1')
-    expect(writeButton()).toBeEnabled()
-    expect(editor().queryByText('一覧で機体を割り当てると書き込めます')).not.toBeInTheDocument()
+    // both selects say 未割当: no hidden fallback to the first vehicle
+    expect(panelSelect().value).toBe('')
+    expect(panelSelect().selectedOptions[0]!.textContent).toBe('未割当')
+    expect((within(briefRows()[0]!).getByLabelText('割当機体') as HTMLSelectElement).value).toBe('')
+    expect(writeButton()).toBeDisabled()
+    expect(editor().getByText('書込先の機体を選んでください')).toBeInTheDocument()
     fireEvent.change(panelSelect(), { target: { value: '2' } })
     expect(briefing.getState().rows[0]!.sysid).toBe(2)
     expect(store.getState().history.present.mission.sysid).toBe(2)
+    expect(writeButton()).toBeEnabled()
+    expect(editor().queryByText('書込先の機体を選んでください')).not.toBeInTheDocument()
   })
 })

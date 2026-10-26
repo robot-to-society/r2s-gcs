@@ -86,7 +86,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const [bulk, setBulk] = useState<{ alt: string; frame: MissionFrame }>({ alt: String(draft.mission.default_alt), frame: draft.mission.default_frame })
   const file = useRef<HTMLInputElement>(null)
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
-  const sysid = brief.target(draft.mission.sysid, list[0]?.sysid ?? null)
+  const sysid = brief.target
   const online = list.filter((v) => v.link !== 'lost')
   const located = list.filter((v) => v.gps.fix >= 2 && !(v.lat === 0 && v.lon === 0))
   const vehicle = sysid === null ? null : (vehicles.get(sysid) ?? null)
@@ -110,7 +110,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const fileHome = draft.mission.home ?? (vehicle?.home ? { lat: vehicle.home.lat, lon: vehicle.home.lon, alt: vehicle.home.alt } : null)
   const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit, store })
   const briefIo = useBriefingIo(briefing, store, brief.list.workspace, dict, { onFit })
-  const planIo = { sysid, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f), onCollapse: panel.collapse }
+  const planIo = { sysid, targetName: vehicle?.name, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f), onCollapse: panel.collapse }
   const selectedItems = draft.items.filter((it) => ui.selected.has(it.uid))
   const lastSelected = selectedItems[selectedItems.length - 1]
   const sv = useSurveyWiring({ store, draft, change, afterUid: lastSelected?.uid ?? null, home: fileHome, kind, params: pathValues, tab: plan.tab, onFit, terrainTiles, predict })

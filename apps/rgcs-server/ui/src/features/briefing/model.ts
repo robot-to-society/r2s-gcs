@@ -103,11 +103,8 @@ export const activeRow = (ws: Workspace): Row => ws.rows.find((r) => r.key === w
 export const isMulti = (ws: Workspace): boolean => ws.rows.filter((r) => !r.missing).length > 1
 
 /**
- * Where 機体に書き込む writes (spec 2026-10-20 §8). With several missions open: exactly the active
- * row's assignment, null when it is unassigned. A single mission keeps today's fallbacks: its own
- * vehicle, then the first connected one.
+ * Where 機体に書き込む writes (spec 2026-10-20 §8, UX review 2026-10-26): exactly the active row's
+ * assignment, null when it is unassigned. No fallback to the mission's own or the first vehicle:
+ * the write goes only to the vehicle both selects show.
  */
-export function writeTarget(ws: Workspace, missionSysid: number | null, firstSysid: number | null): number | null {
-  const own = activeRow(ws).sysid
-  return isMulti(ws) ? own : (own ?? missionSysid ?? firstSysid)
-}
+export const writeTarget = (ws: Workspace): number | null => activeRow(ws).sysid

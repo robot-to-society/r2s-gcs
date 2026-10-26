@@ -72,7 +72,7 @@ export interface BriefingHandlers {
   /** Two or more missions open: the write target is the row's assignment only (no fallback). */
   readonly multi: boolean
   /** 機体に書き込む's vehicle (§8): see writeTarget. */
-  readonly target: (missionSysid: number | null, firstSysid: number | null) => number | null
+  readonly target: number | null
   /**
    * The right panel's mission settings: a vehicle choice assigns the active row; returns what the
    * mission itself takes (with several missions open, never the vehicle).
@@ -119,6 +119,6 @@ export function useBriefing(b: BriefingStore, m: MissionStore, live: MissionUi, 
     b.update((w) => assign(w, w.active, sysid))
     return multi ? withoutSysid(patch) : patch
   }
-  const target = (missionSysid: number | null, firstSysid: number | null) => writeTarget(workspace, missionSysid, firstSysid)
+  const target = writeTarget(workspace)
   return { list, row, pathColor, multi, target, metaPatch }
 }

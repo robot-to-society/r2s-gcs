@@ -12,6 +12,8 @@ export interface PlanStatus {
 
 interface IoProps {
   readonly sysid: number | null
+  /** The target's name: shown above the write button, so the write never goes to an unnamed vehicle. */
+  readonly targetName?: string
   readonly busy: boolean
   readonly status: PlanStatus | null
   readonly dict: Dict
@@ -21,12 +23,12 @@ interface IoProps {
   readonly onCollapse?: () => void
 }
 
-function IoFooter({ sysid, busy, status, dict, onWrite, onRead, note, labels }: IoProps & { readonly note: string; readonly labels: readonly [string, string] }) {
+function IoFooter({ sysid, targetName, busy, status, dict, onWrite, onRead, note, labels }: IoProps & { readonly note: string; readonly labels: readonly [string, string] }) {
   return (
     <div className="hair-t plan-io">
       <div className="t3 plan-note">{note}</div>
       {status && <div className={status.ok ? 't3' : 'hint caution'}>{status.text}</div>}
-      {sysid === null && <div className="t3">{dict.planNoVehicle}</div>}
+      {sysid === null ? <div className="t3">{dict.planNoVehicle}</div> : <div className="t2">{`${dict.mVehicle}: ${targetName ?? `#${sysid}`}`}</div>}
       <div className="plan-io-btns">
         <button type="button" className="btn btn-primary" disabled={sysid === null || busy} onClick={onWrite}>
           {labels[0]}

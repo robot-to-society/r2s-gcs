@@ -79,8 +79,7 @@ export function MissionSidebar(p: Props) {
             <input className="in" aria-label={dict.mName} value={m.name} onChange={(e) => p.onMeta({ name: e.target.value })} />
             <span>{dict.mVehicle}</span>
             <select className="in" aria-label={dict.mVehicle} value={p.sysid ?? ''} onChange={(e) => p.onMeta({ sysid: e.target.value === '' ? null : Number(e.target.value) })}>
-              {p.vehicles.length === 0 && !p.multi && <option value="">{dict.mNoVehicle}</option>}
-              {p.multi && <option value="">{dict.bfUnassigned}</option>}
+              <option value="">{p.vehicles.length === 0 ? dict.mNoVehicle : dict.bfUnassigned}</option>
               {p.vehicles.map((v) => (
                 <option key={v.sysid} value={v.sysid}>
                   {v.name}
@@ -181,7 +180,7 @@ export function MissionSidebar(p: Props) {
         <button type="button" className="btn btn-lg btn-primary" disabled={draft.items.length === 0 || p.sysid === null || p.busy} onClick={p.onUpload}>
           {dict.mWrite}
         </button>
-        {p.multi && p.sysid === null && <div className="t3" style={{ fontSize: 11 }}>{dict.bfAssignToWrite}</div>}
+        {p.sysid === null && p.vehicles.length > 0 && <div className="t3" style={{ fontSize: 11 }}>{p.multi ? dict.bfAssignToWrite : dict.mPickTarget}</div>}
         <TransferBar transfer={p.transfer} dict={dict} />
         <button type="button" className="btn" disabled={p.busy} onClick={p.onSaveFile}>
           {dict.mFileWaypoints}

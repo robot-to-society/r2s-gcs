@@ -97,6 +97,8 @@ describe('MissionView survey drawing', () => {
 
   it('palette サーベイ enters drawing; three clicks + Enter create a survey after the selected item', async () => {
     const store = setup()
+    // the airframe comes from the write target, which the operator picks (UX-32)
+    fireEvent.change(within(screen.getByRole('complementary', { name: 'editor' })).getByLabelText('対象機体'), { target: { value: '1' } })
     const after = planWithSelection(store)
     openPalette()
     fireEvent.click(within(palette()).getByRole('button', { name: /^サーベイ/ }))
