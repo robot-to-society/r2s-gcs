@@ -37,8 +37,8 @@ import { FenceSidebar, RallySidebar } from './PlanSidebar'
 import { removeRally, removeZone, setInclusion, setRadius, setRallyAlt } from './geofenceModel'
 import { MissionPicker } from './MissionPicker'
 import { MissionSidebar } from './MissionSidebar'
+import { MissionHud } from './MissionHud'
 import { canRedo, canUndo } from './history'
-import { km, mmss } from './labels'
 import type { ContextMenu as Menu } from './mapEdit'
 import { useMissionIo } from './useMissionIo'
 import { appendWaypoint, moveItemsTo, takeoffFor, clearItems, insertAfter, insertCommandAfter, moveItem, moveItems, reorder, reverseItems, setAltBulk, setArc, setCommand, setMeta, shiftAlts, updateItem, type Draft } from './model'
@@ -203,22 +203,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       </button>
       {help && <HelpPanel dict={dict} onClose={() => setHelp(false)} />}
       <SurveyFootToggle {...sv.footButton} dict={dict} />
-      <div className="g-ctl float map-c num mission-pill" aria-hidden="true">
-        <span>
-          <span className="t3">{dict.mDistance}</span>
-          {km(st.distance_m)}
-        </span>
-        <span>
-          <span className="t3">{dict.mEstTime}</span>
-          {mmss(st.duration_s)}
-        </span>
-        {kind !== 'rover' && (
-          <span>
-            <span className="t3">{dict.mMaxAlt}</span>
-            {`${Math.round(st.max_alt)} m`}
-          </span>
-        )}
-      </div>
+      {/* one summary at a time: the HUD only while the right summary is folded away (UX-39) */}
+      {(panel.collapsed || plan.tab !== 'mission') && <MissionHud stats={st} kind={kind} dict={dict} />}
 
       {plan.tab === 'fence' && (
         <FencePanel

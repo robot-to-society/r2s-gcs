@@ -5,7 +5,7 @@ import { ItemEditor } from './ItemEditor'
 import { surveyAt } from '../survey/draftOps'
 import { SurveyPanel } from '../survey/SurveyPanel'
 import type { SurveyEditor } from '../survey/useSurveyEditor'
-import { km, mmss } from './labels'
+import { durText, km } from './labels'
 import type { Draft, DraftItem } from './model'
 import { findingText, type LocalWarning } from './summary'
 import { CollapseButton } from './PlanRail'
@@ -148,7 +148,7 @@ export function MissionSidebar(p: Props) {
             <span className="t2">{dict.mDistance}</span>
             <span>{km(p.stats.distance_m)}</span>
             <span className="t2">{dict.mEstTime}</span>
-            <span>{mmss(p.stats.duration_s)}</span>
+            <span>{durText(p.stats.duration_s, dict)}</span>
             {p.kind !== 'rover' && <span className="t2">{dict.mMaxAlt}</span>}
             {p.kind !== 'rover' && <span>{`${Math.round(p.stats.max_alt)} m`}</span>}
           </div>

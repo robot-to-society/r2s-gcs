@@ -20,7 +20,7 @@ import { surveyOutlines } from '../survey/surveyAir'
 
 const POST: Rgb = [0xbf / 255, 0xe0 / 255, 1]
 const AMBER: Rgb = [0xf2 / 255, 0xb5 / 255, 0x44 / 255]
-export const FRAME_LABEL = { rel: 'Rel', abs: 'Abs', ter: 'Ter' } as const
+export const FRAME_LABEL = { rel: 'REL', abs: 'ABS', ter: 'TER' } as const
 
 export const AIR = 'mission-air3d'
 export const FOOT = 'mission-foot'
@@ -46,8 +46,8 @@ interface Stop {
   readonly item: DraftItem | null
 }
 
-/** "▲ 80 m Rel" (prototype 3D badge chip). */
-export const altChip = (it: DraftItem): string => `▲ ${Math.round(it.alt)} m ${FRAME_LABEL[it.frame]}`
+/** "80 m REL" (3D badge chip): the frame spelled like the list and the selects (UX-40). */
+export const altChip = (it: DraftItem): string => `${Math.round(it.alt)} m ${FRAME_LABEL[it.frame]}`
 
 function legPoints(a: Stop, b: Stop, elevAt: ElevAt): Pt[] {
   const len = haversineM(a.lat, a.lon, b.lat, b.lon)

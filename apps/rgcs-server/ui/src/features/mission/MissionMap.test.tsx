@@ -209,7 +209,7 @@ describe('MissionMap', () => {
     document.body.append(b.el) // MapLibre puts markers in the page; the fake does not
     expect(b.draggable).toBe(false)
     altDrag(b.el, 300, 250)
-    expect(b.el.querySelector('.altc')!.textContent).toBe('▲ 75 m Rel')
+    expect(b.el.querySelector('.altc')!.textContent).toBe('75 m REL')
     act(() => {
       window.dispatchEvent(new MouseEvent('pointerup', { clientY: 250 }))
       b.el.dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -217,7 +217,7 @@ describe('MissionMap', () => {
     expect(props.onShiftAlt).toHaveBeenCalledWith(new Set([2]), 25)
     expect(props.onSelect).not.toHaveBeenCalled()
     expect(props.onMove).not.toHaveBeenCalled()
-    expect(b.el.querySelector('.altc')!.textContent).toBe('▲ 50 m Rel')
+    expect(b.el.querySelector('.altc')!.textContent).toBe('50 m REL')
   })
   it('an altitude drag on a selected badge moves the whole selection; a plain click still selects', () => {
     const { props } = renderMap({ terrainTiles: DEM, mode: '3d', selected: new Set([1, 2]) })
@@ -354,9 +354,9 @@ describe('MissionMap', () => {
       window.dispatchEvent(ev('pointermove', 100, 2))
       window.dispatchEvent(ev('pointerup', 100, 2))
     })
-    expect(b.el.querySelector('.altc')!.textContent).toBe('▲ 75 m Rel')
+    expect(b.el.querySelector('.altc')!.textContent).toBe('75 m REL')
     act(() => window.dispatchEvent(ev('pointercancel', 250, 1)))
-    expect(b.el.querySelector('.altc')!.textContent).toBe('▲ 50 m Rel')
+    expect(b.el.querySelector('.altc')!.textContent).toBe('50 m REL')
     expect(props.onShiftAlt).not.toHaveBeenCalled()
   })
   it('a touch on a 3D badge does not pan the map', () => {

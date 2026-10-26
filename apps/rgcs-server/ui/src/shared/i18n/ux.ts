@@ -41,6 +41,7 @@ export const uxJa = {
   roiMsl: '標高 (MSL)',
   roiModeRate: '速度制御',
   roiModeAngle: '角度制御',
+  mDur: '{m} 分 {s} 秒',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -84,4 +85,5 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   roiMsl: 'Elevation (MSL)',
   roiModeRate: 'Rate',
   roiModeAngle: 'Angle',
+  mDur: '{m} min {s} s',
 }

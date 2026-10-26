@@ -21,6 +21,8 @@ export const frameDesc = (frame: MissionFrame, dict: Dict): string => (frame ===
 export const km = (m: number): string => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`)
 /** A parameter value in a row summary: whole numbers as they are, others to at most two decimals. */
 export const shortNum = (v: number): string => (Number.isInteger(v) ? String(v) : String(Number(v.toFixed(2))))
+/** The estimated time in words: 「6 分 08 秒」 / "6 min 08 s" (UX-39). */
+export const durText = (s: number, dict: Dict): string => dict.mDur.replace('{m}', String(Math.floor(s / 60))).replace('{s}', String(Math.round(s % 60)).padStart(2, '0'))
 export const mmss = (s: number): string => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
 
 /** Fields whose 0 means "none / the vehicle default": left out of the row summary (UX-38). */

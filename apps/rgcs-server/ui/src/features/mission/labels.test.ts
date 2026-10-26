@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { t } from '../../shared/i18n'
 import { CMDS } from './cmds'
-import { itemSummary } from './labels'
+import { durText, itemSummary } from './labels'
 
 const dict = t('ja')
 const trig = (dist: number) => ({ command: CMDS.DO_SET_CAM_TRIGG_DIST.id, frame: 'rel' as const, params: [dist, 0, 1, 0] as [number, number, number, number], lat: 0, lon: 0, alt: 0, autocontinue: true })
@@ -35,5 +35,12 @@ describe('itemSummary wording (UX-37, UX-38)', () => {
   it('skips zero values', () => {
     expect(itemSummary(wp(5), 'copter', dict)).toContain('5s')
     expect(itemSummary(wp(0), 'copter', dict)).not.toContain('0s')
+  })
+})
+
+describe('summary wording (UX-39)', () => {
+  it('reads the estimated time in minutes and seconds', () => {
+    expect(durText(368, dict)).toBe('6 分 08 秒')
+    expect(durText(368, t('en'))).toBe('6 min 08 s')
   })
 })

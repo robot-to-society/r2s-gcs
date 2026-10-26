@@ -37,7 +37,7 @@ export function badgeEl(seq: number, selected: boolean, cmdKey: string): HTMLDiv
   return updateBadgeEl(el, seq, selected, cmdKey)
 }
 
-/** `chip`: the 3D altitude chip ("▲ 80 m Rel"), `null` in 2D. */
+/** `chip`: the 3D altitude chip ("80 m REL"), `null` in 2D. */
 export function updateBadgeEl(el: HTMLDivElement, seq: number, selected: boolean, cmdKey: string, chip: string | null = null): HTMLDivElement {
   el.classList.add('rg-wp')
   el.classList.toggle('sel', selected)

@@ -442,7 +442,20 @@ describe('MissionView', () => {
     const right = within(screen.getByRole('complementary', { name: 'editor' }))
     expect(right.queryByLabelText('既定高度')).toBeNull()
     expect(right.queryByText('最大高度')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'パネルをたたむ' }))
     expect(screen.getByTestId('mission-view').querySelector('.mission-pill')?.textContent).not.toContain('最大高度')
+    fireEvent.click(screen.getByRole('button', { name: 'パネルを開く' }))
+  })
+
+  it('one summary at a time: the map HUD hides while the right summary shows (UX-39)', () => {
+    setup()
+    const summary = screen.getByTestId('mission-summary')
+    expect(summary).toHaveTextContent('項目数')
+    expect(document.querySelector('.mission-pill')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'パネルをたたむ' }))
+    expect(document.querySelector('.mission-pill')).not.toBeNull()
+    // the fold is remembered: open it again for the other tests
+    fireEvent.click(screen.getByRole('button', { name: 'パネルを開く' }))
   })
 
   it('the vehicle I/O sits together in the right footer (UX-34)', () => {
