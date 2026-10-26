@@ -58,9 +58,9 @@ export function RoiTab({ targets, control, activeId, targetsIssue, controlIssue,
             <tr>
               <th>#</th>
               <th>{dict.roiName}</th>
-              <th style={{ textAlign: 'right' }}>Lat</th>
-              <th style={{ textAlign: 'right' }}>Lon</th>
-              <th style={{ textAlign: 'right' }}>MSL</th>
+              <th style={{ textAlign: 'right' }}>{dict.roiLat}</th>
+              <th style={{ textAlign: 'right' }}>{dict.roiLon}</th>
+              <th style={{ textAlign: 'right' }}>{dict.roiMsl}</th>
             </tr>
           </thead>
           <tbody>

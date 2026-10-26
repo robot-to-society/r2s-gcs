@@ -37,7 +37,7 @@ export function RoiControlForm({ control, issue, onChange, dict }: Props) {
           <span className="lens" style={{ transform: `translateX(${MODES.indexOf(control.control_mode) * 100}%)` }} />
           {MODES.map((m) => (
             <button key={m} type="button" className={control.control_mode === m ? 'on' : ''} onClick={() => onChange({ ...control, control_mode: m })}>
-              {m}
+              {m === 'rate' ? dict.roiModeRate : dict.roiModeAngle}
             </button>
           ))}
         </div>

@@ -269,3 +269,5 @@
 .cockpit-overlay { position: absolute; inset: 0; overflow: hidden; }
 .cockpit-overlay.clickable { cursor: crosshair; }
 .cockpit-overlay .cand { position: absolute; border: 1px solid #9cdcff; border-radius: 3px; pointer-events: none; }
+/* gimbal pan / tilt behind Lucide icons, not ↔ ↕ glyphs (UX-23) */
+.cam-status .cam-angle { gap: 3px; }

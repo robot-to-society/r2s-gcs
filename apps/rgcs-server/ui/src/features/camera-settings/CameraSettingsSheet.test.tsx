@@ -122,7 +122,7 @@ describe('CameraSettingsSheet', () => {
     render(<CameraSettingsSheet {...base} profile={profile({ kind: 'siyi_mt11' })} onSave={onSave} />)
     fireEvent.click(screen.getByRole('button', { name: 'ROI' }))
     fireEvent.change(screen.getByLabelText(`${dict.roiName} 1`), { target: { value: 'ゲート' } })
-    fireEvent.click(screen.getByRole('button', { name: 'angle' }))
+    fireEvent.click(screen.getByRole('button', { name: '角度制御' }))
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     const draft = onSave.mock.calls[0]![0]
     expect(draft.roiTargets[0].name).toBe('ゲート')

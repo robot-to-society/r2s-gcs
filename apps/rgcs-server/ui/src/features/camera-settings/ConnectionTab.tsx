@@ -53,7 +53,7 @@ export function ConnectionTab({ draft, issue, cameraState, onChange, clockSync, 
             <div className="seg n3 sm" role="group" aria-label={dict.videoSource} style={{ width: 220 }}>
               <span className="lens" style={{ transform: `translateX(${SOURCES.indexOf(draft.video_source_mode) * 100}%)` }} />
               <button type="button" className={draft.video_source_mode === 'auto' ? 'on' : ''} onClick={() => onChange({ ...draft, video_source_mode: 'auto' })}>
-                AUTO
+                {dict.auto}
               </button>
               <button type="button" className={draft.video_source_mode === 'mt11' ? 'on' : ''} onClick={() => onChange({ ...draft, video_source_mode: 'mt11' })}>
                 MT11

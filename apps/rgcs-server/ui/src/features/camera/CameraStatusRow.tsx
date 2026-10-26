@@ -2,6 +2,7 @@ import type { CameraCaps, CameraState, GimbalMode } from '../../shared/api/types
 import type { Dict } from '../../shared/i18n'
 import { angleText } from './format'
 import { trackLabel } from './mediaFormat'
+import { IconPan, IconTilt } from '../../shared/ui/icons'
 
 interface Props {
   readonly caps: CameraCaps
@@ -12,15 +13,15 @@ interface Props {
   readonly roiName?: string | null
 }
 
-const MODE: Record<GimbalMode, string> = { lock: 'Lock', follow: 'Follow', fpv: 'FPV' }
+const MODE: Record<GimbalMode, keyof Dict> = { lock: 'gimbalLock', follow: 'gimbalFollow', fpv: 'gimbalFpv' }
 
 /** A MAVLink camera has no gimbal mode: its name takes the cell (spec 10 §3.3 「MAVLink カメラ | 角度」). */
 function modeText(caps: CameraCaps, state: CameraState, dict: Dict): string {
   if (caps.kind === 'mavlink') return dict.mavlinkCamera
-  return state.gimbal_mode ? MODE[state.gimbal_mode] : '—'
+  return state.gimbal_mode ? dict[MODE[state.gimbal_mode]] : '—'
 }
 
-/** Spec 10 §3.3 item 4: "Lock | ↔ yaw ↕ pitch", or the setup prompt when no camera. */
+/** Spec 10 §3.3 item 4: "ロック | pan yaw, tilt pitch" (Lucide icons, UX-23), or the setup prompt when no camera. */
 export function CameraStatusRow({ caps, state, onSetup, dict, roiName }: Props) {
   if (caps.kind === 'none') {
     return (
@@ -41,8 +42,14 @@ export function CameraStatusRow({ caps, state, onSetup, dict, roiName }: Props) 
       {caps.gimbal?.attitude && state.gimbal && (
         <>
           <span className="sep" />
-          <span className="num">↔ {angleText(state.gimbal.yaw)}</span>
-          <span className="num">↕ {angleText(state.gimbal.pitch)}</span>
+          <span className="num row cam-angle" title={dict.gimbalPan}>
+            <IconPan />
+            {angleText(state.gimbal.yaw)}
+          </span>
+          <span className="num row cam-angle" title={dict.gimbalTilt}>
+            <IconTilt />
+            {angleText(state.gimbal.pitch)}
+          </span>
         </>
       )}
       {roiName && (

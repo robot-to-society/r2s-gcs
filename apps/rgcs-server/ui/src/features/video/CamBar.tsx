@@ -25,7 +25,7 @@ export interface RoiChipsProps {
   readonly onStop: () => void
 }
 
-const GIMBAL_LABEL: Record<GimbalMode, string> = { lock: 'Lock', follow: 'Follow', fpv: 'FPV' }
+const GIMBAL_LABEL: Record<GimbalMode, keyof Dict> = { lock: 'gimbalLock', follow: 'gimbalFollow', fpv: 'gimbalFpv' }
 
 /** Prototype `.cam-bar .bar`: everything is gated by the camera's caps (spec 40 §1.1). */
 export function CamBar({ caps, state, pending, dict, onCommand, onSettings, roi }: Props) {
@@ -50,7 +50,7 @@ export function CamBar({ caps, state, pending, dict, onCommand, onSettings, roi 
           <Seg label={dict.videoType} width={172} items={caps.video_modes.map((m) => ({ key: m, label: modeLabel[m], on: (state.video_mode ?? 'rgb') === m, pick: () => onCommand({ cmd: 'video_mode', args: { mode: m } }) }))} />
         )}
         {caps.gimbal && caps.gimbal.modes.length > 0 && (
-          <Seg label={dict.gimbalMode} width={196} items={caps.gimbal.modes.map((m) => ({ key: m, label: GIMBAL_LABEL[m], on: state.gimbal_mode === m, pick: () => onCommand({ cmd: 'gimbal_mode', args: { mode: m } }) }))} />
+          <Seg label={dict.gimbalMode} width={196} items={caps.gimbal.modes.map((m) => ({ key: m, label: dict[GIMBAL_LABEL[m]], on: state.gimbal_mode === m, pick: () => onCommand({ cmd: 'gimbal_mode', args: { mode: m } }) }))} />
         )}
         {caps.gimbal?.center && (
           <button type="button" className="btn-icon" aria-label={dict.centerGimbal} title={dict.centerGimbal} onClick={() => onCommand({ cmd: 'gimbal_center', args: { mode: 'one_key_reset' } })}>

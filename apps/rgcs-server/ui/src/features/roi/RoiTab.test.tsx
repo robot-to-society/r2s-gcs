@@ -101,7 +101,7 @@ describe('RoiTab', () => {
 
   it('the rate / angle seg toggles control_mode', () => {
     const { onControl } = renderTab()
-    fireEvent.click(screen.getByRole('button', { name: 'angle' }))
+    fireEvent.click(screen.getByRole('button', { name: '角度制御' }))
     expect(onControl).toHaveBeenCalledWith({ ...DEFAULT_ROI_CONTROL, control_mode: 'angle' })
   })
 

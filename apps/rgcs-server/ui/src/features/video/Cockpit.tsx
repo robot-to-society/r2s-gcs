@@ -93,7 +93,7 @@ export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, 
           )}
         </div>
         {has && (
-          <div className="g-ctl row num cockpit-source">
+          <div className="g-ctl row num cockpit-source" title={dict.videoLatency.replace('{cam}', source)}>
             <span>{source}</span>
             <span className="cockpit-sep" />
             <span>{delay}</span>

@@ -30,6 +30,17 @@ export const uxJa = {
   kindRover: 'ローバー',
   kindPlane: '固定翼・VTOL',
   warnVehicles: '警告中の機体',
+  gimbalLock: 'ロック',
+  gimbalFollow: '追従',
+  gimbalFpv: 'FPV',
+  gimbalPan: 'パン',
+  gimbalTilt: 'チルト',
+  videoLatency: '映像遅延 (カメラ: {cam})',
+  roiLat: '緯度',
+  roiLon: '経度',
+  roiMsl: '標高 (MSL)',
+  roiModeRate: '速度制御',
+  roiModeAngle: '角度制御',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -62,4 +73,15 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   kindRover: 'Rovers',
   kindPlane: 'Fixed-wing & VTOL',
   warnVehicles: 'Vehicles with warnings',
+  gimbalLock: 'Lock',
+  gimbalFollow: 'Follow',
+  gimbalFpv: 'FPV',
+  gimbalPan: 'Pan',
+  gimbalTilt: 'Tilt',
+  videoLatency: 'Video latency (camera: {cam})',
+  roiLat: 'Lat',
+  roiLon: 'Lon',
+  roiMsl: 'Elevation (MSL)',
+  roiModeRate: 'Rate',
+  roiModeAngle: 'Angle',
 }

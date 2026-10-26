@@ -62,7 +62,7 @@ describe('Cockpit (spec 10 §4.2)', () => {
 
   it('sends record, photo, zoom steps, video type, gimbal mode and center from the bar', () => {
     const p = setup()
-    for (const name of ['録画', '写真', 'ズームイン', 'ズームアウト', 'IR', 'Lock', 'ジンバルをセンター']) fireEvent.click(screen.getByRole('button', { name }))
+    for (const name of ['録画', '写真', 'ズームイン', 'ズームアウト', 'IR', 'ロック', 'ジンバルをセンター']) fireEvent.click(screen.getByRole('button', { name }))
     expect(p.onCommand.mock.calls.map(([c]) => c)).toEqual([
       { cmd: 'record_start' },
       { cmd: 'photo' },
@@ -112,7 +112,7 @@ describe('Cockpit (spec 10 §4.2)', () => {
     const p = setup({ state: { ...state, recording: 'recording' }, caps: { ...mt11, gimbal: null, video_modes: [], zoom: null, photo: false } })
     fireEvent.click(screen.getByRole('button', { name: '録画' }))
     expect(p.onCommand).toHaveBeenCalledWith({ cmd: 'record_stop' })
-    for (const name of ['写真', 'IR', 'Lock', 'ジンバルをセンター', 'ズームイン']) expect(screen.queryByRole('button', { name })).toBeNull()
+    for (const name of ['写真', 'IR', 'ロック', 'ジンバルをセンター', 'ズームイン']) expect(screen.queryByRole('button', { name })).toBeNull()
     expect(screen.queryByRole('slider')).toBeNull()
     expect(screen.queryByText('ジンバル')).toBeNull()
   })
