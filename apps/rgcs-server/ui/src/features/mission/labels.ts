@@ -23,21 +23,25 @@ export const km = (m: number): string => (m >= 1000 ? `${(m / 1000).toFixed(2)} 
 export const shortNum = (v: number): string => (Number.isInteger(v) ? String(v) : String(Number(v.toFixed(2))))
 export const mmss = (s: number): string => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
 
+/** Fields whose 0 means "none / the vehicle default": left out of the row summary (UX-38). */
+const ZERO_IS_NONE: ReadonlySet<string> = new Set(['delay', 'acceptRadius', 'passRadius', 'radius', 'abortAlt', 'ccwSign'])
+
 function fieldValue(it: MissionItem, f: FieldSpec): number {
   if (f.p <= 4) return it.params[f.p - 1] ?? 0
   return f.p === 5 ? it.lat : f.p === 6 ? it.lon : it.alt
 }
 
-/** Prototype row sub-line: "▲80 m Rel · 待機時間 0s" (fields the vehicle ignores are skipped). */
+/** Row sub-line: "高度 80 m REL · 待機時間 5s" (fields the vehicle ignores, and zero / default values, are skipped: UX-38). */
 export function itemSummary(it: MissionItem, kind: Parameters<typeof fieldsOf>[1], dict: Dict): string {
   const key = cmdKey(it)
   const spec = CMDS[key]
   const parts: string[] = []
   // a rover drives on the ground: no altitude (UX-35)
-  if (spec?.alt && kind !== 'rover') parts.push(`▲${Math.round(it.alt)} m ${FRAMES[it.frame].short}`)
+  if (spec?.alt && kind !== 'rover') parts.push(`${dict.altitude} ${Math.round(it.alt)} m ${FRAMES[it.frame].short}`)
   for (const f of fieldsOf(key, kind)) {
     if (f.unused) continue
     const v = fieldValue(it, f)
+    if (v === 0 && ZERO_IS_NONE.has(f.key)) continue
     const label = fieldLabel(f.key, dict)
     if (f.type === 'num') parts.push(`${label} ${shortNum(v)}${fieldUnit(f.key)}`)
     else if (f.type === 'tog') parts.push(`${label} ${v ? dict.optOn : dict.optOff}`)

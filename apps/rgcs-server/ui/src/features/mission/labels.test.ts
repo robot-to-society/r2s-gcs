@@ -26,3 +26,14 @@ describe('itemSummary for a rover (UX-35)', () => {
     expect(itemSummary(wp, 'copter', dict)).toContain('50 m')
   })
 })
+
+describe('itemSummary wording (UX-37, UX-38)', () => {
+  const wp = (delay: number) => ({ command: CMDS.WAYPOINT.id, frame: 'rel' as const, params: [delay, 0, 0, 0] as [number, number, number, number], lat: 36, lon: 139, alt: 50, autocontinue: true })
+  it('spells the altitude in words, no ▲ glyph', () => {
+    expect(itemSummary(wp(0), 'copter', dict)).toBe('高度 50 m REL')
+  })
+  it('skips zero values', () => {
+    expect(itemSummary(wp(5), 'copter', dict)).toContain('5s')
+    expect(itemSummary(wp(0), 'copter', dict)).not.toContain('0s')
+  })
+})

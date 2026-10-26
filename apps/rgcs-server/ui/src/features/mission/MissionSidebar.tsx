@@ -36,6 +36,9 @@ interface Props {
   readonly onOpen: () => void
   readonly onSave: () => void
   readonly onUpload: () => void
+  /** 機体から読込: next to 機体に書き込む (UX-34). */
+  readonly onRead: () => void
+  readonly canRead: boolean
   readonly onSaveFile: () => void
   readonly onSaveRgcs: () => void
   /** The briefing comparison table (two or more missions open), above the summary. */
@@ -166,17 +169,24 @@ export function MissionSidebar(p: Props) {
         </div>
       </div>
       <div className="hair-t" style={{ display: 'grid', gap: 8, padding: 12 }}>
-        <button type="button" className="btn btn-lg btn-primary" disabled={draft.items.length === 0 || p.sysid === null || p.busy} onClick={p.onUpload}>
-          {dict.mWrite}
-        </button>
+        <div className="mission-io">
+          <button type="button" className="btn btn-lg btn-primary" disabled={draft.items.length === 0 || p.sysid === null || p.busy} onClick={p.onUpload}>
+            {dict.mWrite}
+          </button>
+          <button type="button" className="btn btn-lg" disabled={!p.canRead} onClick={p.onRead}>
+            {dict.mRead}
+          </button>
+        </div>
         {p.sysid === null && p.vehicles.length > 0 && <div className="t3" style={{ fontSize: 11 }}>{p.multi ? dict.bfAssignToWrite : dict.mPickTarget}</div>}
         <TransferBar transfer={p.transfer} dict={dict} />
-        <button type="button" className="btn" disabled={p.busy} onClick={p.onSaveFile}>
-          {dict.mFileWaypoints}
-        </button>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={p.onSaveRgcs}>
-          {dict.mFileRgcs}
-        </button>
+        <div className="mission-io">
+          <button type="button" className="btn btn-sm" disabled={p.busy} onClick={p.onSaveFile}>
+            {dict.mFileWaypoints}
+          </button>
+          <button type="button" className="btn btn-sm" onClick={p.onSaveRgcs}>
+            {dict.mFileRgcs}
+          </button>
+        </div>
       </div>
     </aside>
   )

@@ -165,24 +165,24 @@ describe('MissionView', () => {
     localStorage.removeItem('rgcs.planTab')
     setup()
     const tabs = within(screen.getByRole('group', { name: '計画の種類' }))
-    fireEvent.click(tabs.getByRole('button', { name: 'Fence' }))
+    fireEvent.click(tabs.getByRole('button', { name: 'フェンス' }))
     expect(screen.queryByRole('complementary', { name: 'editor' })).not.toBeInTheDocument()
     const right = screen.getByRole('complementary', { name: 'フェンス設定' })
     const wpl = 'QGC WPL 110\n0\t0\t0\t5003\t150\t0\t0\t0\t36.25\t137.63\t0\t1\n'
     await act(async () => {
-      fireEvent.change(within(right).getByLabelText('ファイルから読込'), { target: { files: [new File([wpl], 'f.waypoints')] } })
+      fireEvent.change(within(right).getByLabelText('ファイルを読み込む'), { target: { files: [new File([wpl], 'f.waypoints')] } })
     })
     expect(screen.getByTestId('fence-row').querySelector('.fence-title')?.textContent).toBe('包含円')
     expect(within(right).getByText('1 件を読み込みました')).toBeInTheDocument()
     // the map frames what was loaded (a circle: its north / south extent)
     expect(screen.getByTestId('mission-map').dataset.fit).toBe('2')
-    fireEvent.click(tabs.getByRole('button', { name: 'Rally' }))
+    fireEvent.click(tabs.getByRole('button', { name: 'ラリー' }))
     const rally = screen.getByRole('complementary', { name: 'ラリーポイント設定' })
     await act(async () => {
-      fireEvent.change(within(rally).getByLabelText('ファイルから読込'), { target: { files: [new File(['nonsense'], 'r.txt')] } })
+      fireEvent.change(within(rally).getByLabelText('ファイルを読み込む'), { target: { files: [new File(['nonsense'], 'r.txt')] } })
     })
     expect(within(rally).getByText('読み込めませんでした')).toBeInTheDocument()
-    fireEvent.click(tabs.getByRole('button', { name: 'Mission' }))
+    fireEvent.click(tabs.getByRole('button', { name: 'ミッション' }))
     expect(screen.getByRole('complementary', { name: 'editor' })).toBeInTheDocument()
   })
 
@@ -190,7 +190,7 @@ describe('MissionView', () => {
     localStorage.removeItem('rgcs.planTab')
     const { fetchMock, container } = setup((url, init) => (url.endsWith('/fence') && init?.method === 'PUT' ? envelope({ items: 3, verified: true, mismatched: [], findings: [] }) : envelope([])))
     target()
-    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Fence' }))
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'フェンス' }))
     expect(screen.getByTestId('mission-map').dataset.tab).toBe('fence')
     fireEvent.click(screen.getByRole('button', { name: '包含ポリゴン' }))
     for (let i = 0; i < 3; i++) fireEvent.click(screen.getByText('map-plan'))
@@ -218,7 +218,7 @@ describe('MissionView', () => {
     ]
     setup((url) => (url.endsWith('/fence') ? envelope({ zones: fromVehicle }) : envelope([])))
     target()
-    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Fence' }))
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'フェンス' }))
     fireEvent.click(screen.getByRole('button', { name: '包含ポリゴン' }))
     fireEvent.click(screen.getByText('map-plan'))
     fireEvent.click(screen.getByText('map-plan'))
@@ -246,7 +246,7 @@ describe('MissionView', () => {
         : envelope([]),
     )
     target()
-    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Rally' }))
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'ラリー' }))
     fireEvent.click(screen.getByText('map-plan'))
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'ラリーを機体に書込' }))
@@ -258,7 +258,7 @@ describe('MissionView', () => {
   it('rally_tab_adds_points_at_the_default_altitude_and_undo_removes_them', () => {
     localStorage.removeItem('rgcs.planTab')
     const { container } = setup()
-    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'Rally' }))
+    fireEvent.click(within(screen.getByRole('group', { name: '計画の種類' })).getByRole('button', { name: 'ラリー' }))
     fireEvent.click(screen.getByText('map-plan'))
     fireEvent.click(screen.getByText('map-plan'))
     expect(screen.getAllByTestId('rally-row')).toHaveLength(2)
@@ -276,11 +276,11 @@ describe('MissionView', () => {
     })
     addPoints(2)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '保存' }))
+      fireEvent.click(screen.getByRole('button', { name: 'ライブラリに保存' }))
     })
     await act(async () => {
       fireEvent.click(screen.getByText('map-add'))
-      fireEvent.click(screen.getByRole('button', { name: '保存' }))
+      fireEvent.click(screen.getByRole('button', { name: 'ライブラリに保存' }))
     })
     // the planner reads the target vehicle's FENCE_* and path parameters on its own: not part of this flow
     const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params') && !c.includes('/params/pick'))
@@ -361,14 +361,14 @@ describe('MissionView', () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     addPoints(2)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '保存' }))
+      fireEvent.click(screen.getByRole('button', { name: 'ライブラリに保存' }))
     })
     await act(async () => {
       fireEvent.click(screen.getByText('map-add'))
     })
     expect(screen.getByText('未保存')).toBeInTheDocument()
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'ファイルに保存' }))
+      fireEvent.click(screen.getByRole('button', { name: '書き出し (.waypoints)' }))
     })
     // the planner reads the target vehicle's FENCE_* and path parameters on its own: not part of this flow
     const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params') && !c.includes('/params/pick'))
@@ -443,6 +443,15 @@ describe('MissionView', () => {
     expect(right.queryByLabelText('既定高度')).toBeNull()
     expect(right.queryByText('最大高度')).toBeNull()
     expect(screen.getByTestId('mission-view').querySelector('.mission-pill')?.textContent).not.toContain('最大高度')
+  })
+
+  it('the vehicle I/O sits together in the right footer (UX-34)', () => {
+    setup()
+    target()
+    const right = within(screen.getByRole('complementary', { name: 'editor' }))
+    expect(right.getByRole('button', { name: '機体に書き込む' })).toBeInTheDocument()
+    expect(right.getByRole('button', { name: '機体から読込' })).toBeEnabled()
+    expect(within(screen.getByRole('complementary', { name: 'ミッション' })).queryByRole('button', { name: '機体から読込' })).toBeNull()
   })
 
   it('the_right_panel_vehicle_assigns_the_row_and_frees_it_elsewhere', async () => {

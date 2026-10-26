@@ -1,5 +1,6 @@
 import type { HTMLAttributes, MouseEvent } from 'react'
 import type { Dict } from '../../shared/i18n'
+import { IconChevronDown, IconChevronUp } from '../../shared/ui/icons'
 import { CMDS, mavFontSize } from './cmds'
 import { wpLabel } from './labels'
 import { badgeText } from './mapEdit'
@@ -15,12 +16,12 @@ interface Props {
   readonly className?: string
   /** Drag & drop and context-menu handlers; absent on a survey's read-only items. */
   readonly attrs?: HTMLAttributes<HTMLDivElement>
-  /** ▲▼ buttons; absent on a survey's read-only items. */
+  /** Up / down buttons; absent on a survey's read-only items. */
   readonly reorder?: { readonly canUp: boolean; readonly canDown: boolean; readonly onReorder: (dir: -1 | 1) => void }
   readonly onClick: (e: MouseEvent<HTMLDivElement>) => void
 }
 
-/** Prototype `.wrow`: badge, Japanese command name + MAV id, summary line, ▲▼. */
+/** Prototype `.wrow`: badge, Japanese command name + MAV id, summary line, up / down. */
 export function WpRow({ item, seq, sel, sub, dict, className = '', attrs, reorder, onClick }: Props) {
   const key = cmdKey(item)
   const spec = CMDS[key]
@@ -54,10 +55,10 @@ export function WpRow({ item, seq, sel, sub, dict, className = '', attrs, reorde
       {reorder && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <button type="button" className="updown" aria-label={dict.mUp} disabled={!reorder.canUp} onClick={(e) => (e.stopPropagation(), reorder.onReorder(-1))}>
-            ▲
+            <IconChevronUp size={12} />
           </button>
           <button type="button" className="updown" aria-label={dict.mDown} disabled={!reorder.canDown} onClick={(e) => (e.stopPropagation(), reorder.onReorder(1))}>
-            ▼
+            <IconChevronDown size={12} />
           </button>
         </div>
       )}

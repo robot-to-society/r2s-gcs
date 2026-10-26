@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import type { FenceParams, FenceZone, RallyPoint } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
+import { IconWarn } from '../../shared/ui/icons'
 import { CollapseButton } from './PlanRail'
 
 export interface PlanStatus {
@@ -42,6 +43,16 @@ function IoFooter({ sysid, targetName, busy, status, dict, onWrite, onRead, note
 }
 
 
+/** A caution line, not a button-like pill (UX-42). */
+function Notice({ text }: { readonly text: string }) {
+  return (
+    <div className="plan-notice row">
+      <IconWarn size={14} />
+      <span>{text}</span>
+    </div>
+  )
+}
+
 /** FENCE_ALT_MAX: shown, settable, with whether ArduPilot enforces it. */
 function AltMaxBox({ params, busy, dict, onSet }: { readonly params: FenceParams | null; readonly busy: boolean; readonly dict: Dict; readonly onSet: (v: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -69,8 +80,8 @@ function AltMaxBox({ params, busy, dict, onSet }: { readonly params: FenceParams
       </label>
       <div className="t3 plan-note">
         {known === null ? dict.fenceAltMaxUnknown : dict.fenceAltMaxNote}
-        {params?.alt_max_on === false && <div className="hint caution">{dict.fenceAltMaxOff}</div>}
-        {params?.enabled === false && <div className="hint caution">{dict.fenceDisabled}</div>}
+        {params?.alt_max_on === false && <Notice text={dict.fenceAltMaxOff} />}
+        {params?.enabled === false && <Notice text={dict.fenceDisabled} />}
       </div>
     </div>
   )

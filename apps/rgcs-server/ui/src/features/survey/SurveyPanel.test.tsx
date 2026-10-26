@@ -54,6 +54,8 @@ function Harness({ store, dict, kind }: { store: MissionStore; dict: Dict; kind:
       onOpen={noop}
       onSave={noop}
       onUpload={noop}
+      onRead={noop}
+      canRead={false}
       onSaveFile={noop}
       onSaveRgcs={noop}
       survey={sv}

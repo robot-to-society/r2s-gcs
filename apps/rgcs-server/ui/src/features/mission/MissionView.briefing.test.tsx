@@ -128,12 +128,12 @@ describe('MissionView briefing feedback (§9)', () => {
     expect(map().dataset.collapsed).toBe('true')
     expect(localStorage.getItem('rgcs.planPanel')).toBe('collapsed')
     // the other tabs stay collapsed, and their panels collapse the same way
-    fireEvent.click(tabs().getByRole('button', { name: 'Fence' }))
+    fireEvent.click(tabs().getByRole('button', { name: 'フェンス' }))
     expect(screen.queryByRole('complementary', { name: 'フェンス設定' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'パネルを開く' }))
     expect(map().dataset.collapsed).toBe('false')
     fireEvent.click(within(screen.getByRole('complementary', { name: 'フェンス設定' })).getByRole('button', { name: 'パネルをたたむ' }))
-    fireEvent.click(tabs().getByRole('button', { name: 'Rally' }))
+    fireEvent.click(tabs().getByRole('button', { name: 'ラリー' }))
     expect(screen.queryByRole('complementary', { name: 'ラリーポイント設定' })).not.toBeInTheDocument()
     // a new visit (reload) keeps it collapsed
     unmount()

@@ -1,7 +1,7 @@
 import type { Dict } from '../../shared/i18n'
 import { IconClose, IconFileUp, IconSurvey } from '../../shared/ui/icons'
 import type { VehicleKind } from '../../shared/api/types'
-import { CMDS, SURVEY_KEY, isSurveyKey, paletteFor } from './cmds'
+import { CMDS, SURVEY_KEY, isSurveyKey, mavFontSize, paletteFor } from './cmds'
 import { wpLabel } from './labels'
 
 interface Props {
@@ -57,7 +57,7 @@ function CmdButton({ k, radius, color, dict, onInsert }: { k: string; radius: st
       <span style={{ width: 16, height: 16, borderRadius: radius, background: k === 'DO_SET_ROI' ? 'var(--ok)' : color, flex: 'none' }} />
       <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <span className="ell">{wpLabel(k, dict)}</span>
-        <span className="mono t4 ell" style={{ fontSize: 9 }}>
+        <span className="mono t4 ell" style={{ fontSize: mavFontSize((CMDS[k]?.mav ?? '').replace('MAV_CMD_', '')) }}>
           {(CMDS[k]?.mav ?? '').replace('MAV_CMD_', '')}
         </span>
       </span>

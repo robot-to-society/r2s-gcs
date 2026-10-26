@@ -21,7 +21,7 @@ test('a Mission Planner file imports with 20 rows and exports byte-identical', a
   await expect(page.locator('.wrow .cmd-label').first()).toHaveText('離陸')
   await expect(page.locator('.wrow .cmd-label').last()).toHaveText('帰還 (RTL)')
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'ファイルに保存' }).click()
+  await page.getByRole('button', { name: '書き出し (.waypoints)' }).click()
   const file = await download
   expect(file.suggestedFilename()).toBe('demo20.waypoints')
   const text = readFileSync((await file.path()) ?? '', 'utf8')
@@ -31,6 +31,8 @@ test('a Mission Planner file imports with 20 rows and exports byte-identical', a
 test('plan three points, edit, undo, save, write to the vehicle and see the progress row', async ({ page }) => {
   test.skip(!process.env.RGCS_E2E_SITL, 'needs SITL')
   await openMission(page)
+  // the write target is never implied (UX-32): pick the vehicle first
+  await page.getByLabel('対象機体').selectOption({ index: 1 })
   const canvas = page.locator('.mission-map canvas')
   // with a vehicle the first click adds the TAKEOFF at the vehicle and a WAYPOINT at the click
   await canvas.click({ position: { x: 480, y: 300 } })
@@ -43,7 +45,7 @@ test('plan three points, edit, undo, save, write to the vehicle and see the prog
   await page.keyboard.press('Meta+z')
   await expect(page.getByTestId('mission-summary')).toContainText('50 m')
   await page.getByLabel('ミッション名').fill('e2e')
-  await page.getByRole('button', { name: '保存', exact: true }).click()
+  await page.getByRole('button', { name: 'ライブラリに保存', exact: true }).click()
   await expect(page.locator('.mission-dirty')).toHaveCount(0, { timeout: 5_000 })
   const writes = await countLogRows(page, WRITE_OK)
   await page.getByRole('button', { name: '機体に書き込む' }).click()

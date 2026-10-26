@@ -80,13 +80,13 @@ function useDrag(total: number, onMove: Props['onMove']) {
   return { attrs, marks }
 }
 
-/** The rows' sub-lines, the list split into items and survey groups, and ▲▼ that jump over a group. */
+/** The rows' sub-lines, the list split into items and survey groups, and up / down that jump over a group. */
 function rowModel({ items, surveys = NO_SURVEYS, kind, dict, onReorder, onMove }: Props) {
   const legs = legDistances(items)
   const sub = (it: DraftItem, i: number) => `${legs[i]! > 0 ? `${km(legs[i]!)} · ` : ''}${itemSummary(it, kind, dict) || '—'}`
   const segments = listSegments(items, surveys)
   const groups = segments.flatMap((seg) => (seg.kind === 'survey' ? [{ first: seg.first, last: seg.first + seg.survey.uids.length - 1 }] : []))
-  /** ▲▼ next to a survey jumps over the whole group instead of entering it. */
+  /** Up / down next to a survey jumps over the whole group instead of entering it. */
   const step = (uid: number, i: number, dir: -1 | 1) => {
     const g = groups.find((x) => x.first <= i + dir && i + dir <= x.last)
     if (g) onMove(new Set([uid]), dir < 0 ? g.first : g.last + 1)
@@ -95,7 +95,7 @@ function rowModel({ items, surveys = NO_SURVEYS, kind, dict, onReorder, onMove }
   return { sub, segments, step }
 }
 
-/** Prototype `.wrow` list: badge, Japanese command name + MAV id, summary line, ▲▼; surveys grouped. */
+/** Prototype `.wrow` list: badge, Japanese command name + MAV id, summary line, up / down; surveys grouped. */
 export function MissionList(props: Props) {
   const { items, home = null, selected, dict, onSelect, onMove, onContext } = props
   const drag = useDrag(items.length, onMove)

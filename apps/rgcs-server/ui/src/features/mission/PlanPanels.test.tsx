@@ -14,7 +14,7 @@ describe('PlanTabs', () => {
     const onChange = vi.fn()
     render(<PlanTabs tab="mission" dict={dict} onChange={onChange} />)
     const group = screen.getByRole('group', { name: '計画の種類' })
-    fireEvent.click(within(group).getByRole('button', { name: 'Fence' }))
+    fireEvent.click(within(group).getByRole('button', { name: 'フェンス' }))
     expect(onChange).toHaveBeenCalledWith('fence')
     expect(readPlanTab()).toBe('fence')
   })

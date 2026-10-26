@@ -121,3 +121,11 @@
 .mission-picker li.on { background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent); }
 .mission-write-foot { padding: 12px; display: grid; }
 .mission-write-foot .btn { gap: 8px; }
+/* the vehicle I/O pair and the export pair (UX-34) */
+.mission-io { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mission-io .btn-lg { padding: 0 8px; }
+/* the palette covers the list completely (UX-36) */
+.cmd-palette { background: var(--base); -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* a caution line, not a filled pill (UX-42) */
+.plan-notice { gap: 6px; align-items: flex-start; margin-top: 6px; color: var(--caution); font-size: 12px; }
+.plan-notice .ic { flex: none; margin-top: 1px; }

@@ -279,13 +279,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
               }}
             />
           </div>
-          <div className="t4 hair-t" style={{ padding: '6px 14px', fontSize: 10, lineHeight: 1.5 }}>
-            {dict.mShortcuts}
-          </div>
-          <div className="hair-t" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, padding: '10px 12px 12px' }}>
-            <button type="button" className="btn" disabled={ui.busy !== 'idle' || vehicle === null} onClick={() => void io.download()}>
-              {dict.mRead}
-            </button>
+          <div className="hair-t" style={{ display: 'grid', gap: 8, padding: '10px 12px 12px' }}>
             <button type="button" className="btn" onClick={() => file.current?.click()}>
               {dict.mFileLoad}
             </button>
@@ -354,6 +348,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onNew={io.fresh}
         onOpen={io.openPicker}
         onSave={() => void io.save()}
+        onRead={() => void io.download()}
+        canRead={ui.busy === 'idle' && vehicle !== null}
         onUpload={() => (online.length > 1 && !brief.multi ? setTargets(true) : void io.upload())}
         onSaveFile={() => void io.saveWaypointsFile()}
         onSaveRgcs={io.saveRgcsFile}
