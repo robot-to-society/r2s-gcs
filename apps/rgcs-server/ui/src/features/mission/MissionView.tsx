@@ -62,13 +62,15 @@ interface Props {
   readonly terrainTiles?: string | null
   readonly store?: MissionStore
   readonly briefing?: BriefingStore
+  /** The vehicle selected in the ops list: 機体から読込 offers it when no target is chosen. */
+  readonly opsSelected?: number | null
 }
 
 const NUDGE = 0.0001
 const NO_TRANSFERS: ReadonlyMap<number, MissionTransfer> = new Map()
 
 /** The mission planning screen (spec 10 §6, 2D subset) built on the Glass prototype's layout. */
-export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore, briefing = briefingStore }: Props) {
+export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore, briefing = briefingStore, opsSelected = null }: Props) {
   const mapMode = useMapMode()
   const is3d = mapMode === '3d' && terrainTiles !== null
   const ui = useMissionUi(store)
@@ -105,7 +107,11 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
     return (d: Draft) => predictFor(d, model, vHome)
   }, [kind, pathValues, hLat, hLon, hAlt])
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
-  const io = useMissionIo(store, briefing, sysid, dict, vehicleStore)
+  const isOnline = (s: number) => online.some((v) => v.sysid === s)
+  const io = useMissionIo(store, briefing, sysid, dict, vehicleStore, isOnline)
+  const readFrom = sysid ?? (opsSelected !== null && isOnline(opsSelected) ? opsSelected : null)
+  const saved = draft.mission.sysid
+  const savedOffline = sysid === null && saved !== null && !isOnline(saved) ? dict.mSavedOffline.replace('{name}', vehicles.get(saved)?.name ?? `#${saved}`) : null
   const batch = useBriefingWrite(brief.list.workspace, vehicles, ui.busy !== 'idle', dict)
   const fileHome = draft.mission.home ?? (vehicle?.home ? { lat: vehicle.home.lat, lon: vehicle.home.lon, alt: vehicle.home.alt } : null)
   const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit, store })
@@ -334,8 +340,10 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onNew={io.fresh}
         onOpen={io.openPicker}
         onSave={() => void io.save()}
-        onRead={() => void io.download()}
-        canRead={ui.busy === 'idle' && vehicle !== null}
+        onRead={() => void io.download(readFrom)}
+        canRead={ui.busy === 'idle' && readFrom !== null}
+        readLabel={sysid === null && readFrom !== null ? dict.mReadFrom.replace('{name}', vehicles.get(readFrom)?.name ?? `#${readFrom}`) : dict.mRead}
+        targetHint={savedOffline}
         onUpload={() => (online.length > 1 && !brief.multi ? setTargets(true) : void io.upload())}
         onSaveFile={() => void io.saveWaypointsFile()}
         onSaveRgcs={io.saveRgcsFile}

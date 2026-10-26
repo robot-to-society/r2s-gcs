@@ -22,17 +22,19 @@ const copter = (sysid: number): VehicleState => ({
 const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
 const envelope = (data: unknown) => new Response(JSON.stringify({ success: true, data }), { status: 200, headers: { 'content-type': 'application/json' } })
 
-function setup() {
-  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => envelope([])))
+function setup(opts: { opsSelected?: number | null; extra?: VehicleState[]; fetchImpl?: (url: string) => Response } = {}) {
+  const fetchMock = vi.fn<typeof fetch>(async (input) => (opts.fetchImpl ? opts.fetchImpl(String(input)) : envelope([])))
+  vi.stubGlobal('fetch', fetchMock)
   const store = new MissionStore()
   const briefing = new BriefingStore()
-  render(<MissionView vehicles={new Map([[1, copter(1)], [2, copter(2)]])} dict={t('ja')} style={style} store={store} briefing={briefing} />)
-  return { store, briefing }
+  const vehicles = new Map([[1, copter(1)], [2, copter(2)], ...(opts.extra ?? []).map((v) => [v.sysid, v] as const)])
+  render(<MissionView vehicles={vehicles} dict={t('ja')} style={style} store={store} briefing={briefing} opsSelected={opts.opsSelected ?? null} />)
+  return { store, briefing, fetchMock }
 }
 
-function missionFile(name: string, lat0: number): File {
+function missionFile(name: string, lat0: number, sysid: number | null = null): File {
   const draft = appendWaypoint(appendWaypoint(emptyDraft(), lat0, 139), lat0 + 0.01, 139)
-  return new File([serializeRgcsMission({ ...toMission(draft), name })], `${name}.rgcsmission`)
+  return new File([serializeRgcsMission({ ...toMission(draft), name, sysid })], `${name}.rgcsmission`)
 }
 const pick = async (files: File[]) => {
   await act(async () => {
@@ -80,5 +82,35 @@ describe('MissionView write target (§8)', () => {
     expect(store.getState().history.present.mission.sysid).toBe(2)
     expect(writeButton()).toBeEnabled()
     expect(editor().queryByText('書込先の機体を選んでください')).not.toBeInTheDocument()
+  })
+
+  it('a_mission_saved_for_a_connected_vehicle_opens_with_it_visibly_selected', async () => {
+    const { briefing } = setup()
+    await pick([missionFile('Alpha', 36, 2)])
+    expect(panelSelect().value).toBe('2')
+    expect((within(briefRows()[0]!).getByLabelText('割当機体') as HTMLSelectElement).value).toBe('2')
+    expect(briefing.getState().rows[0]!.sysid).toBe(2)
+    expect(writeButton()).toBeEnabled()
+  })
+
+  it('a_mission_saved_for_a_vehicle_not_connected_opens_unassigned_and_names_it', async () => {
+    setup({ extra: [{ ...copter(3), link: 'lost' }] })
+    await pick([missionFile('Alpha', 36, 3)])
+    expect(panelSelect().value).toBe('')
+    expect(writeButton()).toBeDisabled()
+    expect(editor().getByText('保存時の機体 UAV-03 は未接続')).toBeInTheDocument()
+  })
+
+  it('read_from_vehicle_preselects_the_ops_selection_and_assigns_what_it_read', async () => {
+    const read = toMission(appendWaypoint(appendWaypoint(emptyDraft(), 36, 139), 36.01, 139))
+    const { fetchMock, briefing } = setup({ opsSelected: 2, fetchImpl: (url) => envelope(url === '/api/vehicles/2/mission' ? { ...read, sysid: 2 } : []) })
+    const btn = editor().getByRole('button', { name: 'UAV-02 から読込' })
+    expect(btn).toBeEnabled()
+    await act(async () => {
+      fireEvent.click(btn)
+    })
+    expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/vehicles/2/mission')).toBe(true)
+    expect(briefing.getState().rows.find((r) => r.key === briefing.getState().active)!.sysid).toBe(2)
+    expect(panelSelect().value).toBe('2')
   })
 })

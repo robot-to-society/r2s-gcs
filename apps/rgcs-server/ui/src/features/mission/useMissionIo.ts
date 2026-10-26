@@ -5,6 +5,7 @@ import type { Mission } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { hhmmss } from '../../shared/format/time'
 import { openMission } from '../briefing/useBriefing'
+import { assign } from '../briefing/model'
 import type { BriefingStore } from '../briefing/store'
 import { localResultId } from '../vehicles/localResultId'
 import type { VehicleStore } from '../vehicles/store'
@@ -19,7 +20,8 @@ const errText = (e: unknown): string => (e instanceof Error ? e.message : String
  * File / saved / vehicle missions and 新規 open in the briefing (a new row, or the untouched one),
  * so nothing in the editor is lost and no discard question is asked.
  */
-export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid: number | null, dict: Dict, vehicles: VehicleStore) {
+/** `connected`: a mission saved for (or read from) a connected vehicle opens with it visibly assigned (UX-32 follow-up). */
+export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid: number | null, dict: Dict, vehicles: VehicleStore, connected: (sysid: number) => boolean = () => false) {
   const [fitRequest, setFitRequest] = useState(0)
   const [picker, setPicker] = useState(false)
   const fit = () => setFitRequest((n) => n + 1)
@@ -30,7 +32,13 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
     openMission(briefing, store, ui)
     fit()
   }
-  const load = (m: Mission, id: number | null) => open(loaded(INITIAL_MISSION_UI, m, id))
+  const load = (m: Mission, id: number | null) => {
+    open(loaded(INITIAL_MISSION_UI, m, id))
+    // its own vehicle, when connected, becomes the shown target (both selects); never a hidden one
+    const own = m.sysid
+    // (not when another open mission already holds it: that row keeps its vehicle)
+    if (own !== null && connected(own)) briefing.update((w) => (w.rows.some((r) => r.key !== w.active && r.sysid === own) ? w : assign(w, w.active, own)))
+  }
 
   const save = async (): Promise<number | null> => {
     const ui = store.getState()
@@ -85,18 +93,19 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
     }
   }
 
-  const download = async () => {
-    if (sysid === null) return
+  /** Reads `from` (default: the target); the mission opens assigned to that vehicle. */
+  const download = async (from: number | null = sysid) => {
+    if (from === null) return
     store.update((u) => setBusy(u, 'downloading'))
     try {
-      const m = await downloadMission(sysid)
-      vehicles.setVehicleMission(sysid, m)
+      const m = await downloadMission(from)
+      vehicles.setVehicleMission(from, m)
       // the editor being parked must not keep the 'downloading' state
       store.update((u) => setBusy(u, 'idle'))
-      load({ ...m, name: m.name || `${dict.mDownloaded} ${hhmmss(Date.now())}` }, null)
-      result('mission_download', true, `${m.items.length} ${dict.mItems}`)
+      load({ ...m, sysid: from, name: m.name || `${dict.mDownloaded} ${hhmmss(Date.now())}` }, null)
+      result('mission_download', true, `${m.items.length} ${dict.mItems}`, from)
     } catch (e) {
-      result('mission_download', false, errText(e))
+      result('mission_download', false, errText(e), from)
     } finally {
       store.update((u) => setBusy(u, 'idle'))
     }

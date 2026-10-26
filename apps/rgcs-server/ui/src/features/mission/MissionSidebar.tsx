@@ -39,6 +39,10 @@ interface Props {
   /** 機体から読込: next to 機体に書き込む (UX-34). */
   readonly onRead: () => void
   readonly canRead: boolean
+  /** 「UAV-02 から読込」 when the ops selection stands in for a missing target. */
+  readonly readLabel?: string
+  /** Why there is no target, when more specific than 「選んでください」 (e.g. the saved vehicle is offline). */
+  readonly targetHint?: string | null
   readonly onSaveFile: () => void
   readonly onSaveRgcs: () => void
   /** The briefing comparison table (two or more missions open), above the summary. */
@@ -177,10 +181,10 @@ export function MissionSidebar(p: Props) {
             {dict.mWrite}
           </button>
           <button type="button" className="btn btn-lg" disabled={!p.canRead} onClick={p.onRead}>
-            {dict.mRead}
+            {p.readLabel ?? dict.mRead}
           </button>
         </div>
-        {p.sysid === null && p.vehicles.length > 0 && <div className="t3" style={{ fontSize: 11 }}>{p.multi ? dict.bfAssignToWrite : dict.mPickTarget}</div>}
+        {p.sysid === null && p.vehicles.length > 0 && <div className="t3" style={{ fontSize: 11 }}>{p.multi ? dict.bfAssignToWrite : (p.targetHint ?? dict.mPickTarget)}</div>}
         <TransferBar transfer={p.transfer} dict={dict} />
         <div className="mission-io">
           <button type="button" className="btn btn-sm" disabled={p.busy} onClick={p.onSaveFile}>

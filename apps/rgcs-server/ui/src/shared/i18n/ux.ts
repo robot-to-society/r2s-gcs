@@ -56,6 +56,8 @@ export const uxJa = {
   psToken: 'トークン',
   psState: '状態',
   psPickLogo: 'ロゴを選択…',
+  mSavedOffline: '保存時の機体 {name} は未接続',
+  mReadFrom: '{name} から読込',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -114,4 +116,6 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   psToken: 'Token',
   psState: 'Status',
   psPickLogo: 'Choose logo…',
+  mSavedOffline: 'Saved for {name}, not connected',
+  mReadFrom: 'Read from {name}',
 }
