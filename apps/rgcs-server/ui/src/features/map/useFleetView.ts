@@ -1,9 +1,11 @@
 // The operations map's fleet framing (UX-10): it opens on the vehicles the first time any has a
-// position, and 「全機を表示」 frames them again on request.
+// position, 「全機を表示」 frames them again on request, and a newly selected vehicle that is off
+// screen is brought into view.
 import type { Map as MlMap } from 'maplibre-gl'
 import { useEffect, useRef, type RefObject } from 'react'
 import type { VehicleState } from '../../shared/api/types'
 import { firstView, type Padding } from './follow'
+import { hasPosition } from './markers'
 import { KEEP_ELEVATION } from './mapMode'
 
 const SHOW_ALL_MS = 600
@@ -40,4 +42,20 @@ export function useFleetView(map: RefObject<MlMap | null>, vehicles: ReadonlyMap
     // only a new request frames: telemetry updates must not move the camera
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAll])
+}
+
+/** A newly selected vehicle off screen: ease to it (not on the first selection, not while following). */
+export function useRevealSelected(map: RefObject<MlMap | null>, vehicles: ReadonlyMap<number, VehicleState>, selected: number | null, follow: number | null): void {
+  const prev = useRef(selected)
+  useEffect(() => {
+    const m = map.current
+    const was = prev.current
+    prev.current = selected
+    if (!m || selected === null || was === null || was === selected || follow !== null) return
+    const v = vehicles.get(selected)
+    if (!v || !hasPosition(v) || m.getBounds().contains([v.lon, v.lat])) return
+    m.easeTo({ center: [v.lon, v.lat], duration: SHOW_ALL_MS, ...KEEP_ELEVATION })
+    // only a change of selection moves the camera, not telemetry
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected])
 }

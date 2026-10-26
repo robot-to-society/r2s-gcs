@@ -14,7 +14,7 @@ import { useBasemapSwap } from './basemaps'
 import { KEEP_ELEVATION, type MapMode } from './mapMode'
 import { useVehicleAir } from './vehicleAir'
 import { useArrival } from './useArrival'
-import { useFleetView } from './useFleetView'
+import { useFleetView, useRevealSelected } from './useFleetView'
 import { MODE_EASE_MS } from './air3d'
 import { courseGeoJson, metresPerPixel } from './course'
 import { footprintsGeoJson, projectedIds } from './footprints'
@@ -364,6 +364,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
 
   // The map opens on the vehicles (not the built-in default spot); 「全機を表示」 frames them again.
   useFleetView(map, vehicles, follow, padding, showAll)
+  useRevealSelected(map, vehicles, selected, follow)
 
   const focused = useRef(0)
   useEffect(() => {

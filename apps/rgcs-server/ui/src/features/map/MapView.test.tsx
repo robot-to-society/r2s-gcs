@@ -114,6 +114,10 @@ class FakeMap {
     this.paddingCalls += 1
   }
   center: [number, number] = [139.372, 36.162]
+  /** About ±1 km around the centre counts as on screen. */
+  getBounds() {
+    return { contains: ([lon, lat]: [number, number]) => Math.abs(lon - this.center[0]) < 0.01 && Math.abs(lat - this.center[1]) < 0.01 }
+  }
   bearing = 0
   easeTo(o: { center?: [number, number]; bearing?: number }) {
     this.eased.push(o)
@@ -544,6 +548,23 @@ describe('MapView', () => {
     expect(m.fits.at(-1)).toEqual({ b: [[137.63, 36.2], [137.7, 36.25]], o: { padding: pad, maxZoom: 16, duration: 600 } })
     rerender(<MapView {...props} showAll={1} vehicles={new Map(vehicles)} />)
     expect(m.fits.length).toBe(before + 1)
+  })
+
+  it('selecting a vehicle that is off screen eases the map to it; one on screen leaves the map alone (UX-10)', () => {
+    const vehicles = new Map([[1, v(1, 3, 130, 30)], [2, v(2, 3, 139.373, 36.162)]])
+    const props = { vehicles, tracks: new Map(), follow: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const { rerender } = render(<MapView {...props} selected={null} />)
+    const m = created.maps.at(-1)!
+    m.center = [139.372, 36.162]
+    const before = m.eased.length
+    rerender(<MapView {...props} selected={2} />)
+    expect(m.eased.length).toBe(before)
+    rerender(<MapView {...props} selected={1} />)
+    expect(m.eased.at(-1)).toMatchObject({ center: [130, 30] })
+    // telemetry for the same selection does not move the camera again
+    const after = m.eased.length
+    rerender(<MapView {...props} selected={1} vehicles={new Map(vehicles)} />)
+    expect(m.eased.length).toBe(after)
   })
 
   it('a focus request centres the map on that vehicle once per request', () => {
