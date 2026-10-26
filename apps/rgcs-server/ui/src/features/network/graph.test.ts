@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { t } from '../../shared/i18n'
 import { clientSession, mavLink, netComponent, netVehicle, topology } from './fixture'
-import { cameraLine, compLine, graphSummary, linkPillValue, linkStatus, toGraph, vehicleStatus } from './graph'
+import { cameraLine, compLine, compTitle, graphSummary, linkPillValue, linkStatus, toGraph, vehicleStatus } from './graph'
 
 const ja = t('ja')
 
@@ -9,6 +9,8 @@ describe('graph', () => {
   it('compLine lists the real components after FC', () => {
     const v = netVehicle(1, { components: [netComponent(154, 'gimbal'), netComponent(1, 'autopilot'), netComponent(100, 'camera')] })
     expect(compLine(v)).toBe('FC · AP 1 · CAM 100 · GMB 154')
+    // the short codes are spelled out on hover (UX-46)
+    expect(compTitle(v, ja)).toBe('フライトコントローラー: オートパイロット (コンポーネント 1) · カメラ (コンポーネント 100) · ジンバル (コンポーネント 154)')
     expect(compLine(netVehicle(2, { components: [] }))).toBe('FC · —')
   })
 

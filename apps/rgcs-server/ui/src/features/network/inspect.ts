@@ -70,7 +70,6 @@ function serverInspection(t: NetworkTopology, dict: Dict): Inspection {
       kv(dict.netHostname, s.hostname),
       kv(dict.netVersion, `${s.version} (${s.build})`),
       kv(dict.netListen, s.listen),
-      kv(dict.netRole, s.role),
       kv(dict.netUptime, fmtAge(s.uptime_s * 1000, dict)),
       mediaValue(t, dict),
     ],

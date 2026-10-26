@@ -54,6 +54,14 @@ export function compLine(v: NetVehicle): string {
   return parts.length === 0 ? 'FC · —' : ['FC', ...parts].join(' · ')
 }
 
+const KIND_KEY: Readonly<Record<ComponentKind, keyof Dict>> = { autopilot: 'netKindAutopilot', camera: 'netKindCamera', gimbal: 'netKindGimbal', companion: 'netKindCompanion', gcs: 'netKindGcs', other: 'netKindOther' }
+
+/** compLine spelled out for its hover title (UX-46): 「フライトコントローラー: オートパイロット (コンポーネント 1) · …」. */
+export function compTitle(v: NetVehicle, dict: Dict): string {
+  const parts = [...v.components].sort((a, b) => a.compid - b.compid).map((c) => dict.netCompTitle.replace('{kind}', dict[KIND_KEY[c.kind]]).replace('{id}', String(c.compid)))
+  return `${dict.netFc}: ${parts.join(' · ') || '—'}`
+}
+
 /** Vehicle block line 3: the camera link (there is no rgcs-node on a standalone server). */
 export function cameraLine(v: NetVehicle, dict: Dict): { readonly text: string; readonly warn: boolean } {
   const cam = v.camera

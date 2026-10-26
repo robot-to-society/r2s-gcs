@@ -5,7 +5,7 @@ import type { ComponentType, ReactElement, ReactNode } from 'react'
 import type { Dict } from '../../shared/i18n'
 import type { NetVehicle, VehicleKind } from '../../shared/api/types'
 import { IconCamera, IconCopter, IconPlane, IconRover } from '../../shared/ui/icons'
-import { cameraLine, compLine, type NetStatus } from './graph'
+import { cameraLine, compLine, compTitle, type NetStatus } from './graph'
 import { zoneLabelFs } from './layout'
 import type { Lod } from './viewport'
 
@@ -182,6 +182,7 @@ function VehicleFull({ kit, v, x, y, w, h, dict, status }: VehicleProps) {
         {`SYSID ${v.sysid}`}
       </text>
       <text x={x + 14} y={y + 47} fontSize={10.5} className="t3 nmono">
+        <title>{compTitle(v, dict)}</title>
         {compLine(v)}
       </text>
       <SvgIcon icon={IconCamera} x={x + 14} y={y + 52} size={12} />

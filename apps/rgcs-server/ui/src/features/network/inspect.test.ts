@@ -41,9 +41,10 @@ describe('inspect', () => {
   it('describes the server with its clients and media server', () => {
     const i = inspect('server', fixture(), ja, NOW)
     expect([i.title, i.sub, i.icon]).toEqual(['rgcs-server', 'スタンドアロン', 'server'])
-    expect(kv(i, '版')?.v).toBe('0.1.0 (dev)')
-    expect(kv(i, '待受')?.v).toBe('127.0.0.1:8110')
-    expect(kv(i, '役割')?.v).toBe('standalone')
+    // readable labels; the role row is gone, the subtitle already says スタンドアロン (UX-45)
+    expect(kv(i, 'バージョン')?.v).toBe('0.1.0 (dev)')
+    expect(kv(i, '待受アドレス')?.v).toBe('127.0.0.1:8110')
+    expect(kv(i, '役割')).toBeUndefined()
     expect(kv(i, '稼働時間')?.v).toBe('42 s')
     expect(kv(i, '映像サーバー')?.v).toBe('http://127.0.0.1:8889/mt11/whep · 到達可')
     const tb = i.tables.find((x) => x.title === 'クライアント')

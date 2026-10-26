@@ -42,6 +42,14 @@ export const uxJa = {
   roiModeRate: '速度制御',
   roiModeAngle: '角度制御',
   mDur: '{m} 分 {s} 秒',
+  netFc: 'フライトコントローラー',
+  netCompTitle: '{kind} (コンポーネント {id})',
+  netKindAutopilot: 'オートパイロット',
+  netKindCamera: 'カメラ',
+  netKindGimbal: 'ジンバル',
+  netKindCompanion: 'コンパニオンコンピューター',
+  netKindGcs: '地上局',
+  netKindOther: 'その他',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -86,4 +94,12 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   roiModeRate: 'Rate',
   roiModeAngle: 'Angle',
   mDur: '{m} min {s} s',
+  netFc: 'Flight controller',
+  netCompTitle: '{kind} (component {id})',
+  netKindAutopilot: 'Autopilot',
+  netKindCamera: 'Camera',
+  netKindGimbal: 'Gimbal',
+  netKindCompanion: 'Companion computer',
+  netKindGcs: 'Ground station',
+  netKindOther: 'Other',
 }
