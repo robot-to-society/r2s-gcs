@@ -1,0 +1,11 @@
+- [RGCS design_base prototype](r2s-gcs-design-base-prototype.md) — dc-runtime conventions + headless CDP verification
+- [RGCS mission UI conventions](r2s-gcs-mission-ui-conventions.md) — frames, selection gestures, 3D path, MAVLink labels
+- [RGCS Glass design tokens](r2s-gcs-glass-design-tokens.md) — approved restyle: palette, Plex type, floating panels + map padding
+- [RGCS deployment + camera decisions](r2s-gcs-deployment-and-camera.md) — Pi-on-vehicle server, MT11 Rust port, login=operator, show UI before docs
+- [RGCS dev environment](r2s-gcs-dev-environment.md) — rustup PATH, mavlink dialect path, ts-rs bigint, SITL on tcp:5760, cwd quirk, ardupilot-latest worktree build
+- [RGCS verify with SITL + live UI](r2s-gcs-verify-with-sitl-live-ui.md) — user checks changes by watching the UI with SITL data; scripts/dev.sh starts the stack; implementation first
+- [RGCS project status](r2s-gcs-p1-status.md) — P1–P9 + 3D editing / fence / rally merged on main 2026-10-19; remaining list inside; real-Pi rehearsals remain
+- [RGCS design sync workflow](r2s-gcs-design-sync.md) — sync-css.py + prototype class names + screenshot comparison; user: follow the design, link = dot only
+- [Converse in Japanese](r2s-gcs-language-japanese.md) — user asked 2026-10-18: reply in Japanese; code/commits unchanged
+- [RGCS design polish round](r2s-gcs-design-polish.md) — worktree ../r2s-gcs-design (design-polish): Lucide sprite, markers, message ack, log sheet; awaiting review
+- [RGCS roadmap 2026-10-20](r2s-gcs-roadmap-2026-10-20.md) — finish order: video, copter path, calib, detail tiles, plan helpers (survey/delivery/AI), cam settings, network, POI; AI chat + node/cloud = phase 2

@@ -14,8 +14,10 @@
 #   scripts/dev.sh --plane    # add one plain ArduPlane SITL (after the QuadPlane)
 #   scripts/dev.sh --rover    # add one ArduRover SITL last (needs build/sitl/bin/ardurover)
 #   scripts/dev.sh --sitl 1 --quadplane --plane --rover  # one of each: copter, VTOL, plane, rover
+#   scripts/dev.sh --docker ...  # SITL in Docker containers (scripts/sitl-docker.sh build once);
+#                             # no native ArduPilot build needed. Same ports, SYSIDs and homes.
 #
-# Env overrides: ARDUPILOT_DIR, SITL_HOME (lat,lon,alt,yaw), SITL_SPEEDUP, SITL_COUNT, RGCS_PORT, UI_PORT.
+# Env overrides: SITL_DOCKER=1 (= --docker), ARDUPILOT_DIR, SITL_HOME (lat,lon,alt,yaw), SITL_SPEEDUP, SITL_COUNT, RGCS_PORT, UI_PORT.
 # Everything runtime-related lives in .dev/ (git-ignored). Ctrl-C stops all three processes.
 set -euo pipefail
 
@@ -50,6 +52,7 @@ VIDEO=0
 QUADPLANE=0
 PLANE=0
 ROVER=0
+DOCKER="${SITL_DOCKER:-0}"
 ARGS=("$@")
 for ((i = 0; i < ${#ARGS[@]}; i++)); do
   arg="${ARGS[$i]}"
@@ -62,7 +65,8 @@ for ((i = 0; i < ${#ARGS[@]}; i++)); do
     --quadplane) QUADPLANE=1 ;;
     --plane) PLANE=1 ;;
     --rover) ROVER=1 ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    --docker) DOCKER=1 ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -72,12 +76,16 @@ EXTRAS=$((QUADPLANE + PLANE + ROVER))
 mkdir -p "$DEV_DIR/sitl" "$DEV_DIR/data"
 
 PIDS=()
+CONTAINERS=()
 cleanup() {
   trap - EXIT INT TERM
   echo
   echo "[dev] stopping..."
   for pid in "${PIDS[@]:-}"; do
     [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
+  done
+  for c in "${CONTAINERS[@]:-}"; do
+    [ -n "$c" ] && "$ROOT/scripts/sitl-docker.sh" stop "$c"
   done
   wait 2>/dev/null || true
 }
@@ -96,57 +104,69 @@ home_of() {
   awk -v h="$SITL_HOME" -v i="$1" 'BEGIN { split(h, p, ","); printf "%.6f,%s,%s,%s", p[1] + i * 0.0009, p[2], p[3], p[4] }'
 }
 
-# One non-copter SITL after the copters: start_extra <dir> <label> <binary> <model> <params>.
-# Takes the next instance from $n (next SYSID n+1, home n*100 m north) and advances it.
-start_extra() {
-  if [ ! -x "$3" ]; then
-    echo "[dev] $2 SITL not found: $3 (./waf plane / ./waf rover in $ARDUPILOT_DIR)" >&2
+# start_sitl <name> <vehicle> <instance> <home> <log> [relay]: one SITL, natively or (--docker) in a
+# container, state in .dev/sitl/<name>. With "relay" SERIAL0 goes to the relay; without it the SITL
+# listens on tcp 5760+10*instance. SYSID = instance + 1.
+start_sitl() {
+  local name="$1" vehicle="$2" inst="$3" home="$4" log="$5" relay="${6:-}"
+  if [ "$DOCKER" = 1 ]; then
+    local mode=(--publish)
+    [ -n "$relay" ] && mode=(--relay "$RELAY_VEHICLE_PORT")
+    "$ROOT/scripts/sitl-docker.sh" run "$name" "$vehicle" "$inst" "$home" "${mode[@]}" >"$log" 2>&1 &
+    PIDS+=($!)
+    CONTAINERS+=("$name")
+    return
+  fi
+  local bin model params serial0=()
+  case "$vehicle" in
+    copter) bin="$SITL_BIN" model=+ params="$SITL_PARAMS" ;;
+    quadplane) bin="$PLANE_BIN" model=quadplane params="$QUADPLANE_PARAMS" ;;
+    plane) bin="$PLANE_BIN" model=plane params="$PLANE_PARAMS" ;;
+    rover) bin="$ROVER_BIN" model=rover params="$ROVER_PARAMS" ;;
+  esac
+  if [ ! -x "$bin" ]; then
+    echo "[dev] SITL binary not found: $bin (./waf $vehicle in $ARDUPILOT_DIR, or use --docker)" >&2
     exit 1
   fi
-  local dir="$DEV_DIR/sitl/$1"
-  mkdir -p "$dir"
-  echo "[dev] starting $2 SITL (SYSID $((n + 1)), home $(home_of "$n")) -> $DEV_DIR/sitl-$1.log"
-  (cd "$dir" && exec "$3" --model "$4" --speedup "$SITL_SPEEDUP" --defaults "$5" \
-      --home "$(home_of "$n")" -I"$n" --sysid "$((n + 1))" --serial0 "udpclient:127.0.0.1:$RELAY_VEHICLE_PORT" -w) \
-      >"$DEV_DIR/sitl-$1.log" 2>&1 &
+  [ -n "$relay" ] && serial0=(--serial0 "udpclient:127.0.0.1:$RELAY_VEHICLE_PORT")
+  mkdir -p "$DEV_DIR/sitl/$name"
+  (cd "$DEV_DIR/sitl/$name" && exec "$bin" --model "$model" --speedup "$SITL_SPEEDUP" --defaults "$params" \
+      --home "$home" -I"$inst" --sysid "$((inst + 1))" ${serial0[@]+"${serial0[@]}"} -w) >"$log" 2>&1 &
   PIDS+=($!)
+}
+
+# One non-copter SITL after the copters: start_extra <name> <label> <vehicle>.
+# Takes the next instance from $n (next SYSID n+1, home n*100 m north) and advances it.
+start_extra() {
+  echo "[dev] starting $2 SITL (SYSID $((n + 1)), home $(home_of "$n")) -> $DEV_DIR/sitl-$1.log"
+  start_sitl "$1" "$3" "$n" "$(home_of "$n")" "$DEV_DIR/sitl-$1.log" relay
   n=$((n + 1))
 }
 
+if [ "$START_SITL" = 1 ] && [ "$DOCKER" = 1 ] && [ ! -x "$ROOT/.dev/sitl-docker/build/sitl/bin/arducopter" ]; then
+  echo "[dev] Docker SITL not built yet: scripts/sitl-docker.sh build (ARDUPILOT_DIR=<checkout>)" >&2
+  exit 1
+fi
+
 # --- 1. SITL -----------------------------------------------------------------
 if [ "$START_SITL" = 1 ] && { [ "$SITL_COUNT" -gt 1 ] || [ "$EXTRAS" -gt 0 ]; }; then
-  if [ ! -x "$SITL_BIN" ]; then
-    echo "[dev] SITL binary not found: $SITL_BIN (build ArduPilot sitl or set ARDUPILOT_DIR)" >&2
-    exit 1
-  fi
   echo "[dev] starting the MAVLink relay (vehicles udp:$RELAY_VEHICLE_PORT -> server udp:$RELAY_SERVER_PORT) -> $DEV_DIR/relay.log"
   python3 -I "$ROOT/scripts/mav-relay.py" "$RELAY_VEHICLE_PORT" "$RELAY_SERVER_PORT" >"$DEV_DIR/relay.log" 2>&1 &
   PIDS+=($!)
   for ((i = 0; i < SITL_COUNT; i++)); do
-    dir="$DEV_DIR/sitl/$((i + 1))"
-    mkdir -p "$dir"
     echo "[dev] starting SITL #$((i + 1)) (SYSID $((i + 1)), home $(home_of "$i")) -> $DEV_DIR/sitl-$((i + 1)).log"
-    (cd "$dir" && exec "$SITL_BIN" --model + --speedup "$SITL_SPEEDUP" --defaults "$SITL_PARAMS" \
-        --home "$(home_of "$i")" -I"$i" --sysid "$((i + 1))" --serial0 "udpclient:127.0.0.1:$RELAY_VEHICLE_PORT" -w) \
-        >"$DEV_DIR/sitl-$((i + 1)).log" 2>&1 &
-    PIDS+=($!)
+    start_sitl "$((i + 1))" copter "$i" "$(home_of "$i")" "$DEV_DIR/sitl-$((i + 1)).log" relay
   done
   n=$SITL_COUNT
-  [ "$QUADPLANE" = 1 ] && start_extra qp QuadPlane "$PLANE_BIN" quadplane "$QUADPLANE_PARAMS"
-  [ "$PLANE" = 1 ] && start_extra plane Plane "$PLANE_BIN" plane "$PLANE_PARAMS"
-  [ "$ROVER" = 1 ] && start_extra rover Rover "$ROVER_BIN" rover "$ROVER_PARAMS"
+  [ "$QUADPLANE" = 1 ] && start_extra qp QuadPlane quadplane
+  [ "$PLANE" = 1 ] && start_extra plane Plane plane
+  [ "$ROVER" = 1 ] && start_extra rover Rover rover
 elif [ "$START_SITL" = 1 ]; then
   if port_in_use "$SITL_PORT"; then
     echo "[dev] SITL already listening on tcp:$SITL_PORT, reusing it"
   else
-    if [ ! -x "$SITL_BIN" ]; then
-      echo "[dev] SITL binary not found: $SITL_BIN (build ArduPilot sitl or set ARDUPILOT_DIR)" >&2
-      exit 1
-    fi
     echo "[dev] starting ArduCopter SITL (home $SITL_HOME, speedup $SITL_SPEEDUP) -> $DEV_DIR/sitl.log"
-    (cd "$DEV_DIR/sitl" && exec "$SITL_BIN" --model + --speedup "$SITL_SPEEDUP" \
-        --defaults "$SITL_PARAMS" --home "$SITL_HOME" -I0 -w) >"$DEV_DIR/sitl.log" 2>&1 &
-    PIDS+=($!)
+    start_sitl 1 copter 0 "$SITL_HOME" "$DEV_DIR/sitl.log"
   fi
 fi
 
