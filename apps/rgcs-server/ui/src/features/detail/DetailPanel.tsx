@@ -3,7 +3,8 @@ import type { BtnState } from '../commands'
 import { CameraStatusRow, CameraStrip, VideoThumb } from '../camera'
 import type { Dict } from '../../shared/i18n'
 import { IconClose, IconPin } from '../../shared/ui/icons'
-import { battText, battWidth, dotClass } from '../vehicles/format'
+import { battText, battWidth, dotClass, modeLabel } from '../vehicles/format'
+import { ArmChip } from '../vehicles/ArmChip'
 import { DetailMessages } from './DetailMessages'
 import { EmergencyRow } from './EmergencyRow'
 import { pendingAlerts } from './messages'
@@ -63,6 +64,10 @@ export function DetailPanel(p: Props) {
       <div className="panel-h">
         <span className={dotClass(v)} style={{ width: 11, height: 11 }} />
         <span className="h1">{v.name}</span>
+        <span className="row detail-state" data-testid="detail-state">
+          <span className="badge">{modeLabel(v, dict)}</span>
+          <ArmChip armed={v.armed} dict={dict} />
+        </span>
         <div className="grow" />
         <button
           type="button"

@@ -45,6 +45,13 @@
 .vrow > .row:not(.stat) { gap: 6px; }
 .vrow .badge { display: block; line-height: 18px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vrow .batt { flex: none; }
+/* arm state without colour alone (UX-12): a Power mark and a filled mode badge while armed */
+.vrow .badge { color: var(--text-2); }
+.vrow .badge.armed, .badge.armed { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.vrow .arm-mark { display: grid; place-items: center; color: var(--accent); flex: none; }
+.detail-state { gap: 6px; margin-left: 4px; }
+.arm-chip { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; color: var(--text-2); border: 1px solid var(--line-hi); }
+.arm-chip.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 .vrow .follow-mark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--caution-tint); color: var(--caution); flex: none; }
 .vrail { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; }
 .vrail .btn-icon { width: 44px; height: 44px; display: flex; flex-direction: column; gap: 3px; color: var(--text-2); }

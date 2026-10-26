@@ -6,6 +6,8 @@ export const uxJa = {
   mWriteAsk: 'ミッションを書き込みますか?',
   mWriteReplaces: '機体に入っているミッションは置き換えられます。',
   mWriteGo: '書き込む',
+  armedState: 'アーム中',
+  disarmedState: 'ディスアーム',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -14,4 +16,6 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   mWriteAsk: 'Write this mission?',
   mWriteReplaces: 'The mission on the vehicle will be replaced.',
   mWriteGo: 'Write',
+  armedState: 'ARMED',
+  disarmedState: 'Disarmed',
 }

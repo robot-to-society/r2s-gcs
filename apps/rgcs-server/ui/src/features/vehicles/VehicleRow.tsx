@@ -1,7 +1,7 @@
 import type { Dict } from '../../shared/i18n'
 import { KindIcon } from '../../shared/ui/KindIcon'
 import type { VehicleState } from '../../shared/api/types'
-import { IconFollow, IconHeading, IconSignal, IconSpeed } from '../../shared/ui/icons'
+import { IconFollow, IconHeading, IconPower, IconSignal, IconSpeed } from '../../shared/ui/icons'
 import { altText, battLow, battText, battWidth, dotClass, modeLabel, speedText } from './format'
 
 interface Props {
@@ -41,7 +41,12 @@ export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, fol
       <div className="row">
         <span className={dotClass(v)} data-testid="dot" />
         <span className="nm">{v.name}</span>
-        <span className="badge" title={modeLabel(v, dict)} style={{ color: v.armed ? 'var(--accent)' : 'var(--text-2)' }}>
+        {v.armed && (
+          <span className="arm-mark" role="img" aria-label={dict.armedState} title={dict.armedState}>
+            <IconPower size={12} />
+          </span>
+        )}
+        <span className={v.armed ? 'badge armed' : 'badge'} title={`${modeLabel(v, dict)} · ${v.armed ? dict.armedState : dict.disarmedState}`}>
           {modeLabel(v, dict)}
         </span>
         {following && (

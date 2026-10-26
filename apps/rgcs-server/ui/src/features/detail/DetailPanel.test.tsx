@@ -35,6 +35,16 @@ describe('DetailPanel', () => {
     expect(screen.queryByText('other vehicle')).toBeNull()
   })
 
+  it('the header shows the flight mode and the arm state in words (UX-12)', () => {
+    const { unmount } = render(<DetailPanel {...base} />)
+    const head = screen.getByTestId('detail-state')
+    expect(head).toHaveTextContent('LOITER')
+    expect(head).toHaveTextContent('アーム中')
+    unmount()
+    render(<DetailPanel {...base} vehicle={{ ...v, armed: false }} />)
+    expect(screen.getByTestId('detail-state')).toHaveTextContent('ディスアーム')
+  })
+
   it('the battery reads a dash, not 0.0 V, without a battery monitor', () => {
     render(<DetailPanel {...base} vehicle={{ ...v, battery: { pct: null, volt: 0, current: null } }} />)
     expect(screen.getByTestId('batt')).toHaveTextContent('—')
