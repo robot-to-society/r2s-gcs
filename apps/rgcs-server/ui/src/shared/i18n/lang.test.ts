@@ -49,7 +49,7 @@ describe('dictionaries', () => {
 
   it('carries the AI chat strings in both languages', () => {
     for (const k of Object.keys(aiJa)) expect(aiEn, k).toHaveProperty(k)
-    expect(dictionaries.ja).toMatchObject({ aiTitle: 'AI', aiTarget: '対象', aiThinking: '考えています…', aiUnconfigured: 'AI は未設定です（config.toml の [ai]）', aiAgo: '{n} 秒前' })
+    expect(dictionaries.ja).toMatchObject({ aiTitle: 'AI', aiTarget: '対象', aiThinking: '考えています…', aiUnconfigured: 'AI チャットは未設定です。管理者がサーバーの config.toml ([ai]) を設定すると使えます。', aiAgo: '{n} 秒前' })
     expect(dictionaries.en).toHaveProperty('aiProposalLabel')
   })
 })
