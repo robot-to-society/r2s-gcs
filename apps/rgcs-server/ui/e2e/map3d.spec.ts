@@ -21,7 +21,7 @@ test('mission map switches to 3D, shows altitude chips and remembers the mode', 
   await expect(page.locator('.rg-wp')).toHaveCount(rows)
   await expect(page.locator('.rg-wp .chip.altc')).toHaveCount(0)
   await page.getByRole('button', { name: '3D' }).click()
-  await expect(page.locator('.rg-wp .chip.altc').first()).toContainText(/▲ \d+ m (Rel|Abs|Ter)/, { timeout: 20_000 })
+  await expect(page.locator('.rg-wp .chip.altc').first()).toContainText(/^\d+ m (REL|ABS|TER)$/, { timeout: 20_000 })
   await page.reload()
   await page.getByRole('button', { name: 'ミッション', exact: true }).first().click()
   await expect(page.getByRole('button', { name: '3D' })).toHaveClass('on', { timeout: 20_000 })
