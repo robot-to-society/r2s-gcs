@@ -10,7 +10,7 @@ import { DetailPanel, ackMessage } from '../features/detail'
 import { AiPanel, useAiChat } from '../features/ai'
 import { buttonAction, getGimbalProfile, releaseCommand, useGimbalJoystick } from '../features/gimbal-joystick'
 import { GuidedModal } from '../features/guided'
-import { MissionPicker, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
+import { MissionWriteSheet, MissionView, getKnownMission, getMission, uploadSavedMission } from '../features/mission'
 import { useOpsArrival } from './opsArrival'
 import { MaintView } from '../features/params'
 import { NetworkView } from '../features/network'
@@ -464,7 +464,7 @@ export function Shell({ me, lang }: Props) {
             </div>
           )}
           {modal.kind === 'mission-pick' && (
-            <MissionPicker dict={dict} title={dict.mWriteMission} onClose={() => setModal(NO_MODAL)} onPick={(row) => void writeSavedMission(modal.sysid, row.id)} />
+            <MissionWriteSheet vehicleName={vehicles.get(modal.sysid)?.name ?? `#${modal.sysid}`} dict={dict} onClose={() => setModal(NO_MODAL)} onWrite={(row) => void writeSavedMission(modal.sysid, row.id)} />
           )}
           {modal.kind === 'present-settings' && (
             <PresentSettings isAdmin={me.role === 'admin'} logo={false} dict={dict} onClose={() => setModal(NO_MODAL)} />

@@ -114,3 +114,7 @@
 .wp-go-title { font-weight: 600; color: var(--text); }
 .wp-go-hint { font-size: 11px; line-height: 1.4; }
 .wp-go-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
+/* 「ミッション書込」 sheet (UX-30): a click selects; the footer button writes after a confirm */
+.mission-picker li.on { background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent); }
+.mission-write-foot { padding: 12px; display: grid; }
+.mission-write-foot .btn { gap: 8px; }

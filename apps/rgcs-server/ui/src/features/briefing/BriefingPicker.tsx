@@ -5,6 +5,7 @@ import type { BriefingSummary } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconClose } from '../../shared/ui/icons'
 import { listBriefings } from './api'
+import { ymdHm } from '../../shared/format/time'
 
 interface Props {
   readonly dict: Dict
@@ -44,7 +45,7 @@ export function BriefingPicker({ dict, onPick, onClose, load = listBriefings }: 
             <li key={r.id} onClick={() => onPick(r.id)} role="button">
               <span className="brief-pick-name">{r.name}</span>
               <span className="meta num">
-                {r.mission_count} {dict.bfMissions} · {new Date(r.updated_at).toLocaleString()}
+                {r.mission_count} {dict.bfMissions} · {ymdHm(r.updated_at)}
               </span>
             </li>
           ))}

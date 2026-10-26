@@ -77,6 +77,12 @@ import {
   VolumeX,
   Wrench,
   X,
+  Upload,
+  ImageUp,
+  MoveHorizontal,
+  MoveVertical,
+  Navigation2,
+  Check,
 } from 'lucide-react'
 
 interface IconProps {
@@ -211,3 +217,10 @@ export const IconRefresh = ({ size = 14, className }: IconProps) => <Lucide icon
 export const IconVolume = ({ size = 16, className }: IconProps) => <Lucide icon={Volume2} size={size} className={className} />
 export const IconVolumeOff = ({ size = 16, className }: IconProps) => <Lucide icon={VolumeX} size={size} className={className} />
 export const IconExternalLink = ({ size = 12, className }: IconProps) => <Lucide icon={ExternalLink} size={size} className={className} />
+// UX review 2026-10-26: write, logo pick, gimbal pan / tilt, heading, plain tick.
+export const IconUpload = ({ size = 16, className }: IconProps) => <Lucide icon={Upload} size={size} className={className} />
+export const IconImageUp = ({ size = 16, className }: IconProps) => <Lucide icon={ImageUp} size={size} className={className} />
+export const IconPan = ({ size = 13, className }: IconProps) => <Lucide icon={MoveHorizontal} size={size} className={className} />
+export const IconTilt = ({ size = 13, className }: IconProps) => <Lucide icon={MoveVertical} size={size} className={className} />
+export const IconNav = ({ size = 14, className }: IconProps) => <Lucide icon={Navigation2} size={size} className={className} />
+export const IconTick = ({ size = 14, className }: IconProps) => <Lucide icon={Check} size={size} className={className} />

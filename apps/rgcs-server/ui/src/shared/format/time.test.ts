@@ -16,3 +16,11 @@ describe('JST formats', () => {
     expect(jstTime(Date.UTC(2026, 0, 1, 15, 0, 0))).toBe('00:00:00')
   })
 })
+
+describe('app date-time', () => {
+  it('formats YYYY/MM/DD HH:MM in local time like the header clock', async () => {
+    const { ymdHm } = await import('./time')
+    expect(ymdHm(new Date(2026, 9, 23, 23, 36, 24).getTime())).toBe('2026/10/23 23:36')
+    expect(ymdHm(new Date(2026, 0, 2, 3, 4).getTime())).toBe('2026/01/02 03:04')
+  })
+})
