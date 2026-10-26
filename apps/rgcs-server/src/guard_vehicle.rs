@@ -518,7 +518,7 @@ pub fn mode_changed_text(vehicle_mode: &str) -> String {
 }
 
 pub fn headline(name: &str) -> String {
-    format!("{name} トイレットボウルの兆候 — 手動で引き継いでください")
+    format!("{name} 旋回が不安定です (トイレットボウル) — 手動で引き継いでください")
 }
 
 /// Alert text per phase (fixed values: Alert text).

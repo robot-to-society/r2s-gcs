@@ -47,7 +47,7 @@ describe('GuardBanner', () => {
     const banner = container.querySelector('div.guard-banner.danger') as HTMLElement
     expect(banner).not.toBeNull()
     expect(banner.querySelector('svg.lucide-shield-alert')).not.toBeNull()
-    expect(banner.querySelector('.guard-headline')).toHaveTextContent('UAV-03 トイレットボウルの兆候 — 手動で引き継いでください')
+    expect(banner.querySelector('.guard-headline')).toHaveTextContent('UAV-03 旋回が不安定です (トイレットボウル) — 手動で引き継いでください')
     expect(banner).toHaveTextContent('5 秒後に ALT_HOLD へ切り替えます')
     const cancel = screen.getByRole('button', { name: '取り消し' })
     expect(cancel).toHaveClass('btn', 'btn-danger')

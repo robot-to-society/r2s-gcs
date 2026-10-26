@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Mission } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
+import { hhmmss } from '../../shared/format/time'
 import { openMission } from '../briefing/useBriefing'
 import type { BriefingStore } from '../briefing/store'
 import { localResultId } from '../vehicles/localResultId'
@@ -92,7 +93,7 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
       vehicles.setVehicleMission(sysid, m)
       // the editor being parked must not keep the 'downloading' state
       store.update((u) => setBusy(u, 'idle'))
-      load({ ...m, name: m.name || `${dict.mDownloaded} ${new Date().toLocaleTimeString()}` }, null)
+      load({ ...m, name: m.name || `${dict.mDownloaded} ${hhmmss(Date.now())}` }, null)
       result('mission_download', true, `${m.items.length} ${dict.mItems}`)
     } catch (e) {
       result('mission_download', false, errText(e))

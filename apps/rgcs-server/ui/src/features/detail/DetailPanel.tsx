@@ -8,7 +8,6 @@ import { BattBar } from '../vehicles/BattBar'
 import { ArmChip } from '../vehicles/ArmChip'
 import { DetailMessages } from './DetailMessages'
 import { EmergencyRow } from './EmergencyRow'
-import { pendingAlerts } from './messages'
 import { DetailTiles } from './DetailTiles'
 import { InstrumentsRow } from './InstrumentsRow'
 import { MissionProgressRow } from './MissionProgressRow'
@@ -124,7 +123,10 @@ export function DetailPanel(p: Props) {
             <span className="big" data-testid="batt">
               {battText(v)}
             </span>
-            <BattBar v={v} dict={dict} />
+            <span className="row" style={{ gap: 6 }}>
+              <BattBar v={v} dict={dict} />
+              <span className="lbl">{dict.battery}</span>
+            </span>
           </span>
         </div>
         {p.onCommand && <EmergencyRow vehicle={v} dict={dict} onCommand={p.onCommand} feedback={p.feedback} />}
@@ -133,7 +135,6 @@ export function DetailPanel(p: Props) {
         )}
         <DetailTiles
           sysid={v.sysid}
-          alerts={pendingAlerts(p.entries, v.sysid)}
           maintAttention={p.maintAttention === true}
           commandsOpen={p.commandsOpen === true}
           dict={dict}

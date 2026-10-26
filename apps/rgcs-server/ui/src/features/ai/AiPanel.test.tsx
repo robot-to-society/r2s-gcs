@@ -53,7 +53,7 @@ describe('AiPanel', () => {
 
   it('shows the unconfigured state and disables the input', () => {
     setup(fakeChat({}, { configured: false, provider: null, model: null, reason: 'disabled', budget_left: null }))
-    expect(screen.getByText('AI は未設定です（config.toml の [ai]）')).toBeInTheDocument()
+    expect(screen.getByText('AI チャットは未設定です。管理者がサーバーの config.toml ([ai]) を設定すると使えます。')).toBeInTheDocument()
     expect(input()).toBeDisabled()
     expect(sendBtn()).toBeDisabled()
   })

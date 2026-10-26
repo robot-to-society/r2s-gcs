@@ -3,7 +3,7 @@
 
 export const guardJa = {
   guardCardTitle: '実験機能',
-  guardCardNote: 'AI 緊急介入(トイレットボウルの早期検知と警告)。既定はオフで、有効にできるのは管理者だけです。',
+  guardCardNote: 'AI 緊急介入: コンパス不良などで機体が渦を巻くように流れる現象 (トイレットボウル) を早期に検知して警告します。既定はオフで、有効にできるのは管理者だけです。',
   envCardTitle: '外的要因データ',
   envCardNote: '天気・宇宙天気などの取得元、判定の閾値、位置の丸め精度。',
   settingsOpen: '設定',
@@ -123,7 +123,7 @@ export const guardJa = {
 
 export const guardEn: Record<keyof typeof guardJa, string> = {
   guardCardTitle: 'Experimental features',
-  guardCardNote: 'AI intervention (early toilet-bowl detection and alerts). Off by default; only admins can turn it on.',
+  guardCardNote: 'AI intervention: detects early when the vehicle drifts in growing circles, e.g. from a bad compass ("toilet bowl"), and alerts. Off by default; only admins can turn it on.',
   envCardTitle: 'External factor data',
   envCardNote: 'Weather and space-weather sources, alert thresholds and location rounding.',
   settingsOpen: 'Settings',

@@ -151,7 +151,7 @@ export function Shell({ me, lang }: Props) {
       vehicleStore.pushLocalResult({ id: -Date.now(), sysid, cmd: 'guard_cancel', ok: false, reason: `${dict.gaCancelFailed}: ${e instanceof Error ? e.message : String(e)}`, ts: Date.now() })
       throw e
     })
-  const logDock = <LogDock log={log} names={names} dict={dict} clock={clock.slice(-5)} lead={view !== 'maint'} deadmanLost={deadman === 'lost'} onFocusVehicle={focusVehicle} />
+  const logDock = <LogDock log={log} names={names} dict={dict} clock="" lead={view !== 'maint'} deadmanLost={deadman === 'lost'} onFocusVehicle={focusVehicle} />
   const ackAlert = (sysid: number, id: number) => {
     ackMessage(sysid, id)
       .then((e) => vehicleStore.markAcked(e.id, e.acked_by ?? me.username, e.acked_at ?? Date.now()))

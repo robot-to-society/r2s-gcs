@@ -171,7 +171,7 @@ describe('Shell AI panel', () => {
     })
     const banner = container.querySelector('div.guard-banner.danger') as HTMLElement
     expect(banner).not.toBeNull()
-    expect(banner).toHaveTextContent('UAV-01 トイレットボウルの兆候 — 手動で引き継いでください')
+    expect(banner).toHaveTextContent('UAV-01 旋回が不安定です (トイレットボウル) — 手動で引き継いでください')
     const row = container.querySelector('.vrow') as HTMLElement
     expect(row).toHaveClass('guard')
     expect(row.querySelector('[data-testid="dot"]')).toHaveClass('warn')

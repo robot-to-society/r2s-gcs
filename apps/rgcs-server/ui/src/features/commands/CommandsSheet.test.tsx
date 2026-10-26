@@ -35,7 +35,7 @@ describe('CommandsSheet', () => {
     fireEvent.change(screen.getByLabelText('高度変更'), { target: { value: '55' } })
     fireEvent.click(screen.getByRole('button', { name: '高度変更' }))
     expect(onPick).toHaveBeenLastCalledWith({ cmd: 'change_alt', args: { alt_rel: 55 } })
-    fireEvent.click(screen.getByRole('button', { name: 'Guided移動' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guided 移動' }))
     expect(onOpen).toHaveBeenCalledWith('guided')
   })
   it('カメラ・ジンバル opens the camera settings (UX-26)', () => {

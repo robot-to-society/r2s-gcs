@@ -3,7 +3,7 @@
 
 export const guardAlertJa = {
   gaRegion: 'AI 緊急介入の警告',
-  gaHeadline: 'トイレットボウルの兆候 — 手動で引き継いでください',
+  gaHeadline: '旋回が不安定です (トイレットボウル) — 手動で引き継いでください',
   gaCountdown: '{n} 秒後に {mode} へ切り替えます',
   gaDue: '兆候が続けば {mode} へ切り替えます',
   gaExecuting: '{mode} へ切り替えています',
@@ -57,7 +57,7 @@ export const guardAlertJa = {
 
 export const guardAlertEn: Record<keyof typeof guardAlertJa, string> = {
   gaRegion: 'AI intervention alerts',
-  gaHeadline: 'shows signs of a toilet bowl — take over manually',
+  gaHeadline: 'unstable circling (toilet bowl) — take manual control',
   gaCountdown: 'Switching to {mode} in {n} s',
   gaDue: 'Switching to {mode} if the signs continue',
   gaExecuting: 'Switching to {mode}',
