@@ -18,7 +18,8 @@ test('mission map switches to 3D, shows altitude chips and remembers the mode', 
   await expect(page.locator('.wrow')).not.toHaveCount(0)
   const rows = await page.locator('.wrow').count()
   expect(rows).toBeGreaterThanOrEqual(2)
-  await expect(page.locator('.rg-wp')).toHaveCount(rows)
+  // without a vehicle the TAKEOFF has no anchor (no home) and draws no badge
+  await expect(page.locator('.rg-wp')).toHaveCount(rows - 1)
   await expect(page.locator('.rg-wp .chip.altc')).toHaveCount(0)
   await page.getByRole('button', { name: '3D' }).click()
   await expect(page.locator('.rg-wp .chip.altc').first()).toContainText(/^\d+ m (REL|ABS|TER)$/, { timeout: 20_000 })

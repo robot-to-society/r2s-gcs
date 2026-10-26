@@ -10,10 +10,9 @@ async function openMaint(page: Page) {
 const ARM = /^アーム (成功|失敗)/
 const DISARM = /^ディスアーム/
 
-test('the daily inspection, logbook and app settings tabs are enabled; checks & calibration stays disabled', async ({ page }) => {
+test('the daily inspection, logbook, checks & calibration and app settings tabs are enabled', async ({ page }) => {
   await openMaint(page)
-  for (const name of ['日常点検', '飛行日誌', 'アプリ設定']) await expect(page.getByRole('button', { name })).not.toHaveAttribute('aria-disabled')
-  await expect(page.getByRole('button', { name: '点検・校正' })).toHaveAttribute('aria-disabled', 'true')
+  for (const name of ['日常点検', '飛行日誌', '点検・校正', 'アプリ設定']) await expect(page.getByRole('button', { name })).not.toHaveAttribute('aria-disabled')
 })
 
 test('inspection run saves and appears in the list', async ({ page }) => {
