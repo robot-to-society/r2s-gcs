@@ -1,10 +1,14 @@
 import type { Dict } from '../../shared/i18n'
 import { IconClose, IconFileUp, IconSurvey } from '../../shared/ui/icons'
-import { CMDS, PALETTE, SURVEY_KEY, isSurveyKey } from './cmds'
+import type { VehicleKind } from '../../shared/api/types'
+import { CMDS, SURVEY_KEY, isSurveyKey, paletteFor } from './cmds'
 import { wpLabel } from './labels'
 
 interface Props {
   readonly where: string
+  /** The write target's airframe: commands it does not fly are left out (null: all). */
+  readonly kind?: VehicleKind | null
+  readonly vtol?: boolean
   readonly dict: Dict
   readonly onInsert: (key: string) => void
   readonly onClose: () => void
@@ -17,7 +21,8 @@ const GROUPS = [
 ] as const
 
 /** Prototype "コマンドを挿入" palette: drops over the list, three groups, 2-column buttons. */
-export function CommandPalette({ where, dict, onInsert, onClose }: Props) {
+export function CommandPalette({ where, kind = null, vtol = false, dict, onInsert, onClose }: Props) {
+  const palette = paletteFor(kind, vtol)
   return (
     <div className="g-strong cmd-palette" role="dialog" aria-label={dict.mInsertCmd}>
       <div className="row hair" style={{ padding: '10px 14px' }}>
@@ -37,7 +42,7 @@ export function CommandPalette({ where, dict, onInsert, onClose }: Props) {
               {dict[g.label]}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              {PALETTE[g.key].map((k) => (isSurveyKey(k) ? <SurveyButton key={k} k={k} dict={dict} onInsert={onInsert} /> : <CmdButton key={k} k={k} radius={g.radius} color={g.color} dict={dict} onInsert={onInsert} />))}
+              {palette[g.key].map((k) => (isSurveyKey(k) ? <SurveyButton key={k} k={k} dict={dict} onInsert={onInsert} /> : <CmdButton key={k} k={k} radius={g.radius} color={g.color} dict={dict} onInsert={onInsert} />))}
             </div>
           </div>
         ))}

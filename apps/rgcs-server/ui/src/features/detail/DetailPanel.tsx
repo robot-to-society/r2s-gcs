@@ -3,7 +3,7 @@ import type { BtnState } from '../commands'
 import { CameraStatusRow, CameraStrip, VideoThumb } from '../camera'
 import type { Dict } from '../../shared/i18n'
 import { IconClose, IconPin } from '../../shared/ui/icons'
-import { battText, dotClass, modeLabel } from '../vehicles/format'
+import { battText, dotClass, homeDistText, modeLabel } from '../vehicles/format'
 import { BattBar } from '../vehicles/BattBar'
 import { ArmChip } from '../vehicles/ArmChip'
 import { DetailMessages } from './DetailMessages'
@@ -99,12 +99,21 @@ export function DetailPanel(p: Props) {
         <CameraStrip caps={caps} state={camState} pending={cameraPending} onCommand={(c) => onCameraCommand?.(c)} onSettings={() => onCameraSettings?.()} dict={dict} />
         <CameraStatusRow caps={caps} state={camState} onSetup={() => onCameraSettings?.()} dict={dict} roiName={p.roiName ?? null} />
         <div className="detail-telemetry num">
-          <span className="kv">
-            <span className="big" data-testid="alt">
-              {Math.round(v.alt_rel)} m
+          {v.kind === 'rover' ? (
+            <span className="kv">
+              <span className="big" data-testid="dist">
+                {homeDistText(v)}
+              </span>
+              <span className="lbl">{dict.fromHome}</span>
             </span>
-            <span className="lbl">{dict.altitude}</span>
-          </span>
+          ) : (
+            <span className="kv">
+              <span className="big" data-testid="alt">
+                {Math.round(v.alt_rel)} m
+              </span>
+              <span className="lbl">{dict.altitude}</span>
+            </span>
+          )}
           <span className="kv">
             <span className="big" data-testid="speed">
               {v.ground_speed.toFixed(1)} m/s

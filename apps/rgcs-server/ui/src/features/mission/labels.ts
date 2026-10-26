@@ -33,7 +33,8 @@ export function itemSummary(it: MissionItem, kind: Parameters<typeof fieldsOf>[1
   const key = cmdKey(it)
   const spec = CMDS[key]
   const parts: string[] = []
-  if (spec?.alt) parts.push(`▲${Math.round(it.alt)} m ${FRAMES[it.frame].short}`)
+  // a rover drives on the ground: no altitude (UX-35)
+  if (spec?.alt && kind !== 'rover') parts.push(`▲${Math.round(it.alt)} m ${FRAMES[it.frame].short}`)
   for (const f of fieldsOf(key, kind)) {
     if (f.unused) continue
     const v = fieldValue(it, f)

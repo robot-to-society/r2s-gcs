@@ -164,6 +164,24 @@ export const PALETTE = {
   cond: ['CONDITION_DELAY', 'CONDITION_DISTANCE', 'CONDITION_YAW', 'NAV_DELAY', 'DO_JUMP'],
 } as const
 
+type Palette = { readonly [G in keyof typeof PALETTE]: readonly string[] }
+
+const VTOL_ONLY = ['VTOL_TAKEOFF', 'VTOL_LAND', 'DO_VTOL_TRANSITION']
+/** Palette keys an airframe does not fly (UX-35 / UX-36): a rover never leaves the ground. */
+function hiddenFor(kind: VehicleKind, vtol: boolean): readonly string[] {
+  if (kind === 'rover') return ['TAKEOFF', 'LAND', 'LOITER_TO_ALT', 'ARC_WAYPOINT', 'DO_LAND_START', ...VTOL_ONLY]
+  if (kind === 'plane') return vtol ? ['ARC_WAYPOINT'] : ['ARC_WAYPOINT', ...VTOL_ONLY]
+  return ['LOITER_TO_ALT', ...VTOL_ONLY]
+}
+
+/** The palette for the write target's airframe; every command when there is no target. */
+export function paletteFor(kind: VehicleKind | null, vtol: boolean): Palette {
+  if (kind === null) return PALETTE
+  const hidden = new Set(hiddenFor(kind, vtol))
+  const keep = (keys: readonly string[]) => keys.filter((k) => !hidden.has(k))
+  return { pos: keep(PALETTE.pos), do: keep(PALETTE.do), cond: keep(PALETTE.cond) }
+}
+
 export const FRAMES: Readonly<Record<MissionFrame, { readonly mav: number; readonly name: string; readonly short: string }>> = {
   rel: { mav: 3, name: 'MAV_FRAME_GLOBAL_RELATIVE_ALT', short: 'REL' },
   abs: { mav: 0, name: 'MAV_FRAME_GLOBAL', short: 'ABS' },

@@ -18,3 +18,11 @@ describe('itemSummary numbers (final review I7)', () => {
     expect(itemSummary(trig(1.23456), 'plane', dict)).not.toContain('1.234')
   })
 })
+
+describe('itemSummary for a rover (UX-35)', () => {
+  it('drops the altitude prefix', () => {
+    const wp = { command: CMDS.WAYPOINT.id, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat: 36, lon: 139, alt: 50, autocontinue: true }
+    expect(itemSummary(wp, 'rover', dict)).not.toContain('50 m')
+    expect(itemSummary(wp, 'copter', dict)).toContain('50 m')
+  })
+})

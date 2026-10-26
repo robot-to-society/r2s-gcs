@@ -5,9 +5,6 @@ export const instrumentsJa = {
   instHeading: '方位',
   instRoll: 'ロール',
   instPitch: 'ピッチ',
-  instRollShort: 'R',
-  instPitchShort: 'P',
-  instHdgShort: 'HDG',
   instNoData: 'データなし',
 } as const
 
@@ -16,8 +13,5 @@ export const instrumentsEn: Record<keyof typeof instrumentsJa, string> = {
   instHeading: 'Heading',
   instRoll: 'Roll',
   instPitch: 'Pitch',
-  instRollShort: 'R',
-  instPitchShort: 'P',
-  instHdgShort: 'HDG',
   instNoData: 'No data',
 }

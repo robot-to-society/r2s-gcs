@@ -86,18 +86,7 @@ export function MissionSidebar(p: Props) {
                 </option>
               ))}
             </select>
-            <span>{dict.mDefaultAlt}</span>
-            <div className="row">
-              <select className="rg-sel frame-sel" aria-label={dict.mFrame} value={m.default_frame} onChange={(e) => p.onMeta({ default_frame: e.target.value as MissionFrame })}>
-                {(Object.keys(FRAMES) as MissionFrame[]).map((f) => (
-                  <option key={f} value={f}>
-                    {FRAMES[f].short}
-                  </option>
-                ))}
-              </select>
-              <input type="number" className="rg-num" aria-label={dict.mDefaultAlt} value={m.default_alt} style={{ width: 90 }} onChange={(e) => p.onMeta({ default_alt: Number(e.target.value) || 0 })} />
-              <span className="unit">m</span>
-            </div>
+            {p.kind !== 'rover' && <DefaultAlt mission={m} dict={dict} onMeta={p.onMeta} />}
             <span>{dict.mSpeed}</span>
             <div className="row">
               <input type="number" className="rg-num" aria-label={dict.mSpeed} step={0.5} value={m.speed} style={{ width: 90 }} onChange={(e) => p.onMeta({ speed: Number(e.target.value) || 0 })} />
@@ -157,8 +146,8 @@ export function MissionSidebar(p: Props) {
             <span>{km(p.stats.distance_m)}</span>
             <span className="t2">{dict.mEstTime}</span>
             <span>{mmss(p.stats.duration_s)}</span>
-            <span className="t2">{dict.mMaxAlt}</span>
-            <span>{`${Math.round(p.stats.max_alt)} m`}</span>
+            {p.kind !== 'rover' && <span className="t2">{dict.mMaxAlt}</span>}
+            {p.kind !== 'rover' && <span>{`${Math.round(p.stats.max_alt)} m`}</span>}
           </div>
           {p.findings.map((f, i) => (
             <div key={`f${i}`} className={`warnbox${f.level === 'fatal' ? ' fatal' : ''}`} role="listitem">
@@ -190,5 +179,25 @@ export function MissionSidebar(p: Props) {
         </button>
       </div>
     </aside>
+  )
+}
+
+/** 既定高度 (frame + altitude): absent for a rover target (UX-35). */
+function DefaultAlt({ mission: m, dict, onMeta }: { readonly mission: Draft['mission']; readonly dict: Dict; readonly onMeta: Props['onMeta'] }) {
+  return (
+    <>
+      <span>{dict.mDefaultAlt}</span>
+      <div className="row">
+        <select className="rg-sel frame-sel" aria-label={dict.mFrame} value={m.default_frame} onChange={(e) => onMeta({ default_frame: e.target.value as MissionFrame })}>
+          {(Object.keys(FRAMES) as MissionFrame[]).map((f) => (
+            <option key={f} value={f}>
+              {FRAMES[f].short}
+            </option>
+          ))}
+        </select>
+        <input type="number" className="rg-num" aria-label={dict.mDefaultAlt} value={m.default_alt} style={{ width: 90 }} onChange={(e) => onMeta({ default_alt: Number(e.target.value) || 0 })} />
+        <span className="unit">m</span>
+      </div>
+    </>
   )
 }

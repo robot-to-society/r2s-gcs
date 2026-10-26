@@ -18,6 +18,7 @@ export const uxJa = {
   battUnknown: 'バッテリー残量不明',
   showAll: '全機を表示',
   homeOf: '{name} のホーム',
+  f_rover_takeoff: 'ローバーは離陸コマンドを無視します',
 } as const
 
 export const uxEn: Record<keyof typeof uxJa, string> = {
@@ -38,4 +39,5 @@ export const uxEn: Record<keyof typeof uxJa, string> = {
   battUnknown: 'Battery level unknown',
   showAll: 'Show all vehicles',
   homeOf: 'Home of {name}',
+  f_rover_takeoff: 'Rovers ignore TAKEOFF',
 }

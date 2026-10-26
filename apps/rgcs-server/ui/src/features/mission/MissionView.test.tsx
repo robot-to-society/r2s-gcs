@@ -436,6 +436,15 @@ describe('MissionView', () => {
     expect(lats()).toContain(36.001)
   })
 
+  it('a rover target hides the altitude settings and the maximum altitude (UX-35)', () => {
+    setup(undefined, new Map(), new Map([[4, { ...copter, sysid: 4, name: 'UAV-04', kind: 'rover' as const }]]))
+    target('4')
+    const right = within(screen.getByRole('complementary', { name: 'editor' }))
+    expect(right.queryByLabelText('既定高度')).toBeNull()
+    expect(right.queryByText('最大高度')).toBeNull()
+    expect(screen.getByTestId('mission-view').querySelector('.mission-pill')?.textContent).not.toContain('最大高度')
+  })
+
   it('the_right_panel_vehicle_assigns_the_row_and_frees_it_elsewhere', async () => {
     const two = new Map([[1, copter], [2, { ...copter, sysid: 2, name: 'UAV-02' }]])
     setup(undefined, new Map(), two)

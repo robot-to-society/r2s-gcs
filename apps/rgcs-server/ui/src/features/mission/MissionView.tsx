@@ -212,10 +212,12 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           <span className="t3">{dict.mEstTime}</span>
           {mmss(st.duration_s)}
         </span>
-        <span>
-          <span className="t3">{dict.mMaxAlt}</span>
-          {`${Math.round(st.max_alt)} m`}
-        </span>
+        {kind !== 'rover' && (
+          <span>
+            <span className="t3">{dict.mMaxAlt}</span>
+            {`${Math.round(st.max_alt)} m`}
+          </span>
+        )}
       </div>
 
       {plan.tab === 'fence' && (
@@ -302,6 +304,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           </div>
           {palette && (
             <CommandPalette
+              kind={kind}
+              vtol={vehicle?.vtol === true || (pathValues.get('Q_ENABLE') ?? 0) >= 1}
               where={lastSelected ? `#${draft.items.indexOf(lastSelected) + 1} ${dict.mInsertAt}` : dict.mInsertEnd}
               dict={dict}
               onInsert={insertFromPalette}

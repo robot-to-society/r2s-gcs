@@ -1,8 +1,8 @@
 import type { Dict } from '../../shared/i18n'
 import { KindIcon } from '../../shared/ui/KindIcon'
 import type { VehicleState } from '../../shared/api/types'
-import { IconAltitude, IconFollow, IconNav, IconPower, IconSignal, IconSpeed } from '../../shared/ui/icons'
-import { altText, battText, dotClass, modeLabel, speedText } from './format'
+import { IconAltitude, IconFollow, IconHouse, IconNav, IconPower, IconSignal, IconSpeed } from '../../shared/ui/icons'
+import { altText, battText, dotClass, homeDistText, modeLabel, speedText } from './format'
 import { BattBar } from './BattBar'
 
 interface Props {
@@ -71,8 +71,17 @@ export function VehicleRow({ vehicle: v, selected, dict, onSelect, onFollow, fol
         <span className="num batt-text">{battText(v)}</span>
       </div>
       <div className="row num stat">
-        <IconAltitude size={15} />
-        <span className="alt">{altText(v)}</span>
+        {v.kind === 'rover' ? (
+          <span className="row alt" style={{ gap: 4 }} title={dict.fromHome}>
+            <IconHouse size={14} />
+            {homeDistText(v)}
+          </span>
+        ) : (
+          <>
+            <IconAltitude size={15} />
+            <span className="alt">{altText(v)}</span>
+          </>
+        )}
         <IconSpeed />
         <span className="spd">{speedText(v)}</span>
         <div className="grow" />

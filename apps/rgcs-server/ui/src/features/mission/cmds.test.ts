@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CMDS, FRAMES, PALETTE, cmdKeyOf, fieldsOf } from './cmds'
+import { CMDS, FRAMES, PALETTE, cmdKeyOf, fieldsOf, paletteFor } from './cmds'
 
 describe('mission command table', () => {
   it('takeoff_and_waypoint_have_the_prototype_ids', () => {
@@ -14,6 +14,19 @@ describe('mission command table', () => {
     expect(PALETTE.pos).toContain('WAYPOINT')
     expect(PALETTE.cond).toContain('DO_JUMP')
     expect(Object.keys(CMDS)).toHaveLength(32) // + ARC_WAYPOINT (2026-10-19), plane / QuadPlane commands (2026-10-20)
+  })
+
+  it('the palette offers only what the target airframe flies (UX-35, UX-36)', () => {
+    const rover = paletteFor('rover', false).pos
+    for (const k of ['TAKEOFF', 'LAND', 'LOITER_TO_ALT', 'VTOL_TAKEOFF', 'VTOL_LAND']) expect(rover).not.toContain(k)
+    expect(rover).toContain('WAYPOINT')
+    const copter = paletteFor('copter', false).pos
+    expect(copter).not.toContain('VTOL_TAKEOFF')
+    expect(copter).not.toContain('LOITER_TO_ALT')
+    expect(copter).toContain('TAKEOFF')
+    expect(paletteFor('plane', true).pos).toContain('VTOL_TAKEOFF')
+    expect(paletteFor('plane', false).pos).not.toContain('VTOL_TAKEOFF')
+    expect(paletteFor(null, false)).toBe(PALETTE)
   })
 
   it('fields_mark_params_the_vehicle_ignores_as_unused', () => {

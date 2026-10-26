@@ -1,3 +1,4 @@
+import { haversineM } from '../mission/geo'
 import type { Dict } from '../../shared/i18n'
 import type { VehicleState } from '../../shared/api/types'
 
@@ -9,6 +10,18 @@ export function modeLabel(v: VehicleState, dict: Dict): string {
 
 export function altText(v: VehicleState): string {
   return `${Math.round(v.alt_rel)} m`
+}
+
+/** Metres from the vehicle's home, null without a home or a position. */
+export function homeDistance(v: VehicleState): number | null {
+  if (!v.home || (v.home.lat === 0 && v.home.lon === 0) || (v.lat === 0 && v.lon === 0)) return null
+  return Math.round(haversineM(v.lat, v.lon, v.home.lat, v.home.lon))
+}
+
+/** A rover shows its distance from home where an aircraft shows its altitude (UX-16). */
+export function homeDistText(v: VehicleState): string {
+  const d = homeDistance(v)
+  return d === null ? '—' : `${d} m`
 }
 
 export function speedText(v: VehicleState): string {

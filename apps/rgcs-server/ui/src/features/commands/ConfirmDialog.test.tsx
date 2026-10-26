@@ -85,6 +85,13 @@ describe('ConfirmDialog', () => {
     expect(ctx).toHaveTextContent('ホームから 111 m')
   })
 
+  it('a rover\'s context has no altitude (UX-16)', () => {
+    render(<ConfirmDialog sysid={1} command={{ cmd: 'rtl' }} vehicleName="UAV-04" vehicle={veh({ kind: 'rover' })} onCancel={() => {}} onDone={() => {}} dict={t('ja')} deps={{ confirm: vi.fn(), send: vi.fn() }} />)
+    const ctx = screen.getByTestId('confirm-ctx')
+    expect(ctx).not.toHaveTextContent('高度')
+    expect(ctx).toHaveTextContent('ホームから 111 m')
+  })
+
   it('escape cancels and enter executes', async () => {
     const { d, onCancel } = show('rtl')
     fireEvent.keyDown(document.body, { key: 'Escape' })

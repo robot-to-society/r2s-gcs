@@ -1,14 +1,14 @@
 import type { VehicleState } from '../../shared/api/types'
-import { IconAltitude, IconBattery, IconSpeed } from '../../shared/ui/icons'
-import { altText, battText, speedText } from '../vehicles/format'
+import { IconAltitude, IconBattery, IconHouse, IconSpeed } from '../../shared/ui/icons'
+import { altText, battText, homeDistText, speedText } from '../vehicles/format'
 
-/** Altitude · speed · battery over the video, each behind its Lucide icon (spec 20 §9). */
+/** Altitude (a rover: distance from home) · speed · battery over the video, each behind its Lucide icon (spec 20 §9). */
 export function StatLine({ v }: { readonly v: VehicleState }) {
   return (
     <>
       <span className="row" style={{ gap: 5 }}>
-        <IconAltitude size={14} />
-        {altText(v)}
+        {v.kind === 'rover' ? <IconHouse size={14} /> : <IconAltitude size={14} />}
+        {v.kind === 'rover' ? homeDistText(v) : altText(v)}
       </span>
       <span className="row" style={{ gap: 5 }}>
         <IconSpeed size={14} />

@@ -7,7 +7,7 @@ import { hasPosition, isPositional, legDistanceM } from './geo'
 export const LONG_FLIGHT_S = 1200
 
 export interface LocalWarning {
-  readonly code: 'empty' | 'first_not_takeoff' | 'mixed_frames' | 'terrain_frame' | 'no_land_or_rtl' | 'long_flight'
+  readonly code: 'empty' | 'first_not_takeoff' | 'mixed_frames' | 'terrain_frame' | 'no_land_or_rtl' | 'long_flight' | 'rover_takeoff'
   readonly seq: number | null
 }
 
@@ -36,6 +36,8 @@ export function localWarnings(items: readonly MissionItem[], speed: number, kind
   const ground = kind === 'rover'
   const out: LocalWarning[] = []
   if (!ground && items[0]?.command !== 22 && items[0]?.command !== 84) out.push({ code: 'first_not_takeoff', seq: 1 })
+  const takeoff = items.findIndex((it) => it.command === 22 || it.command === 84)
+  if (ground && takeoff >= 0) out.push({ code: 'rover_takeoff', seq: takeoff + 1 })
   const frames = new Set(items.filter(isPositional).map((it) => it.frame))
   if (frames.size > 1) out.push({ code: 'mixed_frames', seq: null })
   items.forEach((it, i) => {
