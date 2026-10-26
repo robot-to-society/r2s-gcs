@@ -66,16 +66,19 @@ export function MissionSidebar(p: Props) {
             <span className="h1">{dict.navMission}</span>
             {p.dirty && <span className="rg-natag mission-dirty">{dict.mDirty}</span>}
             <div className="grow" />
-            <button type="button" className="btn btn-sm btn-ghost" onClick={p.onNew}>
-              {dict.mNew}
-            </button>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={p.onOpen}>
-              {dict.mOpen}
-            </button>
-            <button type="button" className="btn btn-sm" disabled={p.busy} onClick={p.onSave}>
-              {dict.mSave}
-            </button>
-            {p.onCollapse && <CollapseButton dict={dict} onCollapse={p.onCollapse} />}
+            {/* one group: it wraps below the title as a whole when the row is too narrow */}
+            <span className="row mission-head-btns">
+              <button type="button" className="btn btn-sm btn-ghost" onClick={p.onNew}>
+                {dict.mNew}
+              </button>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={p.onOpen}>
+                {dict.mOpen}
+              </button>
+              <button type="button" className="btn btn-sm" disabled={p.busy} onClick={p.onSave}>
+                {dict.mSave}
+              </button>
+              {p.onCollapse && <CollapseButton dict={dict} onCollapse={p.onCollapse} />}
+            </span>
           </div>
           <div className="form">
             <span>{dict.mName}</span>

@@ -83,7 +83,8 @@ function useDrag(total: number, onMove: Props['onMove']) {
 /** The rows' sub-lines, the list split into items and survey groups, and up / down that jump over a group. */
 function rowModel({ items, surveys = NO_SURVEYS, kind, dict, onReorder, onMove }: Props) {
   const legs = legDistances(items)
-  const sub = (it: DraftItem, i: number) => `${legs[i]! > 0 ? `${km(legs[i]!)} · ` : ''}${itemSummary(it, kind, dict) || '—'}`
+  // leg distance and the item's fields; a dash only when there is nothing at all (no "255 m · —")
+  const sub = (it: DraftItem, i: number) => [legs[i]! > 0 ? km(legs[i]!) : '', itemSummary(it, kind, dict)].filter(Boolean).join(' · ') || '—'
   const segments = listSegments(items, surveys)
   const groups = segments.flatMap((seg) => (seg.kind === 'survey' ? [{ first: seg.first, last: seg.first + seg.survey.uids.length - 1 }] : []))
   /** Up / down next to a survey jumps over the whole group instead of entering it. */
