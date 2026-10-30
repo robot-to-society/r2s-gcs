@@ -127,7 +127,7 @@ CREATE TABLE param_history (
 
 ### 3.8 vehicles / missions
 - `vehicles(sysid PK, name, kind, first_seen, last_seen, notes)`。表示名は `UAV-xx` 既定、UI で変更可。
-- `missions(id PK AUTOINCREMENT, name, sysid NULL, default_alt, default_frame rel|abs|ter, speed, home JSON NULL, items JSON, created_by, created_at, updated_at)`(マイグレーション `0003_missions.sql`)。`items` は `MissionItem{command, frame, params[4], lat, lon, alt, autocontinue}` の配列、`home` は `{lat, lon, alt}`。
+- `missions(id PK AUTOINCREMENT, name, sysid NULL, default_alt, default_frame rel|abs|ter, speed, home JSON NULL, items JSON, fence JSON, rally JSON, surveys JSON, created_by, created_at, updated_at)`(マイグレーション `0003_missions.sql`、`fence` / `rally` は `0006`、`surveys` は `0010`)。画面ではフライトプランと呼ぶ(spec 10 §6.4)。`briefings` / `briefing_missions`(`0008`)は `0014_drop_briefings.sql` で削除した。`items` は `MissionItem{command, frame, params[4], lat, lon, alt, autocontinue}` の配列、`home` は `{lat, lon, alt}`。
 
 ### 3.9 P2 で追加した表(2026-10-17)
 - `camera_profiles`: §3.3 の通り(マイグレーション `0002_camera.sql`)。`rtsp_url` のホストは `{host}` かカメラの IP そのものに限る(プローブを他ホストに向けさせない)。

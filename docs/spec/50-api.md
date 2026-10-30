@@ -72,17 +72,8 @@
 
 `Finding.code`: 致命 `empty` / `first_not_takeoff` / `fence_alt` / `fence_radius` / `jump_target`、警告 `fence_unknown` / `fence_frame_unchecked` / `mixed_frames` / `terrain_frame` / `zero_position` / `no_land_or_rtl` / `long_flight`。
 
-### 2.2.2 ブリーフィング(2026-10-20)
-保存済みミッションを複数まとめて開く名前付きの組。セッション認証は `/api/missions` と同じ。
-| メソッド | パス | 本文 / 応答 |
-|---|---|---|
-| GET | `/api/briefings` | `[BriefingSummary{id, name, mission_count, updated_at}]` |
-| POST | `/api/briefings` | `Briefing{id: null, name, active_mission_id, rows: [BriefingRow{mission_id, color, sysid}]}` → `201 Briefing`(id 付き) |
-| GET | `/api/briefings/{id}` | `BriefingFull{briefing, missions}`。`missions[i]` は `rows[i]` のミッション(削除済みなら `null`) |
-| PUT | `/api/briefings/{id}` | `Briefing` → `Briefing`(最後の保存が勝つ。競合検出なし) |
-| DELETE | `/api/briefings/{id}` | → `{deleted: true}` |
-
-エラー: `400 invalid`(名前 1〜80 文字、行 ≤ 20、色 `#rrggbb`、同じミッションの重複なし、同じ機体を 2 行に割り当てない。メッセージ入り)、`400 unknown_mission`(作成 / 更新時に行の `mission_id` が存在しない)、`404 not_found`。書込みは監査 target `briefing`(command `create` / `update` / `delete`)。
+### 2.2.2 フライトプラン(2026-10-31)
+画面の「フライトプラン」は API の保存済みミッション(`/api/missions`)そのもので、`id` がプラン ID。`DELETE /api/missions/{id}` は `204`(本文なし)、無ければ `404 not_found`。2026-10-20 に足したブリーフィング(`/api/briefings`、名前付きのミッションの組)は 2026-10-31 に廃止した(マイグレーション `0014_drop_briefings.sql` で表ごと削除。保存済みの組は移行しない)。
 
 ### 2.2.3 測量カメラ(2026-10-21)
 写真測量(サーベイグリッド)の計画に使う共有カメラ一覧。セッション認証は `/api/missions` と同じ。組込みカメラ `Sony α7R IV 35mm`(センサー 35.7 × 23.8 mm、9504 × 6336 px、焦点距離 35 mm、シャッター 1/1000 s、最小間隔 1.0 s)を初期データとして持つ。
