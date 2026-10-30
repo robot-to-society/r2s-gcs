@@ -14,7 +14,6 @@ pub mod app;
 pub mod auth;
 pub mod auto_record;
 pub mod branding;
-pub mod briefing_api;
 pub mod calib_api;
 pub mod calibration;
 pub mod camera_api;

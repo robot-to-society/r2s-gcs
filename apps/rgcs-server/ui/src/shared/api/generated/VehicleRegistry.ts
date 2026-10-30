@@ -13,7 +13,7 @@ registration: string, uas_type: string, model: string, type_cert_no: string, air
  */
 initial_flight_minutes: number, inspection_template_id: number | null, 
 /**
- * 飛行可能時間 in minutes (battery estimate of the briefing); `None` when not set.
+ * 飛行可能時間 in minutes (battery estimate in the plan comparison); `None` when not set.
  */
 endurance_minutes: number | null, 
 /**

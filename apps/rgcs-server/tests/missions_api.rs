@@ -259,3 +259,13 @@ async fn missions_need_a_session() {
     let (status, _, _) = call(&app, req(Method::POST, "/api/missions", None, Some(json!({})))).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
+
+/// Flight plans replaced briefings: the old route is gone, so the path falls through to the UI
+/// fallback like any unknown one and no API envelope comes back.
+#[tokio::test]
+async fn briefing_routes_are_gone() {
+    let (app, _state) = spawn_app().await;
+    let cookie = login(&app).await;
+    let (_, body, _) = call(&app, req(Method::GET, "/api/briefings", Some(&cookie), None)).await;
+    assert!(body.get("success").is_none(), "{body}");
+}

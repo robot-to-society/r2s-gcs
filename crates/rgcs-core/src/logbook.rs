@@ -26,7 +26,7 @@ pub struct VehicleRegistry {
     pub initial_flight_minutes: u32,
     #[ts(type = "number | null")]
     pub inspection_template_id: Option<i64>,
-    /// 飛行可能時間 in minutes (battery estimate of the briefing); `None` when not set.
+    /// 飛行可能時間 in minutes (battery estimate in the plan comparison); `None` when not set.
     pub endurance_minutes: Option<u32>,
     /// `initial_flight_minutes` + every landed flight (minutes).
     pub total_flight_minutes: u32,

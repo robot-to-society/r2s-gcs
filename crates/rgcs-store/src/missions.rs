@@ -259,4 +259,17 @@ mod tests {
         assert_eq!(again.surveys[0].count, 5);
         assert_eq!(again.surveys[0].spec, spec);
     }
+
+    /// Flight plans replaced briefings (migration 0014): their tables are gone, plans stay.
+    #[tokio::test]
+    async fn briefing_tables_are_dropped() {
+        let s = Store::open_memory().await.unwrap();
+        s.create_mission(&demo20(), "admin").await.unwrap();
+        let names: Vec<String> = sqlx::query_scalar("SELECT name FROM sqlite_master WHERE type = 'table'")
+            .fetch_all(s.pool())
+            .await
+            .unwrap();
+        assert!(!names.iter().any(|n| n.starts_with("briefing")), "{names:?}");
+        assert_eq!(s.list_missions().await.unwrap().len(), 1);
+    }
 }

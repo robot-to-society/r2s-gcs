@@ -3,7 +3,6 @@
 
 pub mod app_settings;
 pub mod audit;
-pub mod briefings;
 pub mod calibrations;
 pub mod camera_profiles;
 pub mod env_sources;

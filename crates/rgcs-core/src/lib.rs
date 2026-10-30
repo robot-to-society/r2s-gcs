@@ -4,7 +4,6 @@
 //! values that cross the WebSocket / HTTP boundary (`docs/spec/50-api.md`).
 
 pub mod ai;
-pub mod briefing;
 pub mod calibration;
 pub mod camera;
 pub mod camera_media;
@@ -29,7 +28,6 @@ pub mod ws;
 pub use ai::{
     AiChatReply, AiChatRequest, AiProposal, AiProviderKind, AiStatus, AiStatusCard, AiToolRun, AiVideoState,
 };
-pub use briefing::{validate_briefing, Briefing, BriefingFull, BriefingRow, BriefingSummary};
 pub use calibration::{
     CalibFrame, CalibKind, CalibPhase, CalibRecord, CalibStatus, CompassProgress, RcRange,
 };
