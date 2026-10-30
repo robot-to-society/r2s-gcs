@@ -1,9 +1,9 @@
-// The briefing workspace: rows of missions. The live editor (MissionStore) always holds the active row.
+// The open plans: one row per plan. The live editor (MissionStore) always holds the active row.
 import { useSyncExternalStore } from 'react'
 import type { MissionStore, MissionUi } from '../mission/store'
 import { activate, activeRow, addRow, emptyWorkspace, parkActive, reseedKeys, showActive, type Workspace } from './model'
 
-export class BriefingStore {
+export class PlanSetStore {
   private state: Workspace = emptyWorkspace()
   private readonly listeners = new Set<() => void>()
 
@@ -22,9 +22,9 @@ export class BriefingStore {
   }
 }
 
-export const briefingStore = new BriefingStore()
+export const planSetStore = new PlanSetStore()
 
-export function useWorkspace(store: BriefingStore = briefingStore): Workspace {
+export function useWorkspace(store: PlanSetStore = planSetStore): Workspace {
   return useSyncExternalStore(store.subscribe, store.getState, store.getState)
 }
 
@@ -35,25 +35,25 @@ export function carryClipboard(from: MissionUi, to: MissionUi): MissionUi {
 }
 
 /** Loads the active row into the live editor, keeping the editor's clipboard. */
-export const loadActive = (b: BriefingStore, m: MissionStore): void => {
+export const loadActive = (b: PlanSetStore, m: MissionStore): void => {
   const ui = activeRow(b.getState()).ui
   m.update((live) => carryClipboard(live, ui))
 }
 
 /** Parks the live editor into the active row, then loads `key`'s MissionUi into the editor. */
-export function switchRow(b: BriefingStore, m: MissionStore, key: string): void {
+export function switchRow(b: PlanSetStore, m: MissionStore, key: string): void {
   b.update((w) => activate(parkActive(w, m.getState()), key))
   loadActive(b, m)
 }
 
 /** Adds a row from a mission (file / saved / vehicle / new) and makes it the live editor. */
-export function openInNewRow(b: BriefingStore, m: MissionStore, ui: MissionUi): void {
+export function openInNewRow(b: PlanSetStore, m: MissionStore, ui: MissionUi): void {
   b.update((w) => addRow(parkActive(w, m.getState()), ui))
   loadActive(b, m)
 }
 
-/** Replaces the whole workspace (opened briefing) and loads its active row into the editor. */
-export function replaceWorkspace(b: BriefingStore, m: MissionStore, ws: Workspace): void {
+/** Replaces the whole workspace (restored from the browser) and loads its active row into the editor. */
+export function replaceWorkspace(b: PlanSetStore, m: MissionStore, ws: Workspace): void {
   reseedKeys(ws.rows)
   b.update(() => showActive(ws))
   loadActive(b, m)

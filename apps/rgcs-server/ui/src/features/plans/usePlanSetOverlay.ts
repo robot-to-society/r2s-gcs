@@ -1,12 +1,12 @@
-// Draws the briefing's other missions under the active one (dimmed, no click handlers; spec
+// Draws the other open plans under the active one (dimmed, no click handlers; spec
 // 2026-10-20 §5.3 without the crossing labels, §9).
 import type { ExpressionSpecification, Map as MlMap } from 'maplibre-gl'
 import { useEffect, useRef, type RefObject } from 'react'
 import { othersGeoJson, type OtherMission, type OthersGeoJson } from './overlay'
 
-const PATHS = 'briefing-paths'
-const FENCE = 'briefing-fence'
-const RALLY = 'briefing-rally'
+const PATHS = 'plans-paths'
+const FENCE = 'plans-fence'
+const RALLY = 'plans-rally'
 const COLOR: ExpressionSpecification = ['get', 'color']
 /** The active mission's first layers: everything here goes beneath them. */
 const ACTIVE_BOTTOM = ['plan-fence-fill', 'mission-path-casing']
@@ -16,15 +16,15 @@ type Source = { setData: (d: unknown) => void }
 function setup(m: MlMap): void {
   const before = ACTIVE_BOTTOM.find((id) => m.getLayer(id))
   for (const id of [PATHS, FENCE, RALLY]) m.addSource(id, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
-  m.addLayer({ id: 'briefing-fence', type: 'fill', source: FENCE, filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': COLOR, 'fill-opacity': 0.08 } }, before)
-  m.addLayer({ id: 'briefing-fence-line', type: 'line', source: FENCE, paint: { 'line-color': COLOR, 'line-width': 1.5, 'line-opacity': 0.5 } }, before)
-  m.addLayer({ id: 'briefing-paths', type: 'line', source: PATHS, filter: ['==', ['get', 'predicted'], 0], layout: { 'line-join': 'round' }, paint: { 'line-color': COLOR, 'line-width': 2, 'line-opacity': 0.55 } }, before)
-  m.addLayer({ id: 'briefing-predicted', type: 'line', source: PATHS, filter: ['==', ['get', 'predicted'], 1], layout: { 'line-join': 'round' }, paint: { 'line-color': COLOR, 'line-width': 1.5, 'line-opacity': 0.5, 'line-dasharray': [2, 1.5] } }, before)
-  m.addLayer({ id: 'briefing-rally', type: 'circle', source: RALLY, paint: { 'circle-color': COLOR, 'circle-radius': 5, 'circle-opacity': 0.55, 'circle-stroke-color': '#0b1b2e', 'circle-stroke-width': 1 } }, before)
+  m.addLayer({ id: 'plans-fence', type: 'fill', source: FENCE, filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': COLOR, 'fill-opacity': 0.08 } }, before)
+  m.addLayer({ id: 'plans-fence-line', type: 'line', source: FENCE, paint: { 'line-color': COLOR, 'line-width': 1.5, 'line-opacity': 0.5 } }, before)
+  m.addLayer({ id: 'plans-paths', type: 'line', source: PATHS, filter: ['==', ['get', 'predicted'], 0], layout: { 'line-join': 'round' }, paint: { 'line-color': COLOR, 'line-width': 2, 'line-opacity': 0.55 } }, before)
+  m.addLayer({ id: 'plans-predicted', type: 'line', source: PATHS, filter: ['==', ['get', 'predicted'], 1], layout: { 'line-join': 'round' }, paint: { 'line-color': COLOR, 'line-width': 1.5, 'line-opacity': 0.5, 'line-dasharray': [2, 1.5] } }, before)
+  m.addLayer({ id: 'plans-rally', type: 'circle', source: RALLY, paint: { 'circle-color': COLOR, 'circle-radius': 5, 'circle-opacity': 0.55, 'circle-stroke-color': '#0b1b2e', 'circle-stroke-width': 1 } }, before)
 }
 
 /** The routes drawn flat in 2D only: in 3D the air lines (othersAirLines) replace them. */
-const ONLY_2D = [PATHS, 'briefing-predicted']
+const ONLY_2D = [PATHS, 'plans-predicted']
 
 type VisHost = Pick<MlMap, 'getLayer' | 'setLayoutProperty'>
 
@@ -41,7 +41,7 @@ function draw(m: MlMap, g: OthersGeoJson, is3d: boolean): void {
   applyOthersMode(m, is3d)
 }
 
-export interface BriefingOverlayArgs {
+export interface PlanSetOverlayArgs {
   readonly map: RefObject<MlMap | null>
   readonly loaded: RefObject<boolean>
   readonly others: readonly OtherMission[]
@@ -63,6 +63,6 @@ function useOthersLayers(map: RefObject<MlMap | null>, loaded: RefObject<boolean
   }, [map, loaded, others, is3d])
 }
 
-export function useBriefingOverlay({ map, loaded, others, is3d }: BriefingOverlayArgs): void {
+export function usePlanSetOverlay({ map, loaded, others, is3d }: PlanSetOverlayArgs): void {
   useOthersLayers(map, loaded, others, is3d)
 }

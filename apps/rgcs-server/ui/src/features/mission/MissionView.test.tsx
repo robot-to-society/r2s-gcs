@@ -19,7 +19,7 @@ vi.mock('./MissionMap', () => ({
 
 const { MissionView } = await import('./MissionView')
 const { MissionStore } = await import('./store')
-const { BriefingStore } = await import('../briefing/store')
+const { PlanSetStore } = await import('../plans/store')
 const { appendWaypoint, emptyDraft, toMission } = await import('./model')
 const { serializeRgcsMission } = await import('./files')
 const { rasterStyle } = await import('../map/style')
@@ -35,9 +35,9 @@ function setup(fetchImpl?: (url: string, init?: RequestInit) => Response, transf
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => (fetchImpl ? fetchImpl(String(input), init) : envelope([])))
   vi.stubGlobal('fetch', fetchMock)
   const store = new MissionStore()
-  const briefing = new BriefingStore()
-  const utils = render(<MissionView vehicles={vehicles} transfers={transfers} dict={t('ja')} style={style} store={store} briefing={briefing} />)
-  return { ...utils, fetchMock, store, briefing }
+  const plans = new PlanSetStore()
+  const utils = render(<MissionView vehicles={vehicles} transfers={transfers} dict={t('ja')} style={style} store={store} plans={plans} />)
+  return { ...utils, fetchMock, store, plans }
 }
 
 /** The write target is never implied (UX-32): the operator picks it in the right panel. */
@@ -49,7 +49,7 @@ const addPoints = (n: number) => {
 }
 const wpRows = () => [...document.querySelectorAll<HTMLElement>('.wrow')]
 const rows = () => wpRows().map((li) => li.querySelector('.cmd-label')?.textContent)
-const briefRows = () => [...document.querySelectorAll<HTMLElement>('.brief-row')]
+const planRows = () => [...document.querySelectorAll<HTMLElement>('.openPlans-row')]
 const missionFile = (name: string, points: number): File => {
   const draft = Array.from({ length: points }).reduce<ReturnType<typeof emptyDraft>>((d, _, i) => appendWaypoint(d, 36 + i * 0.001, 139), emptyDraft())
   return new File([serializeRgcsMission({ ...toMission(draft), name })], `${name}.rgcsmission`)
@@ -404,21 +404,21 @@ describe('MissionView', () => {
   })
 
   it('loading_a_file_adds_a_row_instead_of_replacing', async () => {
-    const { store, briefing } = setup()
-    expect(briefRows()).toHaveLength(1)
+    const { store, plans } = setup()
+    expect(planRows()).toHaveLength(1)
     // the untouched starting row takes the first file
     await loadFile(missionFile('Alpha', 2))
-    expect(briefRows()).toHaveLength(1)
+    expect(planRows()).toHaveLength(1)
     const alphaItems = store.getState().history.present.items.length
     expect(alphaItems).toBeGreaterThan(0)
     await loadFile(missionFile('Beta', 1))
-    expect(briefRows().map((r) => r.querySelector('.brief-name')?.textContent)).toEqual(['Alpha', 'Beta'])
-    expect(briefRows()[1]!.getAttribute('aria-current')).toBe('true')
+    expect(planRows().map((r) => r.querySelector('.openPlans-name')?.textContent)).toEqual(['Alpha', 'Beta'])
+    expect(planRows()[1]!.getAttribute('aria-current')).toBe('true')
     expect(store.getState().history.present.mission.name).toBe('Beta')
-    fireEvent.click(within(briefRows()[0]!).getByText('Alpha'))
+    fireEvent.click(within(planRows()[0]!).getByText('Alpha'))
     expect(store.getState().history.present.mission.name).toBe('Alpha')
     expect(store.getState().history.present.items).toHaveLength(alphaItems)
-    expect(briefing.getState().rows).toHaveLength(2)
+    expect(plans.getState().rows).toHaveLength(2)
     // no discard question any more: nothing is lost
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
@@ -432,7 +432,7 @@ describe('MissionView', () => {
       return envelope([])
     }, new Map(), two)
     addPoints(2)
-    fireEvent.change(within(briefRows()[0]!).getByLabelText('割当機体'), { target: { value: '2' } })
+    fireEvent.change(within(planRows()[0]!).getByLabelText('割当機体'), { target: { value: '2' } })
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
     })
@@ -455,7 +455,7 @@ describe('MissionView', () => {
     // copy in B, switch back to A: B's copy is pasted there
     fireEvent.click(wpRows()[1]!)
     fireEvent.keyDown(root, { key: 'c', metaKey: true })
-    fireEvent.click(briefRows()[0]!.querySelector('.brief-name')!)
+    fireEvent.click(planRows()[0]!.querySelector('.openPlans-name')!)
     expect(store.getState().history.present.mission.name).not.toBe('Beta')
     fireEvent.keyDown(root, { key: 'v', metaKey: true })
     expect(lats()).toContain(36.001)
@@ -496,9 +496,9 @@ describe('MissionView', () => {
     const two = new Map([[1, copter], [2, { ...copter, sysid: 2, name: 'UAV-02' }]])
     setup(undefined, new Map(), two)
     await loadFile(missionFile('Alpha', 1))
-    fireEvent.change(within(briefRows()[0]!).getByLabelText('割当機体'), { target: { value: '2' } })
+    fireEvent.change(within(planRows()[0]!).getByLabelText('割当機体'), { target: { value: '2' } })
     await loadFile(missionFile('Beta', 1))
-    const assigned = () => briefRows().map((r) => (within(r).getByLabelText('割当機体') as HTMLSelectElement).value)
+    const assigned = () => planRows().map((r) => (within(r).getByLabelText('割当機体') as HTMLSelectElement).value)
     expect(assigned()).toEqual(['2', ''])
     const right = screen.getByRole('complementary', { name: 'editor' })
     fireEvent.change(within(right).getByLabelText('対象機体'), { target: { value: '2' } })

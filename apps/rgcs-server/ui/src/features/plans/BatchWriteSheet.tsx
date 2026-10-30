@@ -34,10 +34,10 @@ const KEEP: Clear = { fence: false, rally: false }
 
 function reasonText(reason: string | null, dict: Dict): string {
   const known: Record<string, string> = {
-    [BATCH_REASONS.offline]: dict.bfOffline,
-    [BATCH_REASONS.mismatch]: dict.bfMismatch,
-    [BATCH_REASONS.fenceMismatch]: dict.bfFenceMismatch,
-    [BATCH_REASONS.rallyMismatch]: dict.bfRallyMismatch,
+    [BATCH_REASONS.offline]: dict.plOffline,
+    [BATCH_REASONS.mismatch]: dict.plMismatch,
+    [BATCH_REASONS.fenceMismatch]: dict.plFenceMismatch,
+    [BATCH_REASONS.rallyMismatch]: dict.plRallyMismatch,
     [BATCH_REASONS.fatal]: dict.upFatal,
   }
   return reason === null ? '' : (known[reason] ?? reason)
@@ -63,9 +63,9 @@ function toJobs(lines: readonly SheetLine[], leftovers: ReadonlyMap<number, Left
 /** Waiting / writing as text; done and failed with a Lucide mark (spec 20 §9: no text glyphs). */
 function phaseText(s: BatchState | undefined, dict: Dict): ReactNode {
   if (!s) return null
-  if (s.phase === 'waiting') return dict.bfWaiting
-  if (s.phase === 'writing') return dict.bfWriting
-  const [icon, text] = s.phase === 'done' ? [<IconCheck size={14} />, dict.bfDone] : [<IconError size={14} />, reasonText(s.reason, dict)]
+  if (s.phase === 'waiting') return dict.plWaiting
+  if (s.phase === 'writing') return dict.plWriting
+  const [icon, text] = s.phase === 'done' ? [<IconCheck size={14} />, dict.plDone] : [<IconError size={14} />, reasonText(s.reason, dict)]
   return (
     <span className="row" style={{ gap: 4 }}>
       {icon}
@@ -85,15 +85,15 @@ interface ChoiceProps {
 /** 前のフェンス N 区画が残っています + 消す / 残す. */
 function Choice({ text, erase, disabled, dict, onChange }: ChoiceProps) {
   return (
-    <div className="row brief-left">
+    <div className="row openPlans-left">
       <span className="hint caution grow">{text}</span>
       <div className="seg sm" role="group" aria-label={text}>
         <span className="lens" style={{ transform: `translateX(${erase ? 0 : 100}%)` }} />
         <button type="button" className={erase ? 'on' : ''} disabled={disabled} onClick={() => onChange(true)}>
-          {dict.bfErase}
+          {dict.plErase}
         </button>
         <button type="button" className={erase ? '' : 'on'} disabled={disabled} onClick={() => onChange(false)}>
-          {dict.bfKeep}
+          {dict.plKeep}
         </button>
       </div>
     </div>
@@ -113,7 +113,7 @@ interface LeftProps {
 /** Nothing when the mission brings its own (or nothing is left); 不明 when the read failed. */
 function LeftoverLine({ own, left, texts, ...rest }: LeftProps) {
   if (own > 0 || left === undefined || left === 0) return null
-  if (left === null) return <div className="t3 brief-left">{texts[1]}</div>
+  if (left === null) return <div className="t3 openPlans-left">{texts[1]}</div>
   return <Choice text={texts[0].replace('{n}', String(left))} {...rest} />
 }
 
@@ -122,42 +122,42 @@ export function BatchWriteSheet({ lines, leftovers, states, running, dict, onWri
   const started = running || states.size > 0
   const choose = (key: string, patch: Partial<Clear>) => setClear((m) => new Map([...m, [key, { ...(m.get(key) ?? KEEP), ...patch }]]))
   return (
-    <aside className="g-strong sheet up-sheet brief-sheet" aria-label={dict.bfWriteAll} role="dialog">
+    <aside className="g-strong sheet up-sheet openPlans-sheet" aria-label={dict.plWriteAll} role="dialog">
       <div className="panel-h">
-        <span className="h1">{dict.bfWriteAll}</span>
+        <span className="h1">{dict.plWriteAll}</span>
         <span className="grow" />
         <button type="button" className="btn-icon" aria-label={dict.close} disabled={running} onClick={onClose}>
           <IconClose />
         </button>
       </div>
-      {leftovers === null && <div className="t3 brief-reading">{dict.bfReading}</div>}
-      <ul className="brief-sheet-list">
+      {leftovers === null && <div className="t3 openPlans-reading">{dict.plReading}</div>}
+      <ul className="openPlans-sheet-list">
         {lines.map((l) => {
           const left = leftovers?.get(l.sysid)
           const c = clear.get(l.key) ?? KEEP
           const phase = phaseText(states.get(l.key), dict)
           return (
-            <li key={l.key} className="brief-sheet-row">
+            <li key={l.key} className="openPlans-sheet-row">
               <div className="row" style={{ gap: 8 }}>
-                <span className="brief-dot" style={{ background: l.color }} aria-hidden="true" />
-                <span className="brief-sheet-name">{`${l.name} → ${l.vehicle}`}</span>
+                <span className="openPlans-dot" style={{ background: l.color }} aria-hidden="true" />
+                <span className="openPlans-sheet-name">{`${l.name} → ${l.vehicle}`}</span>
                 <span className="grow" />
                 <span className="num t2">{km(l.distanceM)}</span>
               </div>
-              <LeftoverLine own={l.mission.fence.length} left={left?.fence} texts={[dict.bfLeftFence, dict.bfLeftFenceUnknown]} erase={c.fence} disabled={started} dict={dict} onChange={(fence) => choose(l.key, { fence })} />
-              <LeftoverLine own={l.mission.rally.length} left={left?.rally} texts={[dict.bfLeftRally, dict.bfLeftRallyUnknown]} erase={c.rally} disabled={started} dict={dict} onChange={(rally) => choose(l.key, { rally })} />
-              {phase !== null && <div className={`brief-phase ${states.get(l.key)?.phase ?? ''}`}>{phase}</div>}
+              <LeftoverLine own={l.mission.fence.length} left={left?.fence} texts={[dict.plLeftFence, dict.plLeftFenceUnknown]} erase={c.fence} disabled={started} dict={dict} onChange={(fence) => choose(l.key, { fence })} />
+              <LeftoverLine own={l.mission.rally.length} left={left?.rally} texts={[dict.plLeftRally, dict.plLeftRallyUnknown]} erase={c.rally} disabled={started} dict={dict} onChange={(rally) => choose(l.key, { rally })} />
+              {phase !== null && <div className={`openPlans-phase ${states.get(l.key)?.phase ?? ''}`}>{phase}</div>}
             </li>
           )
         })}
       </ul>
       <div className="up-foot" style={{ gap: 8 }}>
         <button type="button" className="btn" disabled={running} onClick={onClose}>
-          {started ? dict.bfClose : dict.bfCancel}
+          {started ? dict.plClose : dict.plCancel}
         </button>
         {!started && (
           <button type="button" className="btn btn-primary" disabled={leftovers === null} onClick={() => onWrite(toJobs(lines, leftovers, clear))}>
-            {dict.bfWrite}
+            {dict.plWrite}
           </button>
         )}
       </div>

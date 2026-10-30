@@ -1,14 +1,14 @@
-// What the planner map takes from the briefing: the other open missions (shown, not missing, not
+// What the planner map takes from the open plans: the other ones (shown, not missing, not
 // the one being edited). `workspace` already holds the live editor in the active row.
 import { useMemo } from 'react'
 import type { Workspace } from './model'
 import type { OtherMission } from './overlay'
 
-export interface BriefingMap {
+export interface PlanSetMap {
   readonly others: readonly OtherMission[]
 }
 
-export function briefingMapOf(ws: Workspace): BriefingMap {
+export function planSetMapOf(ws: Workspace): PlanSetMap {
   // a hidden row is not drawn (the active row is never hidden); predicting a parked row needs its
   // vehicle's parameters: only its plan is drawn
   const others = ws.rows
@@ -17,7 +17,7 @@ export function briefingMapOf(ws: Workspace): BriefingMap {
   return { others }
 }
 
-/** MissionMap's briefing props. */
-export function useBriefingMap(ws: Workspace): BriefingMap {
-  return useMemo(() => briefingMapOf(ws), [ws])
+/** MissionMap's open-plan props. */
+export function usePlanSetMap(ws: Workspace): PlanSetMap {
+  return useMemo(() => planSetMapOf(ws), [ws])
 }

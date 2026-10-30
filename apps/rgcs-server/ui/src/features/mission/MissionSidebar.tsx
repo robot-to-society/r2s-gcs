@@ -45,7 +45,7 @@ interface Props {
   readonly targetHint?: string | null
   readonly onSaveFile: () => void
   readonly onSaveRgcs: () => void
-  /** The briefing comparison table (two or more missions open), above the summary. */
+  /** The plan comparison table (two or more missions open), above the summary. */
   readonly compare?: React.ReactNode
   /** Folds the panel to its rail. */
   readonly onCollapse?: () => void
@@ -89,7 +89,7 @@ export function MissionSidebar(p: Props) {
             <input className="in" aria-label={dict.mName} value={m.name} onChange={(e) => p.onMeta({ name: e.target.value })} />
             <span>{dict.mVehicle}</span>
             <select className="in" aria-label={dict.mVehicle} value={p.sysid ?? ''} onChange={(e) => p.onMeta({ sysid: e.target.value === '' ? null : Number(e.target.value) })}>
-              <option value="">{p.vehicles.length === 0 ? dict.mNoVehicle : dict.bfUnassigned}</option>
+              <option value="">{p.vehicles.length === 0 ? dict.mNoVehicle : dict.plUnassigned}</option>
               {p.vehicles.map((v) => (
                 <option key={v.sysid} value={v.sysid}>
                   {v.name}
@@ -184,7 +184,7 @@ export function MissionSidebar(p: Props) {
             {p.readLabel ?? dict.mRead}
           </button>
         </div>
-        {p.sysid === null && p.vehicles.length > 0 && <div className="t3" style={{ fontSize: 11 }}>{p.multi ? dict.bfAssignToWrite : (p.targetHint ?? dict.mPickTarget)}</div>}
+        {p.sysid === null && p.vehicles.length > 0 && <div className="t3" style={{ fontSize: 11 }}>{p.multi ? dict.plAssignToWrite : (p.targetHint ?? dict.mPickTarget)}</div>}
         <TransferBar transfer={p.transfer} dict={dict} />
         <div className="mission-io">
           <button type="button" className="btn btn-sm" disabled={p.busy} onClick={p.onSaveFile}>

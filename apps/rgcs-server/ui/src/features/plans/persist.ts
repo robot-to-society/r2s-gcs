@@ -3,7 +3,7 @@ import type { Mission } from '../../shared/api/types'
 import { toMission } from '../mission/model'
 import { INITIAL_MISSION_UI, loaded, type MissionStore, type MissionUi } from '../mission/store'
 import { parkActive, reseedKeys, showActive, type Row, type Workspace } from './model'
-import { replaceWorkspace, type BriefingStore } from './store'
+import { replaceWorkspace, type PlanSetStore } from './store'
 
 export const STORAGE_KEY = 'rgcs.plans.v1'
 /** Where the open plans lived while they formed a named briefing; read once, then removed. */
@@ -61,7 +61,7 @@ export function restore(text: string | null): Workspace | null {
 }
 
 /** Loads the saved workspace (if any) into both stores; true when something was restored. */
-export function restoreInto(b: BriefingStore, m: MissionStore, storage?: Pick<Storage, 'getItem'> & Partial<Pick<Storage, 'removeItem'>>): boolean {
+export function restoreInto(b: PlanSetStore, m: MissionStore, storage?: Pick<Storage, 'getItem'> & Partial<Pick<Storage, 'removeItem'>>): boolean {
   const s = storage ?? localStorage
   let text: string | null = null
   let legacy = false
@@ -90,7 +90,7 @@ function dropLegacy(s: Partial<Pick<Storage, 'removeItem'>>): void {
 }
 
 /** Debounced write of the whole workspace on any change to either store. Returns the unsubscribe. */
-export function startPersistence(b: BriefingStore, m: MissionStore, storage?: Pick<Storage, 'setItem'>, delayMs = 500): () => void {
+export function startPersistence(b: PlanSetStore, m: MissionStore, storage?: Pick<Storage, 'setItem'>, delayMs = 500): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null
   const write = (): void => {
     timer = null

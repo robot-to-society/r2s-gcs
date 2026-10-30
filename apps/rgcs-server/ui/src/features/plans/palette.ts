@@ -1,8 +1,8 @@
-// Row colours of the briefing (spec 2026-10-20 §9): eight vivid hues about 45° apart that read on
+// Row colours of the open plans (spec 2026-10-20 §9): eight vivid hues about 45° apart that read on
 // dark satellite and OSM maps. A new row takes the unused colour farthest in hue from the colours
 // in use and from the amber selection highlight, so the orange (closest to amber) comes last.
 
-/** In the order an empty briefing hands them out. */
+/** In the order an empty planner hands them out. */
 export const PALETTE: readonly string[] = ['#3d9eff', '#31d848', '#d76afb', '#ff4d79', '#0bdabe', '#b6e723', '#9c7aff', '#ff9429']
 
 /** `--caution`, the selection highlight: no row colour should be mistaken for it. */

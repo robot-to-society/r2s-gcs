@@ -18,7 +18,7 @@ vi.mock('./api', () => ({
 const { usePlanEditor } = await import('./planEditor')
 const { MissionStore, INITIAL_MISSION_UI, edit, loaded } = await import('./store')
 const { appendWaypoint, emptyDraft, toMission } = await import('./model')
-const { BriefingStore, openInNewRow, switchRow } = await import('../briefing/store')
+const { PlanSetStore, openInNewRow, switchRow } = await import('../plans/store')
 const { vehicleStore } = await import('../vehicles/store')
 
 const ZONE: FenceZone = { kind: 'circle', inclusion: true, center: { lat: 35, lon: 139 }, radius: 100 }
@@ -28,7 +28,7 @@ const mission = (name: string): Mission => ({ ...toMission(appendWaypoint(emptyD
 function setup() {
   localStorage.setItem('rgcs.planTab', 'fence')
   const m = new MissionStore()
-  const b = new BriefingStore()
+  const b = new PlanSetStore()
   m.update(() => loaded(INITIAL_MISSION_UI, mission('Alpha'), null))
   openInNewRow(b, m, loaded(INITIAL_MISSION_UI, mission('Beta'), null))
   switchRow(b, m, b.getState().rows[0]!.key)

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { appendWaypoint } from '../mission/model'
 import { MissionStore, edit, selectOne } from '../mission/store'
-import { BriefingStore, openInNewRow, replaceWorkspace, switchRow } from './store'
+import { PlanSetStore, openInNewRow, replaceWorkspace, switchRow } from './store'
 import { activeRow, emptyWorkspace } from './model'
 
-const setup = () => ({ b: new BriefingStore(), m: new MissionStore() })
+const setup = () => ({ b: new PlanSetStore(), m: new MissionStore() })
 const addWp = (m: MissionStore, lat: number) => m.update((ui) => edit(ui, appendWaypoint(ui.history.present, lat, 139)))
 
-describe('briefing store', () => {
+describe('plans store', () => {
   it('switching_rows_keeps_each_missions_edits_undo_and_selection', () => {
     const { b, m } = setup()
     openInNewRow(b, m, m.getState())

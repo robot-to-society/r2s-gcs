@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { appendWaypoint } from '../mission/model'
 import { MissionStore, edit } from '../mission/store'
-import { BriefingStore, openInNewRow } from './store'
+import { PlanSetStore, openInNewRow } from './store'
 import { assign, setColor, setHidden } from './model'
 import { LEGACY_STORAGE_KEY, STORAGE_KEY, restore, restoreInto, serialize, startPersistence } from './persist'
 
 const build = () => {
-  const b = new BriefingStore()
+  const b = new PlanSetStore()
   const m = new MissionStore()
   m.update((ui) => edit(ui, appendWaypoint(ui.history.present, 35, 139)))
   openInNewRow(b, m, m.getState())
@@ -68,7 +68,7 @@ describe('open plans persistence', () => {
   it('restore_into_loads_the_editor', () => {
     const { b, m } = build()
     const text = serialize(b.getState(), m.getState())
-    const b2 = new BriefingStore()
+    const b2 = new PlanSetStore()
     const m2 = new MissionStore()
     expect(restoreInto(b2, m2, { getItem: (k) => (k === STORAGE_KEY ? text : null) })).toBe(true)
     expect(b2.getState().rows).toHaveLength(2)
@@ -87,7 +87,7 @@ describe('open plans persistence', () => {
     const old = { ...JSON.parse(serialize(b.getState(), m.getState())), id: 7, name: 'morning' }
     const items: Record<string, string> = { [LEGACY_STORAGE_KEY]: JSON.stringify(old) }
     const storage = { getItem: (k: string) => items[k] ?? null, removeItem: (k: string) => void delete items[k] }
-    const b2 = new BriefingStore()
+    const b2 = new PlanSetStore()
     expect(restoreInto(b2, new MissionStore(), storage)).toBe(true)
     expect(b2.getState().rows).toHaveLength(2)
     expect(b2.getState()).not.toHaveProperty('name')

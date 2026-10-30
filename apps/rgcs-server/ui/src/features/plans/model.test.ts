@@ -17,7 +17,7 @@ function hs(hex: string): { h: number; s: number } {
 }
 const hueDist = (a: number, b: number) => Math.min(Math.abs(a - b) % 360, 360 - (Math.abs(a - b) % 360))
 
-describe('briefing workspace model', () => {
+describe('plans workspace model', () => {
   it('forget_saved_turns_the_rows_of_a_deleted_plan_into_unsaved_ones', () => {
     const ws = addRow(addRow(emptyWorkspace(), saved(3)), saved(4))
     const out = forgetSaved(ws, 3)

@@ -10,8 +10,8 @@ const { appendWaypoint, emptyDraft, removeItems } = await import('./model')
 const { rasterStyle } = await import('../map/style')
 const { toMercator } = await import('../map/air')
 const { missionAirData } = await import('./missionAir')
-const { briefingMapOf } = await import('../briefing/useBriefingMap')
-const { activeRow, addRow, emptyWorkspace } = await import('../briefing/model')
+const { planSetMapOf } = await import('../plans/usePlanSetMap')
+const { activeRow, addRow, emptyWorkspace } = await import('../plans/model')
 const { INITIAL_MISSION_UI } = await import('./store')
 
 const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
@@ -563,22 +563,22 @@ describe('MissionMap', () => {
     expect(air.lines.flat().length).toBeGreaterThan(0)
   })
 
-  describe('briefing overlay', () => {
-    const brLayers = ['briefing-fence', 'briefing-fence-line', 'briefing-paths', 'briefing-predicted', 'briefing-rally']
+  describe('plans overlay', () => {
+    const brLayers = ['plans-fence', 'plans-fence-line', 'plans-paths', 'plans-predicted', 'plans-rally']
     const other = { key: 'r2', color: '#5fd39b', draft: draft3(), predicted: null }
-    const labels = () => created.markers.filter((m) => m.el.classList.contains('brief-label') && !m.removed)
+    const labels = () => created.markers.filter((m) => m.el.classList.contains('openPlans-label') && !m.removed)
 
-    it('a_single_mission_adds_no_briefing_layers', () => {
+    it('a_single_plan_adds_no_other_plan_layers', () => {
       renderMap()
-      expect(created.maps[0]!.layers.filter((id) => id.startsWith('briefing'))).toEqual([])
+      expect(created.maps[0]!.layers.filter((id) => id.startsWith('plans'))).toEqual([])
     })
 
     it('other_missions_are_drawn_below_the_active_mission_without_click_handlers', () => {
       renderMap({ others: [other] })
       const map = created.maps[0]!
-      expect(map.layers.filter((id) => id.startsWith('briefing'))).toEqual(brLayers)
+      expect(map.layers.filter((id) => id.startsWith('plans'))).toEqual(brLayers)
       for (const id of brLayers) expect(['plan-fence-fill', 'mission-path-casing']).toContain(map.before.get(id))
-      expect(map.sources.get('briefing-paths')!.setData).toHaveBeenLastCalledWith(expect.objectContaining({ features: expect.arrayContaining([expect.objectContaining({ properties: expect.objectContaining({ color: '#5fd39b' }) })]) }))
+      expect(map.sources.get('plans-paths')!.setData).toHaveBeenLastCalledWith(expect.objectContaining({ features: expect.arrayContaining([expect.objectContaining({ properties: expect.objectContaining({ color: '#5fd39b' }) })]) }))
       expect(map.handlers.get('click')).toHaveLength(1)
     })
 
@@ -588,12 +588,12 @@ describe('MissionMap', () => {
       const ns = appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.2), 36.3, 139.2)
       const ui = (d: typeof ew, id: number) => ({ ...INITIAL_MISSION_UI, savedId: id, history: { ...INITIAL_MISSION_UI.history, present: d } })
       const ws = addRow(addRow(emptyWorkspace(), ui(ew, 1)), ui(ns, 2))
-      const bm = briefingMapOf(ws)
+      const bm = planSetMapOf(ws)
       expect(bm).not.toHaveProperty('labels')
       renderMap({ draft: activeRow(ws).ui.history.present, ...bm })
-      expect(created.maps[0]!.layers.filter((id) => id.startsWith('briefing'))).toEqual(brLayers)
+      expect(created.maps[0]!.layers.filter((id) => id.startsWith('plans'))).toEqual(brLayers)
       expect(labels()).toHaveLength(0)
-      expect(document.querySelector('.brief-label')).toBeNull()
+      expect(document.querySelector('.openPlans-label')).toBeNull()
     })
   })
 })

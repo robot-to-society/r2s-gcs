@@ -4,7 +4,7 @@ import type { Mission, VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 import { emptyDraft } from '../mission/model'
 import { INITIAL_MISSION_UI, loaded } from '../mission/store'
-import { BriefingList } from './BriefingList'
+import { PlanList } from './PlanList'
 import { PALETTE, addRow, assign, emptyWorkspace, type Workspace } from './model'
 
 const dict = t('ja')
@@ -26,31 +26,31 @@ function twoRows(): Workspace {
 
 function setup(ws: Workspace = twoRows(), liveDirty = false) {
   const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn() }
-  render(<BriefingList workspace={ws} liveDirty={liveDirty} vehicles={vehicles} dict={dict} {...on} />)
-  const rows = () => [...document.querySelectorAll<HTMLElement>('.brief-row')]
+  render(<PlanList workspace={ws} liveDirty={liveDirty} vehicles={vehicles} dict={dict} {...on} />)
+  const rows = () => [...document.querySelectorAll<HTMLElement>('.openPlans-row')]
   return { ws, on, rows }
 }
 
-describe('BriefingList', () => {
+describe('PlanList', () => {
   it('rows_show_colour_name_assignment_and_unsaved_mark', () => {
     const { ws, rows } = setup(twoRows(), true)
     expect(rows()).toHaveLength(2)
     expect(rows()[0]!.getAttribute('aria-current')).toBe('true')
     expect(rows()[1]!.hasAttribute('aria-current')).toBe(false)
-    expect(rows().map((r) => r.querySelector('.brief-name')?.textContent)).toEqual(['Alpha', 'Beta'])
-    const chips = rows().map((r) => r.querySelector<HTMLElement>('.brief-chip')!.style.background)
+    expect(rows().map((r) => r.querySelector('.openPlans-name')?.textContent)).toEqual(['Alpha', 'Beta'])
+    const chips = rows().map((r) => r.querySelector<HTMLElement>('.openPlans-chip')!.style.background)
     expect(chips[0]).not.toBe(chips[1])
     expect(ws.rows.map((r) => r.color)).toEqual([PALETTE[0], PALETTE[1]])
     const selects = rows().map((r) => within(r).getByLabelText('割当機体') as HTMLSelectElement)
     expect(selects.map((s) => s.value)).toEqual(['', '2'])
     expect(within(selects[0]!).getByRole('option', { name: '未割当' })).toBeInTheDocument()
     // the active row follows the live editor's flag, a parked one its own
-    expect(rows().map((r) => r.querySelector('.brief-dirty') !== null)).toEqual([true, true])
+    expect(rows().map((r) => r.querySelector('.openPlans-dirty') !== null)).toEqual([true, true])
   })
 
   it('the_active_row_has_no_mark_when_the_live_editor_is_clean', () => {
     const { rows } = setup(twoRows(), false)
-    expect(rows().map((r) => r.querySelector('.brief-dirty') !== null)).toEqual([false, true])
+    expect(rows().map((r) => r.querySelector('.openPlans-dirty') !== null)).toEqual([false, true])
   })
 
   it('clicking_a_row_switches', () => {
@@ -103,7 +103,7 @@ describe('BriefingList', () => {
 
   it('the_edited_rows_remove_is_disabled_while_busy', () => {
     const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn() }
-    render(<BriefingList workspace={twoRows()} liveDirty={false} busy vehicles={vehicles} dict={dict} {...on} />)
+    render(<PlanList workspace={twoRows()} liveDirty={false} busy vehicles={vehicles} dict={dict} {...on} />)
     const remove = screen.getAllByRole('button', { name: '一覧から外す' })
     expect(remove.map((b) => (b as HTMLButtonElement).disabled)).toEqual([true, false])
   })

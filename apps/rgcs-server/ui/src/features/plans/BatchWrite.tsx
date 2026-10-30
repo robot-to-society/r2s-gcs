@@ -1,4 +1,4 @@
-// The briefing's part of the planner's right panel and its sheet, wired for MissionView: the
+// The open plans' part of the planner's right panel and its sheet, wired for MissionView: the
 // comparison table (two or more missions) and the 割当どおり書き込む sheet (spec 2026-10-20 §5.4 / §5.5).
 import type { ReactNode } from 'react'
 import type { Mission, VehicleState } from '../../shared/api/types'
@@ -13,7 +13,7 @@ import { useBatchWrite } from './useBatchWrite'
 const recordMission = (to: number, m: Mission) => vehicleStore.setVehicleMission(to, { ...m, sysid: to })
 
 /** `busy`: the editor is saving / writing / reading. */
-export function useBriefingWrite(ws: Workspace, vehicles: ReadonlyMap<number, VehicleState>, busy: boolean, dict: Dict): { compare: ReactNode; sheet: ReactNode } {
+export function usePlanSetWrite(ws: Workspace, vehicles: ReadonlyMap<number, VehicleState>, busy: boolean, dict: Dict): { compare: ReactNode; sheet: ReactNode } {
   const batch = useBatchWrite(ws, vehicles, recordMission)
   return {
     compare: batch.lines.length >= 2 ? <CompareTable lines={batch.lines} canWrite={batch.canWrite && !busy} dict={dict} onWriteAll={batch.open} /> : null,

@@ -1,4 +1,4 @@
-// The briefing list at the top of the planner's left panel: one compact row per open mission
+// The open plans list at the top of the planner's left panel: one compact row per open mission
 // (colour chip, name, unsaved mark, assigned vehicle, ↑ / ↓, remove). Spec 2026-10-20 §5.1 / §5.5.
 import { useEffect, useRef, useState } from 'react'
 import type { VehicleState } from '../../shared/api/types'
@@ -34,41 +34,41 @@ type RowProps = Omit<Props, 'workspace' | 'liveDirty' | 'busy'> & {
 
 const stop = (e: React.SyntheticEvent) => e.stopPropagation()
 
-export function BriefingList({ workspace, liveDirty, busy = false, ...rest }: Props) {
+export function PlanList({ workspace, liveDirty, busy = false, ...rest }: Props) {
   const n = workspace.rows.length
   return (
     <>
-      <div className="brief-list hair" role="list" aria-label={rest.dict.bfList}>
+      <div className="openPlans-list hair" role="list" aria-label={rest.dict.plList}>
         {workspace.rows.map((row, i) => {
           const active = row.key === workspace.active
-          return <BriefRow key={row.key} {...rest} row={row} active={active} dirty={active ? liveDirty : row.ui.dirty} first={i === 0} last={i === n - 1} locked={active && busy} />
+          return <OpenPlanRow key={row.key} {...rest} row={row} active={active} dirty={active ? liveDirty : row.ui.dirty} first={i === 0} last={i === n - 1} locked={active && busy} />
         })}
       </div>
     </>
   )
 }
 
-function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onSwitch, onAssign, onRemove, onMove, onColor, onHidden, onFrame }: RowProps) {
+function OpenPlanRow({ row, active, dirty, first, last, locked, vehicles, dict, onSwitch, onAssign, onRemove, onMove, onColor, onHidden, onFrame }: RowProps) {
   const [palette, setPalette] = useState(false)
   const shown = !row.hidden
   const known = row.sysid === null || vehicles.some((v) => v.sysid === row.sysid)
   return (
-    <div className={`brief-row${active ? ' on' : ''}`} role="listitem" aria-current={active ? 'true' : undefined} onClick={() => !active && onSwitch(row.key)} onDoubleClick={() => onFrame?.(row.key)}>
-      <span className="brief-chip-wrap" onClick={stop} onDoubleClick={stop}>
-        <button type="button" className="brief-chip" aria-label={dict.bfColor} style={{ background: row.color }} onClick={() => setPalette((p) => !p)} />
+    <div className={`openPlans-row${active ? ' on' : ''}`} role="listitem" aria-current={active ? 'true' : undefined} onClick={() => !active && onSwitch(row.key)} onDoubleClick={() => onFrame?.(row.key)}>
+      <span className="openPlans-chip-wrap" onClick={stop} onDoubleClick={stop}>
+        <button type="button" className="openPlans-chip" aria-label={dict.plColor} style={{ background: row.color }} onClick={() => setPalette((p) => !p)} />
         {palette && <ColorPopover current={row.color} dict={dict} onPick={(c) => onColor(row.key, c)} onClose={() => setPalette(false)} />}
       </span>
-      <span className="brief-name" title={`${row.ui.history.present.mission.name}\n${dict.bfFrameHint}`}>
+      <span className="openPlans-name" title={`${row.ui.history.present.mission.name}\n${dict.plFrameHint}`}>
         {row.ui.history.present.mission.name}
       </span>
       {dirty && (
-        <span className="brief-dirty" title={dict.bfUnsaved} aria-label={dict.bfUnsaved}>
+        <span className="openPlans-dirty" title={dict.plUnsaved} aria-label={dict.plUnsaved}>
           ●
         </span>
       )}
-      {row.missing && <span className="rg-natag brief-missing">{dict.bfMissing}</span>}
-      <select className="rg-sel brief-sel" aria-label={dict.bfVehicle} value={row.sysid ?? ''} onClick={stop} onDoubleClick={stop} onChange={(e) => onAssign(row.key, e.target.value === '' ? null : Number(e.target.value))}>
-        <option value="">{dict.bfUnassigned}</option>
+      {row.missing && <span className="rg-natag openPlans-missing">{dict.plMissing}</span>}
+      <select className="rg-sel openPlans-sel" aria-label={dict.plVehicle} value={row.sysid ?? ''} onClick={stop} onDoubleClick={stop} onChange={(e) => onAssign(row.key, e.target.value === '' ? null : Number(e.target.value))}>
+        <option value="">{dict.plUnassigned}</option>
         {vehicles.map((v) => (
           <option key={v.sysid} value={v.sysid}>
             {v.name}
@@ -76,17 +76,17 @@ function BriefRow({ row, active, dirty, first, last, locked, vehicles, dict, onS
         ))}
         {!known && <option value={row.sysid ?? ''}>{`#${row.sysid}`}</option>}
       </select>
-      <span className="brief-ctl" onClick={stop} onDoubleClick={stop}>
-        <button type="button" className="btn-icon sm" aria-label={dict.bfShow} title={dict.bfShow} aria-pressed={shown} disabled={active} onClick={() => onHidden(row.key, shown)}>
+      <span className="openPlans-ctl" onClick={stop} onDoubleClick={stop}>
+        <button type="button" className="btn-icon sm" aria-label={dict.plShow} title={dict.plShow} aria-pressed={shown} disabled={active} onClick={() => onHidden(row.key, shown)}>
           {shown ? <IconEye /> : <IconEyeOff />}
         </button>
-        <button type="button" className="btn-icon sm" aria-label={dict.bfUp} title={dict.bfUp} disabled={first} onClick={() => onMove(row.key, -1)}>
+        <button type="button" className="btn-icon sm" aria-label={dict.plUp} title={dict.plUp} disabled={first} onClick={() => onMove(row.key, -1)}>
           <IconChevronUp size={14} />
         </button>
-        <button type="button" className="btn-icon sm" aria-label={dict.bfDown} title={dict.bfDown} disabled={last} onClick={() => onMove(row.key, 1)}>
+        <button type="button" className="btn-icon sm" aria-label={dict.plDown} title={dict.plDown} disabled={last} onClick={() => onMove(row.key, 1)}>
           <IconChevronDown size={14} />
         </button>
-        <button type="button" className="btn-icon sm" aria-label={dict.bfRemove} title={dict.bfRemove} disabled={locked} onClick={() => onRemove(row.key)}>
+        <button type="button" className="btn-icon sm" aria-label={dict.plRemove} title={dict.plRemove} disabled={locked} onClick={() => onRemove(row.key)}>
           <IconClose size={14} />
         </button>
       </span>
@@ -112,12 +112,12 @@ function ColorPopover({ current, dict, onPick, onClose }: PopoverProps) {
     return () => document.removeEventListener('mousedown', away)
   }, [onClose])
   return (
-    <div ref={ref} className="g-strong brief-pop" role="dialog" aria-label={dict.bfColor}>
+    <div ref={ref} className="g-strong openPlans-pop" role="dialog" aria-label={dict.plColor}>
       {PALETTE.map((c) => (
         <button
           key={c}
           type="button"
-          className={`brief-swatch${c === current ? ' on' : ''}`}
+          className={`openPlans-swatch${c === current ? ' on' : ''}`}
           aria-label={c}
           style={{ background: c }}
           onClick={() => {

@@ -13,7 +13,7 @@ vi.mock('./MissionMap', () => ({
 
 const { MissionView } = await import('./MissionView')
 const { MissionStore } = await import('./store')
-const { BriefingStore } = await import('../briefing/store')
+const { PlanSetStore } = await import('../plans/store')
 const { appendWaypoint, emptyDraft, toMission } = await import('./model')
 const { serializeRgcsMission } = await import('./files')
 const { rasterStyle } = await import('../map/style')
@@ -29,14 +29,14 @@ const envelope = (data: unknown) => new Response(JSON.stringify({ success: true,
 function setup() {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => envelope([])))
   const store = new MissionStore()
-  const briefing = new BriefingStore()
-  const view = () => <MissionView vehicles={new Map([[1, copter]])} dict={t('ja')} style={style} store={store} briefing={briefing} />
+  const plans = new PlanSetStore()
+  const view = () => <MissionView vehicles={new Map([[1, copter]])} dict={t('ja')} style={style} store={store} plans={plans} />
   const utils = render(view())
-  return { ...utils, view, store, briefing }
+  return { ...utils, view, store, plans }
 }
 
-const briefRows = () => [...document.querySelectorAll<HTMLElement>('.brief-row')]
-const names = () => briefRows().map((r) => r.querySelector('.brief-name')?.textContent)
+const planRows = () => [...document.querySelectorAll<HTMLElement>('.openPlans-row')]
+const names = () => planRows().map((r) => r.querySelector('.openPlans-name')?.textContent)
 const fitted = () => JSON.parse(screen.getByTestId('mission-map').dataset.fit!) as { lat: number; lon: number }[]
 /** A mission of waypoints at (lat0 + i·0.01, 139), a fence circle and a rally point. */
 function missionFile(name: string, lat0: number, points: number, withPlan = false): File {
@@ -51,13 +51,13 @@ const pick = async (files: File[]) => {
   })
 }
 
-describe('MissionView briefing feedback (§9)', () => {
+describe('MissionView plans feedback (§9)', () => {
   beforeEach(() => localStorage.removeItem('rgcs.planPanel'))
   afterEach(() => vi.unstubAllGlobals())
 
   it('the_open_plans_have_no_named_container_to_save_or_open', () => {
     setup()
-    expect(document.querySelector('.brief-head')).toBeNull()
+    expect(document.querySelector('.openPlans-head')).toBeNull()
     expect(document.body.textContent).not.toMatch(/ブリーフィング/)
     expect(screen.queryByRole('textbox', { name: /ブリーフィング/ })).toBeNull()
     // an untouched editor is the new plan: 新しいプラン adds a row only once something is in it
@@ -88,20 +88,20 @@ describe('MissionView briefing feedback (§9)', () => {
   })
 
   it('a_single_mission_keeps_the_altitude_colours_and_two_use_the_row_colour', async () => {
-    const { briefing } = setup()
+    const { plans } = setup()
     const color = () => screen.getByTestId('mission-map').dataset.pathcolor
     expect(color()).toBe('none')
     await pick([missionFile('Alpha', 36, 2)])
     expect(color()).toBe('none')
     await pick([missionFile('Beta', 35, 2)])
-    expect(color()).toBe(briefing.getState().rows[1]!.color)
+    expect(color()).toBe(plans.getState().rows[1]!.color)
   })
 
   it('double_clicking_a_row_frames_that_mission', async () => {
     const { store } = setup()
     await pick([missionFile('Alpha', 36, 2, true), missionFile('Beta', 35, 3)])
     // a parked row: the first click switches to it, the double-click frames it
-    const alpha = briefRows()[0]!.querySelector('.brief-name')!
+    const alpha = planRows()[0]!.querySelector('.openPlans-name')!
     fireEvent.click(alpha)
     expect(store.getState().history.present.mission.name).toBe('Alpha')
     fireEvent.doubleClick(alpha)
@@ -113,18 +113,18 @@ describe('MissionView briefing feedback (§9)', () => {
     // nothing of Beta's
     expect(lats.some((l) => l < 35.1)).toBe(false)
     // the active row frames too, with the live draft
-    fireEvent.click(briefRows()[1]!.querySelector('.brief-name')!)
+    fireEvent.click(planRows()[1]!.querySelector('.openPlans-name')!)
     const seq = Number(screen.getByTestId('mission-map').dataset.seq)
-    fireEvent.doubleClick(briefRows()[1]!.querySelector('.brief-name')!)
+    fireEvent.doubleClick(planRows()[1]!.querySelector('.openPlans-name')!)
     expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 1)
     expect(fitted().map((p) => p.lat).sort()).toEqual([35, 35.01, 35.02])
     // anywhere on the row frames it (here the row itself, beside the name)
-    fireEvent.doubleClick(briefRows()[1]!)
+    fireEvent.doubleClick(planRows()[1]!)
     expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 2)
     // a double-click on the row's controls frames nothing
-    fireEvent.doubleClick(within(briefRows()[1]!).getByLabelText('割当機体'))
-    fireEvent.doubleClick(within(briefRows()[1]!).getByLabelText('色'))
-    fireEvent.doubleClick(within(briefRows()[1]!).getByLabelText('上へ'))
+    fireEvent.doubleClick(within(planRows()[1]!).getByLabelText('割当機体'))
+    fireEvent.doubleClick(within(planRows()[1]!).getByLabelText('色'))
+    fireEvent.doubleClick(within(planRows()[1]!).getByLabelText('上へ'))
     expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 2)
   })
 

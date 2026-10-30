@@ -4,9 +4,9 @@ import { useState } from 'react'
 import type { Mission } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { hhmmss } from '../../shared/format/time'
-import { openMission } from '../briefing/useBriefing'
-import { assign, forgetSaved } from '../briefing/model'
-import type { BriefingStore } from '../briefing/store'
+import { openMission } from '../plans/usePlanSet'
+import { assign, forgetSaved } from '../plans/model'
+import type { PlanSetStore } from '../plans/store'
 import { localResultId } from '../vehicles/localResultId'
 import type { VehicleStore } from '../vehicles/store'
 import { createMission, deleteMission, downloadMission, exportWaypoints, getMission, importWaypoints, updateMission, uploadMission, validateMission } from './api'
@@ -17,11 +17,11 @@ import { INITIAL_MISSION_UI, fresh as freshUi, loaded, markSaved, setBusy, setFi
 const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
 /**
- * File / saved / vehicle missions and 新規 open in the briefing (a new row, or the untouched one),
+ * File / saved / vehicle missions and 新しいプラン open as plans (a new row, or the untouched one),
  * so nothing in the editor is lost and no discard question is asked.
  */
 /** `connected`: a mission saved for (or read from) a connected vehicle opens with it visibly assigned (UX-32 follow-up). */
-export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid: number | null, dict: Dict, vehicles: VehicleStore, connected: (sysid: number) => boolean = () => false) {
+export function useMissionIo(store: MissionStore, plans: PlanSetStore, sysid: number | null, dict: Dict, vehicles: VehicleStore, connected: (sysid: number) => boolean = () => false) {
   const [fitRequest, setFitRequest] = useState(0)
   const [picker, setPicker] = useState(false)
   const fit = () => setFitRequest((n) => n + 1)
@@ -29,7 +29,7 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
     vehicles.pushLocalResult({ id: localResultId(), sysid: to ?? 0, cmd, ok, reason, ts: Date.now() })
 
   const open = (ui: MissionUi) => {
-    openMission(briefing, store, ui)
+    openMission(plans, store, ui)
     fit()
   }
   const load = (m: Mission, id: number | null) => {
@@ -37,7 +37,7 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
     // its own vehicle, when connected, becomes the shown target (both selects); never a hidden one
     const own = m.sysid
     // (not when another open mission already holds it: that row keeps its vehicle)
-    if (own !== null && connected(own)) briefing.update((w) => (w.rows.some((r) => r.key !== w.active && r.sysid === own) ? w : assign(w, w.active, own)))
+    if (own !== null && connected(own)) plans.update((w) => (w.rows.some((r) => r.key !== w.active && r.sysid === own) ? w : assign(w, w.active, own)))
   }
 
   const save = async (): Promise<number | null> => {
@@ -162,7 +162,7 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
       result('mission_delete', false, errText(e))
       return false
     }
-    briefing.update((w) => forgetSaved(w, id))
+    plans.update((w) => forgetSaved(w, id))
     store.update((ui) => (ui.savedId === id ? { ...ui, savedId: null, dirty: true } : ui))
     return true
   }

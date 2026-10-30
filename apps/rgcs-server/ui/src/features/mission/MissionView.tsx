@@ -3,11 +3,11 @@ import { useMemo, useRef, useState } from 'react'
 import type { Mission, MissionFrame, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { vehicleStore } from '../vehicles/store'
-import { BriefingList } from '../briefing/BriefingList'
-import { briefingStore, type BriefingStore } from '../briefing/store'
-import { useBriefing } from '../briefing/useBriefing'
-import { useBriefingWrite } from '../briefing/BatchWrite'
-import { useBriefingMap } from '../briefing/useBriefingMap'
+import { PlanList } from '../plans/PlanList'
+import { planSetStore, type PlanSetStore } from '../plans/store'
+import { usePlanSet } from '../plans/usePlanSet'
+import { usePlanSetWrite } from '../plans/BatchWrite'
+import { usePlanSetMap } from '../plans/usePlanSetMap'
 import { pathModel, predictFor } from '../flightpath/predict'
 import { vehicleParamNames } from '../survey/vehicleParams'
 import { usePathParams } from '../flightpath/usePathParams'
@@ -60,7 +60,7 @@ interface Props {
   /** Terrarium DEM tiles; `null` / absent → 2D only. */
   readonly terrainTiles?: string | null
   readonly store?: MissionStore
-  readonly briefing?: BriefingStore
+  readonly plans?: PlanSetStore
   /** The vehicle selected in the ops list: 機体から読込 offers it when no target is chosen. */
   readonly opsSelected?: number | null
 }
@@ -69,25 +69,25 @@ const NUDGE = 0.0001
 const NO_TRANSFERS: ReadonlyMap<number, MissionTransfer> = new Map()
 
 /** The mission planning screen (spec 10 §6, 2D subset) built on the Glass prototype's layout. */
-export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore, briefing = briefingStore, opsSelected = null }: Props) {
+export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore, plans = planSetStore, opsSelected = null }: Props) {
   const mapMode = useMapMode()
   const is3d = mapMode === '3d' && terrainTiles !== null
   const ui = useMissionUi(store)
   const draft = ui.history.present
   const [fitTo, setFitTo] = useState<{ seq: number; points: readonly { lat: number; lon: number }[] } | null>(null)
   const onFit = (points: readonly { lat: number; lon: number }[]) => setFitTo((f) => ({ seq: (f?.seq ?? 0) + 1, points }))
-  const brief = useBriefing(briefing, store, ui, onFit)
+  const openPlans = usePlanSet(plans, store, ui, onFit)
   const panel = usePlanPanel()
   const [menu, setMenu] = useState<Menu | null>(null)
   const [palette, setPalette] = useState(false)
   const [help, setHelp] = useState(false)
   const [targets, setTargets] = useState(false)
   const [focus, setFocus] = useState<{ lat: number; lon: number; seq: number } | null>(null)
-  const briefMap = useBriefingMap(brief.list.workspace)
+  const plansMap = usePlanSetMap(openPlans.list.workspace)
   const [bulk, setBulk] = useState<{ alt: string; frame: MissionFrame }>({ alt: String(draft.mission.default_alt), frame: draft.mission.default_frame })
   const file = useRef<HTMLInputElement>(null)
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
-  const sysid = brief.target
+  const sysid = openPlans.target
   const online = list.filter((v) => v.link !== 'lost')
   const located = list.filter((v) => v.gps.fix >= 2 && !(v.lat === 0 && v.lon === 0))
   const vehicle = sysid === null ? null : (vehicles.get(sysid) ?? null)
@@ -107,11 +107,11 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   }, [kind, pathValues, hLat, hLon, hAlt])
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
   const isOnline = (s: number) => online.some((v) => v.sysid === s)
-  const io = useMissionIo(store, briefing, sysid, dict, vehicleStore, isOnline)
+  const io = useMissionIo(store, plans, sysid, dict, vehicleStore, isOnline)
   const readFrom = sysid ?? (opsSelected !== null && isOnline(opsSelected) ? opsSelected : null)
   const saved = draft.mission.sysid
   const savedOffline = sysid === null && saved !== null && !isOnline(saved) ? dict.mSavedOffline.replace('{name}', vehicles.get(saved)?.name ?? `#${saved}`) : null
-  const batch = useBriefingWrite(brief.list.workspace, vehicles, ui.busy !== 'idle', dict)
+  const batch = usePlanSetWrite(openPlans.list.workspace, vehicles, ui.busy !== 'idle', dict)
   const fileHome = draft.mission.home ?? (vehicle?.home ? { lat: vehicle.home.lat, lon: vehicle.home.lon, alt: vehicle.home.alt } : null)
   const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit, store })
   const planIo = { sysid, targetName: vehicle?.name, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f), onCollapse: panel.collapse }
@@ -170,7 +170,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         fitRequest={io.fitRequest}
         focus={focus}
         fitTo={fitTo}
-        pathColor={brief.pathColor}
+        pathColor={openPlans.pathColor}
         panelCollapsed={panel.collapsed}
         surveyDraw={sv.mapDraw}
         survey={sv.mapSurvey}
@@ -189,7 +189,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))}
         onBackgroundClick={() => store.update(clearSelection)}
         onContext={setMenu}
-        {...briefMap}
+        {...plansMap}
       />
       <div className="g-ctl float map-l top1 compass" aria-hidden="true" style={{ transform: is3d ? 'rotate(25deg)' : undefined }}>
         <span>N</span>
@@ -233,7 +233,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       )}
       {plan.tab === 'mission' && (
         <aside className="g panel float float-l mission-left" aria-label={dict.navMission}>
-          <BriefingList {...brief.list} liveDirty={ui.dirty} busy={ui.busy !== 'idle'} vehicles={list} dict={dict} />
+          <PlanList {...openPlans.list} liveDirty={ui.dirty} busy={ui.busy !== 'idle'} vehicles={list} dict={dict} />
           <MissionListHeader count={draft.items.length} dict={dict} canUndo={canUndo(ui.history)} canRedo={canRedo(ui.history)} onUndo={() => store.update(undoUi)} onRedo={() => store.update(redoUi)} onReverse={() => change(reverseItems)} onClear={() => change(clearItems)} />
           <div className="hair mission-tools">
             <div className="seg" style={{ height: 36 }} role="group" aria-label="tool">
@@ -328,9 +328,9 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         onApplyBulk={applyBulk}
         onDeselect={() => store.update(clearSelection)}
         onDeleteSelected={() => store.update(removeSelected)}
-        multi={brief.multi}
+        multi={openPlans.multi}
         onMeta={(patch) => {
-          const own = brief.metaPatch(patch)
+          const own = openPlans.metaPatch(patch)
           change((d) => setMeta(d, own))
         }}
         onItemChange={(uid, patch) => change((d) => updateItem(d, uid, patch))}
@@ -342,7 +342,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         canRead={ui.busy === 'idle' && readFrom !== null}
         readLabel={sysid === null && readFrom !== null ? dict.mReadFrom.replace('{name}', vehicles.get(readFrom)?.name ?? `#${readFrom}`) : dict.mRead}
         targetHint={savedOffline}
-        onUpload={() => (online.length > 1 && !brief.multi ? setTargets(true) : void io.upload())}
+        onUpload={() => (online.length > 1 && !openPlans.multi ? setTargets(true) : void io.upload())}
         onSaveFile={() => void io.saveWaypointsFile()}
         onSaveRgcs={io.saveRgcsFile}
         compare={batch.compare}

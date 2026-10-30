@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { DraftItem } from '../mission/model'
 import { INITIAL_MISSION_UI, type MissionUi } from '../mission/store'
 import { addRow, emptyWorkspace, setHidden, type Workspace } from './model'
-import { briefingMapOf } from './useBriefingMap'
+import { planSetMapOf } from './usePlanSetMap'
 
 const LAT0 = 36.25
 const LON0 = 137.64
@@ -22,22 +22,22 @@ function three(): Workspace {
   return { ...ws, rows: ws.rows.slice(1).map((r, i) => (i === 2 ? { ...r, missing: true } : r)), active: ws.rows[1]!.key }
 }
 
-describe('briefingMapOf', () => {
+describe('planSetMapOf', () => {
   it('others_leave_out_the_active_and_missing_rows', () => {
     const ws = three()
-    const m = briefingMapOf(ws)
+    const m = planSetMapOf(ws)
     expect(m.others.map((o) => o.key)).toEqual([ws.rows[1]!.key])
     expect(m.others[0]!.color).toBe(ws.rows[1]!.color)
     expect(m.others[0]!.predicted).toBeNull()
   })
 
   it('a_single_mission_has_no_others', () => {
-    expect(briefingMapOf(emptyWorkspace()).others).toEqual([])
+    expect(planSetMapOf(emptyWorkspace()).others).toEqual([])
   })
 
   it('hidden_rows_are_not_drawn', () => {
     const ws = three()
-    expect(briefingMapOf(ws).others).toHaveLength(1)
-    expect(briefingMapOf(setHidden(ws, ws.rows[1]!.key, true)).others).toEqual([])
+    expect(planSetMapOf(ws).others).toHaveLength(1)
+    expect(planSetMapOf(setHidden(ws, ws.rows[1]!.key, true)).others).toEqual([])
   })
 })

@@ -1,4 +1,4 @@
-// The briefing's other missions on the planner map (spec 2026-10-20): route, predicted path, fence
+// The other open plans on the planner map (spec 2026-10-20): route, predicted path, fence
 // and rally of every open mission but the one being edited, each in its row colour. No crossing
 // labels (§9): overlaps are read from the colours in 2D and from the 3D view.
 import type { Feature, FeatureCollection, Geometry, Point } from 'geojson'

@@ -59,7 +59,7 @@ vi.mock('./MissionMap', () => ({
 
 const { MissionView } = await import('./MissionView')
 const { MissionStore, edit, selectOne } = await import('./store')
-const { BriefingStore } = await import('../briefing/store')
+const { PlanSetStore } = await import('../plans/store')
 const { rasterStyle } = await import('../map/style')
 
 const dict = t('ja')
@@ -72,7 +72,7 @@ const envelope = (data: unknown) => new Response(JSON.stringify({ success: true,
 function setup() {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => envelope([])))
   const store = new MissionStore()
-  render(<MissionView vehicles={new Map([[1, copter]])} dict={dict} style={rasterStyle('https://t/{z}/{x}/{y}.png', 'x')} store={store} briefing={new BriefingStore()} />)
+  render(<MissionView vehicles={new Map([[1, copter]])} dict={dict} style={rasterStyle('https://t/{z}/{x}/{y}.png', 'x')} store={store} plans={new PlanSetStore()} />)
   return store
 }
 const mapClick = (n: number) => {
@@ -205,7 +205,7 @@ describe('MissionView survey on the map', () => {
     const store = new MissionStore()
     const { draft } = surveyDraft()
     store.update((u) => selectOne(edit(u, draft), draft.surveys[0]!.uids[0]!, false))
-    render(<MissionView vehicles={vehicles} dict={dict} style={rasterStyle('https://t/{z}/{x}/{y}.png', 'x')} store={store} briefing={new BriefingStore()} />)
+    render(<MissionView vehicles={vehicles} dict={dict} style={rasterStyle('https://t/{z}/{x}/{y}.png', 'x')} store={store} plans={new PlanSetStore()} />)
     return store
   }
   const lon2 = () => Number(screen.getByTestId('mission-map').dataset.lon2)

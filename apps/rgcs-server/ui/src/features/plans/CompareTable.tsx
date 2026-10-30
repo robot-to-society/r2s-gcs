@@ -1,4 +1,4 @@
-// The briefing comparison table on the planner's right panel (spec 2026-10-20 §5.4): distance
+// The plan comparison table on the planner's right panel (spec 2026-10-20 §5.4): distance
 // first and large; time and battery are estimates (目安) and the battery turns amber over 70 %.
 import type { Dict } from '../../shared/i18n'
 import { km, mmss } from '../mission/labels'
@@ -22,11 +22,11 @@ interface Props {
 function Line({ line, dict }: { readonly line: CompareLine; readonly dict: Dict }) {
   return (
     <tr>
-      <td className="brief-cmp-name">
-        <span className="brief-dot" style={{ background: line.color }} aria-hidden="true" />
+      <td className="openPlans-cmp-name">
+        <span className="openPlans-dot" style={{ background: line.color }} aria-hidden="true" />
         {line.name}
       </td>
-      <td className={line.vehicle === null ? 't3' : ''}>{line.vehicle ?? dict.bfUnassigned}</td>
+      <td className={line.vehicle === null ? 't3' : ''}>{line.vehicle ?? dict.plUnassigned}</td>
       <td className="num">
         <span className="big">{km(line.distanceM)}</span>
       </td>
@@ -38,18 +38,18 @@ function Line({ line, dict }: { readonly line: CompareLine; readonly dict: Dict 
 
 export function CompareTable({ lines, canWrite, dict, onWriteAll }: Props) {
   return (
-    <div className="sec brief-cmp" data-testid="briefing-compare">
+    <div className="sec openPlans-cmp" data-testid="plans-compare">
       <div className="h1" style={{ marginBottom: 8 }}>
-        {dict.bfCompare}
+        {dict.plCompare}
       </div>
-      <table className="brief-cmp-table">
+      <table className="openPlans-cmp-table">
         <thead>
           <tr>
-            <th>{dict.bfColMission}</th>
-            <th>{dict.bfColVehicle}</th>
-            <th>{dict.bfColDistance}</th>
-            <th>{dict.bfColTime}</th>
-            <th>{dict.bfColBattery}</th>
+            <th>{dict.plColMission}</th>
+            <th>{dict.plColVehicle}</th>
+            <th>{dict.plColDistance}</th>
+            <th>{dict.plColTime}</th>
+            <th>{dict.plColBattery}</th>
           </tr>
         </thead>
         <tbody>
@@ -58,9 +58,9 @@ export function CompareTable({ lines, canWrite, dict, onWriteAll }: Props) {
           ))}
         </tbody>
       </table>
-      <div className="t4 brief-cmp-note">{dict.bfBatteryNote}</div>
-      <button type="button" className="btn btn-primary brief-cmp-write" disabled={!canWrite} onClick={onWriteAll}>
-        {dict.bfWriteAll}
+      <div className="t4 openPlans-cmp-note">{dict.plBatteryNote}</div>
+      <button type="button" className="btn btn-primary openPlans-cmp-write" disabled={!canWrite} onClick={onWriteAll}>
+        {dict.plWriteAll}
       </button>
     </div>
   )

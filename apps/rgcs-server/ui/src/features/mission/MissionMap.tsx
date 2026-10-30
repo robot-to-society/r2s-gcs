@@ -18,8 +18,8 @@ import { surveyBadges } from './surveyBadges'
 import { useBoxSelect } from './boxSelect'
 import { attachArcDrag } from './arcDrag'
 import { useFenceRally, type FenceEdit, type PlanTab } from './fenceMap'
-import type { OtherMission } from '../briefing/overlay'
-import { useBriefingOverlay } from '../briefing/useBriefingOverlay'
+import type { OtherMission } from '../plans/overlay'
+import { usePlanSetOverlay } from '../plans/usePlanSetOverlay'
 import { useSurveyDrawLayer, type SurveyDrawMap } from '../survey/surveyDrawLayer'
 import { useSettled, useSurveyMap, type SurveyMapProps } from '../survey/surveyMap'
 
@@ -63,7 +63,7 @@ interface Props {
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
   readonly onBackgroundClick: () => void
   readonly onContext: (menu: ContextMenu | null) => void
-  /** The briefing's other open missions: drawn dimmed in their colours, not interactive. */
+  /** The other open plans: drawn dimmed in their colours, not interactive. */
   readonly others?: readonly OtherMission[]
   /** The mission's row colour: its 2D and 3D path lines (absent: the altitude gradient). */
   readonly pathColor?: string
@@ -272,7 +272,7 @@ export function MissionMap(props: Props) {
   const boxActive = useRef(tab === 'mission')
   boxActive.current = tab === 'mission' && !drawing
   useBoxSelect(container, badges, onBox, boxActive)
-  useBriefingOverlay({ map, loaded, others: props.others ?? NO_OTHERS, is3d })
+  usePlanSetOverlay({ map, loaded, others: props.others ?? NO_OTHERS, is3d })
   useSurveyDrawLayer({ map, loaded, draw: props.surveyDraw ?? null })
   useSurveyMap({ map, loaded, draft: shown, is3d, editable: tab === 'mission' && !drawing, ...(props.survey ?? NO_SURVEY) })
 

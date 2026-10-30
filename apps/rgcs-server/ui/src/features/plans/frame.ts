@@ -1,4 +1,4 @@
-// What a double-click on a briefing row frames (spec 2026-10-20 §9): the mission's positioned
+// What a double-click on an open plan's row frames (spec 2026-10-20 §9): the mission's positioned
 // items, its fence (polygon vertices, circle outlines) and its rally points.
 import { hasPosition, type LatLon } from '../mission/geo'
 import { circleRing } from '../mission/geofenceModel'

@@ -1,4 +1,4 @@
-// State and orchestration of the briefing comparison table and 割当どおり書き込む (spec 2026-10-20
+// State and orchestration of the plan comparison table and 割当どおり書き込む (spec 2026-10-20
 // §5.4 / §5.5), kept out of MissionView. Missing rows are neither compared nor written.
 import { useEffect, useMemo, useRef } from 'react'
 import type { Mission, VehicleState } from '../../shared/api/types'

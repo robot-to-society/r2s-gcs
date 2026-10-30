@@ -24,7 +24,7 @@ describe('CompareTable', () => {
     expect(cells(0)[4]!.classList.contains('warn')).toBe(false)
     expect(cells(1)[4]!.classList.contains('warn')).toBe(true)
     expect(cells(2).map((c) => c.textContent)).toEqual(['Gamma', '未割当', '1.00 km', '10:00', '—'])
-    expect(rows[0]!.querySelector<HTMLElement>('.brief-dot')?.style.background).toBe('rgb(156, 201, 255)')
+    expect(rows[0]!.querySelector<HTMLElement>('.openPlans-dot')?.style.background).toBe('rgb(156, 201, 255)')
     fireEvent.click(screen.getByRole('button', { name: '割当どおり書き込む' }))
     expect(onWriteAll).toHaveBeenCalledTimes(1)
   })

@@ -3,14 +3,14 @@ import type { Mission } from '../../shared/api/types'
 import { appendWaypoint, emptyDraft, toMission } from '../mission/model'
 import { INITIAL_MISSION_UI, MissionStore, edit, loaded, setBusy } from '../mission/store'
 import { activeRow } from './model'
-import { BriefingStore } from './store'
-import { isPristine, openMission, removeLive, switchIfIdle } from './useBriefing'
+import { PlanSetStore } from './store'
+import { isPristine, openMission, removeLive, switchIfIdle } from './usePlanSet'
 
-const setup = () => ({ b: new BriefingStore(), m: new MissionStore() })
+const setup = () => ({ b: new PlanSetStore(), m: new MissionStore() })
 const mission = (name: string): Mission => ({ ...toMission(appendWaypoint(emptyDraft(), 36, 139)), name })
-const names = (b: BriefingStore) => b.getState().rows.map((r) => r.ui.history.present.mission.name)
+const names = (b: PlanSetStore) => b.getState().rows.map((r) => r.ui.history.present.mission.name)
 
-describe('useBriefing helpers', () => {
+describe('usePlanSet helpers', () => {
   it('an_untouched_editor_takes_the_mission_in_place', () => {
     const { b, m } = setup()
     expect(isPristine(m.getState())).toBe(true)

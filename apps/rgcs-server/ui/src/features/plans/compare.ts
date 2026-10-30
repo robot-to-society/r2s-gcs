@@ -1,4 +1,4 @@
-// Per-mission comparison figures for the briefing table: distance, flight time and an estimated battery use.
+// Per-mission comparison figures for the plan comparison table: distance, flight time and an estimated battery use.
 import type { Draft } from '../mission/model'
 import { stats } from '../mission/summary'
 

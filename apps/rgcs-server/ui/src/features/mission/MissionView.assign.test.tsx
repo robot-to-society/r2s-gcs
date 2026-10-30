@@ -10,7 +10,7 @@ vi.mock('./MissionMap', () => ({ MissionMap: () => <div data-testid="mission-map
 
 const { MissionView } = await import('./MissionView')
 const { MissionStore } = await import('./store')
-const { BriefingStore } = await import('../briefing/store')
+const { PlanSetStore } = await import('../plans/store')
 const { appendWaypoint, emptyDraft, toMission } = await import('./model')
 const { serializeRgcsMission } = await import('./files')
 const { rasterStyle } = await import('../map/style')
@@ -26,10 +26,10 @@ function setup(opts: { opsSelected?: number | null; extra?: VehicleState[]; fetc
   const fetchMock = vi.fn<typeof fetch>(async (input) => (opts.fetchImpl ? opts.fetchImpl(String(input)) : envelope([])))
   vi.stubGlobal('fetch', fetchMock)
   const store = new MissionStore()
-  const briefing = new BriefingStore()
+  const plans = new PlanSetStore()
   const vehicles = new Map([[1, copter(1)], [2, copter(2)], ...(opts.extra ?? []).map((v) => [v.sysid, v] as const)])
-  render(<MissionView vehicles={vehicles} dict={t('ja')} style={style} store={store} briefing={briefing} opsSelected={opts.opsSelected ?? null} />)
-  return { store, briefing, fetchMock }
+  render(<MissionView vehicles={vehicles} dict={t('ja')} style={style} store={store} plans={plans} opsSelected={opts.opsSelected ?? null} />)
+  return { store, plans, fetchMock }
 }
 
 function missionFile(name: string, lat0: number, sysid: number | null = null): File {
@@ -41,7 +41,7 @@ const pick = async (files: File[]) => {
     fireEvent.change(screen.getByTestId('mission-file'), { target: { files } })
   })
 }
-const briefRows = () => [...document.querySelectorAll<HTMLElement>('.brief-row')]
+const planRows = () => [...document.querySelectorAll<HTMLElement>('.openPlans-row')]
 const editor = () => within(screen.getByRole('complementary', { name: 'editor' }))
 const panelSelect = () => editor().getByLabelText('対象機体') as HTMLSelectElement
 const writeButton = () => editor().getByRole('button', { name: '機体に書き込む' })
@@ -50,17 +50,17 @@ describe('MissionView write target (§8)', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('an_unassigned_row_never_falls_back_to_another_rows_vehicle', async () => {
-    const { store, briefing } = setup()
+    const { store, plans } = setup()
     await pick([missionFile('Alpha', 36), missionFile('Beta', 35)])
-    fireEvent.click(briefRows()[0]!.querySelector('.brief-name')!)
+    fireEvent.click(planRows()[0]!.querySelector('.openPlans-name')!)
     expect(store.getState().history.present.mission.name).toBe('Alpha')
     // A gets UAV-02 from the right panel: the row is assigned, the mission's own vehicle is not written
     fireEvent.change(panelSelect(), { target: { value: '2' } })
-    expect(briefing.getState().rows[0]!.sysid).toBe(2)
+    expect(plans.getState().rows[0]!.sysid).toBe(2)
     expect(store.getState().history.present.mission.sysid).toBeNull()
     // UAV-02 moves to B in the list: A is unassigned
-    fireEvent.change(within(briefRows()[1]!).getByLabelText('割当機体'), { target: { value: '2' } })
-    expect(briefing.getState().rows[0]!.sysid).toBeNull()
+    fireEvent.change(within(planRows()[1]!).getByLabelText('割当機体'), { target: { value: '2' } })
+    expect(plans.getState().rows[0]!.sysid).toBeNull()
     expect(panelSelect().value).toBe('')
     expect(panelSelect().selectedOptions[0]!.textContent).toBe('未割当')
     expect(writeButton()).toBeDisabled()
@@ -68,28 +68,28 @@ describe('MissionView write target (§8)', () => {
   })
 
   it('a_single_unassigned_mission_cannot_be_written_until_a_vehicle_is_picked', async () => {
-    const { store, briefing } = setup()
+    const { store, plans } = setup()
     await pick([missionFile('Alpha', 36)])
-    expect(briefRows()).toHaveLength(1)
+    expect(planRows()).toHaveLength(1)
     // both selects say 未割当: no hidden fallback to the first vehicle
     expect(panelSelect().value).toBe('')
     expect(panelSelect().selectedOptions[0]!.textContent).toBe('未割当')
-    expect((within(briefRows()[0]!).getByLabelText('割当機体') as HTMLSelectElement).value).toBe('')
+    expect((within(planRows()[0]!).getByLabelText('割当機体') as HTMLSelectElement).value).toBe('')
     expect(writeButton()).toBeDisabled()
     expect(editor().getByText('書込先の機体を選んでください')).toBeInTheDocument()
     fireEvent.change(panelSelect(), { target: { value: '2' } })
-    expect(briefing.getState().rows[0]!.sysid).toBe(2)
+    expect(plans.getState().rows[0]!.sysid).toBe(2)
     expect(store.getState().history.present.mission.sysid).toBe(2)
     expect(writeButton()).toBeEnabled()
     expect(editor().queryByText('書込先の機体を選んでください')).not.toBeInTheDocument()
   })
 
   it('a_mission_saved_for_a_connected_vehicle_opens_with_it_visibly_selected', async () => {
-    const { briefing } = setup()
+    const { plans } = setup()
     await pick([missionFile('Alpha', 36, 2)])
     expect(panelSelect().value).toBe('2')
-    expect((within(briefRows()[0]!).getByLabelText('割当機体') as HTMLSelectElement).value).toBe('2')
-    expect(briefing.getState().rows[0]!.sysid).toBe(2)
+    expect((within(planRows()[0]!).getByLabelText('割当機体') as HTMLSelectElement).value).toBe('2')
+    expect(plans.getState().rows[0]!.sysid).toBe(2)
     expect(writeButton()).toBeEnabled()
   })
 
@@ -103,14 +103,14 @@ describe('MissionView write target (§8)', () => {
 
   it('read_from_vehicle_preselects_the_ops_selection_and_assigns_what_it_read', async () => {
     const read = toMission(appendWaypoint(appendWaypoint(emptyDraft(), 36, 139), 36.01, 139))
-    const { fetchMock, briefing } = setup({ opsSelected: 2, fetchImpl: (url) => envelope(url === '/api/vehicles/2/mission' ? { ...read, sysid: 2 } : []) })
+    const { fetchMock, plans } = setup({ opsSelected: 2, fetchImpl: (url) => envelope(url === '/api/vehicles/2/mission' ? { ...read, sysid: 2 } : []) })
     const btn = editor().getByRole('button', { name: 'UAV-02 から読込' })
     expect(btn).toBeEnabled()
     await act(async () => {
       fireEvent.click(btn)
     })
     expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/vehicles/2/mission')).toBe(true)
-    expect(briefing.getState().rows.find((r) => r.key === briefing.getState().active)!.sysid).toBe(2)
+    expect(plans.getState().rows.find((r) => r.key === plans.getState().active)!.sysid).toBe(2)
     expect(panelSelect().value).toBe('2')
   })
 })

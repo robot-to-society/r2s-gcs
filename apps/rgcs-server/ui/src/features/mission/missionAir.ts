@@ -15,7 +15,7 @@ import type { FenceZone, VehicleState } from '../../shared/api/types'
 import { haversineM, hasPosition, type LatLon } from './geo'
 import type { Draft, DraftItem } from './model'
 import type { PathPoint } from '../flightpath/planePath'
-import type { OtherMission } from '../briefing/overlay'
+import type { OtherMission } from '../plans/overlay'
 import { surveyOutlines } from '../survey/surveyAir'
 
 const POST: Rgb = [0xbf / 255, 0xe0 / 255, 1]
@@ -148,7 +148,7 @@ function routeOf(draft: Draft, elevAt: ElevAt): Route {
   return { items, home, homeGround, alts, stops, legs }
 }
 
-/** The base the dimmed briefing lines mix toward (`AirVertex.c` has no alpha). */
+/** The base the dimmed lines of the other plans mix toward (`AirVertex.c` has no alpha). */
 const DIM_BASE: Rgb = [0x11 / 255, 0x16 / 255, 0x1e / 255]
 const DIM = 0.45
 
@@ -157,13 +157,13 @@ const hexRgb = (hex: string): Rgb => {
   return Number.isFinite(n) ? [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255] : DIM_BASE
 }
 
-/** The briefing's row colour mixed DIM toward DIM_BASE. */
+/** The plan's row colour mixed DIM toward DIM_BASE. */
 export function dimmed(hex: string): Rgb {
   const c = hexRgb(hex)
   return [c[0] + (DIM_BASE[0] - c[0]) * DIM, c[1] + (DIM_BASE[1] - c[1]) * DIM, c[2] + (DIM_BASE[2] - c[2]) * DIM]
 }
 
-/** One 3D line per other briefing mission along its positioned items, in its dimmed row colour (no posts). */
+/** One 3D line per other open plan along its positioned items, in its dimmed row colour (no posts). */
 export function othersAirLines(others: readonly OtherMission[], elevAt: ElevAt): AirVertex[][] {
   return others.flatMap((o) => {
     const { legs } = routeOf(o.draft, elevAt)
@@ -234,7 +234,7 @@ interface Args {
   readonly ceiling?: number | null
   readonly vehicleHome?: LatLon | null
   readonly predicted?: Predicted | null
-  /** The briefing's other shown missions, drawn as dimmed lines beside the plan. */
+  /** The other shown plans, drawn as dimmed lines beside the plan. */
   readonly others?: readonly OtherMission[]
   /** The mission's row colour (null: the climb scale). */
   readonly color?: string | null

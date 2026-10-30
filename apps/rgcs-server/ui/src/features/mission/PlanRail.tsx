@@ -5,7 +5,7 @@ import { IconPanelRightClose, IconPanelRightOpen } from '../../shared/ui/icons'
 /** In a right panel's header: folds the panel to its rail. */
 export function CollapseButton({ dict, onCollapse }: { readonly dict: Dict; readonly onCollapse: () => void }) {
   return (
-    <button type="button" className="btn-icon sm plan-collapse" title={dict.bfPanelCollapse} aria-label={dict.bfPanelCollapse} onClick={onCollapse}>
+    <button type="button" className="btn-icon sm plan-collapse" title={dict.plPanelCollapse} aria-label={dict.plPanelCollapse} onClick={onCollapse}>
       <IconPanelRightClose size={16} />
     </button>
   )
@@ -15,7 +15,7 @@ export function CollapseButton({ dict, onCollapse }: { readonly dict: Dict; read
 export function PlanRail({ dict, onExpand }: { readonly dict: Dict; readonly onExpand: () => void }) {
   return (
     <div className="g panel float float-r plan-rail">
-      <button type="button" className="btn-icon" title={dict.bfPanelExpand} aria-label={dict.bfPanelExpand} onClick={onExpand}>
+      <button type="button" className="btn-icon" title={dict.plPanelExpand} aria-label={dict.plPanelExpand} onClick={onExpand}>
         <IconPanelRightOpen size={18} />
       </button>
     </div>

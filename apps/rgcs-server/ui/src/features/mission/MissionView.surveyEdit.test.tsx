@@ -17,7 +17,7 @@ vi.mock('./MissionMap', () => ({
 const { MissionView } = await import('./MissionView')
 const { MissionStore, edit, selectOne } = await import('./store')
 const { appendWaypoint, updateItem } = await import('./model')
-const { BriefingStore } = await import('../briefing/store')
+const { PlanSetStore } = await import('../plans/store')
 const { rasterStyle } = await import('../map/style')
 
 const dict = t('ja')
@@ -31,7 +31,7 @@ function seeded(select?: (survey: readonly number[], plain: number) => number) {
   const survey = d.surveys[0]!.uids
   const plain = d.items.at(-1)!.uid
   store.update((u) => selectOne(edit(u, d), select ? select(survey, plain) : survey[1]!, false))
-  render(<MissionView vehicles={new Map()} dict={dict} style={rasterStyle('https://t/{z}/{x}/{y}.png', 'x')} store={store} briefing={new BriefingStore()} />)
+  render(<MissionView vehicles={new Map()} dict={dict} style={rasterStyle('https://t/{z}/{x}/{y}.png', 'x')} store={store} plans={new PlanSetStore()} />)
   return { store, survey, plain }
 }
 const view = () => screen.getByTestId('mission-view')
