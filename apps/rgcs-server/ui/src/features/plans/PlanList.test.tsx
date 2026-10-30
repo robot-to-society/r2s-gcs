@@ -27,7 +27,7 @@ function twoRows(): Workspace {
 function setup(ws: Workspace = twoRows(), liveDirty = false) {
   const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn() }
   render(<PlanList workspace={ws} liveDirty={liveDirty} vehicles={vehicles} dict={dict} {...on} />)
-  const rows = () => [...document.querySelectorAll<HTMLElement>('.openPlans-row')]
+  const rows = () => [...document.querySelectorAll<HTMLElement>('.plans-row')]
   return { ws, on, rows }
 }
 
@@ -37,20 +37,20 @@ describe('PlanList', () => {
     expect(rows()).toHaveLength(2)
     expect(rows()[0]!.getAttribute('aria-current')).toBe('true')
     expect(rows()[1]!.hasAttribute('aria-current')).toBe(false)
-    expect(rows().map((r) => r.querySelector('.openPlans-name')?.textContent)).toEqual(['Alpha', 'Beta'])
-    const chips = rows().map((r) => r.querySelector<HTMLElement>('.openPlans-chip')!.style.background)
+    expect(rows().map((r) => r.querySelector('.plans-name')?.textContent)).toEqual(['Alpha', 'Beta'])
+    const chips = rows().map((r) => r.querySelector<HTMLElement>('.plans-chip')!.style.background)
     expect(chips[0]).not.toBe(chips[1])
     expect(ws.rows.map((r) => r.color)).toEqual([PALETTE[0], PALETTE[1]])
     const selects = rows().map((r) => within(r).getByLabelText('割当機体') as HTMLSelectElement)
     expect(selects.map((s) => s.value)).toEqual(['', '2'])
     expect(within(selects[0]!).getByRole('option', { name: '未割当' })).toBeInTheDocument()
     // the active row follows the live editor's flag, a parked one its own
-    expect(rows().map((r) => r.querySelector('.openPlans-dirty') !== null)).toEqual([true, true])
+    expect(rows().map((r) => r.querySelector('.plans-dirty') !== null)).toEqual([true, true])
   })
 
   it('the_active_row_has_no_mark_when_the_live_editor_is_clean', () => {
     const { rows } = setup(twoRows(), false)
-    expect(rows().map((r) => r.querySelector('.openPlans-dirty') !== null)).toEqual([false, true])
+    expect(rows().map((r) => r.querySelector('.plans-dirty') !== null)).toEqual([false, true])
   })
 
   it('clicking_a_row_switches', () => {

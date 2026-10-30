@@ -38,7 +38,7 @@ export function PlanList({ workspace, liveDirty, busy = false, ...rest }: Props)
   const n = workspace.rows.length
   return (
     <>
-      <div className="openPlans-list hair" role="list" aria-label={rest.dict.plList}>
+      <div className="plans-list hair" role="list" aria-label={rest.dict.plList}>
         {workspace.rows.map((row, i) => {
           const active = row.key === workspace.active
           return <OpenPlanRow key={row.key} {...rest} row={row} active={active} dirty={active ? liveDirty : row.ui.dirty} first={i === 0} last={i === n - 1} locked={active && busy} />
@@ -53,21 +53,21 @@ function OpenPlanRow({ row, active, dirty, first, last, locked, vehicles, dict, 
   const shown = !row.hidden
   const known = row.sysid === null || vehicles.some((v) => v.sysid === row.sysid)
   return (
-    <div className={`openPlans-row${active ? ' on' : ''}`} role="listitem" aria-current={active ? 'true' : undefined} onClick={() => !active && onSwitch(row.key)} onDoubleClick={() => onFrame?.(row.key)}>
-      <span className="openPlans-chip-wrap" onClick={stop} onDoubleClick={stop}>
-        <button type="button" className="openPlans-chip" aria-label={dict.plColor} style={{ background: row.color }} onClick={() => setPalette((p) => !p)} />
+    <div className={`plans-row${active ? ' on' : ''}`} role="listitem" aria-current={active ? 'true' : undefined} onClick={() => !active && onSwitch(row.key)} onDoubleClick={() => onFrame?.(row.key)}>
+      <span className="plans-chip-wrap" onClick={stop} onDoubleClick={stop}>
+        <button type="button" className="plans-chip" aria-label={dict.plColor} style={{ background: row.color }} onClick={() => setPalette((p) => !p)} />
         {palette && <ColorPopover current={row.color} dict={dict} onPick={(c) => onColor(row.key, c)} onClose={() => setPalette(false)} />}
       </span>
-      <span className="openPlans-name" title={`${row.ui.history.present.mission.name}\n${dict.plFrameHint}`}>
+      <span className="plans-name" title={`${row.ui.history.present.mission.name}\n${dict.plFrameHint}`}>
         {row.ui.history.present.mission.name}
       </span>
       {dirty && (
-        <span className="openPlans-dirty" title={dict.plUnsaved} aria-label={dict.plUnsaved}>
+        <span className="plans-dirty" title={dict.plUnsaved} aria-label={dict.plUnsaved}>
           ●
         </span>
       )}
-      {row.missing && <span className="rg-natag openPlans-missing">{dict.plMissing}</span>}
-      <select className="rg-sel openPlans-sel" aria-label={dict.plVehicle} value={row.sysid ?? ''} onClick={stop} onDoubleClick={stop} onChange={(e) => onAssign(row.key, e.target.value === '' ? null : Number(e.target.value))}>
+      {row.missing && <span className="rg-natag plans-missing">{dict.plMissing}</span>}
+      <select className="rg-sel plans-sel" aria-label={dict.plVehicle} value={row.sysid ?? ''} onClick={stop} onDoubleClick={stop} onChange={(e) => onAssign(row.key, e.target.value === '' ? null : Number(e.target.value))}>
         <option value="">{dict.plUnassigned}</option>
         {vehicles.map((v) => (
           <option key={v.sysid} value={v.sysid}>
@@ -76,7 +76,7 @@ function OpenPlanRow({ row, active, dirty, first, last, locked, vehicles, dict, 
         ))}
         {!known && <option value={row.sysid ?? ''}>{`#${row.sysid}`}</option>}
       </select>
-      <span className="openPlans-ctl" onClick={stop} onDoubleClick={stop}>
+      <span className="plans-ctl" onClick={stop} onDoubleClick={stop}>
         <button type="button" className="btn-icon sm" aria-label={dict.plShow} title={dict.plShow} aria-pressed={shown} disabled={active} onClick={() => onHidden(row.key, shown)}>
           {shown ? <IconEye /> : <IconEyeOff />}
         </button>
@@ -112,12 +112,12 @@ function ColorPopover({ current, dict, onPick, onClose }: PopoverProps) {
     return () => document.removeEventListener('mousedown', away)
   }, [onClose])
   return (
-    <div ref={ref} className="g-strong openPlans-pop" role="dialog" aria-label={dict.plColor}>
+    <div ref={ref} className="g-strong plans-pop" role="dialog" aria-label={dict.plColor}>
       {PALETTE.map((c) => (
         <button
           key={c}
           type="button"
-          className={`openPlans-swatch${c === current ? ' on' : ''}`}
+          className={`plans-swatch${c === current ? ' on' : ''}`}
           aria-label={c}
           style={{ background: c }}
           onClick={() => {

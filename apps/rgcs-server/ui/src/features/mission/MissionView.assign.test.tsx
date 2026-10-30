@@ -41,7 +41,7 @@ const pick = async (files: File[]) => {
     fireEvent.change(screen.getByTestId('mission-file'), { target: { files } })
   })
 }
-const planRows = () => [...document.querySelectorAll<HTMLElement>('.openPlans-row')]
+const planRows = () => [...document.querySelectorAll<HTMLElement>('.plans-row')]
 const editor = () => within(screen.getByRole('complementary', { name: 'editor' }))
 const panelSelect = () => editor().getByLabelText('対象機体') as HTMLSelectElement
 const writeButton = () => editor().getByRole('button', { name: '機体に書き込む' })
@@ -52,7 +52,7 @@ describe('MissionView write target (§8)', () => {
   it('an_unassigned_row_never_falls_back_to_another_rows_vehicle', async () => {
     const { store, plans } = setup()
     await pick([missionFile('Alpha', 36), missionFile('Beta', 35)])
-    fireEvent.click(planRows()[0]!.querySelector('.openPlans-name')!)
+    fireEvent.click(planRows()[0]!.querySelector('.plans-name')!)
     expect(store.getState().history.present.mission.name).toBe('Alpha')
     // A gets UAV-02 from the right panel: the row is assigned, the mission's own vehicle is not written
     fireEvent.change(panelSelect(), { target: { value: '2' } })

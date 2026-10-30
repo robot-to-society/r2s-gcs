@@ -566,7 +566,7 @@ describe('MissionMap', () => {
   describe('plans overlay', () => {
     const brLayers = ['plans-fence', 'plans-fence-line', 'plans-paths', 'plans-predicted', 'plans-rally']
     const other = { key: 'r2', color: '#5fd39b', draft: draft3(), predicted: null }
-    const labels = () => created.markers.filter((m) => m.el.classList.contains('openPlans-label') && !m.removed)
+    const labels = () => created.markers.filter((m) => m.el.classList.contains('plans-label') && !m.removed)
 
     it('a_single_plan_adds_no_other_plan_layers', () => {
       renderMap()
@@ -593,7 +593,7 @@ describe('MissionMap', () => {
       renderMap({ draft: activeRow(ws).ui.history.present, ...bm })
       expect(created.maps[0]!.layers.filter((id) => id.startsWith('plans'))).toEqual(brLayers)
       expect(labels()).toHaveLength(0)
-      expect(document.querySelector('.openPlans-label')).toBeNull()
+      expect(document.querySelector('.plans-label')).toBeNull()
     })
   })
 })

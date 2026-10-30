@@ -49,7 +49,7 @@ const addPoints = (n: number) => {
 }
 const wpRows = () => [...document.querySelectorAll<HTMLElement>('.wrow')]
 const rows = () => wpRows().map((li) => li.querySelector('.cmd-label')?.textContent)
-const planRows = () => [...document.querySelectorAll<HTMLElement>('.openPlans-row')]
+const planRows = () => [...document.querySelectorAll<HTMLElement>('.plans-row')]
 const missionFile = (name: string, points: number): File => {
   const draft = Array.from({ length: points }).reduce<ReturnType<typeof emptyDraft>>((d, _, i) => appendWaypoint(d, 36 + i * 0.001, 139), emptyDraft())
   return new File([serializeRgcsMission({ ...toMission(draft), name })], `${name}.rgcsmission`)
@@ -412,7 +412,7 @@ describe('MissionView', () => {
     const alphaItems = store.getState().history.present.items.length
     expect(alphaItems).toBeGreaterThan(0)
     await loadFile(missionFile('Beta', 1))
-    expect(planRows().map((r) => r.querySelector('.openPlans-name')?.textContent)).toEqual(['Alpha', 'Beta'])
+    expect(planRows().map((r) => r.querySelector('.plans-name')?.textContent)).toEqual(['Alpha', 'Beta'])
     expect(planRows()[1]!.getAttribute('aria-current')).toBe('true')
     expect(store.getState().history.present.mission.name).toBe('Beta')
     fireEvent.click(within(planRows()[0]!).getByText('Alpha'))
@@ -455,7 +455,7 @@ describe('MissionView', () => {
     // copy in B, switch back to A: B's copy is pasted there
     fireEvent.click(wpRows()[1]!)
     fireEvent.keyDown(root, { key: 'c', metaKey: true })
-    fireEvent.click(planRows()[0]!.querySelector('.openPlans-name')!)
+    fireEvent.click(planRows()[0]!.querySelector('.plans-name')!)
     expect(store.getState().history.present.mission.name).not.toBe('Beta')
     fireEvent.keyDown(root, { key: 'v', metaKey: true })
     expect(lats()).toContain(36.001)

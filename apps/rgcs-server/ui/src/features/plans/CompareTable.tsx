@@ -22,8 +22,8 @@ interface Props {
 function Line({ line, dict }: { readonly line: CompareLine; readonly dict: Dict }) {
   return (
     <tr>
-      <td className="openPlans-cmp-name">
-        <span className="openPlans-dot" style={{ background: line.color }} aria-hidden="true" />
+      <td className="plans-cmp-name">
+        <span className="plans-dot" style={{ background: line.color }} aria-hidden="true" />
         {line.name}
       </td>
       <td className={line.vehicle === null ? 't3' : ''}>{line.vehicle ?? dict.plUnassigned}</td>
@@ -38,11 +38,11 @@ function Line({ line, dict }: { readonly line: CompareLine; readonly dict: Dict 
 
 export function CompareTable({ lines, canWrite, dict, onWriteAll }: Props) {
   return (
-    <div className="sec openPlans-cmp" data-testid="plans-compare">
+    <div className="sec plans-cmp" data-testid="plans-compare">
       <div className="h1" style={{ marginBottom: 8 }}>
         {dict.plCompare}
       </div>
-      <table className="openPlans-cmp-table">
+      <table className="plans-cmp-table">
         <thead>
           <tr>
             <th>{dict.plColMission}</th>
@@ -58,8 +58,8 @@ export function CompareTable({ lines, canWrite, dict, onWriteAll }: Props) {
           ))}
         </tbody>
       </table>
-      <div className="t4 openPlans-cmp-note">{dict.plBatteryNote}</div>
-      <button type="button" className="btn btn-primary openPlans-cmp-write" disabled={!canWrite} onClick={onWriteAll}>
+      <div className="t4 plans-cmp-note">{dict.plBatteryNote}</div>
+      <button type="button" className="btn btn-primary plans-cmp-write" disabled={!canWrite} onClick={onWriteAll}>
         {dict.plWriteAll}
       </button>
     </div>

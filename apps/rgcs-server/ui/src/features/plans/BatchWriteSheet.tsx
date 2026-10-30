@@ -85,7 +85,7 @@ interface ChoiceProps {
 /** 前のフェンス N 区画が残っています + 消す / 残す. */
 function Choice({ text, erase, disabled, dict, onChange }: ChoiceProps) {
   return (
-    <div className="row openPlans-left">
+    <div className="row plans-left">
       <span className="hint caution grow">{text}</span>
       <div className="seg sm" role="group" aria-label={text}>
         <span className="lens" style={{ transform: `translateX(${erase ? 0 : 100}%)` }} />
@@ -113,7 +113,7 @@ interface LeftProps {
 /** Nothing when the mission brings its own (or nothing is left); 不明 when the read failed. */
 function LeftoverLine({ own, left, texts, ...rest }: LeftProps) {
   if (own > 0 || left === undefined || left === 0) return null
-  if (left === null) return <div className="t3 openPlans-left">{texts[1]}</div>
+  if (left === null) return <div className="t3 plans-left">{texts[1]}</div>
   return <Choice text={texts[0].replace('{n}', String(left))} {...rest} />
 }
 
@@ -122,7 +122,7 @@ export function BatchWriteSheet({ lines, leftovers, states, running, dict, onWri
   const started = running || states.size > 0
   const choose = (key: string, patch: Partial<Clear>) => setClear((m) => new Map([...m, [key, { ...(m.get(key) ?? KEEP), ...patch }]]))
   return (
-    <aside className="g-strong sheet up-sheet openPlans-sheet" aria-label={dict.plWriteAll} role="dialog">
+    <aside className="g-strong sheet up-sheet plans-sheet" aria-label={dict.plWriteAll} role="dialog">
       <div className="panel-h">
         <span className="h1">{dict.plWriteAll}</span>
         <span className="grow" />
@@ -130,23 +130,23 @@ export function BatchWriteSheet({ lines, leftovers, states, running, dict, onWri
           <IconClose />
         </button>
       </div>
-      {leftovers === null && <div className="t3 openPlans-reading">{dict.plReading}</div>}
-      <ul className="openPlans-sheet-list">
+      {leftovers === null && <div className="t3 plans-reading">{dict.plReading}</div>}
+      <ul className="plans-sheet-list">
         {lines.map((l) => {
           const left = leftovers?.get(l.sysid)
           const c = clear.get(l.key) ?? KEEP
           const phase = phaseText(states.get(l.key), dict)
           return (
-            <li key={l.key} className="openPlans-sheet-row">
+            <li key={l.key} className="plans-sheet-row">
               <div className="row" style={{ gap: 8 }}>
-                <span className="openPlans-dot" style={{ background: l.color }} aria-hidden="true" />
-                <span className="openPlans-sheet-name">{`${l.name} → ${l.vehicle}`}</span>
+                <span className="plans-dot" style={{ background: l.color }} aria-hidden="true" />
+                <span className="plans-sheet-name">{`${l.name} → ${l.vehicle}`}</span>
                 <span className="grow" />
                 <span className="num t2">{km(l.distanceM)}</span>
               </div>
               <LeftoverLine own={l.mission.fence.length} left={left?.fence} texts={[dict.plLeftFence, dict.plLeftFenceUnknown]} erase={c.fence} disabled={started} dict={dict} onChange={(fence) => choose(l.key, { fence })} />
               <LeftoverLine own={l.mission.rally.length} left={left?.rally} texts={[dict.plLeftRally, dict.plLeftRallyUnknown]} erase={c.rally} disabled={started} dict={dict} onChange={(rally) => choose(l.key, { rally })} />
-              {phase !== null && <div className={`openPlans-phase ${states.get(l.key)?.phase ?? ''}`}>{phase}</div>}
+              {phase !== null && <div className={`plans-phase ${states.get(l.key)?.phase ?? ''}`}>{phase}</div>}
             </li>
           )
         })}
