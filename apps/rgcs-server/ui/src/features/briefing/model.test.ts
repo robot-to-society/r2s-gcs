@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_MISSION_UI } from '../mission/store'
-import { PALETTE, activate, activeRow, addRow, assign, emptyWorkspace, moveRow, parkActive, removeRow, reseedKeys, setColor, setHidden } from './model'
+import { PALETTE, activate, activeRow, addRow, assign, emptyWorkspace, forgetSaved, moveRow, parkActive, removeRow, reseedKeys, setColor, setHidden } from './model'
 
 const saved = (id: number) => ({ ...INITIAL_MISSION_UI, savedId: id })
 
@@ -18,6 +18,17 @@ function hs(hex: string): { h: number; s: number } {
 const hueDist = (a: number, b: number) => Math.min(Math.abs(a - b) % 360, 360 - (Math.abs(a - b) % 360))
 
 describe('briefing workspace model', () => {
+  it('forget_saved_turns_the_rows_of_a_deleted_plan_into_unsaved_ones', () => {
+    const ws = addRow(addRow(emptyWorkspace(), saved(3)), saved(4))
+    const out = forgetSaved(ws, 3)
+    const row = out.rows.find((r) => r.ui.history === ws.rows[1]!.ui.history)!
+    expect(row.ui.savedId).toBeNull()
+    expect(row.ui.dirty).toBe(true)
+    expect(row.missing).toBe(false)
+    expect(out.rows[2]!.ui.savedId).toBe(4)
+    expect(forgetSaved(ws, 99)).toBe(ws)
+  })
+
   it('palette_colours_are_distinct_and_the_next_colour_is_the_farthest_hue', () => {
     expect(PALETTE).toHaveLength(8)
     const hues = PALETTE.map((c) => hs(c))

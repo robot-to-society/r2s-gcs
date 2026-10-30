@@ -61,6 +61,8 @@ export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> 
   } finally {
     if (timer) clearTimeout(timer)
   }
+  // 204 No Content (e.g. DELETE /api/missions/{id}): success with no envelope
+  if (res.status === 204) return undefined as T
   const envelope = await parseEnvelope<T>(res)
   if (envelope.success) return envelope.data
   if (res.status === 401) onUnauthorized?.()

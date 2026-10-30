@@ -288,6 +288,31 @@ describe('MissionView', () => {
     expect(screen.queryByText('未保存')).not.toBeInTheDocument()
   })
 
+  it('deleting_the_open_plan_from_the_saved_list_keeps_it_open_as_unsaved', async () => {
+    const dict = t('ja')
+    const { fetchMock } = setup((url, init) => {
+      if (url === '/api/missions' && init?.method === 'POST') return envelope({ ...JSON.parse(String(init.body)), id: 5 })
+      if (url === '/api/missions') return envelope([{ id: 5, name: 'North field', sysid: null, item_count: 2, updated_at: 0 }])
+      if (url === '/api/missions/5' && init?.method === 'DELETE') return new Response(null, { status: 204 })
+      return envelope([])
+    })
+    addPoints(2)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'ライブラリに保存' }))
+    })
+    expect(screen.queryByText('未保存')).not.toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '開く' }))
+    })
+    fireEvent.click(screen.getByRole('button', { name: dict.mDeleteNamed.replace('{name}', 'North field') }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: dict.mDeleteYes }))
+    })
+    expect(fetchMock.mock.calls.some(([u, i]) => String(u) === '/api/missions/5' && i?.method === 'DELETE')).toBe(true)
+    expect(screen.queryByText('North field')).toBeNull()
+    expect(screen.getByText('未保存')).toBeInTheDocument()
+  })
+
   it('upload_with_fatal_findings_shows_them_and_does_not_upload', async () => {
     const { fetchMock } = setup((url) => {
       if (url.startsWith('/api/missions/validate')) {

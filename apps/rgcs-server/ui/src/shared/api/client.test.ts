@@ -24,6 +24,11 @@ describe('apiFetch', () => {
     expect(init?.method).toBe('POST')
   })
 
+  it('accepts an empty 204 answer (DELETE)', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    await expect(apiFetch('/api/missions/5', { method: 'DELETE' })).resolves.toBeUndefined()
+  })
+
   it('sends JSON bodies and unwraps success envelopes', async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { a: 1 } }))
     const data = await apiFetch<{ a: number }>('/api/x', { method: 'POST', body: { q: 'v' } })

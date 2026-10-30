@@ -5,11 +5,11 @@ import type { Mission } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { hhmmss } from '../../shared/format/time'
 import { openMission } from '../briefing/useBriefing'
-import { assign } from '../briefing/model'
+import { assign, forgetSaved } from '../briefing/model'
 import type { BriefingStore } from '../briefing/store'
 import { localResultId } from '../vehicles/localResultId'
 import type { VehicleStore } from '../vehicles/store'
-import { createMission, downloadMission, exportWaypoints, getMission, importWaypoints, updateMission, uploadMission, validateMission } from './api'
+import { createMission, deleteMission, downloadMission, exportWaypoints, getMission, importWaypoints, updateMission, uploadMission, validateMission } from './api'
 import { downloadText, parseRgcsMission, readFileText, safeFileStem, serializeRgcsMission } from './files'
 import { toMission } from './model'
 import { INITIAL_MISSION_UI, fresh as freshUi, loaded, markSaved, setBusy, setFindings, setReport, type MissionStore, type MissionUi } from './store'
@@ -154,6 +154,19 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
     }
   }
 
+  /** Deletes a saved plan; its open rows stay as unsaved plans. True when the server deleted it. */
+  const deleteSaved = async (id: number): Promise<boolean> => {
+    try {
+      await deleteMission(id)
+    } catch (e) {
+      result('mission_delete', false, errText(e))
+      return false
+    }
+    briefing.update((w) => forgetSaved(w, id))
+    store.update((ui) => (ui.savedId === id ? { ...ui, savedId: null, dirty: true } : ui))
+    return true
+  }
+
   return {
     fitRequest,
     picker,
@@ -168,5 +181,6 @@ export function useMissionIo(store: MissionStore, briefing: BriefingStore, sysid
     loadFile,
     loadFiles,
     openSaved,
+    deleteSaved,
   }
 }

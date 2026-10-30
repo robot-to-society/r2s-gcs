@@ -82,6 +82,7 @@ import {
   MoveVertical,
   Navigation2,
   Check,
+  Trash2,
 } from 'lucide-react'
 
 interface IconProps {
@@ -160,6 +161,7 @@ export const IconAltitude = ({ size = 18, className }: IconProps) => <Lucide ico
 export const IconRepeat = ({ size = 18, className }: IconProps) => <Lucide icon={Repeat} size={size} className={className} />
 export const IconPower = ({ size = 18, className }: IconProps) => <Lucide icon={Power} size={size} className={className} />
 export const IconPowerOff = ({ size = 18, className }: IconProps) => <Lucide icon={PowerOff} size={size} className={className} />
+export const IconTrash = ({ size = 16, className }: IconProps) => <Lucide icon={Trash2} size={size} className={className} />
 export const IconEllipsis = ({ size = 18, className }: IconProps) => <Lucide icon={Ellipsis} size={size} className={className} />
 
 /** Multicopter: not in Lucide; the prototype's `#i-drone` (24 grid, stroke 2). */

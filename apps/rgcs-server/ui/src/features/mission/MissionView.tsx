@@ -364,7 +364,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         />
       )}
       {batch.sheet}
-      {io.picker && <MissionPicker dict={dict} title={dict.mSaved} onClose={io.closePicker} onPick={(row) => void io.openSaved(row.id)} />}
+      {io.picker && <MissionPicker dict={dict} title={dict.mSaved} onClose={io.closePicker} onPick={(row) => void io.openSaved(row.id)} onDelete={(row) => io.deleteSaved(row.id)} />}
       {menu && (
         <ContextMenu
           menu={menu}

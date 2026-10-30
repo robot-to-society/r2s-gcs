@@ -85,6 +85,12 @@ export function assign(ws: Workspace, key: string, sysid: number | null): Worksp
   }
 }
 
+/** A saved plan was deleted: its open rows keep their content as never-saved plans (saving creates a new one). */
+export function forgetSaved(ws: Workspace, id: number): Workspace {
+  if (!ws.rows.some((r) => r.ui.savedId === id)) return ws
+  return { ...ws, rows: ws.rows.map((r) => (r.ui.savedId === id ? { ...r, ui: { ...r.ui, savedId: null, dirty: true } } : r)) }
+}
+
 export const parkActive = (ws: Workspace, ui: MissionUi): Workspace => mapRow(ws, ws.active, (r) => ({ ...r, ui }))
 
 /** The active row is always shown, so hiding it is a no-op. */
