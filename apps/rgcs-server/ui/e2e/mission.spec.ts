@@ -8,7 +8,7 @@ const FIXTURE = readFileSync(FIXTURE_PATH, 'utf8')
 
 async function openMission(page: Page) {
   await login(page)
-  await page.getByRole('button', { name: 'ミッション' }).click()
+  await page.getByRole('button', { name: 'フライトプラン' }).click()
   await expect(page.getByTestId('mission-view')).toBeVisible()
 }
 
@@ -44,8 +44,8 @@ test('plan three points, edit, undo, save, write to the vehicle and see the prog
   await page.getByTestId('mission-view').focus()
   await page.keyboard.press('Meta+z')
   await expect(page.getByTestId('mission-summary')).toContainText('50 m')
-  await page.getByLabel('ミッション名').fill('e2e')
-  await page.getByRole('button', { name: 'ライブラリに保存', exact: true }).click()
+  await page.getByLabel('プラン名').fill('e2e')
+  await page.getByRole('button', { name: '保存', exact: true }).click()
   await expect(page.locator('.mission-dirty')).toHaveCount(0, { timeout: 5_000 })
   const writes = await countLogRows(page, WRITE_OK)
   await page.getByRole('button', { name: '機体に書き込む' }).click()

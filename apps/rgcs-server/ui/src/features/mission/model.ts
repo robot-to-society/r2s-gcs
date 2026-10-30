@@ -24,7 +24,7 @@ export interface Draft {
 
 export const DEFAULT_ALT = 50
 export const DEFAULT_SPEED = 8
-export const NEW_MISSION_NAME = '新しいミッション'
+export const NEW_MISSION_NAME = '新しいプラン'
 
 export function emptyDraft(): Draft {
   return {

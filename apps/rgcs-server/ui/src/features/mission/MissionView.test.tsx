@@ -276,11 +276,11 @@ describe('MissionView', () => {
     })
     addPoints(2)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'ライブラリに保存' }))
+      fireEvent.click(screen.getByRole('button', { name: '保存' }))
     })
     await act(async () => {
       fireEvent.click(screen.getByText('map-add'))
-      fireEvent.click(screen.getByRole('button', { name: 'ライブラリに保存' }))
+      fireEvent.click(screen.getByRole('button', { name: '保存' }))
     })
     // the planner reads the target vehicle's FENCE_* and path parameters on its own: not part of this flow
     const calls = fetchMock.mock.calls.map(([u, i]) => `${i?.method ?? 'GET'} ${String(u)}`).filter((c) => !c.endsWith('/fence/params') && !c.includes('/params/pick'))
@@ -298,11 +298,11 @@ describe('MissionView', () => {
     })
     addPoints(2)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'ライブラリに保存' }))
+      fireEvent.click(screen.getByRole('button', { name: '保存' }))
     })
     expect(screen.queryByText('未保存')).not.toBeInTheDocument()
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '開く' }))
+      fireEvent.click(screen.getByRole('button', { name: 'プランを開く' }))
     })
     fireEvent.click(screen.getByRole('button', { name: dict.mDeleteNamed.replace('{name}', 'North field') }))
     await act(async () => {
@@ -386,7 +386,7 @@ describe('MissionView', () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     addPoints(2)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'ライブラリに保存' }))
+      fireEvent.click(screen.getByRole('button', { name: '保存' }))
     })
     await act(async () => {
       fireEvent.click(screen.getByText('map-add'))
@@ -489,7 +489,7 @@ describe('MissionView', () => {
     const right = within(screen.getByRole('complementary', { name: 'editor' }))
     expect(right.getByRole('button', { name: '機体に書き込む' })).toBeInTheDocument()
     expect(right.getByRole('button', { name: '機体から読込' })).toBeEnabled()
-    expect(within(screen.getByRole('complementary', { name: 'ミッション' })).queryByRole('button', { name: '機体から読込' })).toBeNull()
+    expect(within(screen.getByRole('complementary', { name: 'フライトプラン' })).queryByRole('button', { name: '機体から読込' })).toBeNull()
   })
 
   it('the_right_panel_vehicle_assigns_the_row_and_frees_it_elsewhere', async () => {

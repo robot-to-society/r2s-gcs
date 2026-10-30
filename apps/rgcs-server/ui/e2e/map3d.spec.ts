@@ -7,7 +7,7 @@ test('mission map switches to 3D, shows altitude chips and remembers the mode', 
   // headless Chromium renders the 3D terrain in software (SwiftShader): the first frames are slow
   test.setTimeout(90_000)
   await login(page)
-  await page.getByRole('button', { name: 'ミッション', exact: true }).first().click()
+  await page.getByRole('button', { name: 'フライトプラン', exact: true }).first().click()
   const map = page.getByTestId('mission-map')
   await expect(map).toBeVisible()
   await page.getByRole('button', { name: '追加', exact: true }).click()
@@ -24,7 +24,7 @@ test('mission map switches to 3D, shows altitude chips and remembers the mode', 
   await page.getByRole('button', { name: '3D' }).click()
   await expect(page.locator('.rg-wp .chip.altc').first()).toContainText(/^\d+ m (REL|ABS|TER)$/, { timeout: 20_000 })
   await page.reload()
-  await page.getByRole('button', { name: 'ミッション', exact: true }).first().click()
+  await page.getByRole('button', { name: 'フライトプラン', exact: true }).first().click()
   await expect(page.getByRole('button', { name: '3D' })).toHaveClass('on', { timeout: 20_000 })
   await page.getByRole('button', { name: '2D' }).click()
   await expect(page.getByRole('button', { name: '2D' })).toHaveClass('on')

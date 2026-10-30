@@ -76,7 +76,7 @@ describe('AppTab', () => {
   it('registry_form_saves_endurance_minutes', async () => {
     const { calls } = setup()
     await waitFor(() => expect(screen.getByLabelText('飛行可能時間 (分)')).toBeInTheDocument())
-    expect(screen.getByText('ブリーフィングのバッテリー目安に使います')).toBeInTheDocument()
+    expect(screen.getByText('プランの比較でバッテリーの目安に使います')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('飛行可能時間 (分)'), { target: { value: '25' } })
     fireEvent.click(within(screen.getByTestId('registry-card')).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.init?.method === 'PUT' && c.url.endsWith('/registry'))).toBe(true))

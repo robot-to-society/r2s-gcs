@@ -16,7 +16,7 @@ describe('CompareTable', () => {
     ]
     render(<CompareTable lines={lines} canWrite={true} dict={dict} onWriteAll={onWriteAll} />)
     const heads = screen.getAllByRole('columnheader').map((h) => h.textContent)
-    expect(heads).toEqual(['ミッション', '機体', '距離', '時間 (目安)', 'バッテリー (目安)'])
+    expect(heads).toEqual(['プラン', '機体', '距離', '時間 (目安)', 'バッテリー (目安)'])
     const rows = screen.getAllByRole('row').slice(1)
     const cells = (i: number) => within(rows[i]!).getAllByRole('cell')
     expect(cells(0).map((c) => c.textContent)).toEqual(['Alpha', 'UAV-01', '2.40 km', '12:34', '42%'])

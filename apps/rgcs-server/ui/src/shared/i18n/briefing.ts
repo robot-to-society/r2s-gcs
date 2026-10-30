@@ -1,7 +1,7 @@
-// Copy for the briefing list (several missions open at once in the planner, spec 2026-10-20 §5.1).
+// Copy for the open plans list (several flight plans open at once in the planner, spec 2026-10-20 §5.1).
 
 export const briefingJa = {
-  bfList: '開いているミッション',
+  bfList: '開いているプラン',
   bfColor: '色',
   bfVehicle: '割当機体',
   bfUnassigned: '未割当',
@@ -12,7 +12,7 @@ export const briefingJa = {
   bfRemove: '一覧から外す',
   bfShow: '表示',
   bfCompare: '比較',
-  bfColMission: 'ミッション',
+  bfColMission: 'プラン',
   bfColVehicle: '機体',
   bfColDistance: '距離',
   bfColTime: '時間 (目安)',
@@ -36,15 +36,6 @@ export const briefingJa = {
   bfMismatch: '照合不一致',
   bfFenceMismatch: 'フェンス照合不一致',
   bfRallyMismatch: 'ラリー照合不一致',
-  bfName: 'ブリーフィング名',
-  bfNameHint: '名前を入れると保存できます (80 文字まで)',
-  bfSave: 'ブリーフィングを保存',
-  bfOpen: 'ブリーフィングを開く',
-  bfNew: '新しいブリーフィング',
-  bfOpenTitle: '保存済みブリーフィング',
-  bfMissions: 'ミッション',
-  bfNoSaved: '保存済みのブリーフィングはありません',
-  bfNothing: '保存するミッションがありません',
   bfFrameHint: 'ダブルクリックで地図に全体を表示',
   bfPanelCollapse: 'パネルをたたむ',
   bfPanelExpand: 'パネルを開く',
@@ -52,7 +43,7 @@ export const briefingJa = {
 }
 
 export const briefingEn: Record<keyof typeof briefingJa, string> = {
-  bfList: 'Open missions',
+  bfList: 'Open plans',
   bfColor: 'Colour',
   bfVehicle: 'Assigned vehicle',
   bfUnassigned: 'Unassigned',
@@ -63,7 +54,7 @@ export const briefingEn: Record<keyof typeof briefingJa, string> = {
   bfRemove: 'Remove from list',
   bfShow: 'Show on map',
   bfCompare: 'Compare',
-  bfColMission: 'Mission',
+  bfColMission: 'Plan',
   bfColVehicle: 'Vehicle',
   bfColDistance: 'Distance',
   bfColTime: 'Time (est.)',
@@ -87,15 +78,6 @@ export const briefingEn: Record<keyof typeof briefingJa, string> = {
   bfMismatch: 'Read-back mismatch',
   bfFenceMismatch: 'Fence mismatch',
   bfRallyMismatch: 'Rally mismatch',
-  bfName: 'Briefing name',
-  bfNameHint: 'Enter a name to save (up to 80 characters)',
-  bfSave: 'Save briefing',
-  bfOpen: 'Open briefing',
-  bfNew: 'New briefing',
-  bfOpenTitle: 'Saved briefings',
-  bfMissions: 'missions',
-  bfNoSaved: 'No saved briefings',
-  bfNothing: 'No missions to save',
   bfFrameHint: 'Double-click to frame it on the map',
   bfPanelCollapse: 'Collapse panel',
   bfPanelExpand: 'Expand panel',

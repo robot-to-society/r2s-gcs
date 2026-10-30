@@ -8,7 +8,7 @@ describe('Nav', () => {
     const { container } = render(<Nav view="ops" onView={() => {}} dict={t('ja')} />)
     expect(container.querySelector('nav.seg.n6')).not.toBeNull()
     const buttons = screen.getAllByRole('button')
-    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['運用マップ', '全機体映像', 'ミッション', 'ネットワーク', 'AIチャット', 'メンテナンス・設定'])
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['運用マップ', '全機体映像', 'フライトプラン', 'ネットワーク', 'AIチャット', 'メンテナンス・設定'])
     for (const b of buttons) expect(b.querySelector('svg.lucide, svg.ic')).not.toBeNull()
     expect(buttons[0]).toHaveAttribute('aria-current', 'page')
     expect(screen.getByTestId('lens')).toHaveStyle({ transform: 'translateX(0%)' })
@@ -34,7 +34,7 @@ describe('Nav', () => {
   it('mission and video tabs are enabled', () => {
     const onView = vi.fn()
     render(<Nav view="ops" onView={onView} dict={t('ja')} />)
-    for (const [name, view] of [['ミッション', 'mission'], ['全機体映像', 'video']] as const) {
+    for (const [name, view] of [['フライトプラン', 'mission'], ['全機体映像', 'video']] as const) {
       const b = screen.getByRole('button', { name })
       expect(b).not.toHaveAttribute('aria-disabled')
       fireEvent.click(b)

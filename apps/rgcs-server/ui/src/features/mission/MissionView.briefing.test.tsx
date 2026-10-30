@@ -60,6 +60,10 @@ describe('MissionView briefing feedback (§9)', () => {
     expect(document.querySelector('.brief-head')).toBeNull()
     expect(document.body.textContent).not.toMatch(/ブリーフィング/)
     expect(screen.queryByRole('textbox', { name: /ブリーフィング/ })).toBeNull()
+    // an untouched editor is the new plan: 新しいプラン adds a row only once something is in it
+    expect(names()).toEqual(['新しいプラン'])
+    expect(screen.getByRole('button', { name: '新しいプラン' })).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: '開いているプラン' })).toBeInTheDocument()
   })
 
   it('several_files_open_several_rows_and_a_bad_one_does_not_stop_the_rest', async () => {

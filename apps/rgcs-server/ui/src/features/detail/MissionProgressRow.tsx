@@ -31,7 +31,7 @@ export function MissionProgressRow({ progress, mission, vehicle, dict, onWrite, 
   return (
     <>
       <div className="mission-progress" data-testid="mission-progress">
-        <span className="t3 nowrap">{dict.navMission}</span>
+        <span className="t3 nowrap">{dict.planMission}</span>
         <span className="num nowrap" title={progress && total === null ? dict.mTotalUnknown : undefined}>
           {progressText(progress, mission, total, dict)}
           {remaining !== null && ` · ${dict.mRemaining} ${km(remaining)}`}
