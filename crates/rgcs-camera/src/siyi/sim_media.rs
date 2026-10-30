@@ -47,10 +47,7 @@ impl Default for SimMedia {
             track: None,
             track_status: 0,
             frame_temps: [0x086a, 0x03e6, 0x063e, 0x0020, 0x01f4, 0x0362],
-            detections: vec![
-                (0.40, 0.40, 0.50, 0.60, 0.9, 0),
-                (0.70, 0.55, 0.85, 0.70, 0.8, 1),
-            ],
+            detections: vec![(0.40, 0.40, 0.50, 0.60, 0.9, 0), (0.70, 0.55, 0.85, 0.70, 0.8, 1)],
             stale_encoding_replies: 0,
             stale: None,
             reject_encoding: false,
@@ -117,7 +114,12 @@ fn select_track(m: &mut SimMedia, payload: &[u8]) -> Option<(u8, Vec<u8>)> {
     m.track_status = 0;
     m.track = match sel {
         0 => None,
-        _ if c > 0.0 && d > 0.0 => Some(grid_box((a + c) / 2.0 / w, (b + d) / 2.0 / h, (c - a) / w, (d - b) / h)),
+        _ if c > 0.0 && d > 0.0 => Some(grid_box(
+            (a + c) / 2.0 / w,
+            (b + d) / 2.0 / h,
+            (c - a) / w,
+            (d - b) / h,
+        )),
         _ => Some(point_track(m, a / w, b / h)),
     };
     Some((0x56, vec![1]))
@@ -141,7 +143,10 @@ fn grid_box(cx: f32, cy: f32, w: f32, h: f32) -> (u16, u16, u16, u16) {
 }
 
 fn point_reply(payload: &[u8]) -> Option<(u8, Vec<u8>)> {
-    Some((0x12, le(&[POINT_TEMP_X100, u16_at(payload, 0)?, u16_at(payload, 2)?])))
+    Some((
+        0x12,
+        le(&[POINT_TEMP_X100, u16_at(payload, 0)?, u16_at(payload, 2)?]),
+    ))
 }
 
 /// Reply (cmd, data) for the new commands; `None` when the sim does not answer.
@@ -172,7 +177,14 @@ pub fn media_reply(
             data.extend(0u32.to_le_bytes());
             Some((0x40, data))
         }
-        0x49 => Some((0x49, [le(&[u16::from(m.tf.0) | u16::from(m.tf.1) << 8]), le(&[m.tf.2, m.tf.3])].concat())),
+        0x49 => Some((
+            0x49,
+            [
+                le(&[u16::from(m.tf.0) | u16::from(m.tf.1) << 8]),
+                le(&[m.tf.2, m.tf.3]),
+            ]
+            .concat(),
+        )),
         0x51 => {
             m.track_push = *payload.first()? != 0;
             Some((0x51, vec![u8::from(m.track_push)]))
@@ -248,15 +260,24 @@ mod tests {
     fn sim_gain_set_and_get() {
         let mut m = SimMedia::default();
         ask(&mut m, 0x38, &[0]);
-        assert_eq!(thermal::parse_gain(&ask(&mut m, 0x37, &[]).unwrap()), Some(ThermalGain::Low));
+        assert_eq!(
+            thermal::parse_gain(&ask(&mut m, 0x37, &[]).unwrap()),
+            Some(ThermalGain::Low)
+        );
         ask(&mut m, 0x38, &[1]);
-        assert_eq!(thermal::parse_gain(&ask(&mut m, 0x37, &[]).unwrap()), Some(ThermalGain::High));
+        assert_eq!(
+            thermal::parse_gain(&ask(&mut m, 0x37, &[]).unwrap()),
+            Some(ThermalGain::High)
+        );
     }
 
     #[test]
     fn sim_encoding_set_then_read() {
         let mut m = SimMedia::default();
-        let preset = rgcs_core::mt11_encoding_presets().into_iter().find(|p| p.id == "h264_4k").unwrap();
+        let preset = rgcs_core::mt11_encoding_presets()
+            .into_iter()
+            .find(|p| p.id == "h264_4k")
+            .unwrap();
         assert_eq!(ask(&mut m, 0x21, &ai::encode_encoding(&preset)), Some(vec![1, 1]));
         let (stream, info) = ai::parse_encoding(&ask(&mut m, 0x20, &[1]).unwrap()).unwrap();
         assert_eq!((stream, info.width, info.height), (1, 3840, 2160));
@@ -277,7 +298,12 @@ mod tests {
         let mut m = SimMedia::default();
         ask(&mut m, 0x55, &[1]);
         ask(&mut m, 0x51, &[1]);
-        let b = ai::StreamBox { lx: 885, ly: 465, rx: 1035, ry: 615 };
+        let b = ai::StreamBox {
+            lx: 885,
+            ly: 465,
+            rx: 1035,
+            ry: 615,
+        };
         assert_eq!(ask(&mut m, 0x56, &ai::encode_ai_select(Some(b))), Some(vec![1]));
         let (status, rect, _) = ai::parse_track(&track_frame(&m).unwrap()).unwrap();
         assert_eq!(status, Some(TrackStatus::Tracking));
@@ -311,7 +337,10 @@ mod tests {
     fn sim_tf_card_default() {
         let mut m = SimMedia::default();
         let i = crate::siyi::tf_card::parse_tf_card(&ask(&mut m, 0x49, &[]).unwrap()).unwrap();
-        assert_eq!((i.status, i.total_gb, i.free_gb), (StorageStatus::Ok, 128.0, 56.3));
+        assert_eq!(
+            (i.status, i.total_gb, i.free_gb),
+            (StorageStatus::Ok, 128.0, 56.3)
+        );
     }
 
     #[test]

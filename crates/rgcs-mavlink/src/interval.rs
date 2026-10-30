@@ -80,7 +80,9 @@ impl IntervalRequester {
     /// `last_seen` maps message id → monotonic ms of the latest sample (absent = never seen).
     /// Returns the updated requester and the requests to send now.
     pub fn on_heartbeat(&self, now_ms: u64, last_seen: &HashMap<u32, u64>) -> (Self, Vec<IntervalRequest>) {
-        let resumed = self.last_heartbeat_at.is_some_and(|t| now_ms.saturating_sub(t) > GAP_MS);
+        let resumed = self
+            .last_heartbeat_at
+            .is_some_and(|t| now_ms.saturating_sub(t) > GAP_MS);
         let base = if resumed { Self::default() } else { self.clone() };
         let first = base.first_heartbeat_at.unwrap_or(now_ms);
         let mut next = Self {
@@ -89,7 +91,9 @@ impl IntervalRequester {
             last_request: base.last_request.clone(),
         };
         let elapsed = now_ms.saturating_sub(first);
-        let silent = WANTED.iter().all(|(id, iv)| is_stale(last_seen.get(id).copied(), now_ms, *iv));
+        let silent = WANTED
+            .iter()
+            .all(|(id, iv)| is_stale(last_seen.get(id).copied(), now_ms, *iv));
         if elapsed < SILENT_MS || (elapsed < GRACE_MS && !silent) {
             return (next, Vec::new());
         }
@@ -142,7 +146,12 @@ mod tests {
     #[test]
     fn nav_controller_output_is_asked_for_once() {
         // ArduPlane and Rover send it only while navigating (AUTO, GUIDED, RTL): not in MANUAL.
-        let (_, reqs) = beats(IntervalRequester::default(), 10_000, 60_000, flowing_except(MSG_ID_NAV_CONTROLLER_OUTPUT));
+        let (_, reqs) = beats(
+            IntervalRequester::default(),
+            10_000,
+            60_000,
+            flowing_except(MSG_ID_NAV_CONTROLLER_OUTPUT),
+        );
         assert_eq!(reqs, vec![(20_000, MSG_ID_NAV_CONTROLLER_OUTPUT)]);
     }
 
@@ -179,20 +188,33 @@ mod tests {
         assert!(WANTED.contains(&(MSG_ID_EKF_STATUS_REPORT, 500_000)));
         assert!(WANTED.contains(&(MSG_ID_RC_CHANNELS, 200_000)));
         assert!(WANTED.contains(&(MSG_ID_WIND, 1_000_000)));
-        assert_eq!((MSG_ID_EKF_STATUS_REPORT, MSG_ID_RC_CHANNELS, MSG_ID_WIND), (193, 65, 168));
+        assert_eq!(
+            (MSG_ID_EKF_STATUS_REPORT, MSG_ID_RC_CHANNELS, MSG_ID_WIND),
+            (193, 65, 168)
+        );
     }
 
     #[test]
     fn wind_is_asked_for_once() {
         // Only ArduPilot sends WIND: never nag another autopilot for it.
         assert!(ONCE.contains(&MSG_ID_WIND));
-        let (_, reqs) = beats(IntervalRequester::default(), 10_000, 60_000, flowing_except(MSG_ID_WIND));
+        let (_, reqs) = beats(
+            IntervalRequester::default(),
+            10_000,
+            60_000,
+            flowing_except(MSG_ID_WIND),
+        );
         assert_eq!(reqs, vec![(20_000, MSG_ID_WIND)]);
     }
 
     #[test]
     fn missing_rc_channels_are_retried() {
-        let (_, reqs) = beats(IntervalRequester::default(), 10_000, 30_000, flowing_except(MSG_ID_RC_CHANNELS));
+        let (_, reqs) = beats(
+            IntervalRequester::default(),
+            10_000,
+            30_000,
+            flowing_except(MSG_ID_RC_CHANNELS),
+        );
         let times: Vec<u64> = reqs.iter().map(|(t, _)| *t).collect();
         assert_eq!(times, vec![20_000, 25_000, 30_000]);
     }
@@ -209,29 +231,45 @@ mod tests {
         to: u64,
         seen: impl Fn(u64) -> HashMap<u32, u64>,
     ) -> (IntervalRequester, Vec<(u64, u32)>) {
-        (from..=to).step_by(1_000).fold((r, Vec::new()), |(r, mut all), now| {
-            let (next, reqs) = r.on_heartbeat(now, &seen(now));
-            all.extend(reqs.iter().map(|q| (now, q.msg_id)));
-            (next, all)
-        })
+        (from..=to)
+            .step_by(1_000)
+            .fold((r, Vec::new()), |(r, mut all), now| {
+                let (next, reqs) = r.on_heartbeat(now, &seen(now));
+                all.extend(reqs.iter().map(|q| (now, q.msg_id)));
+                (next, all)
+            })
     }
 
     /// Every wanted stream but `missing`, fresh at `now`.
     fn flowing_except(missing: u32) -> impl Fn(u64) -> HashMap<u32, u64> {
-        move |now| WANTED.iter().filter(|(id, _)| *id != missing).map(|(id, _)| (*id, now)).collect()
+        move |now| {
+            WANTED
+                .iter()
+                .filter(|(id, _)| *id != missing)
+                .map(|(id, _)| (*id, now))
+                .collect()
+        }
     }
 
     #[test]
     fn a_silent_vehicle_is_asked_for_telemetry_after_3s() {
         let (_, reqs) = beats(IntervalRequester::default(), 10_000, 13_000, |_| HashMap::new());
-        assert!(reqs.iter().all(|(t, _)| *t == 13_000), "nothing before 3 s: {reqs:?}");
+        assert!(
+            reqs.iter().all(|(t, _)| *t == 13_000),
+            "nothing before 3 s: {reqs:?}"
+        );
         assert_eq!(reqs.len(), WANTED.len());
     }
 
     #[test]
     fn while_some_telemetry_flows_the_rest_waits_10s() {
         // Mission Planner (or Rpanion) may still be setting the rates: leave the FC alone for 10 s.
-        let (_, reqs) = beats(IntervalRequester::default(), 10_000, 20_000, flowing_except(MSG_ID_SYSTEM_TIME));
+        let (_, reqs) = beats(
+            IntervalRequester::default(),
+            10_000,
+            20_000,
+            flowing_except(MSG_ID_SYSTEM_TIME),
+        );
         assert_eq!(reqs, vec![(20_000, MSG_ID_SYSTEM_TIME)]);
     }
 
@@ -257,7 +295,10 @@ mod tests {
         let (r, first) = beats(IntervalRequester::default(), 0, 4_000, |_| HashMap::new());
         assert!(first.iter().any(|(_, id)| *id == MSG_ID_HOME_POSITION));
         let (_, again) = beats(r, 12_000, 15_000, |_| HashMap::new());
-        assert!(again.iter().all(|(t, _)| *t == 15_000), "3 s after the link came back: {again:?}");
+        assert!(
+            again.iter().all(|(t, _)| *t == 15_000),
+            "3 s after the link came back: {again:?}"
+        );
         assert_eq!(again.len(), WANTED.len());
     }
 
@@ -299,6 +340,10 @@ mod tests {
         let at = |t: u64| reqs.iter().filter(|(when, _)| *when == t).count();
         assert_eq!(at(3_000), WANTED.len());
         assert_eq!((4_000..8_000).step_by(1_000).map(at).sum::<usize>(), 0);
-        assert_eq!(at(8_000), WANTED.len() - ONCE.len(), "state-dependent streams are not retried");
+        assert_eq!(
+            at(8_000),
+            WANTED.len() - ONCE.len(),
+            "state-dependent streams are not retried"
+        );
     }
 }

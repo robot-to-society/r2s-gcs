@@ -298,7 +298,10 @@ async fn unchanged_profile_put_keeps_roi_and_driver() {
     put_mt11(&app, &cookie, sim.addr.port()).await;
     assert_eq!(state.roi.active_target(1).as_deref(), Some("roi_1"));
     let after = state.cameras.ensure(1).await;
-    assert!(std::sync::Arc::ptr_eq(&before, &after), "driver must not be reloaded");
+    assert!(
+        std::sync::Arc::ptr_eq(&before, &after),
+        "driver must not be reloaded"
+    );
     let rows = audit_rows(&app, &cookie).await;
     assert!(!has_roi_row(&rows, "stop", None), "{rows:?}");
 }
@@ -308,7 +311,14 @@ async fn changed_profile_put_stops_roi_with_audit() {
     let (app, state, _sim, cookie) = setup().await;
     state.roi.start(1, "roi_1").await.unwrap();
     let body = json!({ "host": "127.0.0.2" });
-    let (s, v) = send(&app, &cookie, Method::PUT, "/api/vehicles/1/camera/profile", Some(body)).await;
+    let (s, v) = send(
+        &app,
+        &cookie,
+        Method::PUT,
+        "/api/vehicles/1/camera/profile",
+        Some(body),
+    )
+    .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     assert_eq!(state.roi.active_target(1), None);
     let rows = audit_rows(&app, &cookie).await;
@@ -348,7 +358,14 @@ async fn ai_select_stops_roi() {
     wait_stream(&state).await;
     state.roi.start(1, "roi_1").await.unwrap();
     let body = json!({ "cmd": "ai_select_box", "args": { "x": 0.5, "y": 0.5, "box_px": null } });
-    let (s, v) = send(&app, &cookie, Method::POST, "/api/vehicles/1/camera/command", Some(body)).await;
+    let (s, v) = send(
+        &app,
+        &cookie,
+        Method::POST,
+        "/api/vehicles/1/camera/command",
+        Some(body),
+    )
+    .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     assert_eq!(state.roi.active_target(1), None);
     let rows = audit_rows(&app, &cookie).await;
@@ -373,7 +390,10 @@ async fn roi_start_cancels_ai_tracking() {
     let cancel = seen.iter().position(|(c, p)| *c == 0x56 && p.first() == Some(&0));
     let first_rate = seen.iter().position(|(c, _)| *c == 0x07);
     assert!(first_rate.is_some(), "ROI sent no 0x07: {seen:?}");
-    assert!(cancel.is_some_and(|c| Some(c) < first_rate), "cancel before ROI 0x07: {seen:?}");
+    assert!(
+        cancel.is_some_and(|c| Some(c) < first_rate),
+        "cancel before ROI 0x07: {seen:?}"
+    );
 }
 
 #[tokio::test]
@@ -383,7 +403,14 @@ async fn profile_put_video_fields_keeps_driver() {
     let before = state.cameras.ensure(1).await;
     while sim.received.try_recv().is_ok() {}
     let body = json!({ "encoding_preset": "h265_4k", "ai_box_px": 200 });
-    let (s, v) = send(&app, &cookie, Method::PUT, "/api/vehicles/1/camera/profile", Some(body)).await;
+    let (s, v) = send(
+        &app,
+        &cookie,
+        Method::PUT,
+        "/api/vehicles/1/camera/profile",
+        Some(body),
+    )
+    .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     assert_eq!(v["data"]["ai_box_px"], 200);
     tokio::time::sleep(Duration::from_millis(300)).await;
@@ -396,20 +423,42 @@ async fn profile_put_video_fields_keeps_driver() {
     assert!(std::sync::Arc::ptr_eq(&before, &state.cameras.ensure(1).await));
 
     let body = json!({ "host": "127.0.0.2" });
-    let (s, v) = send(&app, &cookie, Method::PUT, "/api/vehicles/1/camera/profile", Some(body)).await;
+    let (s, v) = send(
+        &app,
+        &cookie,
+        Method::PUT,
+        "/api/vehicles/1/camera/profile",
+        Some(body),
+    )
+    .await;
     assert_eq!(s, StatusCode::OK, "{v}");
-    assert!(!std::sync::Arc::ptr_eq(&before, &state.cameras.ensure(1).await), "host change reloads");
+    assert!(
+        !std::sync::Arc::ptr_eq(&before, &state.cameras.ensure(1).await),
+        "host change reloads"
+    );
 }
 
 async fn post_cmd(app: &axum::Router, cookie: &str, body: Value) -> (StatusCode, Value) {
-    send(app, cookie, Method::POST, "/api/vehicles/1/camera/command", Some(body)).await
+    send(
+        app,
+        cookie,
+        Method::POST,
+        "/api/vehicles/1/camera/command",
+        Some(body),
+    )
+    .await
 }
 
 /// Final review I1: a click the driver refuses must leave ROI pointing (refusal first).
 #[tokio::test]
 async fn refused_ai_click_in_ir_keeps_roi() {
     let (app, state, _sim, cookie) = setup().await;
-    let (s, v) = post_cmd(&app, &cookie, json!({ "cmd": "video_mode", "args": { "mode": "thermal" } })).await;
+    let (s, v) = post_cmd(
+        &app,
+        &cookie,
+        json!({ "cmd": "video_mode", "args": { "mode": "thermal" } }),
+    )
+    .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     for _ in 0..80 {
         if state.cameras.ensure(1).await.state().borrow().video_mode == Some(rgcs_core::VideoMode::Thermal) {
@@ -432,7 +481,15 @@ async fn ai_point_missing_every_detection_keeps_roi() {
     let (app, state, _sim, cookie) = setup().await;
     wait_stream(&state).await;
     for _ in 0..80 {
-        if !state.cameras.ensure(1).await.state().borrow().candidates.is_empty() {
+        if !state
+            .cameras
+            .ensure(1)
+            .await
+            .state()
+            .borrow()
+            .candidates
+            .is_empty()
+        {
             break;
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -447,5 +504,9 @@ async fn ai_point_missing_every_detection_keeps_roi() {
     let body = json!({ "cmd": "ai_select_point", "args": { "x": 0.45, "y": 0.5 } });
     let (s, v) = post_cmd(&app, &cookie, body).await;
     assert_eq!(s, StatusCode::OK, "{v}");
-    assert_eq!(state.roi.active_target(1), None, "an accepted select still stops ROI");
+    assert_eq!(
+        state.roi.active_target(1),
+        None,
+        "an accepted select still stops ROI"
+    );
 }

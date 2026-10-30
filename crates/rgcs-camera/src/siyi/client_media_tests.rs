@@ -19,16 +19,28 @@ struct FakeGps;
 #[async_trait]
 impl GpsTime for FakeGps {
     async fn sample(&self) -> Option<TimeSample> {
-        Some(TimeSample { unix_us: GPS_US, age_us: 0 })
+        Some(TimeSample {
+            unix_us: GPS_US,
+            age_us: 0,
+        })
     }
 }
 
 async fn pair(gps: bool) -> (SiyiMt11, SimServer) {
     let sim = SimServer::start().await;
     let cam = SiyiMt11::new(sim.addr.ip().to_string().parse().unwrap(), sim.addr.port());
-    let cam = if gps { cam.with_gps_time(Arc::new(FakeGps)) } else { cam };
+    let cam = if gps {
+        cam.with_gps_time(Arc::new(FakeGps))
+    } else {
+        cam
+    };
     cam.connect().await.unwrap();
-    wait_until(&cam, |s| s.connected && s.video_mode.is_some() && s.stream.is_some(), 3).await;
+    wait_until(
+        &cam,
+        |s| s.connected && s.video_mode.is_some() && s.stream.is_some(),
+        3,
+    )
+    .await;
     (cam, sim)
 }
 
@@ -54,7 +66,12 @@ fn u16_at(p: &[u8], i: usize) -> u16 {
 }
 
 async fn select_box(cam: &SiyiMt11) -> Result<(), CameraError> {
-    cam.send(CameraCommand::AiSelectBox { x: 0.5, y: 0.5, box_px: Some(150) }).await
+    cam.send(CameraCommand::AiSelectBox {
+        x: 0.5,
+        y: 0.5,
+        box_px: Some(150),
+    })
+    .await
 }
 
 #[tokio::test]
@@ -77,7 +94,14 @@ async fn connect_polls_media() {
     assert_eq!(s.stream, Some((1920, 1080)));
     assert_eq!(s.storage.unwrap().status, StorageStatus::Ok);
     let got = drain(&mut sim, 200).await;
-    for (cmd, data) in [(0x20, vec![1]), (0x49, vec![]), (0x37, vec![]), (0x40, vec![]), (0x51, vec![1]), (0x5F, vec![5])] {
+    for (cmd, data) in [
+        (0x20, vec![1]),
+        (0x49, vec![]),
+        (0x37, vec![]),
+        (0x40, vec![]),
+        (0x51, vec![1]),
+        (0x5F, vec![5]),
+    ] {
         assert!(tcp(&got, cmd).contains(&data), "0x{cmd:02X} {data:?} missing");
     }
     cam.disconnect().await;
@@ -89,11 +113,27 @@ async fn click_track_flow() {
     drain(&mut sim, 100).await;
     select_box(&cam).await.unwrap();
     let got = drain(&mut sim, 200).await;
-    let order: Vec<u8> = got.iter().map(|(_, c, _)| *c).filter(|c| [0x55, 0x56].contains(c)).collect();
+    let order: Vec<u8> = got
+        .iter()
+        .map(|(_, c, _)| *c)
+        .filter(|c| [0x55, 0x56].contains(c))
+        .collect();
     assert_eq!(order, vec![0x55, 0x56]);
     assert_eq!(tcp(&got, 0x55), vec![vec![1]]);
-    assert_eq!(tcp(&got, 0x56), vec![vec![0x01, 0x75, 0x03, 0xD1, 0x01, 0x0B, 0x04, 0x67, 0x02]]);
-    wait_until(&cam, |s| s.track.as_ref().is_some_and(|t| t.status == TrackStatus::Tracking), 1).await;
+    assert_eq!(
+        tcp(&got, 0x56),
+        vec![vec![0x01, 0x75, 0x03, 0xD1, 0x01, 0x0B, 0x04, 0x67, 0x02]]
+    );
+    wait_until(
+        &cam,
+        |s| {
+            s.track
+                .as_ref()
+                .is_some_and(|t| t.status == TrackStatus::Tracking)
+        },
+        1,
+    )
+    .await;
     cam.send(CameraCommand::AiCancel).await.unwrap();
     let t0 = std::time::Instant::now();
     wait_until(&cam, |s| s.track.is_none(), 2).await;
@@ -104,7 +144,11 @@ async fn click_track_flow() {
 #[tokio::test]
 async fn click_refused_outside_rgb() {
     let (cam, _sim) = pair(false).await;
-    cam.send(CameraCommand::VideoMode { mode: VideoMode::Thermal }).await.unwrap();
+    cam.send(CameraCommand::VideoMode {
+        mode: VideoMode::Thermal,
+    })
+    .await
+    .unwrap();
     wait_until(&cam, |s| s.video_mode == Some(VideoMode::Thermal), 2).await;
     assert_eq!(select_box(&cam).await, Err(CameraError::Refused("rgb_only")));
     assert_eq!(
@@ -117,8 +161,15 @@ async fn click_refused_outside_rgb() {
 #[tokio::test]
 async fn encoding_change_refuses_clicks_until_reread() {
     let (cam, mut sim) = pair(false).await;
-    cam.send(CameraCommand::Encoding { preset: "h264_4k".into() }).await.unwrap();
-    assert_eq!(select_box(&cam).await, Err(CameraError::Refused("stream_unknown")));
+    cam.send(CameraCommand::Encoding {
+        preset: "h264_4k".into(),
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        select_box(&cam).await,
+        Err(CameraError::Refused("stream_unknown"))
+    );
     let got = drain(&mut sim, 100).await;
     assert_eq!(tcp(&got, 0x21), vec![vec![1, 1, 0x00, 0x0F, 0x70, 0x08, 0, 0, 0]]);
     wait_until(&cam, |s| s.stream == Some((3840, 2160)), 2).await;
@@ -132,12 +183,19 @@ async fn rejected_encoding_fails_the_command() {
     let (cam, sim) = pair(false).await;
     sim.set_reject_encoding(true);
     assert_eq!(
-        cam.send(CameraCommand::Encoding { preset: "h264_4k".into() }).await,
+        cam.send(CameraCommand::Encoding {
+            preset: "h264_4k".into()
+        })
+        .await,
         Err(CameraError::Refused("encoding_rejected"))
     );
     wait_until(&cam, |s| s.stream == Some((1920, 1080)), 1).await;
     sim.set_reject_encoding(false);
-    cam.send(CameraCommand::Encoding { preset: "h264_4k".into() }).await.unwrap();
+    cam.send(CameraCommand::Encoding {
+        preset: "h264_4k".into(),
+    })
+    .await
+    .unwrap();
     wait_until(&cam, |s| s.stream == Some((3840, 2160)), 2).await;
     cam.disconnect().await;
 }
@@ -147,10 +205,21 @@ async fn rejected_encoding_fails_the_command() {
 async fn encoding_change_waits_for_the_requested_size() {
     let (cam, sim) = pair(false).await;
     sim.set_stale_encoding_replies(2);
-    cam.send(CameraCommand::Encoding { preset: "h264_4k".into() }).await.unwrap();
+    cam.send(CameraCommand::Encoding {
+        preset: "h264_4k".into(),
+    })
+    .await
+    .unwrap();
     tokio::time::sleep(Duration::from_millis(700)).await;
-    assert_eq!(cam.state().borrow().stream, None, "the 300 ms re-read still saw 1080p");
-    assert_eq!(select_box(&cam).await, Err(CameraError::Refused("stream_unknown")));
+    assert_eq!(
+        cam.state().borrow().stream,
+        None,
+        "the 300 ms re-read still saw 1080p"
+    );
+    assert_eq!(
+        select_box(&cam).await,
+        Err(CameraError::Refused("stream_unknown"))
+    );
     wait_until(&cam, |s| s.stream == Some((3840, 2160)), 4).await;
     select_box(&cam).await.unwrap();
     cam.disconnect().await;
@@ -160,7 +229,11 @@ async fn encoding_change_waits_for_the_requested_size() {
 async fn unconfirmed_encoding_change_takes_the_reported_size_after_3_s() {
     let (cam, sim) = pair(false).await;
     sim.set_stale_encoding_replies(20);
-    cam.send(CameraCommand::Encoding { preset: "h264_4k".into() }).await.unwrap();
+    cam.send(CameraCommand::Encoding {
+        preset: "h264_4k".into(),
+    })
+    .await
+    .unwrap();
     tokio::time::sleep(Duration::from_millis(2500)).await;
     assert_eq!(cam.state().borrow().stream, None);
     wait_until(&cam, |s| s.stream == Some((1920, 1080)), 3).await;
@@ -172,7 +245,9 @@ async fn ctrl_click_picks_detection() {
     let (cam, mut sim) = pair(false).await;
     wait_until(&cam, |s| !s.candidates.is_empty(), 7).await;
     drain(&mut sim, 50).await;
-    cam.send(CameraCommand::AiSelectPoint { x: 0.45, y: 0.5 }).await.unwrap();
+    cam.send(CameraCommand::AiSelectPoint { x: 0.45, y: 0.5 })
+        .await
+        .unwrap();
     let got = drain(&mut sim, 200).await;
     assert_eq!(tcp(&got, 0x55), vec![vec![1]]);
     let sel = tcp(&got, 0x56);
@@ -199,15 +274,25 @@ async fn ctrl_click_miss_is_refused() {
 async fn alt_click_requires_thermal() {
     let (cam, mut sim) = pair(false).await;
     let measure = CameraCommand::MeasurePoint { x: 0.5, y: 0.5 };
-    assert_eq!(cam.send(measure.clone()).await, Err(CameraError::Refused("thermal_only")));
-    cam.send(CameraCommand::VideoMode { mode: VideoMode::Thermal }).await.unwrap();
+    assert_eq!(
+        cam.send(measure.clone()).await,
+        Err(CameraError::Refused("thermal_only"))
+    );
+    cam.send(CameraCommand::VideoMode {
+        mode: VideoMode::Thermal,
+    })
+    .await
+    .unwrap();
     wait_until(&cam, |s| s.video_mode == Some(VideoMode::Thermal), 2).await;
     drain(&mut sim, 50).await;
     cam.send(measure).await.unwrap();
     let s = wait_until(&cam, |s| s.thermal.as_ref().is_some_and(|t| t.point.is_some()), 1).await;
     assert_eq!(s.thermal.unwrap().point.unwrap().temp_c, 16.04);
     let got = drain(&mut sim, 100).await;
-    assert!(tcp(&got, 0x12).contains(&vec![0xC0, 0x03, 0x1C, 0x02, 0x01]), "{got:?}");
+    assert!(
+        tcp(&got, 0x12).contains(&vec![0xC0, 0x03, 0x1C, 0x02, 0x01]),
+        "{got:?}"
+    );
     cam.disconnect().await;
 }
 
@@ -217,7 +302,11 @@ async fn ir_switch_cancels_tracking() {
     select_box(&cam).await.unwrap();
     wait_until(&cam, |s| s.track.is_some(), 1).await;
     drain(&mut sim, 50).await;
-    cam.send(CameraCommand::VideoMode { mode: VideoMode::Thermal }).await.unwrap();
+    cam.send(CameraCommand::VideoMode {
+        mode: VideoMode::Thermal,
+    })
+    .await
+    .unwrap();
     let got = drain(&mut sim, 200).await;
     assert!(tcp(&got, 0x56).contains(&vec![0; 9]), "{got:?}");
     assert!(tcp(&got, 0x11).contains(&vec![2, 0]), "{got:?}");
@@ -227,7 +316,12 @@ async fn ir_switch_cancels_tracking() {
 #[tokio::test]
 async fn clock_sync_with_fake_gps() {
     let (cam, mut sim) = pair(true).await;
-    let s = wait_until(&cam, |s| s.clock.as_ref().is_some_and(|c| c.offset_ms.is_some()), 2).await;
+    let s = wait_until(
+        &cam,
+        |s| s.clock.as_ref().is_some_and(|c| c.offset_ms.is_some()),
+        2,
+    )
+    .await;
     let offset = s.clock.unwrap().offset_ms.unwrap();
     assert!(offset.abs() < 100.0, "offset {offset}");
     let got = drain(&mut sim, 100).await;
@@ -258,7 +352,10 @@ async fn session_end_clears_media_but_keeps_storage() {
     wait_until(&cam, |s| s.storage.is_some(), 2).await;
     sim.stop().await;
     let s = wait_until(&cam, |s| !s.connected, 3).await;
-    assert_eq!((s.stream, s.encoding.is_none(), s.track.is_none()), (None, true, true));
+    assert_eq!(
+        (s.stream, s.encoding.is_none(), s.track.is_none()),
+        (None, true, true)
+    );
     assert!(s.candidates.is_empty());
     assert!(s.storage.is_some(), "storage stays (ruling 15)");
     cam.disconnect().await;

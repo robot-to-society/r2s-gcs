@@ -37,7 +37,10 @@ async fn a_vehicle_first_seen_armed_is_alert_only_until_it_disarms() {
     r.flush().await;
     assert!(r.queued().is_empty(), "no SetMode before a disarm");
     let rows = r.app.store.decisions(Some(1), 10).await.unwrap();
-    assert!(rows.iter().all(|x| x.level == "l1"), "recorded at the capped level");
+    assert!(
+        rows.iter().all(|x| x.level == "l1"),
+        "recorded at the capped level"
+    );
     r.copter(COPTER_LOITER, false).await;
     Feed::new(&r, toilet_bowl()).run_secs(&r, 0.5).await;
     r.copter(COPTER_LOITER, true).await;

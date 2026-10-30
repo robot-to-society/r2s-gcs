@@ -229,9 +229,9 @@ async fn reload_driver(app: &AppState, operator: &str, sysid: SysId) {
 /// tracking start (ruling 9). Other commands keep ROI.
 fn roi_cancel_reason(cmd: &CameraCommand) -> Option<&'static str> {
     match cmd {
-        CameraCommand::GimbalCenter { .. } | CameraCommand::GimbalAngle { .. } | CameraCommand::GimbalMode { .. } => {
-            Some("manual_command")
-        }
+        CameraCommand::GimbalCenter { .. }
+        | CameraCommand::GimbalAngle { .. }
+        | CameraCommand::GimbalMode { .. } => Some("manual_command"),
         CameraCommand::AiSelectBox { .. } | CameraCommand::AiSelectPoint { .. } => Some("ai_tracking"),
         _ => None,
     }

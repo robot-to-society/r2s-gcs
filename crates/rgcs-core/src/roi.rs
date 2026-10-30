@@ -208,23 +208,38 @@ mod tests {
         let c = RoiControl::default();
         match field {
             "rate_hz" => RoiControl { rate_hz: v, ..c },
-            "target_rate_hz" => RoiControl { target_rate_hz: v, ..c },
-            "smoothing_tau_s" => RoiControl { smoothing_tau_s: v, ..c },
+            "target_rate_hz" => RoiControl {
+                target_rate_hz: v,
+                ..c
+            },
+            "smoothing_tau_s" => RoiControl {
+                smoothing_tau_s: v,
+                ..c
+            },
             "deadband_deg" => RoiControl { deadband_deg: v, ..c },
             "pid_kp" => RoiControl { pid_kp: v, ..c },
             "pid_ki" => RoiControl { pid_ki: v, ..c },
             "pid_kd" => RoiControl { pid_kd: v, ..c },
             "max_speed" => RoiControl { max_speed: v, ..c },
-            "yaw_offset_deg" => RoiControl { yaw_offset_deg: v, ..c },
+            "yaw_offset_deg" => RoiControl {
+                yaw_offset_deg: v,
+                ..c
+            },
             _ => unreachable!(),
         }
     }
 
     #[test]
     fn stored_rate_below_floor_is_clamped() {
-        let low = RoiControl { rate_hz: 0.05, ..RoiControl::default() };
+        let low = RoiControl {
+            rate_hz: 0.05,
+            ..RoiControl::default()
+        };
         assert_eq!(low.clamp_rate().rate_hz, RoiControl::RATE_HZ_MIN);
-        let ok = RoiControl { rate_hz: 20.0, ..RoiControl::default() };
+        let ok = RoiControl {
+            rate_hz: 20.0,
+            ..RoiControl::default()
+        };
         assert_eq!(ok.clone().clamp_rate(), ok);
     }
 

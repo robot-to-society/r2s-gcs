@@ -546,6 +546,9 @@ mod tests {
             redact_url("http://10.0.0.2:8889/mt11/whep?token=s3cret&x=1#frag"),
             "http://10.0.0.2:8889/mt11/whep"
         );
-        assert_eq!(redact_url("rtsp://u:p@cam:8554/live?auth=abc"), "rtsp://cam:8554/live");
+        assert_eq!(
+            redact_url("rtsp://u:p@cam:8554/live?auth=abc"),
+            "rtsp://cam:8554/live"
+        );
     }
 }

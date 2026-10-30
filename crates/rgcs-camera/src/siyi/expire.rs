@@ -10,8 +10,12 @@ use crate::siyi::thermal::{FRAME_MAX_AGE, POINT_MAX_AGE};
 
 /// `Some` only when something expired.
 pub fn expire(state: &CameraState, media: &Media, now: Instant) -> Option<CameraState> {
-    let fresh = |at: Option<Instant>, max: Duration| at.is_some_and(|t| now.saturating_duration_since(t) <= max);
-    let track = state.track.clone().filter(|_| fresh(media.track_at, TRACK_MAX_AGE));
+    let fresh =
+        |at: Option<Instant>, max: Duration| at.is_some_and(|t| now.saturating_duration_since(t) <= max);
+    let track = state
+        .track
+        .clone()
+        .filter(|_| fresh(media.track_at, TRACK_MAX_AGE));
     let candidates = if fresh(media.candidates_at, DETECTION_SHOW_MAX_AGE) {
         state.candidates.clone()
     } else {
@@ -60,7 +64,12 @@ mod tests {
             connected: true,
             track: Some(TrackState {
                 status: TrackStatus::Tracking,
-                rect: NormRect { x: 0.1, y: 0.1, w: 0.1, h: 0.1 },
+                rect: NormRect {
+                    x: 0.1,
+                    y: 0.1,
+                    w: 0.1,
+                    h: 0.1,
+                },
                 target: "person".into(),
                 age_ms: 0,
             }),
@@ -76,8 +85,17 @@ mod tests {
             thermal: Some(ThermalState {
                 gain: None,
                 range_c: None,
-                frame: Some(ThermalFrame { max_c: 20.0, min_c: 10.0, max_xy: (1, 1), min_xy: (2, 2) }),
-                point: Some(ThermalPoint { temp_c: 16.0, xy: (3, 3), age_ms: 0 }),
+                frame: Some(ThermalFrame {
+                    max_c: 20.0,
+                    min_c: 10.0,
+                    max_xy: (1, 1),
+                    min_xy: (2, 2),
+                }),
+                point: Some(ThermalPoint {
+                    temp_c: 16.0,
+                    xy: (3, 3),
+                    age_ms: 0,
+                }),
             }),
             ..CameraState::disconnected(30.0)
         };
@@ -101,19 +119,51 @@ mod tests {
         let (s, m) = full(now);
         assert_eq!(expire(&s, &m, now), None, "all fresh");
 
-        let t = expire(&s, &Media { track_at: ago(now, 1100), ..m.clone() }, now).unwrap();
+        let t = expire(
+            &s,
+            &Media {
+                track_at: ago(now, 1100),
+                ..m.clone()
+            },
+            now,
+        )
+        .unwrap();
         assert_eq!(t.track, None);
         assert_eq!(t.candidates.len(), 1);
 
-        let c = expire(&s, &Media { candidates_at: ago(now, 600), ..m.clone() }, now).unwrap();
+        let c = expire(
+            &s,
+            &Media {
+                candidates_at: ago(now, 600),
+                ..m.clone()
+            },
+            now,
+        )
+        .unwrap();
         assert!(c.candidates.is_empty());
         assert!(c.track.is_some());
 
-        let f = expire(&s, &Media { frame_at: ago(now, 3100), ..m.clone() }, now).unwrap();
+        let f = expire(
+            &s,
+            &Media {
+                frame_at: ago(now, 3100),
+                ..m.clone()
+            },
+            now,
+        )
+        .unwrap();
         assert_eq!(f.thermal.as_ref().unwrap().frame, None);
         assert!(f.thermal.as_ref().unwrap().point.is_some());
 
-        let p = expire(&s, &Media { point_at: ago(now, 15_100), ..m.clone() }, now).unwrap();
+        let p = expire(
+            &s,
+            &Media {
+                point_at: ago(now, 15_100),
+                ..m.clone()
+            },
+            now,
+        )
+        .unwrap();
         assert_eq!(p.thermal.as_ref().unwrap().point, None);
         assert!(p.thermal.as_ref().unwrap().frame.is_some());
     }
@@ -122,7 +172,10 @@ mod tests {
     fn expired_state_is_stable() {
         let now = Instant::now() + Duration::from_secs(60);
         let (s, m) = full(now);
-        let stale = Media { track_at: ago(now, 2000), ..m };
+        let stale = Media {
+            track_at: ago(now, 2000),
+            ..m
+        };
         let once = expire(&s, &stale, now).unwrap();
         assert_eq!(expire(&once, &stale, now), None);
     }
@@ -144,7 +197,10 @@ mod tests {
         };
         let o = offline(&s);
         assert!(!o.connected);
-        assert_eq!((o.stream, o.track.is_none(), o.candidates.is_empty()), (None, true, true));
+        assert_eq!(
+            (o.stream, o.track.is_none(), o.candidates.is_empty()),
+            (None, true, true)
+        );
         let t = o.thermal.unwrap();
         assert_eq!((t.frame, t.point), (None, None));
         assert_eq!(o.storage, s.storage);

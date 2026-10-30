@@ -75,12 +75,7 @@ impl ClockSync {
         &self.status
     }
 
-    pub fn tick(
-        &self,
-        now_us: u64,
-        connected: bool,
-        sample: Option<GpsSample>,
-    ) -> (Self, Vec<ClockAction>) {
+    pub fn tick(&self, now_us: u64, connected: bool, sample: Option<GpsSample>) -> (Self, Vec<ClockAction>) {
         let base = Self {
             pending: self.pending || (connected && !self.was_connected),
             was_connected: connected,
@@ -100,10 +95,7 @@ impl ClockSync {
         }
         match sample {
             None => (base.with_error("no_gps_time"), vec![]),
-            Some(s)
-                if s.received_at_us > now_us
-                    || now_us - s.received_at_us > SAMPLE_MAX_AGE_US =>
-            {
+            Some(s) if s.received_at_us > now_us || now_us - s.received_at_us > SAMPLE_MAX_AGE_US => {
                 (base.with_error("gps_time_stale"), vec![])
             }
             Some(s) => {

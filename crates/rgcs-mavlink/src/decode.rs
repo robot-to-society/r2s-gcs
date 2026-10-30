@@ -2,9 +2,8 @@
 
 use mavlink::dialects::ardupilotmega::{
     MavMessage, MavModeFlag, MavVtolState, PositionTargetTypemask, ATTITUDE_DATA, EXTENDED_SYS_STATE_DATA,
-    GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA,
-    HEARTBEAT_DATA, HOME_POSITION_DATA, NAV_CONTROLLER_OUTPUT_DATA, POSITION_TARGET_GLOBAL_INT_DATA,
-    SYS_STATUS_DATA, VFR_HUD_DATA,
+    GLOBAL_POSITION_INT_DATA, GPS_RAW_INT_DATA, HEARTBEAT_DATA, HOME_POSITION_DATA,
+    NAV_CONTROLLER_OUTPUT_DATA, POSITION_TARGET_GLOBAL_INT_DATA, SYS_STATUS_DATA, VFR_HUD_DATA,
 };
 use rgcs_core::{Attitude, Battery, GeoPoint, Gps, NavInfo, VehicleKind, VehicleState};
 
@@ -306,9 +305,17 @@ mod tests {
             kind: rgcs_core::VehicleKind::Copter,
             ..base()
         };
-        assert!(!apply(&copter, &extended(MavVtolState::MAV_VTOL_STATE_MC)).unwrap().vtol);
+        assert!(
+            !apply(&copter, &extended(MavVtolState::MAV_VTOL_STATE_MC))
+                .unwrap()
+                .vtol
+        );
         let was_vtol = VehicleState { vtol: true, ..base() };
-        assert!(!apply(&was_vtol, &plane_heartbeat(MavType::MAV_TYPE_QUADROTOR)).unwrap().vtol);
+        assert!(
+            !apply(&was_vtol, &plane_heartbeat(MavType::MAV_TYPE_QUADROTOR))
+                .unwrap()
+                .vtol
+        );
     }
 
     #[test]
@@ -317,8 +324,16 @@ mod tests {
         assert!(tilt.vtol);
         assert_eq!(tilt.kind, rgcs_core::VehicleKind::Plane);
         let qp = VehicleState { vtol: true, ..base() };
-        assert!(apply(&qp, &plane_heartbeat(MavType::MAV_TYPE_FIXED_WING)).unwrap().vtol);
-        assert!(!apply(&base(), &plane_heartbeat(MavType::MAV_TYPE_FIXED_WING)).unwrap().vtol);
+        assert!(
+            apply(&qp, &plane_heartbeat(MavType::MAV_TYPE_FIXED_WING))
+                .unwrap()
+                .vtol
+        );
+        assert!(
+            !apply(&base(), &plane_heartbeat(MavType::MAV_TYPE_FIXED_WING))
+                .unwrap()
+                .vtol
+        );
     }
 
     #[test]
@@ -358,11 +373,17 @@ mod tests {
     fn attitude_gives_roll_and_pitch_in_tenths_of_a_degree() {
         let a = ATTITUDE_DATA {
             roll: std::f32::consts::FRAC_PI_6, // 30.0°
-            pitch: -0.0873, // -5.0°
+            pitch: -0.0873,                    // -5.0°
             ..ATTITUDE_DATA::DEFAULT
         };
         let s = apply(&base(), &MavMessage::ATTITUDE(a)).expect("attitude is shown");
-        assert_eq!(s.attitude, Some(rgcs_core::Attitude { roll: 30.0, pitch: -5.0 }));
+        assert_eq!(
+            s.attitude,
+            Some(rgcs_core::Attitude {
+                roll: 30.0,
+                pitch: -5.0
+            })
+        );
     }
 
     #[test]

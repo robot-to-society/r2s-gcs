@@ -98,7 +98,11 @@ impl Job {
 }
 
 /// The writer task: one job at a time, in the order the hub dispatched them.
-pub(crate) async fn work(tx: broadcast::Sender<ServerMessage>, io: GuardIo, mut rx: mpsc::UnboundedReceiver<Job>) {
+pub(crate) async fn work(
+    tx: broadcast::Sender<ServerMessage>,
+    io: GuardIo,
+    mut rx: mpsc::UnboundedReceiver<Job>,
+) {
     prune(&io.store).await;
     let mut decision_ids: HashMap<String, i64> = HashMap::new();
     let mut inserts = 0_u64;
@@ -135,7 +139,16 @@ pub(crate) async fn work(tx: broadcast::Sender<ServerMessage>, io: GuardIo, mut 
             Job::Audit(a) => {
                 let decision = decision_ids.get(&a.alert_id).copied();
                 let args = json!({ "mode": a.mode, "alert_id": a.alert_id, "decision_id": decision });
-                audit(&io.store, BY_GUARD, Some(a.sysid), "set_mode", args, a.result, a.reason).await;
+                audit(
+                    &io.store,
+                    BY_GUARD,
+                    Some(a.sysid),
+                    "set_mode",
+                    args,
+                    a.result,
+                    a.reason,
+                )
+                .await;
             }
         }
     }

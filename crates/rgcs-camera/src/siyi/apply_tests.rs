@@ -59,7 +59,10 @@ fn apply_0x20_zero_size_keeps_the_stream_unknown() {
 fn apply_0x20_waits_for_the_requested_size() {
     let t0 = Instant::now();
     let pending = Media {
-        pending_encoding: Some(PendingEncoding { size: (3840, 2160), since: t0 }),
+        pending_encoding: Some(PendingEncoding {
+            size: (3840, 2160),
+            since: t0,
+        }),
         ..Media::default()
     };
     let at = |ms| t0 + Duration::from_millis(ms);
@@ -70,7 +73,11 @@ fn apply_0x20_waits_for_the_requested_size() {
     assert_eq!(s.stream, Some((3840, 2160)));
     assert_eq!(m.pending_encoding, None, "the matching size ends the wait");
     let (s, m) = step(&base(), &pending, encoding_reply(1, 1920, 1080), at(3000));
-    assert_eq!(s.stream, Some((1920, 1080)), "after 3 s whatever the camera reports is taken");
+    assert_eq!(
+        s.stream,
+        Some((1920, 1080)),
+        "after 3 s whatever the camera reports is taken"
+    );
     assert_eq!(m.pending_encoding, None);
 }
 
@@ -79,14 +86,25 @@ fn apply_0x20_waits_for_the_requested_size() {
 fn apply_0x21_rejection_ends_the_encoding_wait() {
     let t0 = Instant::now();
     let pending = Media {
-        pending_encoding: Some(PendingEncoding { size: (3840, 2160), since: t0 }),
+        pending_encoding: Some(PendingEncoding {
+            size: (3840, 2160),
+            since: t0,
+        }),
         ..Media::default()
     };
     let (_, m) = step(&base(), &pending, frame(0x21, vec![1, 1]), t0);
-    assert!(m.pending_encoding.is_some(), "an accepted change still waits for its size");
+    assert!(
+        m.pending_encoding.is_some(),
+        "an accepted change still waits for its size"
+    );
     let (_, m) = step(&base(), &pending, frame(0x21, vec![1, 0]), t0);
     assert_eq!(m.pending_encoding, None);
-    let (s, _) = step(&base(), &m, encoding_reply(1, 1920, 1080), t0 + Duration::from_millis(300));
+    let (s, _) = step(
+        &base(),
+        &m,
+        encoding_reply(1, 1920, 1080),
+        t0 + Duration::from_millis(300),
+    );
     assert_eq!(s.stream, Some((1920, 1080)));
 }
 
@@ -94,7 +112,12 @@ fn apply_0x21_rejection_ends_the_encoding_wait() {
 fn apply_thermal_frames() {
     let now = Instant::now();
     let m = Media::default();
-    let (s, m) = step(&base(), &m, frame(0x14, le(&[0x086a, 0x03e6, 0x063e, 0x0020, 0x01f4, 0x0362])), now);
+    let (s, m) = step(
+        &base(),
+        &m,
+        frame(0x14, le(&[0x086a, 0x03e6, 0x063e, 0x0020, 0x01f4, 0x0362])),
+        now,
+    );
     let f = s.thermal.as_ref().unwrap().frame.as_ref().unwrap();
     assert_eq!((f.max_c, f.min_c, f.max_xy), (21.54, 9.98, (1598, 32)));
     assert_eq!(m.frame_at, Some(now));
@@ -153,7 +176,12 @@ fn apply_candidates_history() {
     assert_eq!(s.candidates.len(), 1);
     assert_eq!(m.candidates_at, Some(t + Duration::from_secs(3)));
     let (s, m) = (0..61u64).fold((s, m), |(s, m), i| {
-        step(&s, &m, candidates(10 + i), t + Duration::from_millis(4000 + i * 16))
+        step(
+            &s,
+            &m,
+            candidates(10 + i),
+            t + Duration::from_millis(4000 + i * 16),
+        )
     });
     assert_eq!(m.history.len(), 60);
     assert_eq!(m.history.last().unwrap().1.pts_us, 70);
@@ -164,7 +192,13 @@ fn apply_candidates_history() {
 fn apply_acks() {
     let now = Instant::now();
     let (s, m) = step(&base(), &Media::default(), frame(0x56, vec![4]), now);
-    assert_eq!(s.ai_ack.clone().unwrap(), rgcs_core::AiAck { code: "low_texture".into(), seq: 1 });
+    assert_eq!(
+        s.ai_ack.clone().unwrap(),
+        rgcs_core::AiAck {
+            code: "low_texture".into(),
+            seq: 1
+        }
+    );
     let (s, m) = step(&s, &m, frame(0x56, vec![4]), now);
     assert_eq!(s.ai_ack.as_ref().unwrap().seq, 2);
     let (s, m) = step(&s, &m, frame(0x55, vec![1, 3]), now);
@@ -183,7 +217,10 @@ fn apply_tf_and_clock() {
     assert_eq!(st.total_gb, 128.0);
 
     // A sync is in flight: the 0x40 reply completes the read-back.
-    let gps = crate::clock_sync::GpsSample { unix_us: 1_790_000_000_000_000, received_at_us: 900_000 };
+    let gps = crate::clock_sync::GpsSample {
+        unix_us: 1_790_000_000_000_000,
+        received_at_us: 900_000,
+    };
     let (clock, _) = m.clock.tick(1_000_000, true, Some(gps));
     let m = Media { clock, ..m };
     let mut p = 1_790_000_000_200_000u64.to_le_bytes().to_vec();
@@ -201,9 +238,15 @@ fn apply_tf_and_clock() {
 #[test]
 fn apply_0x30_rejection_reports_a_failed_sync() {
     let now = Instant::now();
-    let gps = crate::clock_sync::GpsSample { unix_us: 1_790_000_000_000_000, received_at_us: 900_000 };
+    let gps = crate::clock_sync::GpsSample {
+        unix_us: 1_790_000_000_000_000,
+        received_at_us: 900_000,
+    };
     let (clock, _) = ClockSync::new().tick(1_000_000, true, Some(gps));
-    let m = Media { clock, ..Media::default() };
+    let m = Media {
+        clock,
+        ..Media::default()
+    };
     let (next, m2) = apply_frame(&base(), &m, &frame(0x30, vec![1]), now, 1_010_000);
     assert!(next.is_none(), "an accepted time changes nothing");
     assert_eq!(m2.clock, m.clock);
@@ -214,20 +257,53 @@ fn apply_0x30_rejection_reports_a_failed_sync() {
 
 #[test]
 fn unknown_frames_change_nothing() {
-    let (next, _) = apply_frame(&base(), &Media::default(), &frame(0x21, vec![1, 1]), Instant::now(), 0);
+    let (next, _) = apply_frame(
+        &base(),
+        &Media::default(),
+        &frame(0x21, vec![1, 1]),
+        Instant::now(),
+        0,
+    );
     assert!(next.is_none());
 }
 
 #[test]
 fn clock_view_maps_sync_time_to_wall_clock() {
     let now = Instant::now();
-    let gps = crate::clock_sync::GpsSample { unix_us: 1_790_000_000_000_000, received_at_us: 5_000_000 };
+    let gps = crate::clock_sync::GpsSample {
+        unix_us: 1_790_000_000_000_000,
+        received_at_us: 5_000_000,
+    };
     let (clock, _) = ClockSync::new().tick(5_000_000, true, Some(gps));
-    let media = Media { clock, clock_read_at: Some(now), ..Media::default() };
-    let s = clock_view(&base(), &media, now + std::time::Duration::from_millis(1500), 7_000_000, 1_000_000).unwrap();
+    let media = Media {
+        clock,
+        clock_read_at: Some(now),
+        ..Media::default()
+    };
+    let s = clock_view(
+        &base(),
+        &media,
+        now + std::time::Duration::from_millis(1500),
+        7_000_000,
+        1_000_000,
+    )
+    .unwrap();
     let c = s.clock.clone().unwrap();
     assert_eq!(c.synced_at_unix_ms, Some(998_000));
     assert_eq!(c.reading_age_ms, Some(1500));
-    assert_eq!(clock_view(&s, &media, now + std::time::Duration::from_millis(1500), 7_000_000, 1_000_000), None);
-    assert_eq!(clock_view(&base(), &Media::default(), now, 0, 0), None, "nothing to show yet");
+    assert_eq!(
+        clock_view(
+            &s,
+            &media,
+            now + std::time::Duration::from_millis(1500),
+            7_000_000,
+            1_000_000
+        ),
+        None
+    );
+    assert_eq!(
+        clock_view(&base(), &Media::default(), now, 0, 0),
+        None,
+        "nothing to show yet"
+    );
 }

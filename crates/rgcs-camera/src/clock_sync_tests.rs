@@ -21,7 +21,10 @@ fn current_unix_us_adds_elapsed() {
 #[test]
 fn first_sync_sends_compensated_time() {
     let (c, actions) = ClockSync::new().tick(s(100.0), true, Some(sample(99.5)));
-    assert_eq!(actions, vec![ClockAction::SetUtc(GPS_US + 500_000), ClockAction::ReadBack]);
+    assert_eq!(
+        actions,
+        vec![ClockAction::SetUtc(GPS_US + 500_000), ClockAction::ReadBack]
+    );
     let true_us = GPS_US + 10_000 + 500_000; // GPS at receipt + 100.01 - 99.5 s
     let c = c.on_camera_time(true_us, s(100.02));
     let st = c.status();
@@ -140,5 +143,9 @@ fn rejection_after_the_readback_still_fails_the_sync() {
     assert_eq!(c.status().ok, Some(false));
     assert_eq!(c.status().error, Some("rejected"));
     assert_eq!(c.status().offset_ms, None);
-    assert_eq!(ClockSync::new().on_utc_ack(false), ClockSync::new(), "no sync sent: ignored");
+    assert_eq!(
+        ClockSync::new().on_utc_ack(false),
+        ClockSync::new(),
+        "no sync sent: ignored"
+    );
 }

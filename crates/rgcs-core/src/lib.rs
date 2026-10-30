@@ -41,12 +41,13 @@ pub use camera::{
 };
 pub use camera_media::{
     mt11_encoding_presets, AiAck, AiTrackingCaps, CameraClock, Detection, EncodingInfo, EncodingPreset,
-    NormRect, StorageInfo, StorageStatus, ThermalCaps, ThermalFrame, ThermalGain, ThermalPoint,
-    ThermalState, TrackState, TrackStatus, VideoCodec, AI_BOX_PX_DEFAULT, AI_BOX_PX_RANGE,
-    AI_CENTER_BOX_PX, MT11_PALETTES,
+    NormRect, StorageInfo, StorageStatus, ThermalCaps, ThermalFrame, ThermalGain, ThermalPoint, ThermalState,
+    TrackState, TrackStatus, VideoCodec, AI_BOX_PX_DEFAULT, AI_BOX_PX_RANGE, AI_CENTER_BOX_PX, MT11_PALETTES,
 };
 pub use command::{CommandResult, VehicleCommand};
-pub use env::{EnvClass, EnvFactor, EnvLevel, EnvReading, EnvSettings, EnvSourceStatus, EnvSummary, EnvThresholds};
+pub use env::{
+    EnvClass, EnvFactor, EnvLevel, EnvReading, EnvSettings, EnvSourceStatus, EnvSummary, EnvThresholds,
+};
 pub use gcs::GcsId;
 pub use geofence::{FenceZone, LatLon, RallyPoint};
 pub use guard::{
@@ -64,8 +65,7 @@ pub use logbook::{
 pub use mission::{
     demo20, haversine_m, FenceInfo, Finding, FindingLevel, Home, Mission, MissionFrame, MissionItem,
     MissionProgress, MissionStats, MissionSummaryRow, MissionTransfer, SurveyBlock, TransferPhase,
-    UploadReport,
-    MAV_CMD_DO_JUMP, MAV_CMD_NAV_LAND, MAV_CMD_NAV_RETURN_TO_LAUNCH, MAV_CMD_NAV_TAKEOFF,
+    UploadReport, MAV_CMD_DO_JUMP, MAV_CMD_NAV_LAND, MAV_CMD_NAV_RETURN_TO_LAUNCH, MAV_CMD_NAV_TAKEOFF,
     MAV_CMD_NAV_WAYPOINT,
 };
 pub use network::{

@@ -247,7 +247,10 @@ async fn stop_while_offline_is_zeroed_on_reconnect() {
     assert!(state.roi.stop(1, StopReason::Operator).await);
     let mut sim = SimServer::start_on(port).await;
     wait_connected(&state, 1, true).await;
-    assert!(wait_frame(&mut sim, 1000, is_zero_rate).await, "reconnect must zero the gimbal");
+    assert!(
+        wait_frame(&mut sim, 1000, is_zero_rate).await,
+        "reconnect must zero the gimbal"
+    );
 }
 
 #[tokio::test]

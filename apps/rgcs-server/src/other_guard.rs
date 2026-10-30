@@ -57,10 +57,14 @@ fn check_rate(msg_id: f32, interval_us: f32, is_armed: bool) -> Option<Refusal> 
         return Some(invalid("param2 must be -1, 0 or an interval in microseconds"));
     }
     if interval_us > 0.0 && interval_us < MIN_INTERVAL_US {
-        return Some(invalid("param2: no stream faster than 100 Hz (at least 10000 µs)"));
+        return Some(invalid(
+            "param2: no stream faster than 100 Hz (at least 10000 µs)",
+        ));
     }
     if msg_id == HEARTBEAT {
-        return Some(invalid("the HEARTBEAT rate is never changed: the link check depends on it"));
+        return Some(invalid(
+            "the HEARTBEAT rate is never changed: the link check depends on it",
+        ));
     }
     let slowed = interval_us < 0.0 || interval_us > ARMED_MAX_INTERVAL_US;
     if is_armed && CORE_TELEMETRY.contains(&msg_id) && slowed {
@@ -96,7 +100,11 @@ mod tests {
     fn commands_with_a_confirmed_named_form_or_unknown_ones_are_refused() {
         for mav_cmd in [400, 300, 185, 209, 241, 9999] {
             let (status, code, _) = check(mav_cmd, &NONE, &vehicle(false)).expect("refused");
-            assert_eq!((status, code), (StatusCode::UNPROCESSABLE_ENTITY, "not_allowed"), "{mav_cmd}");
+            assert_eq!(
+                (status, code),
+                (StatusCode::UNPROCESSABLE_ENTITY, "not_allowed"),
+                "{mav_cmd}"
+            );
         }
     }
 
@@ -112,19 +120,34 @@ mod tests {
         // GLOBAL_POSITION_INT (33): stop, 0.4 Hz refused; 0.5 Hz and the default pass.
         let armed = vehicle(true);
         assert_eq!(check(511, &rate(33.0, -1.0), &armed).unwrap().1, "vehicle_armed");
-        assert_eq!(check(511, &rate(33.0, 2_500_000.0), &armed).unwrap().1, "vehicle_armed");
+        assert_eq!(
+            check(511, &rate(33.0, 2_500_000.0), &armed).unwrap().1,
+            "vehicle_armed"
+        );
         assert!(check(511, &rate(33.0, 2_000_000.0), &armed).is_none());
         assert!(check(511, &rate(33.0, 0.0), &armed).is_none());
         assert!(check(511, &rate(33.0, -1.0), &vehicle(false)).is_none());
-        assert!(check(511, &rate(36.0, -1.0), &armed).is_none(), "SERVO_OUTPUT_RAW is not core");
+        assert!(
+            check(511, &rate(36.0, -1.0), &armed).is_none(),
+            "SERVO_OUTPUT_RAW is not core"
+        );
     }
 
     #[test]
     fn a_rate_request_must_name_a_message_and_a_sane_interval() {
-        assert_eq!(check(511, &rate(-3.0, 0.0), &vehicle(false)).unwrap().1, "invalid");
+        assert_eq!(
+            check(511, &rate(-3.0, 0.0), &vehicle(false)).unwrap().1,
+            "invalid"
+        );
         assert_eq!(check(511, &rate(1.5, 0.0), &vehicle(false)).unwrap().1, "invalid");
-        assert_eq!(check(511, &rate(33.0, -2.0), &vehicle(false)).unwrap().1, "invalid");
-        assert_eq!(check(511, &rate(33.0, f32::NAN), &vehicle(false)).unwrap().1, "invalid");
+        assert_eq!(
+            check(511, &rate(33.0, -2.0), &vehicle(false)).unwrap().1,
+            "invalid"
+        );
+        assert_eq!(
+            check(511, &rate(33.0, f32::NAN), &vehicle(false)).unwrap().1,
+            "invalid"
+        );
     }
 
     #[test]
@@ -156,6 +179,11 @@ mod tests {
     #[test]
     fn reboot_only_while_disarmed() {
         assert!(check(246, &[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], &vehicle(false)).is_none());
-        assert_eq!(check(246, &[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], &vehicle(true)).unwrap().1, "vehicle_armed");
+        assert_eq!(
+            check(246, &[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], &vehicle(true))
+                .unwrap()
+                .1,
+            "vehicle_armed"
+        );
     }
 }

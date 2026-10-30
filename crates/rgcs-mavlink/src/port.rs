@@ -83,12 +83,10 @@ impl MavPort {
     /// Queues one message only if there is room right now (fire-and-forget requests that the
     /// next tick repeats anyway; they must never wait on, or fill, a stalled link).
     pub fn try_send(&self, message: MavMessage) -> Result<(), PortError> {
-        self.outgoing
-            .try_send(Outgoing { message })
-            .map_err(|e| match e {
-                mpsc::error::TrySendError::Full(_) => PortError::Full,
-                mpsc::error::TrySendError::Closed(_) => PortError::Closed,
-            })
+        self.outgoing.try_send(Outgoing { message }).map_err(|e| match e {
+            mpsc::error::TrySendError::Full(_) => PortError::Full,
+            mpsc::error::TrySendError::Closed(_) => PortError::Closed,
+        })
     }
 
     /// One send, no retry; waits `ACK_TIMEOUT` (IN_PROGRESS extends to `IN_PROGRESS_TIMEOUT`).
@@ -151,8 +149,7 @@ mod tests {
         let info = MavMessage::CAMERA_INFORMATION(CAMERA_INFORMATION_DATA::DEFAULT);
         let frame = tap(&header(100), &info).expect("camera information is tapped");
         assert_eq!(frame.header.component_id, 100);
-        let attitude =
-            MavMessage::GIMBAL_DEVICE_ATTITUDE_STATUS(GIMBAL_DEVICE_ATTITUDE_STATUS_DATA::DEFAULT);
+        let attitude = MavMessage::GIMBAL_DEVICE_ATTITUDE_STATUS(GIMBAL_DEVICE_ATTITUDE_STATUS_DATA::DEFAULT);
         assert!(tap(&header(1), &attitude).is_some());
         let ack = MavMessage::COMMAND_ACK(COMMAND_ACK_DATA::DEFAULT);
         assert!(tap(&header(1), &ack).is_none());
@@ -163,18 +160,15 @@ mod tests {
         let (p, _out, _acks) = port();
         let mut rx = p.subscribe();
         let info = MavMessage::CAMERA_INFORMATION(CAMERA_INFORMATION_DATA::DEFAULT);
-        p.payload
-            .send(tap(&header(100), &info).unwrap())
-            .unwrap();
+        p.payload.send(tap(&header(100), &info).unwrap()).unwrap();
         assert_eq!(rx.recv().await.unwrap().header.component_id, 100);
     }
 
     #[tokio::test(start_paused = true)]
     async fn command_returns_on_its_ack() {
         let (p, mut out, acks) = port();
-        let task = tokio::spawn(async move {
-            p.command(1, photo(), MavCmd::MAV_CMD_IMAGE_START_CAPTURE).await
-        });
+        let task =
+            tokio::spawn(async move { p.command(1, photo(), MavCmd::MAV_CMD_IMAGE_START_CAPTURE).await });
         let sent = out.recv().await.unwrap();
         assert!(matches!(sent.message, MavMessage::COMMAND_LONG(ref d)
             if d.command == MavCmd::MAV_CMD_IMAGE_START_CAPTURE));
@@ -186,9 +180,7 @@ mod tests {
     async fn command_never_retries() {
         let (p, mut out, _acks) = port();
         let started = tokio::time::Instant::now();
-        let outcome = p
-            .command(1, photo(), MavCmd::MAV_CMD_IMAGE_START_CAPTURE)
-            .await;
+        let outcome = p.command(1, photo(), MavCmd::MAV_CMD_IMAGE_START_CAPTURE).await;
         assert_eq!(outcome, Outcome::Timeout);
         assert_eq!(started.elapsed(), ACK_TIMEOUT);
         drop(p);
@@ -202,9 +194,8 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn command_ignores_other_sysid_and_reports_refusal() {
         let (p, mut out, acks) = port();
-        let task = tokio::spawn(async move {
-            p.command(1, photo(), MavCmd::MAV_CMD_IMAGE_START_CAPTURE).await
-        });
+        let task =
+            tokio::spawn(async move { p.command(1, photo(), MavCmd::MAV_CMD_IMAGE_START_CAPTURE).await });
         out.recv().await.unwrap();
         acks.send(ack(2, MavResult::MAV_RESULT_ACCEPTED)).unwrap();
         acks.send(ack(1, MavResult::MAV_RESULT_DENIED)).unwrap();
@@ -238,8 +229,7 @@ mod tests {
         let hb = MavMessage::HEARTBEAT(HEARTBEAT_DATA::DEFAULT);
         assert_eq!(p.send(hb).await, Err(PortError::Closed));
         assert_eq!(
-            p.command(1, photo(), MavCmd::MAV_CMD_IMAGE_START_CAPTURE)
-                .await,
+            p.command(1, photo(), MavCmd::MAV_CMD_IMAGE_START_CAPTURE).await,
             Outcome::LinkClosed
         );
     }

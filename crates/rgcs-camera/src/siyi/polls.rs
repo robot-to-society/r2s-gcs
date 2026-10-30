@@ -58,14 +58,18 @@ mod tests {
             let p = due_polls(tick, Some(VideoMode::Thermal), true);
             assert!(p.contains(&(0x14, vec![1])), "tick {tick}: {p:?}");
         }
-        assert!(!due_polls(3, Some(VideoMode::SideBySide), true).iter().any(|(c, _)| *c == 0x14));
+        assert!(!due_polls(3, Some(VideoMode::SideBySide), true)
+            .iter()
+            .any(|(c, _)| *c == 0x14));
         assert!(!due_polls(3, None, true).iter().any(|(c, _)| *c == 0x14));
     }
 
     #[test]
     fn encoding_polled_every_second_until_known() {
         assert!(due_polls(7, Some(VideoMode::Rgb), false).contains(&(0x20, vec![1])));
-        assert!(!due_polls(7, Some(VideoMode::Rgb), true).iter().any(|(c, _)| *c == 0x20));
+        assert!(!due_polls(7, Some(VideoMode::Rgb), true)
+            .iter()
+            .any(|(c, _)| *c == 0x20));
         assert!(due_polls(30, Some(VideoMode::Rgb), true).contains(&(0x20, vec![1])));
     }
 

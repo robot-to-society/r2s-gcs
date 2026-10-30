@@ -53,10 +53,7 @@ fn due(p: &Policy) -> Intervention {
     let (m, e) = drive(
         p,
         Intervention::default(),
-        vec![
-            Input::Verdict { v: &d, now_ms: 0 },
-            Input::Tick { now_ms: 5000 },
-        ],
+        vec![Input::Verdict { v: &d, now_ms: 0 }, Input::Tick { now_ms: 5000 }],
     );
     assert_eq!((m.phase, sends(&e)), (Phase::Due, 0));
     assert!(e.contains(&Effect::Alert {
@@ -120,10 +117,22 @@ fn cancel_while_due_sends_nothing() {
 fn clear_while_due_goes_idle_and_the_next_detection_counts_down_again() {
     let p = policy(Level::L2);
     let (c, d) = (verdict(TbState::Clear), verdict(TbState::Detected));
-    let (m, e) = due(&p).step(&p, Input::Verdict { v: &c, now_ms: 20_000 });
+    let (m, e) = due(&p).step(
+        &p,
+        Input::Verdict {
+            v: &c,
+            now_ms: 20_000,
+        },
+    );
     assert_eq!(m.phase, Phase::Idle);
     assert!(e.contains(&Effect::Clear));
-    let (m, e) = m.step(&p, Input::Verdict { v: &d, now_ms: 30_000 });
+    let (m, e) = m.step(
+        &p,
+        Input::Verdict {
+            v: &d,
+            now_ms: 30_000,
+        },
+    );
     assert_eq!((m.phase, sends(&e)), (Phase::Countdown, 0));
     assert_eq!(m.deadline_ms, Some(35_000));
 }
@@ -161,10 +170,7 @@ fn losing_consent_3_while_due_falls_back_to_alerting() {
     let (m, e) = drive(
         &l1,
         due(&p),
-        vec![
-            Input::PolicyChanged(&l1),
-            Input::Verdict { v: &d, now_ms: 7000 },
-        ],
+        vec![Input::PolicyChanged(&l1), Input::Verdict { v: &d, now_ms: 7000 }],
     );
     assert_eq!((m.phase, sends(&e)), (Phase::Alerting, 0));
 }
@@ -182,10 +188,21 @@ fn a_lowered_level_at_the_deadline_alerts_instead_of_going_due() {
 /// Pushes `samples` through the detector and an L2 machine; returns the send times and phases.
 fn pipeline(samples: &[Sample]) -> (Vec<u64>, Vec<Phase>) {
     let (p, cfg) = (policy(Level::L2), ToiletBowlConfig::default());
-    let start = (ToiletBowlDetector::default(), Intervention::default(), Vec::new(), Vec::new());
+    let start = (
+        ToiletBowlDetector::default(),
+        Intervention::default(),
+        Vec::new(),
+        Vec::new(),
+    );
     let (_, _, sent, phases) = samples.iter().fold(start, |(det, m, sent, phases), s| {
         let (det, v) = det.push(s, &cfg);
-        let (m, e1) = m.step(&p, Input::Verdict { v: &v, now_ms: s.t_ms });
+        let (m, e1) = m.step(
+            &p,
+            Input::Verdict {
+                v: &v,
+                now_ms: s.t_ms,
+            },
+        );
         let (m, e2) = m.step(&p, Input::Tick { now_ms: s.t_ms });
         let n = sends(&e1) + sends(&e2);
         let sent = [sent, vec![s.t_ms; n]].concat();

@@ -4,9 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use mavlink::dialects::ardupilotmega::{
-    MavAutopilot, MavMessage, MavType, HEARTBEAT_DATA,
-};
+use mavlink::dialects::ardupilotmega::{MavAutopilot, MavMessage, MavType, HEARTBEAT_DATA};
 use mavlink::MavHeader;
 use rgcs_core::LinkStatus;
 use rgcs_mavlink::{run_link, Clock, LinkChannels, LinkUrl, Router, RouterEvent};

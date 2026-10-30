@@ -198,7 +198,10 @@ async fn anthropic_forced_text_call_keeps_tools_defined_but_disabled() {
     assert!(reqs[0].1.get("tools").is_none());
     assert!(reqs[0].1.get("tool_choice").is_none());
     assert_eq!(reqs[1].1["tool_choice"], json!({"type": "none"}));
-    assert_eq!(reqs[1].1["tools"].as_array().unwrap().len(), rgcs_ai::TOOL_NAMES.len());
+    assert_eq!(
+        reqs[1].1["tools"].as_array().unwrap().len(),
+        rgcs_ai::TOOL_NAMES.len()
+    );
 }
 
 #[tokio::test]
@@ -465,6 +468,9 @@ async fn redirects_are_not_followed_so_the_key_stays_with_the_configured_host() 
         let client = client_for(&resolved(kind, &url, Some(KEY), 5_000));
         let err = call(client.as_ref(), &[user("a")], true).await.unwrap_err();
         assert!(matches!(err, AiError::Provider { status: 307, .. }), "{err:?}");
-        assert!(elsewhere.requests().is_empty(), "the request (and key) followed the redirect");
+        assert!(
+            elsewhere.requests().is_empty(),
+            "the request (and key) followed the redirect"
+        );
     }
 }

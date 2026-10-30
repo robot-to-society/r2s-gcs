@@ -23,7 +23,13 @@ impl Motion {
                     now.saturating_duration_since(t).as_millis() < u128::from(ZERO_REPEAT_MS)
                 });
                 let send = self.moving || recent;
-                (Self { moving: false, ..*self }, send)
+                (
+                    Self {
+                        moving: false,
+                        ..*self
+                    },
+                    send,
+                )
             }
             CameraCommand::GimbalRate { .. } => (
                 Self {
@@ -32,9 +38,7 @@ impl Motion {
                 },
                 true,
             ),
-            CameraCommand::GimbalAngle { .. } | CameraCommand::GimbalCenter { .. } => {
-                (Self::default(), true)
-            }
+            CameraCommand::GimbalAngle { .. } | CameraCommand::GimbalCenter { .. } => (Self::default(), true),
             _ => (*self, true),
         }
     }

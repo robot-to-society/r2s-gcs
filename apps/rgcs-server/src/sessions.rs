@@ -95,7 +95,13 @@ mod tests {
     fn register_lists_and_drop_removes() {
         let reg = SessionRegistry::default();
         let addr: SocketAddr = "10.0.0.5:51000".parse().unwrap();
-        let g1 = reg.register("admin", Role::Admin, Some(addr), Some("x Chrome/129.0 Safari/537.36"), 1000);
+        let g1 = reg.register(
+            "admin",
+            Role::Admin,
+            Some(addr),
+            Some("x Chrome/129.0 Safari/537.36"),
+            1000,
+        );
         let _g2 = reg.register("op", Role::Operator, None, None, 2000);
         let rows = reg.list();
         assert_eq!(rows.iter().map(|r| r.id).collect::<Vec<_>>(), vec![1, 2]);

@@ -129,7 +129,10 @@ impl Cell {
     }
 
     pub fn coords(&self) -> (f64, f64) {
-        (self.lat.parse().unwrap_or(f64::NAN), self.lon.parse().unwrap_or(f64::NAN))
+        (
+            self.lat.parse().unwrap_or(f64::NAN),
+            self.lon.parse().unwrap_or(f64::NAN),
+        )
     }
 }
 
@@ -223,7 +226,11 @@ fn parsed<T>(r: Result<T, rgcs_env::ParseError>) -> Result<T, String> {
 }
 
 pub fn open_meteo_url(ep: &EnvEndpoints, key: Option<&Secret>, cell: &Cell) -> String {
-    let base = if key.is_some() { &ep.open_meteo_customer } else { &ep.open_meteo };
+    let base = if key.is_some() {
+        &ep.open_meteo_customer
+    } else {
+        &ep.open_meteo
+    };
     let url = format!(
         "{base}/v1/forecast?latitude={}&longitude={}&{OPEN_METEO_QUERY}",
         cell.lat, cell.lon
@@ -259,7 +266,11 @@ fn iso_seconds(ms: u64) -> String {
 
 pub fn gfz_url(ep: &EnvEndpoints, now_ms: u64) -> String {
     let start = iso_seconds(now_ms.saturating_sub(86_400_000));
-    format!("{}/app/json/?start={start}&end={}&index=Kp", ep.gfz, iso_seconds(now_ms))
+    format!(
+        "{}/app/json/?start={start}&end={}&index=Kp",
+        ep.gfz,
+        iso_seconds(now_ms)
+    )
 }
 
 /// The SWPC product path of a SWPC source.
@@ -295,11 +306,16 @@ pub async fn fetch_source(client: &reqwest::Client, id: SourceId, plan: Plan<'_>
                     (SourceId::Openweathermap, Some(k)) => {
                         parse::owm(&get(owm_url(plan.endpoints, k, cell), cell.key()).await?)
                     }
-                    _ => parse::open_meteo(&get(open_meteo_url(plan.endpoints, key, cell), cell.key()).await?),
+                    _ => {
+                        parse::open_meteo(&get(open_meteo_url(plan.endpoints, key, cell), cell.key()).await?)
+                    }
                 };
                 per_cell.push((cell.key(), parsed(readings)?));
             }
-            Ok(Fetched { per_cell, ..Fetched::default() })
+            Ok(Fetched {
+                per_cell,
+                ..Fetched::default()
+            })
         }
         SourceId::JmaAmedas => crate::env_amedas::fetch(client, plan).await,
         SourceId::GfzKp => {
@@ -309,7 +325,10 @@ pub async fn fetch_source(client: &reqwest::Client, id: SourceId, plan: Plan<'_>
         SourceId::SwpcAlerts => {
             let url = swpc_url(plan.endpoints, id).unwrap_or_default();
             let notes = parsed(parse::swpc_alerts(&get(url, String::new()).await?))?;
-            Ok(Fetched { notes, ..Fetched::default() })
+            Ok(Fetched {
+                notes,
+                ..Fetched::default()
+            })
         }
         SourceId::SwpcKp | SourceId::SwpcKp1m | SourceId::SwpcKpForecast => {
             let url = swpc_url(plan.endpoints, id).unwrap_or_default();

@@ -213,7 +213,12 @@ async fn ws_gimbal_rate_reaches_the_manager() {
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
-    assert!(rates.iter().any(|r| (r - std::f32::consts::FRAC_PI_4).abs() < 1e-6), "{rates:?}");
+    assert!(
+        rates
+            .iter()
+            .any(|r| (r - std::f32::consts::FRAC_PI_4).abs() < 1e-6),
+        "{rates:?}"
+    );
 }
 
 /// Final review I1: a page load / tab close / deadman with no stick never cancels FC pointing.

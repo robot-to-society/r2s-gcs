@@ -27,7 +27,11 @@ fn no_source() -> Response {
 
 fn stored_failed(e: rgcs_store::StoreError) -> Response {
     tracing::error!(error = %e, "env settings write failed");
-    err(StatusCode::INTERNAL_SERVER_ERROR, "internal", "settings could not be stored")
+    err(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "internal",
+        "settings could not be stored",
+    )
 }
 
 pub async fn factors(State(app): State<AppState>, AuthUser(_op): AuthUser) -> Response {
@@ -69,7 +73,11 @@ pub async fn put_source(
     ok(app.env.source(id))
 }
 
-pub async fn fetch(State(app): State<AppState>, AdminUser(_op): AdminUser, Path(id): Path<String>) -> Response {
+pub async fn fetch(
+    State(app): State<AppState>,
+    AdminUser(_op): AdminUser,
+    Path(id): Path<String>,
+) -> Response {
     let Some(id) = external(&id) else {
         return no_source();
     };
@@ -105,7 +113,16 @@ pub async fn put_settings(
     }
     app.env.apply_settings(next.clone());
     let args = serde_json::to_value(&next).unwrap_or_default();
-    audit(&app.store, &op.username, None, "env_settings_put", args, "ok", None).await;
+    audit(
+        &app.store,
+        &op.username,
+        None,
+        "env_settings_put",
+        args,
+        "ok",
+        None,
+    )
+    .await;
     app.env.refresh().await;
     ok(next)
 }

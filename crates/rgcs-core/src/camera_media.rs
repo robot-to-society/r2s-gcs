@@ -232,6 +232,9 @@ mod tests {
         assert_eq!(ids[0], "h264_720p");
         assert_eq!(ids.len(), 5);
         assert_eq!(MT11_PALETTES.len(), 11);
-        assert_eq!((AI_BOX_PX_RANGE, AI_BOX_PX_DEFAULT, AI_CENTER_BOX_PX), ((32, 600), 100, 200));
+        assert_eq!(
+            (AI_BOX_PX_RANGE, AI_BOX_PX_DEFAULT, AI_CENTER_BOX_PX),
+            ((32, 600), 100, 200)
+        );
     }
 }

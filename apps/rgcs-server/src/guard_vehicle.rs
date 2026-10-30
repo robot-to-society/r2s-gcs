@@ -345,7 +345,8 @@ impl VehicleGuard {
         self.alert = Some(alert.clone());
         let detection = fresh && sound;
         let mut out = vec![Out::Alert(alert.clone())];
-        let severity = message_severity(phase, detection).or_else(|| mode_changed(&alert).then_some(Severity::Warn));
+        let severity =
+            message_severity(phase, detection).or_else(|| mode_changed(&alert).then_some(Severity::Warn));
         if let Some(severity) = severity {
             let text = if detection {
                 headline(&alert.vehicle_name)
@@ -403,7 +404,11 @@ impl VehicleGuard {
     }
 
     fn build_alert(&self, id: String, phase: GuardPhase, sound: bool, cx: &Ctx) -> GuardAlert {
-        let VehicleState { name, mode: vehicle_mode, .. } = self.vehicle();
+        let VehicleState {
+            name,
+            mode: vehicle_mode,
+            ..
+        } = self.vehicle();
         let taken_over_by = (phase == GuardPhase::TakenOver).then(|| self.machine.by.clone());
         let det = self.detected.as_ref();
         let mode = self.machine.mode.unwrap_or("");

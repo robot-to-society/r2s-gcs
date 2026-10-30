@@ -23,8 +23,8 @@ use crate::settings;
 use crate::video::VideoHub;
 use crate::{
     api, auth, branding, briefing_api, calib_api, camera_api, commands, export_api, flight_api, geofence_api,
-    guided, input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api, network_api, param_api,
-    param_pick, present_api, roi_api, survey_camera_api, video_api, ws,
+    guided, input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api, network_api,
+    param_api, param_pick, present_api, roi_api, survey_camera_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -212,7 +212,12 @@ impl AppState {
     pub fn with_cameras(self, cameras: CameraManager) -> Self {
         cameras.set_gps_time(crate::gps_time::factory(self.router.clone()));
         cameras.set_mav_port(self.mav.clone());
-        let roi = crate::roi::RoiHub::new(self.store.clone(), cameras.clone(), self.router.clone(), self.tx.clone());
+        let roi = crate::roi::RoiHub::new(
+            self.store.clone(),
+            cameras.clone(),
+            self.router.clone(),
+            self.tx.clone(),
+        );
         Self { cameras, roi, ..self }
     }
 
@@ -406,7 +411,10 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         .route("/guard/decisions", get(crate::guard_api::decisions))
         .route("/env/factors", get(crate::env_api::factors))
         .route("/env/sources", get(crate::env_api::sources))
-        .route("/env/sources/{id}", axum::routing::put(crate::env_api::put_source))
+        .route(
+            "/env/sources/{id}",
+            axum::routing::put(crate::env_api::put_source),
+        )
         .route("/env/sources/{id}/fetch", post(crate::env_api::fetch))
         .route(
             "/env/settings",

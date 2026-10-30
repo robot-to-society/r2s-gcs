@@ -14,11 +14,23 @@ use crate::mavlink_cam::binding::tests::cam_info;
 use crate::Camera;
 
 /// A port whose outgoing queue (capacity `cap`) is never drained: a dead or stuck link.
-fn stuck_port(cap: usize) -> (MavPort, mpsc::Sender<Outgoing>, mpsc::Receiver<Outgoing>, broadcast::Sender<PayloadFrame>) {
+fn stuck_port(
+    cap: usize,
+) -> (
+    MavPort,
+    mpsc::Sender<Outgoing>,
+    mpsc::Receiver<Outgoing>,
+    broadcast::Sender<PayloadFrame>,
+) {
     let (out_tx, out_rx) = mpsc::channel(cap);
     let (acks, _) = broadcast::channel(8);
     let (payload, _) = broadcast::channel(PAYLOAD_CAPACITY);
-    (MavPort::new(out_tx.clone(), acks, payload.clone()), out_tx, out_rx, payload)
+    (
+        MavPort::new(out_tx.clone(), acks, payload.clone()),
+        out_tx,
+        out_rx,
+        payload,
+    )
 }
 
 fn frame(message: MavMessage) -> PayloadFrame {
@@ -46,7 +58,10 @@ async fn a_dead_link_does_not_block_a_vehicle_command() {
         message: MavMessage::HEARTBEAT(HEARTBEAT_DATA::DEFAULT),
     };
     let sent = timeout(Duration::from_millis(100), vehicle_queue.send(command)).await;
-    assert!(sent.is_ok(), "the camera requests filled the vehicle's outgoing queue");
+    assert!(
+        sent.is_ok(),
+        "the camera requests filled the vehicle's outgoing queue"
+    );
 }
 
 #[tokio::test(start_paused = true)]

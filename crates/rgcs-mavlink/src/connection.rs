@@ -413,10 +413,8 @@ mod tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let address = format!("tcpout:127.0.0.1:{port}");
-        let (conn, accepted) = tokio::join!(
-            mavlink::connect_async::<MavMessage>(&address),
-            listener.accept()
-        );
+        let (conn, accepted) =
+            tokio::join!(mavlink::connect_async::<MavMessage>(&address), listener.accept());
         drop(accepted.unwrap());
         let conn: Conn = Arc::from(conn.unwrap());
         let (mut ch, _events_rx, _out_tx) = test_channels();
@@ -447,10 +445,8 @@ mod tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let address = format!("tcpout:127.0.0.1:{port}");
-        let (conn, accepted) = tokio::join!(
-            mavlink::connect_async::<MavMessage>(&address),
-            listener.accept()
-        );
+        let (conn, accepted) =
+            tokio::join!(mavlink::connect_async::<MavMessage>(&address), listener.accept());
         (Arc::from(conn.unwrap()), accepted.unwrap().0)
     }
 

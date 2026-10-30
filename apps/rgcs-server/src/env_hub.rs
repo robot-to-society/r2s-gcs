@@ -106,7 +106,12 @@ pub struct EnvHub {
 }
 
 impl EnvHub {
-    pub fn new(endpoints: EnvEndpoints, keys: EnvKeys, tx: broadcast::Sender<ServerMessage>, guard: GuardHub) -> Self {
+    pub fn new(
+        endpoints: EnvEndpoints,
+        keys: EnvKeys,
+        tx: broadcast::Sender<ServerMessage>,
+        guard: GuardHub,
+    ) -> Self {
         Self {
             inner: Arc::new(StdMutex::new(EnvState::new())),
             endpoints: Arc::new(endpoints),
@@ -179,7 +184,9 @@ impl EnvHub {
 
     pub async fn save_settings(store: &Store, s: &EnvSettings) -> rgcs_store::Result<()> {
         let text = serde_json::to_string(s).unwrap_or_default();
-        store.put_app_setting(rgcs_store::app_settings::ENV_SETTINGS, &text).await
+        store
+            .put_app_setting(rgcs_store::app_settings::ENV_SETTINGS, &text)
+            .await
     }
 
     /// Reads vehicles and parameters from `app`. Idempotent.
@@ -276,7 +283,11 @@ impl EnvHub {
         let vehicles = self.vehicles().await;
         let (cfg, step, table) = {
             let st = self.lock();
-            let cfg = st.sources.get(&id).map(|s| s.cfg).unwrap_or(view::default_cfg(id));
+            let cfg = st
+                .sources
+                .get(&id)
+                .map(|s| s.cfg)
+                .unwrap_or(view::default_cfg(id));
             (cfg, st.settings.rounding_deg, st.table.clone())
         };
         let cells = view::cells(&view::positions(&vehicles), step);
@@ -362,7 +373,11 @@ impl EnvHub {
             st.last_fuse_ms = now;
             summary
         };
-        let kp = summary.factors.iter().find(|f| f.kind == "kp").filter(|f| f.value.is_some());
+        let kp = summary
+            .factors
+            .iter()
+            .find(|f| f.kind == "kp")
+            .filter(|f| f.value.is_some());
         let ctx = ExternalContext {
             kp: kp.map(|f| match f.level {
                 rgcs_core::EnvLevel::Ok => rgcs_guard::ExtLevel::Ok,
@@ -436,7 +451,13 @@ impl EnvHub {
 
 /// The fused summary. While the gate is closed, external readings are left out (and no
 /// external source counts as enabled), so the guard gets no external context.
-fn build_summary(st: &EnvState, vehicles: &[VehicleState], local: Vec<Reading>, open: bool, now: u64) -> EnvSummary {
+fn build_summary(
+    st: &EnvState,
+    vehicles: &[VehicleState],
+    local: Vec<Reading>,
+    open: bool,
+    now: u64,
+) -> EnvSummary {
     let enabled: Vec<SourceId> = SourceId::EXTERNAL
         .into_iter()
         .filter(|id| open && st.sources.get(id).is_some_and(|s| s.cfg.enabled))
@@ -475,7 +496,16 @@ fn build_summary(st: &EnvState, vehicles: &[VehicleState], local: Vec<Reading>, 
 /// `"K07A 2026-10-25T03:12Z — <untrusted text>"`.
 fn note_text(n: &Note) -> String {
     let at = time::OffsetDateTime::from_unix_timestamp((n.at_ms / 1000) as i64)
-        .map(|t| format!("{:04}-{:02}-{:02}T{:02}:{:02}Z", t.year(), u8::from(t.month()), t.day(), t.hour(), t.minute()))
+        .map(|t| {
+            format!(
+                "{:04}-{:02}-{:02}T{:02}:{:02}Z",
+                t.year(),
+                u8::from(t.month()),
+                t.day(),
+                t.hour(),
+                t.minute()
+            )
+        })
         .unwrap_or_default();
     format!("{} {at} — {}", n.id, n.untrusted_text)
 }

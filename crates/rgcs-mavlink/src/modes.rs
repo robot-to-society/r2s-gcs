@@ -108,21 +108,77 @@ pub fn mode_number(kind: VehicleKind, name: &str) -> Option<u32> {
 
 // Mirror of `MODES.*.all` in apps/rgcs-server/ui/src/features/commands/catalog.ts; keep both in sync.
 const COPTER_ALL: &[&str] = &[
-    "STABILIZE", "ALT_HOLD", "LOITER", "POSHOLD", "BRAKE", "GUIDED", "AUTO", "CIRCLE", "RTL", "SMART_RTL",
-    "LAND", "ACRO", "SPORT", "DRIFT", "AUTOTUNE",
+    "STABILIZE",
+    "ALT_HOLD",
+    "LOITER",
+    "POSHOLD",
+    "BRAKE",
+    "GUIDED",
+    "AUTO",
+    "CIRCLE",
+    "RTL",
+    "SMART_RTL",
+    "LAND",
+    "ACRO",
+    "SPORT",
+    "DRIFT",
+    "AUTOTUNE",
 ];
 const PLANE_ALL: &[&str] = &[
-    "MANUAL", "STABILIZE", "ACRO", "TRAINING", "FBWA", "FBWB", "CRUISE", "AUTOTUNE", "TAKEOFF", "LOITER",
-    "CIRCLE", "GUIDED", "AUTO", "RTL", "THERMAL",
+    "MANUAL",
+    "STABILIZE",
+    "ACRO",
+    "TRAINING",
+    "FBWA",
+    "FBWB",
+    "CRUISE",
+    "AUTOTUNE",
+    "TAKEOFF",
+    "LOITER",
+    "CIRCLE",
+    "GUIDED",
+    "AUTO",
+    "RTL",
+    "THERMAL",
 ];
 const QUADPLANE_ALL: &[&str] = &[
-    "MANUAL", "STABILIZE", "ACRO", "TRAINING", "FBWA", "FBWB", "CRUISE", "AUTOTUNE", "TAKEOFF", "LOITER",
-    "CIRCLE", "GUIDED", "AUTO", "RTL", "THERMAL", "QSTABILIZE", "QHOVER", "QLOITER", "QLAND", "QRTL",
-    "QAUTOTUNE", "QACRO",
+    "MANUAL",
+    "STABILIZE",
+    "ACRO",
+    "TRAINING",
+    "FBWA",
+    "FBWB",
+    "CRUISE",
+    "AUTOTUNE",
+    "TAKEOFF",
+    "LOITER",
+    "CIRCLE",
+    "GUIDED",
+    "AUTO",
+    "RTL",
+    "THERMAL",
+    "QSTABILIZE",
+    "QHOVER",
+    "QLOITER",
+    "QLAND",
+    "QRTL",
+    "QAUTOTUNE",
+    "QACRO",
 ];
 const ROVER_ALL: &[&str] = &[
-    "MANUAL", "ACRO", "STEERING", "HOLD", "LOITER", "FOLLOW", "SIMPLE", "CIRCLE", "GUIDED", "AUTO", "RTL",
-    "SMART_RTL", "DOCK",
+    "MANUAL",
+    "ACRO",
+    "STEERING",
+    "HOLD",
+    "LOITER",
+    "FOLLOW",
+    "SIMPLE",
+    "CIRCLE",
+    "GUIDED",
+    "AUTO",
+    "RTL",
+    "SMART_RTL",
+    "DOCK",
 ];
 
 /// Modes the operator can pick for an airframe (the Rust mirror of the UI `modesFor(..).all`);
@@ -226,11 +282,23 @@ mod tests {
 
     #[test]
     fn every_listed_mode_has_a_number() {
-        for kind in [VehicleKind::Copter, VehicleKind::Plane, VehicleKind::Rover, VehicleKind::Other] {
-            let table_kind = if kind == VehicleKind::Other { VehicleKind::Copter } else { kind };
+        for kind in [
+            VehicleKind::Copter,
+            VehicleKind::Plane,
+            VehicleKind::Rover,
+            VehicleKind::Other,
+        ] {
+            let table_kind = if kind == VehicleKind::Other {
+                VehicleKind::Copter
+            } else {
+                kind
+            };
             for vtol in [false, true] {
                 for name in modes_for(kind, vtol) {
-                    assert!(mode_number(table_kind, name).is_some(), "{kind:?} vtol={vtol} {name}");
+                    assert!(
+                        mode_number(table_kind, name).is_some(),
+                        "{kind:?} vtol={vtol} {name}"
+                    );
                 }
             }
         }

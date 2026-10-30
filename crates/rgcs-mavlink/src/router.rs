@@ -643,19 +643,43 @@ mod tests {
         let mut r = Router::default();
         r.on_message(&header(1), &fc_heartbeat(), clock(0));
         assert_eq!(r.system_time(1), None);
-        r.on_message(&header(1), &system_time(0), Clock { mono_ms: 1, unix_ms: 4_000 });
+        r.on_message(
+            &header(1),
+            &system_time(0),
+            Clock {
+                mono_ms: 1,
+                unix_ms: 4_000,
+            },
+        );
         assert_eq!(r.system_time(1), None);
         r.on_message(
             &header(1),
             &system_time(1_790_000_000_000_000),
-            Clock { mono_ms: 2, unix_ms: 5_000 },
+            Clock {
+                mono_ms: 2,
+                unix_ms: 5_000,
+            },
         );
         assert_eq!(
             r.system_time(1),
-            Some(SystemTimeSample { unix_us: 1_790_000_000_000_000, received_unix_ms: 5_000 })
+            Some(SystemTimeSample {
+                unix_us: 1_790_000_000_000_000,
+                received_unix_ms: 5_000
+            })
         );
-        let other = MavHeader { system_id: 1, component_id: 154, sequence: 0 };
-        r.on_message(&other, &system_time(1_791_000_000_000_000), Clock { mono_ms: 3, unix_ms: 6_000 });
+        let other = MavHeader {
+            system_id: 1,
+            component_id: 154,
+            sequence: 0,
+        };
+        r.on_message(
+            &other,
+            &system_time(1_791_000_000_000_000),
+            Clock {
+                mono_ms: 3,
+                unix_ms: 6_000,
+            },
+        );
         assert_eq!(r.system_time(1).unwrap().received_unix_ms, 5_000);
         assert_eq!(r.system_time(9), None);
     }

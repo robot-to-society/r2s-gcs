@@ -112,7 +112,9 @@ mod tests {
                 id: "p-1".into(),
                 sysid: 3,
                 vehicle_name: "UAV-03".into(),
-                command: VehicleCommand::SetMode { mode: "LOITER".into() },
+                command: VehicleCommand::SetMode {
+                    mode: "LOITER".into(),
+                },
                 reason: "hold".into(),
                 requires_confirm: false,
                 created_ms: 1,
@@ -126,12 +128,18 @@ mod tests {
     #[test]
     fn proposal_command_serializes_tagged() {
         let json = serde_json::to_string(&reply()).unwrap();
-        assert!(json.contains(r#""command":{"cmd":"set_mode","args":{"mode":"LOITER"}}"#), "{json}");
+        assert!(
+            json.contains(r#""command":{"cmd":"set_mode","args":{"mode":"LOITER"}}"#),
+            "{json}"
+        );
     }
 
     #[test]
     fn enums_are_snake_case() {
         assert_eq!(serde_json::to_string(&AiVideoState::Live).unwrap(), r#""live""#);
-        assert_eq!(serde_json::to_string(&AiProviderKind::OpenaiCompat).unwrap(), r#""openai_compat""#);
+        assert_eq!(
+            serde_json::to_string(&AiProviderKind::OpenaiCompat).unwrap(),
+            r#""openai_compat""#
+        );
     }
 }

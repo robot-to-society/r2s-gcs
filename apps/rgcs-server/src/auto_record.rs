@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use rgcs_core::{
-    CameraCommand, CameraKind, CameraState, MessageSource, RecordingState, Severity, StorageInfo, StorageStatus, SysId,
-    VehicleMessage,
+    CameraCommand, CameraKind, CameraState, MessageSource, RecordingState, Severity, StorageInfo,
+    StorageStatus, SysId, VehicleMessage,
 };
 use rgcs_store::audit::AuditInput;
 use tokio::task::JoinHandle;
@@ -29,7 +29,12 @@ const WARNING_SEVERITY: u8 = 4;
 static NEXT_MESSAGE_ID: AtomicU64 = AtomicU64::new(crate::telemetry::LINK_MESSAGE_ID_BASE + (1 << 39));
 
 /// The command for one observation. The first sight of a vehicle (`prev_armed: None`) is no edge.
-pub fn decide(prev_armed: Option<bool>, armed: bool, enabled: bool, rec: RecordingState) -> Option<CameraCommand> {
+pub fn decide(
+    prev_armed: Option<bool>,
+    armed: bool,
+    enabled: bool,
+    rec: RecordingState,
+) -> Option<CameraCommand> {
     let prev = prev_armed?;
     match (enabled, prev, armed) {
         (true, false, true) if rec != RecordingState::Recording => Some(CameraCommand::RecordStart),
@@ -213,9 +218,15 @@ mod tests {
     #[test]
     fn decide_acts_on_edges_only() {
         assert_eq!(decide(None, true, true, Idle), None);
-        assert_eq!(decide(Some(false), true, true, Idle), Some(CameraCommand::RecordStart));
+        assert_eq!(
+            decide(Some(false), true, true, Idle),
+            Some(CameraCommand::RecordStart)
+        );
         assert_eq!(decide(Some(false), true, true, Recording), None);
-        assert_eq!(decide(Some(true), false, true, Recording), Some(CameraCommand::RecordStop));
+        assert_eq!(
+            decide(Some(true), false, true, Recording),
+            Some(CameraCommand::RecordStop)
+        );
         assert_eq!(decide(Some(false), true, false, Idle), None);
         assert_eq!(decide(Some(true), true, true, Idle), None);
         assert_eq!(decide(Some(true), false, true, Idle), None);
@@ -228,7 +239,11 @@ mod tests {
         assert_eq!(retry_step(Retry::Waiting, true, true), (Retry::Online, false));
         assert_eq!(retry_step(Retry::Online, true, true), (Retry::Idle, true));
         assert_eq!(retry_step(Retry::Online, true, false), (Retry::Waiting, false));
-        assert_eq!(retry_step(Retry::Online, false, true), (Retry::Idle, false), "DISARM drops it");
+        assert_eq!(
+            retry_step(Retry::Online, false, true),
+            (Retry::Idle, false),
+            "DISARM drops it"
+        );
     }
 
     #[test]

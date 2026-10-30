@@ -118,7 +118,10 @@ mod tests {
 
     #[test]
     fn utc_time_is_le_microseconds() {
-        assert_eq!(utc_time(1_790_000_000_123_456), 1_790_000_000_123_456u64.to_le_bytes());
+        assert_eq!(
+            utc_time(1_790_000_000_123_456),
+            1_790_000_000_123_456u64.to_le_bytes()
+        );
     }
 
     #[test]

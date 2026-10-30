@@ -308,7 +308,15 @@ impl AiHub {
     }
 
     /// `context_tokens` = [`rgcs_ai::TurnOutput::context`], the replay cost after this turn.
-    pub fn commit(&self, user: &str, id: &str, turns: Vec<Turn>, tokens: u64, context_tokens: u64, now_ms: u64) {
+    pub fn commit(
+        &self,
+        user: &str,
+        id: &str,
+        turns: Vec<Turn>,
+        tokens: u64,
+        context_tokens: u64,
+        now_ms: u64,
+    ) {
         let mut s = lock(&self.state);
         s.prune(now_ms);
         s.spent.push_back((now_ms, tokens));

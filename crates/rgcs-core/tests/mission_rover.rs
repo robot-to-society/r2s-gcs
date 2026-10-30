@@ -43,13 +43,18 @@ fn a_rover_waypoint_only_mission_needs_no_takeoff_or_land() {
     let c = codes(&m, Some(VehicleKind::Rover));
     assert!(!c.contains(&"first_not_takeoff".to_string()), "{c:?}");
     assert!(!c.contains(&"no_land_or_rtl".to_string()), "{c:?}");
-    assert!(!Mission::has_fatal(&m.validate_for(&FenceInfo::default(), Some(VehicleKind::Rover))));
+    assert!(!Mission::has_fatal(
+        &m.validate_for(&FenceInfo::default(), Some(VehicleKind::Rover))
+    ));
 }
 
 #[test]
 fn a_flying_or_unknown_vehicle_still_needs_a_takeoff() {
     let m = mission(vec![wp(36.25, 137.63)]);
     for kind in [Some(VehicleKind::Copter), Some(VehicleKind::Plane), None] {
-        assert!(codes(&m, kind).contains(&"first_not_takeoff".to_string()), "{kind:?}");
+        assert!(
+            codes(&m, kind).contains(&"first_not_takeoff".to_string()),
+            "{kind:?}"
+        );
     }
 }

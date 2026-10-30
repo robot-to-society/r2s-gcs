@@ -163,7 +163,11 @@ fn start_forces_zero_even_when_controller_was_still() {
     assert_eq!(rates(&out), vec![(0, 0)]);
     let (_, out) = c.step(&inp(T0, None, None));
     assert_eq!(c.status().error, None);
-    assert_eq!(rates(&out), vec![(0, 0)], "goal error after start re-sends the zero");
+    assert_eq!(
+        rates(&out),
+        vec![(0, 0)],
+        "goal error after start re-sends the zero"
+    );
 }
 
 #[test]
@@ -382,7 +386,10 @@ fn rate_proportional_and_deadband() {
 fn rate_zero_not_sent_when_still() {
     let c = started(rate_settings(), north());
     let still = |t| inp(t, fix(Some(0.0), 0), att(0.0, 0.0, 0));
-    let (_, outs) = run(&c, &[still(T0), still(T0 + 100), still(T0 + 200), still(T0 + 300)]);
+    let (_, outs) = run(
+        &c,
+        &[still(T0), still(T0 + 100), still(T0 + 200), still(T0 + 300)],
+    );
     // Only the start zero's two resends; nothing once they are spent.
     assert_eq!(all_rates(&outs[..2]), vec![(0, 0), (0, 0)]);
     assert!(all_rates(&outs[2..]).is_empty());

@@ -134,8 +134,8 @@ async fn main() -> anyhow::Result<()> {
         listener,
         app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-        .with_graceful_shutdown(shutdown)
-        .await?;
+    .with_graceful_shutdown(shutdown)
+    .await?;
     // Ruling 18: every active ROI ends with speed 0 before the process exits.
     roi.shutdown_all().await;
     Ok(())

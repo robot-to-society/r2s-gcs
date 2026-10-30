@@ -183,7 +183,11 @@ pub fn parse_candidates(p: &[u8]) -> Option<DetectionFrame> {
             class_name: class_name(classes[i]),
         })
         .collect();
-    Some(DetectionFrame { model, pts_us, detections })
+    Some(DetectionFrame {
+        model,
+        pts_us,
+        detections,
+    })
 }
 
 fn area(d: &Detection) -> f32 {
@@ -215,9 +219,7 @@ pub fn pick_detection(frames: &[&DetectionFrame], nx: f32, ny: f32) -> Option<De
         .enumerate()
         .flat_map(|(i, f)| f.detections.iter().map(move |d| (i, d)))
         .filter(|(_, d)| contains(d, nx, ny))
-        .min_by(|(ia, a), (ib, b)| {
-            area(a).total_cmp(&area(b)).then(ib.cmp(ia))
-        })
+        .min_by(|(ia, a), (ib, b)| area(a).total_cmp(&area(b)).then(ib.cmp(ia)))
         .map(|(_, d)| d)?;
     let best = frames
         .last()?

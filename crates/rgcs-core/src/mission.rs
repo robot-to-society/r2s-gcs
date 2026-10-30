@@ -305,10 +305,12 @@ impl Mission {
             return out;
         }
         let ground = kind == Some(VehicleKind::Rover);
-        if !ground && !matches!(
-            self.items[0].command,
-            MAV_CMD_NAV_TAKEOFF | MAV_CMD_NAV_VTOL_TAKEOFF
-        ) {
+        if !ground
+            && !matches!(
+                self.items[0].command,
+                MAV_CMD_NAV_TAKEOFF | MAV_CMD_NAV_VTOL_TAKEOFF
+            )
+        {
             out.push(Finding::fatal(
                 "first_not_takeoff",
                 Some(1),

@@ -10,8 +10,8 @@ use std::time::Duration;
 
 use rgcs_camera::camera::GpsTime;
 use rgcs_camera::{Camera, CameraError, MavlinkCamera, NoneCamera, SiyiMt11};
-use rgcs_mavlink::MavPort;
 use rgcs_core::{CameraCommand, CameraKind, CameraProfile, CameraSnapshot, ServerMessage, SysId};
+use rgcs_mavlink::MavPort;
 use rgcs_store::Store;
 use tokio::sync::{broadcast, Mutex};
 use tokio::task::JoinHandle;
@@ -113,7 +113,11 @@ impl CameraManager {
 
     fn build(&self, profile: &CameraProfile) -> Arc<dyn Camera> {
         match profile.kind {
-            CameraKind::Mavlink => Arc::new(MavlinkCamera::new(profile.sysid, profile.comp_id, self.mav_port())),
+            CameraKind::Mavlink => Arc::new(MavlinkCamera::new(
+                profile.sysid,
+                profile.comp_id,
+                self.mav_port(),
+            )),
             CameraKind::SiyiMt11 => self.build_mt11(profile),
             _ => Arc::new(NoneCamera::default()),
         }
@@ -126,7 +130,9 @@ impl CameraManager {
                 SiyiMt11::new(host, profile.port)
             }
             #[cfg(any(test, feature = "sim"))]
-            (CameraKind::SiyiMt11, CameraFactory::Sim(addr)) => SiyiMt11::new(Ipv4Addr::LOCALHOST, addr.port()),
+            (CameraKind::SiyiMt11, CameraFactory::Sim(addr)) => {
+                SiyiMt11::new(Ipv4Addr::LOCALHOST, addr.port())
+            }
             _ => return Arc::new(NoneCamera::default()),
         };
         match self.gps_time_for(profile) {
@@ -282,7 +288,10 @@ mod tests {
     use tokio::time::Instant;
 
     /// Collects (arrival offset, zoom) of every `camera_state` frame until the channel closes.
-    fn collect(mut rx: broadcast::Receiver<ServerMessage>, start: Instant) -> JoinHandle<Vec<(Duration, f32)>> {
+    fn collect(
+        mut rx: broadcast::Receiver<ServerMessage>,
+        start: Instant,
+    ) -> JoinHandle<Vec<(Duration, f32)>> {
         tokio::spawn(async move {
             let mut out = Vec::new();
             while let Ok(ServerMessage::CameraState { state, .. }) = rx.recv().await {
@@ -317,7 +326,10 @@ mod tests {
     #[async_trait::async_trait]
     impl Camera for FakeCam {
         fn caps(&self) -> CameraCaps {
-            self.caps.lock().map(|c| c.clone()).unwrap_or_else(|_| CameraCaps::none())
+            self.caps
+                .lock()
+                .map(|c| c.clone())
+                .unwrap_or_else(|_| CameraCaps::none())
         }
         async fn send(&self, _cmd: CameraCommand) -> Result<(), CameraError> {
             Ok(())

@@ -308,7 +308,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(c.env.openweathermap_api_key_env, "MY_OWM");
-        let ep = c.env.endpoints.apply(crate::env_fetch::EnvEndpoints::all("http://fake.local"));
+        let ep = c
+            .env
+            .endpoints
+            .apply(crate::env_fetch::EnvEndpoints::all("http://fake.local"));
         assert_eq!(ep.swpc, "http://127.0.0.1:18111");
         assert_eq!(ep.jma, "http://fake.local");
         assert!(Config::parse("[env]\nopenweathermap_api_key = 'k'").is_err());

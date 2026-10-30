@@ -437,7 +437,10 @@ async fn l1_warns_once_and_sends_nothing() {
     assert_eq!(alerts.len(), 1, "{alerts:?}");
     let a = &alerts[0];
     assert_eq!((a.phase, a.sound, a.sysid), (GuardPhase::Alerting, true, 1));
-    assert_eq!(a.text, "UAV-01 旋回が不安定です (トイレットボウル) — 手動で引き継いでください");
+    assert_eq!(
+        a.text,
+        "UAV-01 旋回が不安定です (トイレットボウル) — 手動で引き継いでください"
+    );
     assert!(a.id.starts_with("g-") && a.rc_stale && !a.kp_raised);
     let msgs = r.messages().await;
     assert_eq!(msgs.len(), 1);

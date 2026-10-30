@@ -164,7 +164,10 @@ mod tests {
         let s = Store::open_memory().await.unwrap();
         s.put_roi_targets(1, &with_slot3()).await.unwrap();
         assert_eq!(s.roi_targets(2).await.unwrap(), default_roi_targets());
-        let c = RoiControl { pid_kp: 1.5, ..RoiControl::default() };
+        let c = RoiControl {
+            pid_kp: 1.5,
+            ..RoiControl::default()
+        };
         s.put_roi_control(1, &c).await.unwrap();
         assert_eq!(s.roi_control(2).await.unwrap(), RoiControl::default());
     }
@@ -180,7 +183,11 @@ mod tests {
         };
         s.put_roi_control(1, &c).await.unwrap();
         assert_eq!(s.roi_control(1).await.unwrap(), c);
-        let c2 = RoiControl { pid_kp: 3.0, yaw_offset_deg: -12.5, ..c };
+        let c2 = RoiControl {
+            pid_kp: 3.0,
+            yaw_offset_deg: -12.5,
+            ..c
+        };
         s.put_roi_control(1, &c2).await.unwrap();
         assert_eq!(s.roi_control(1).await.unwrap(), c2);
     }
@@ -189,7 +196,10 @@ mod tests {
     #[tokio::test]
     async fn control_below_rate_floor_loads_clamped() {
         let s = Store::open_memory().await.unwrap();
-        let c = RoiControl { rate_hz: 0.05, ..RoiControl::default() };
+        let c = RoiControl {
+            rate_hz: 0.05,
+            ..RoiControl::default()
+        };
         s.put_roi_control(1, &c).await.unwrap();
         let loaded = s.roi_control(1).await.unwrap();
         assert_eq!(loaded.rate_hz, RoiControl::RATE_HZ_MIN);
@@ -200,7 +210,13 @@ mod tests {
     async fn slot_order_is_numeric() {
         let s = Store::open_memory().await.unwrap();
         s.put_roi_targets(1, &default_roi_targets()).await.unwrap();
-        let ids: Vec<String> = s.roi_targets(1).await.unwrap().into_iter().map(|t| t.id).collect();
+        let ids: Vec<String> = s
+            .roi_targets(1)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|t| t.id)
+            .collect();
         let want: Vec<String> = (1..=10).map(|n| format!("roi_{n}")).collect();
         assert_eq!(ids, want);
         assert_eq!(ids[9], "roi_10");

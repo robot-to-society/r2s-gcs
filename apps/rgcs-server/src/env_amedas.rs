@@ -13,7 +13,13 @@ pub async fn fetch(client: &reqwest::Client, plan: Plan<'_>) -> Result<Fetched, 
         return Err("no_location".into());
     }
     let base = &plan.endpoints.jma;
-    let latest = get_logged(client, ID, format!("{base}/bosai/amedas/data/latest_time.txt"), plan.timeout).await?;
+    let latest = get_logged(
+        client,
+        ID,
+        format!("{base}/bosai/amedas/data/latest_time.txt"),
+        plan.timeout,
+    )
+    .await?;
     let stamp = parse_err(parse::amedas_latest(&latest))?;
     let at_ms = parse::timestamp_ms(&latest).ok_or_else(|| "parse".to_string())?;
     let table = match plan.table {

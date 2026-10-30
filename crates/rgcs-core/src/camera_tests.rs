@@ -214,7 +214,10 @@ fn mt11_caps_cover_media() {
     let ai = c.ai_tracking.as_ref().unwrap();
     assert!(ai.box_select && ai.point_select && ai.candidates);
     let ids: Vec<&str> = c.encoding_presets.iter().map(|p| p.id.as_str()).collect();
-    assert_eq!(ids, ["h264_720p", "h264_1080p", "h264_4k", "h265_1080p", "h265_4k"]);
+    assert_eq!(
+        ids,
+        ["h264_720p", "h264_1080p", "h264_4k", "h265_1080p", "h265_4k"]
+    );
     assert!(c.storage_info && c.clock_sync);
 }
 
@@ -225,13 +228,21 @@ fn none_caps_have_no_media() {
     assert!(c.encoding_presets.is_empty());
     assert!(!c.storage_info && !c.clock_sync);
     for cmd in [
-        CameraCommand::ThermalGain { gain: ThermalGain::High },
+        CameraCommand::ThermalGain {
+            gain: ThermalGain::High,
+        },
         CameraCommand::ThermalPalette { palette: 3 },
         CameraCommand::MeasurePoint { x: 0.5, y: 0.5 },
-        CameraCommand::AiSelectBox { x: 0.5, y: 0.5, box_px: None },
+        CameraCommand::AiSelectBox {
+            x: 0.5,
+            y: 0.5,
+            box_px: None,
+        },
         CameraCommand::AiSelectPoint { x: 0.5, y: 0.5 },
         CameraCommand::AiCancel,
-        CameraCommand::Encoding { preset: "h264_1080p".into() },
+        CameraCommand::Encoding {
+            preset: "h264_1080p".into(),
+        },
         CameraCommand::SyncClock,
     ] {
         assert!(!c.supports(&cmd), "{cmd:?}");
@@ -243,8 +254,12 @@ fn supports_media_commands() {
     let mut c = CameraCaps::siyi_mt11();
     assert!(!c.supports(&CameraCommand::ThermalPalette { palette: 1 }));
     assert!(c.supports(&CameraCommand::ThermalPalette { palette: 3 }));
-    assert!(!c.supports(&CameraCommand::Encoding { preset: "h266_8k".into() }));
-    assert!(c.supports(&CameraCommand::Encoding { preset: "h265_4k".into() }));
+    assert!(!c.supports(&CameraCommand::Encoding {
+        preset: "h266_8k".into()
+    }));
+    assert!(c.supports(&CameraCommand::Encoding {
+        preset: "h265_4k".into()
+    }));
     assert!(c.supports(&CameraCommand::AiCancel));
     c.ai_tracking = None;
     assert!(!c.supports(&CameraCommand::AiCancel));
@@ -270,12 +285,18 @@ fn command_validation() {
 fn media_command_json_shape() {
     let json = |c: CameraCommand| serde_json::to_string(&c).unwrap();
     assert_eq!(
-        json(CameraCommand::AiSelectBox { x: 0.5, y: 0.5, box_px: None }),
+        json(CameraCommand::AiSelectBox {
+            x: 0.5,
+            y: 0.5,
+            box_px: None
+        }),
         r#"{"cmd":"ai_select_box","args":{"x":0.5,"y":0.5,"box_px":null}}"#
     );
     assert_eq!(json(CameraCommand::SyncClock), r#"{"cmd":"sync_clock"}"#);
     assert_eq!(
-        json(CameraCommand::ThermalGain { gain: ThermalGain::High }),
+        json(CameraCommand::ThermalGain {
+            gain: ThermalGain::High
+        }),
         r#"{"cmd":"thermal_gain","args":{"gain":"high"}}"#
     );
     assert_eq!(CameraCommand::AiCancel.name(), "ai_cancel");

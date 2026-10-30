@@ -54,7 +54,16 @@ async fn failed_arm_start_warns_and_retries_when_the_camera_returns() {
     seed_vehicle(&state, 1, false, false).await;
     let cookie = login(&app).await;
     let body = json!({ "kind": "siyi_mt11", "host": "127.0.0.1", "port": port });
-    let (s, v, _) = call(&app, req(Method::PUT, "/api/vehicles/1/camera/profile", Some(&cookie), Some(body))).await;
+    let (s, v, _) = call(
+        &app,
+        req(
+            Method::PUT,
+            "/api/vehicles/1/camera/profile",
+            Some(&cookie),
+            Some(body),
+        ),
+    )
+    .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     wait_link(&state, true).await;
     let runner = rgcs_server::auto_record::spawn(state.clone());
@@ -64,9 +73,15 @@ async fn failed_arm_start_warns_and_retries_when_the_camera_returns() {
 
     let mut rx = state.tx.subscribe();
     seed_vehicle(&state, 1, true, false).await;
-    assert!(warned(&mut rx, "auto_record_failed").await, "operator warned of the failed start");
+    assert!(
+        warned(&mut rx, "auto_record_failed").await,
+        "operator warned of the failed start"
+    );
 
     let mut sim = SimServer::start_on(port).await;
-    assert!(saw_record_toggle(&mut sim).await, "start retried once the camera is back");
+    assert!(
+        saw_record_toggle(&mut sim).await,
+        "start retried once the camera is back"
+    );
     runner.abort();
 }

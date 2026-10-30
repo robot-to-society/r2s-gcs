@@ -333,7 +333,11 @@ async fn ai_select_box_uses_profile_box_px() {
     let (s, v) = post_command(&app, &cookie, body).await;
     assert_eq!(s, StatusCode::OK, "{v}");
     let p = first_select(&mut sim).await;
-    assert_eq!(u16_at(&p, 5) - u16_at(&p, 1), 150, "box width from the profile: {p:?}");
+    assert_eq!(
+        u16_at(&p, 5) - u16_at(&p, 1),
+        150,
+        "box width from the profile: {p:?}"
+    );
 }
 
 #[tokio::test]
@@ -343,7 +347,12 @@ async fn ai_click_in_ir_is_409_rgb_only() {
     let cookie = login(&app).await;
     put_mt11_profile(&app, &cookie, sim.addr.port()).await;
     wait_connected(&app, &cookie).await;
-    let (s, v) = post_command(&app, &cookie, json!({ "cmd": "video_mode", "args": { "mode": "thermal" } })).await;
+    let (s, v) = post_command(
+        &app,
+        &cookie,
+        json!({ "cmd": "video_mode", "args": { "mode": "thermal" } }),
+    )
+    .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     wait_media(&app, &cookie, "thermal").await;
     let body = json!({ "cmd": "ai_select_box", "args": { "x": 0.5, "y": 0.5, "box_px": 120 } });

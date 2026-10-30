@@ -164,7 +164,10 @@ pub(crate) mod tests {
     fn levels_and_phases_are_snake_case() {
         assert_eq!(serde_json::to_value(GuardLevel::L2).unwrap(), "l2");
         assert_eq!(serde_json::to_value(GuardPhase::TakenOver).unwrap(), "taken_over");
-        assert_eq!(serde_json::from_str::<GuardLevel>(r#""l3""#).unwrap(), GuardLevel::L3);
+        assert_eq!(
+            serde_json::from_str::<GuardLevel>(r#""l3""#).unwrap(),
+            GuardLevel::L3
+        );
     }
 
     #[test]
@@ -180,7 +183,10 @@ pub(crate) mod tests {
     fn default_settings_are_off_and_warn_only() {
         let s = GuardSettings::default();
         assert!(!s.enabled && !s.consent.monitoring && !s.consent.auto_ops);
-        assert_eq!((s.toilet_bowl, s.countdown_s, s.takeover_wait_s), (GuardLevel::L1, 5, 20));
+        assert_eq!(
+            (s.toilet_bowl, s.countdown_s, s.takeover_wait_s),
+            (GuardLevel::L1, 5, 20)
+        );
         assert!(GUARD_COUNTDOWN_S.contains(&s.countdown_s));
         assert!(GUARD_TAKEOVER_WAIT_S.contains(&s.takeover_wait_s));
         let back: GuardSettings = serde_json::from_value(serde_json::to_value(&s).unwrap()).unwrap();

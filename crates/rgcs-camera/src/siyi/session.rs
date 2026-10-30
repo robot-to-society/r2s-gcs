@@ -56,7 +56,13 @@ impl<'a> Ctx<'a> {
         state: &'a watch::Sender<CameraState>,
         gps: Option<&'a dyn GpsTime>,
     ) -> Self {
-        Self { udp, addr, state, gps, epoch: Instant::now() }
+        Self {
+            udp,
+            addr,
+            state,
+            gps,
+            epoch: Instant::now(),
+        }
     }
 
     fn mono_us(&self) -> u64 {
@@ -123,7 +129,12 @@ pub(crate) async fn session(
     media: Media,
 ) -> (SessionEnd, Media) {
     let (mut rd, wr) = stream.into_split();
-    let mut link = Link { wr, udp: ctx.udp, addr: ctx.addr, seq };
+    let mut link = Link {
+        wr,
+        udp: ctx.udp,
+        addr: ctx.addr,
+        seq,
+    };
     let mut run = Run {
         media,
         tick: 0,
@@ -194,7 +205,11 @@ impl Run {
                 self.last_attitude = Some(self.last_rx);
             }
             if let Some(ok) = (f.cmd == 0x21).then(|| ai::encoding_ack(&f.payload)).flatten() {
-                self.resolve_encoding(if ok { Ok(()) } else { Err(CameraError::Refused("encoding_rejected")) });
+                self.resolve_encoding(if ok {
+                    Ok(())
+                } else {
+                    Err(CameraError::Refused("encoding_rejected"))
+                });
             }
             let mut next = None;
             replace_if(ctx.state, |s| {
@@ -291,9 +306,14 @@ async fn clock_tick(link: &mut Link<'_>, ctx: &Ctx<'_>, media: &Media) -> Result
                     ClockAction::ReadBack => link.tcp(0x40, &[]).await?,
                 }
             }
-            Media { clock, ..media.clone() }
+            Media {
+                clock,
+                ..media.clone()
+            }
         }
     };
-    replace_if(ctx.state, |s| clock_view(s, &next, Instant::now(), ctx.mono_us(), wall_ms()));
+    replace_if(ctx.state, |s| {
+        clock_view(s, &next, Instant::now(), ctx.mono_us(), wall_ms())
+    });
     Ok(next)
 }

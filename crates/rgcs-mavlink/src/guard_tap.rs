@@ -21,13 +21,30 @@ pub struct GuardFrame {
 #[derive(Debug, Clone, PartialEq)]
 pub enum GuardBody {
     /// Degrees, m/s north / east, heading in degrees (`None` when unknown).
-    Position { lat: f64, lon: f64, vn: f32, ve: f32, hdg: Option<f32> },
+    Position {
+        lat: f64,
+        lon: f64,
+        vn: f32,
+        ve: f32,
+        hdg: Option<f32>,
+    },
     /// EKF variances and the `EKF_STATUS_FLAGS` bits.
-    Ekf { compass_var: f32, pos_horiz_var: f32, vel_var: f32, flags: u16 },
+    Ekf {
+        compass_var: f32,
+        pos_horiz_var: f32,
+        vel_var: f32,
+        flags: u16,
+    },
     /// The first `chancount` raw channels (µs) and the receiver RSSI.
-    Rc { chans: Vec<u16>, rssi: u8 },
+    Rc {
+        chans: Vec<u16>,
+        rssi: u8,
+    },
     /// Wind direction (degrees, from) and speed (m/s) as estimated by ArduPilot.
-    Wind { dir_deg: f32, speed: f32 },
+    Wind {
+        dir_deg: f32,
+        speed: f32,
+    },
     MissionSeq(u16),
     /// `MAV_VTOL_STATE` value.
     VtolState(u8),
@@ -70,9 +87,24 @@ fn body_of(msg: &MavMessage) -> Option<GuardBody> {
 
 fn rc_body(rc: &RC_CHANNELS_DATA) -> GuardBody {
     let all = [
-        rc.chan1_raw, rc.chan2_raw, rc.chan3_raw, rc.chan4_raw, rc.chan5_raw, rc.chan6_raw,
-        rc.chan7_raw, rc.chan8_raw, rc.chan9_raw, rc.chan10_raw, rc.chan11_raw, rc.chan12_raw,
-        rc.chan13_raw, rc.chan14_raw, rc.chan15_raw, rc.chan16_raw, rc.chan17_raw, rc.chan18_raw,
+        rc.chan1_raw,
+        rc.chan2_raw,
+        rc.chan3_raw,
+        rc.chan4_raw,
+        rc.chan5_raw,
+        rc.chan6_raw,
+        rc.chan7_raw,
+        rc.chan8_raw,
+        rc.chan9_raw,
+        rc.chan10_raw,
+        rc.chan11_raw,
+        rc.chan12_raw,
+        rc.chan13_raw,
+        rc.chan14_raw,
+        rc.chan15_raw,
+        rc.chan16_raw,
+        rc.chan17_raw,
+        rc.chan18_raw,
     ];
     let count = usize::from(rc.chancount).min(all.len());
     GuardBody::Rc {

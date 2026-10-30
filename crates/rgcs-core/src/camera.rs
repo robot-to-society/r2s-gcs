@@ -185,7 +185,10 @@ impl CameraCaps {
             RecordStart | RecordStop => self.record,
             VideoMode { mode } => self.video_modes.contains(mode),
             ThermalGain { gain } => self.thermal.as_ref().is_some_and(|t| t.gains.contains(gain)),
-            ThermalPalette { palette } => self.thermal.as_ref().is_some_and(|t| t.palettes.contains(palette)),
+            ThermalPalette { palette } => self
+                .thermal
+                .as_ref()
+                .is_some_and(|t| t.palettes.contains(palette)),
             MeasurePoint { .. } => self.thermal.as_ref().is_some_and(|t| t.point_temp),
             AiSelectBox { .. } => self.ai_tracking.as_ref().is_some_and(|a| a.box_select),
             AiSelectPoint { .. } => self.ai_tracking.as_ref().is_some_and(|a| a.point_select),

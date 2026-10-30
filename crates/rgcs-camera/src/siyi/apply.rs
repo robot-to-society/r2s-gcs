@@ -74,9 +74,17 @@ fn with(state: &CameraState, f: impl FnOnce(CameraState) -> CameraState) -> Opti
 fn apply_basic(state: &CameraState, cmd: u8, p: &[u8]) -> Option<CameraState> {
     let s = state.clone();
     match cmd {
-        0x01 => parse::firmware(p).map(|fw| CameraState { firmware: Some(fw), ..s }),
+        0x01 => parse::firmware(p).map(|fw| CameraState {
+            firmware: Some(fw),
+            ..s
+        }),
         0x0D => parse::attitude(p).map(|(yaw, pitch, roll)| CameraState {
-            gimbal: Some(GimbalAttitude { yaw, pitch, roll, age_ms: 0 }),
+            gimbal: Some(GimbalAttitude {
+                yaw,
+                pitch,
+                roll,
+                age_ms: 0,
+            }),
             ..s
         }),
         0x18 => parse::zoom(p).map(|zoom| CameraState { zoom, ..s }),
@@ -89,7 +97,10 @@ fn apply_basic(state: &CameraState, cmd: u8, p: &[u8]) -> Option<CameraState> {
         }),
         0x0A => parse::record_status(p).map(|recording| CameraState { recording, ..s }),
         0x0B => parse::record_feedback(p).map(|recording| CameraState { recording, ..s }),
-        0x19 => parse::gimbal_mode(p).map(|m| CameraState { gimbal_mode: Some(m), ..s }),
+        0x19 => parse::gimbal_mode(p).map(|m| CameraState {
+            gimbal_mode: Some(m),
+            ..s
+        }),
         _ => None,
     }
 }
@@ -116,15 +127,28 @@ fn apply_encoding(state: &CameraState, media: &Media, p: &[u8], now: Instant) ->
             tracing::warn!(?size, wanted = ?pending.size, "encoding change not confirmed; using the reported size");
         }
     }
-    let next = with(state, |s| CameraState { stream: Some(size), encoding: Some(info), ..s });
-    (next, Media { pending_encoding: None, ..media.clone() })
+    let next = with(state, |s| CameraState {
+        stream: Some(size),
+        encoding: Some(info),
+        ..s
+    });
+    (
+        next,
+        Media {
+            pending_encoding: None,
+            ..media.clone()
+        },
+    )
 }
 
 /// 0x21: a refused change ends the wait for its size, so the next 0x20 (the old size the
 /// camera kept) is taken at once (final review M4). The command reply is resolved by the session.
 fn apply_encoding_ack(media: &Media, p: &[u8]) -> Media {
     match ai::encoding_ack(p) {
-        Some(false) => Media { pending_encoding: None, ..media.clone() },
+        Some(false) => Media {
+            pending_encoding: None,
+            ..media.clone()
+        },
         _ => media.clone(),
     }
 }
@@ -136,20 +160,51 @@ fn apply_thermal(state: &CameraState, media: &Media, cmd: u8, p: &[u8], now: Ins
         frame: None,
         point: None,
     });
-    let set = |t: ThermalState| with(state, |s| CameraState { thermal: Some(t), ..s });
+    let set = |t: ThermalState| {
+        with(state, |s| CameraState {
+            thermal: Some(t),
+            ..s
+        })
+    };
     let unchanged = (None, media.clone());
     match cmd {
         0x14 => thermal::parse_full_frame(p).map_or(unchanged, |frame| {
-            let next = set(ThermalState { frame: Some(frame), ..t });
-            (next, Media { frame_at: Some(now), ..media.clone() })
+            let next = set(ThermalState {
+                frame: Some(frame),
+                ..t
+            });
+            (
+                next,
+                Media {
+                    frame_at: Some(now),
+                    ..media.clone()
+                },
+            )
         }),
         0x12 => thermal::parse_point(p).map_or(unchanged, |(temp_c, xy)| {
-            let point = ThermalPoint { temp_c, xy, age_ms: 0 };
-            let next = set(ThermalState { point: Some(point), ..t });
-            (next, Media { point_at: Some(now), ..media.clone() })
+            let point = ThermalPoint {
+                temp_c,
+                xy,
+                age_ms: 0,
+            };
+            let next = set(ThermalState {
+                point: Some(point),
+                ..t
+            });
+            (
+                next,
+                Media {
+                    point_at: Some(now),
+                    ..media.clone()
+                },
+            )
         }),
         _ => thermal::parse_gain(p).map_or(unchanged, |g| {
-            let next = set(ThermalState { gain: Some(g), range_c: Some(g.range_c()), ..t });
+            let next = set(ThermalState {
+                gain: Some(g),
+                range_c: Some(g.range_c()),
+                ..t
+            });
             (next, media.clone())
         }),
     }
@@ -160,10 +215,21 @@ fn apply_track(state: &CameraState, media: &Media, p: &[u8], now: Instant) -> Ap
     let Some((status, rect, target)) = ai::parse_track(p) else {
         return (None, media.clone());
     };
-    let track = status.map(|status| TrackState { status, rect, target, age_ms: 0 });
+    let track = status.map(|status| TrackState {
+        status,
+        rect,
+        target,
+        age_ms: 0,
+    });
     let track_at = track.as_ref().map(|_| now);
     let next = with(state, |s| CameraState { track, ..s });
-    (next, Media { track_at, ..media.clone() })
+    (
+        next,
+        Media {
+            track_at,
+            ..media.clone()
+        },
+    )
 }
 
 /// 0x5F push: newest boxes to the state, the frame into the 1.5 s / 60-frame history.
@@ -180,20 +246,40 @@ fn apply_candidates(state: &CameraState, media: &Media, p: &[u8], now: Instant) 
         .filter(|(t, _)| now.saturating_duration_since(*t) <= DETECTION_HISTORY)
         .collect();
     let history = fresh[fresh.len().saturating_sub(DETECTION_HISTORY_MAX)..].to_vec();
-    let next = with(state, |s| CameraState { candidates: frame.detections, ..s });
-    let media = Media { history, candidates_at: Some(now), ..media.clone() };
+    let next = with(state, |s| CameraState {
+        candidates: frame.detections,
+        ..s
+    });
+    let media = Media {
+        history,
+        candidates_at: Some(now),
+        ..media.clone()
+    };
     (next, media)
 }
 
 /// 0x55 / 0x56 ACKs as fixed codes; `seq` counts every ACK so repeats are visible.
 fn apply_ack(state: &CameraState, media: &Media, cmd: u8, p: &[u8]) -> Applied {
-    let code = if cmd == 0x56 { ai::ai_select_ack(p) } else { ai::ai_mode_ack(p) };
+    let code = if cmd == 0x56 {
+        ai::ai_select_ack(p)
+    } else {
+        ai::ai_mode_ack(p)
+    };
     let Some(code) = code else {
         return (None, media.clone());
     };
     let seq = media.ack_seq.wrapping_add(1);
-    let ai_ack = Some(AiAck { code: code.into(), seq });
-    (with(state, |s| CameraState { ai_ack, ..s }), Media { ack_seq: seq, ..media.clone() })
+    let ai_ack = Some(AiAck {
+        code: code.into(),
+        seq,
+    });
+    (
+        with(state, |s| CameraState { ai_ack, ..s }),
+        Media {
+            ack_seq: seq,
+            ..media.clone()
+        },
+    )
 }
 
 /// 0x40: the camera clock reading; completes an in-flight sync read-back.
@@ -208,7 +294,13 @@ fn apply_camera_time(state: &CameraState, media: &Media, p: &[u8], now: Instant,
     };
     let synced_at = state.clock.as_ref().and_then(|c| c.synced_at_unix_ms);
     let clock = clock_fields(media.clock.status(), Some(camera_us), Some(0), synced_at);
-    (with(state, |s| CameraState { clock: Some(clock), ..s }), media)
+    (
+        with(state, |s| CameraState {
+            clock: Some(clock),
+            ..s
+        }),
+        media,
+    )
 }
 
 /// 0x30: a rejected time fails the sync (final review M3); an accepted one changes nothing.
@@ -227,8 +319,17 @@ fn apply_utc_ack(state: &CameraState, media: &Media, p: &[u8]) -> Applied {
         old.and_then(|c| c.reading_age_ms),
         old.and_then(|c| c.synced_at_unix_ms),
     );
-    let next = with(state, |s| CameraState { clock: Some(fields), ..s });
-    (next, Media { clock, ..media.clone() })
+    let next = with(state, |s| CameraState {
+        clock: Some(fields),
+        ..s
+    });
+    (
+        next,
+        Media {
+            clock,
+            ..media.clone()
+        },
+    )
 }
 
 fn clock_fields(
@@ -268,7 +369,10 @@ pub fn clock_view(
         .last_sync_at_us
         .map(|t| wall_ms.saturating_sub(mono_us.saturating_sub(t) / 1000));
     let clock = Some(clock_fields(st, camera_us, age_ms, synced_at));
-    (state.clock != clock).then(|| CameraState { clock, ..state.clone() })
+    (state.clock != clock).then(|| CameraState {
+        clock,
+        ..state.clone()
+    })
 }
 
 #[cfg(test)]

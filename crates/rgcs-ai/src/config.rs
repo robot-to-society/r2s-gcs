@@ -282,7 +282,10 @@ mod tests {
     #[test]
     fn loggable_url_keeps_only_scheme_host_and_port() {
         let cases = [
-            ("https://user:sk-secret@proxy.example:8443/v1?api-key=sk-q#f", "https://proxy.example:8443"),
+            (
+                "https://user:sk-secret@proxy.example:8443/v1?api-key=sk-q#f",
+                "https://proxy.example:8443",
+            ),
             ("http://127.0.0.1:11434/v1", "http://127.0.0.1:11434"),
             ("https://api.anthropic.com", "https://api.anthropic.com"),
             ("host-only?key=sk-q", "host-only"),

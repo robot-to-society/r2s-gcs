@@ -253,8 +253,14 @@ mod tests {
             texts(s.search_messages("prearm", None, None, 30).await.unwrap()),
             vec!["PreArm: GPS not healthy"]
         );
-        assert_eq!(texts(s.search_messages("%", None, None, 30).await.unwrap()), vec!["100%_done"]);
-        assert_eq!(texts(s.search_messages("_", None, None, 30).await.unwrap()), vec!["100%_done"]);
+        assert_eq!(
+            texts(s.search_messages("%", None, None, 30).await.unwrap()),
+            vec!["100%_done"]
+        );
+        assert_eq!(
+            texts(s.search_messages("_", None, None, 30).await.unwrap()),
+            vec!["100%_done"]
+        );
         assert!(s.search_messages("\\", None, None, 30).await.unwrap().is_empty());
         assert_eq!(
             texts(s.search_messages("e", Some(1), None, 30).await.unwrap()),

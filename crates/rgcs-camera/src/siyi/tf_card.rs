@@ -43,8 +43,8 @@ pub fn parse_tf_card(p: &[u8]) -> Option<StorageInfo> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::siyi::frame::check_allowed;
     use crate::error::CameraError;
+    use crate::siyi::frame::check_allowed;
     use rgcs_core::StorageStatus;
 
     fn payload(status: u8, fs: u8, total: u16, free: u16) -> Vec<u8> {

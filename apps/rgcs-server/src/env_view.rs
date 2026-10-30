@@ -148,7 +148,16 @@ fn valid_rounding(step: f64) -> bool {
 
 fn finite(t: &EnvThresholds) -> bool {
     let all = [
-        t.wind, t.gust, t.precip, t.temp_low, t.temp_high, t.kp, t.declination, t.sats, t.hdop, t.sunset_min,
+        t.wind,
+        t.gust,
+        t.precip,
+        t.temp_low,
+        t.temp_high,
+        t.kp,
+        t.declination,
+        t.sats,
+        t.hdop,
+        t.sunset_min,
     ];
     all.iter().flatten().all(|v| v.is_finite())
 }
@@ -193,7 +202,10 @@ pub fn positions(vehicles: &[VehicleState]) -> Vec<(f64, f64)> {
     if !fixed.is_empty() {
         return fixed;
     }
-    vehicles.iter().filter_map(|v| v.home.as_ref().map(|h| (h.lat, h.lon))).collect()
+    vehicles
+        .iter()
+        .filter_map(|v| v.home.as_ref().map(|h| (h.lat, h.lon)))
+        .collect()
 }
 
 /// Distinct rounded cells, at most [`MAX_CELLS`].
@@ -237,7 +249,10 @@ pub fn gnss_readings(vehicles: &[VehicleState], now_ms: u64) -> Vec<Reading> {
         .filter(|v| v.gps.fix >= 1 && v.link != rgcs_core::LinkStatus::Lost)
         .flat_map(|v| {
             let sats = Reading::gnss_sats(SourceId::Vehicle, f64::from(v.gps.sats), now_ms);
-            let hdop = v.gps.hdop.map(|h| Reading::gnss_hdop(SourceId::Vehicle, f64::from(h), now_ms));
+            let hdop = v
+                .gps
+                .hdop
+                .map(|h| Reading::gnss_hdop(SourceId::Vehicle, f64::from(h), now_ms));
             std::iter::once(sats).chain(hdop)
         })
         .collect()
@@ -259,13 +274,25 @@ pub fn declination_reading(
     let diff = (wmm - dec).rem_euclid(360.0);
     let value = diff.min(360.0 - diff);
     let note = Some(format!("WMM {wmm:.1}° / COMPASS_DEC {dec:.1}°"));
-    Some(measured(SourceId::Local, FactorKind::Declination, value, now_ms, note))
+    Some(measured(
+        SourceId::Local,
+        FactorKind::Declination,
+        value,
+        now_ms,
+        note,
+    ))
 }
 
 pub fn daylight_reading(lat: f64, lon: f64, now_ms: u64) -> Option<Reading> {
     let now = OffsetDateTime::from_unix_timestamp_nanos(i128::from(now_ms) * 1_000_000).ok()?;
     let minutes = rgcs_env::daylight_minutes(lat, lon, now)?;
-    Some(measured(SourceId::Local, FactorKind::Daylight, minutes, now_ms, None))
+    Some(measured(
+        SourceId::Local,
+        FactorKind::Daylight,
+        minutes,
+        now_ms,
+        None,
+    ))
 }
 
 fn date_of(now_ms: u64) -> Option<time::Date> {

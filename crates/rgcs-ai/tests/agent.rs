@@ -422,7 +422,12 @@ async fn context_is_the_last_calls_input_plus_output() {
         usage: Usage { input, output },
     };
     let llm = ScriptedLlm::new(vec![
-        call(1_000, 50, vec![tool_use("t1", "list_vehicles", json!({}))], Stop::ToolUse),
+        call(
+            1_000,
+            50,
+            vec![tool_use("t1", "list_vehicles", json!({}))],
+            Stop::ToolUse,
+        ),
         call(1_400, 80, vec![Block::Text("ok".into())], Stop::EndTurn),
     ]);
     let out = run(&llm, &RecordingHost::default()).await.unwrap();

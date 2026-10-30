@@ -10,9 +10,9 @@ pub mod frame;
 pub mod parse;
 pub mod polls;
 pub(crate) mod session;
-pub mod tf_card;
-pub mod thermal;
 #[cfg(any(test, feature = "sim"))]
 pub mod sim;
 #[cfg(any(test, feature = "sim"))]
 pub mod sim_media;
+pub mod tf_card;
+pub mod thermal;

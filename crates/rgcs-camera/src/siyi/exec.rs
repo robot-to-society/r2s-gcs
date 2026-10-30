@@ -50,8 +50,14 @@ pub(crate) async fn exec(
         AiCancel => link.tcp(0x56, &ai::encode_ai_select(None)).await,
         Encoding { preset } => {
             let size = set_encoding(link, state, &preset).await?;
-            let pending_encoding = Some(PendingEncoding { size, since: Instant::now() });
-            return Ok(Media { pending_encoding, ..media.clone() });
+            let pending_encoding = Some(PendingEncoding {
+                size,
+                since: Instant::now(),
+            });
+            return Ok(Media {
+                pending_encoding,
+                ..media.clone()
+            });
         }
         SyncClock => {
             return Ok(Media {
@@ -230,14 +236,24 @@ mod tests {
         }
     }
 
-    const BOX: CameraCommand = CameraCommand::AiSelectBox { x: 0.5, y: 0.5, box_px: None };
+    const BOX: CameraCommand = CameraCommand::AiSelectBox {
+        x: 0.5,
+        y: 0.5,
+        box_px: None,
+    };
 
     #[test]
     fn check_reports_the_refusals_send_would_give() {
         let media = Media::default();
         assert_eq!(check(&rgb(Some((1920, 1080))), &media, &BOX), Ok(()));
-        assert_eq!(check(&rgb(None), &media, &BOX), Err(CameraError::Refused("stream_unknown")));
-        let ir = CameraState { video_mode: Some(VideoMode::Thermal), ..rgb(Some((1920, 1080))) };
+        assert_eq!(
+            check(&rgb(None), &media, &BOX),
+            Err(CameraError::Refused("stream_unknown"))
+        );
+        let ir = CameraState {
+            video_mode: Some(VideoMode::Thermal),
+            ..rgb(Some((1920, 1080)))
+        };
         assert_eq!(check(&ir, &media, &BOX), Err(CameraError::Refused("rgb_only")));
         let point = CameraCommand::AiSelectPoint { x: 0.5, y: 0.5 };
         assert_eq!(check(&ir, &media, &point), Err(CameraError::Refused("rgb_only")));
@@ -250,10 +266,21 @@ mod tests {
         let media = Media::default();
         let point = CameraCommand::AiSelectPoint { x: 0.5, y: 0.5 };
         for s in [(0, 1080), (1920, 0), (1, 1)] {
-            assert_eq!(check(&rgb(Some(s)), &media, &point), Err(CameraError::Refused("stream_unknown")), "{s:?}");
-            let ir = CameraState { video_mode: Some(VideoMode::Thermal), ..rgb(Some(s)) };
+            assert_eq!(
+                check(&rgb(Some(s)), &media, &point),
+                Err(CameraError::Refused("stream_unknown")),
+                "{s:?}"
+            );
+            let ir = CameraState {
+                video_mode: Some(VideoMode::Thermal),
+                ..rgb(Some(s))
+            };
             let measure = CameraCommand::MeasurePoint { x: 0.5, y: 0.5 };
-            assert_eq!(check(&ir, &media, &measure), Err(CameraError::Refused("stream_unknown")), "{s:?}");
+            assert_eq!(
+                check(&ir, &media, &measure),
+                Err(CameraError::Refused("stream_unknown")),
+                "{s:?}"
+            );
         }
     }
 

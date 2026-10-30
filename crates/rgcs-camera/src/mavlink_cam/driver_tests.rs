@@ -307,7 +307,9 @@ async fn zero_without_a_prior_non_zero_sends_nothing() {
 #[tokio::test(start_paused = true)]
 async fn zero_after_movement_goes_out_and_may_repeat_for_2s() {
     let (fake, cam) = bound(FakeConfig::default()).await;
-    cam.send(CameraCommand::GimbalRate { yaw: 40, pitch: 0 }).await.expect("rate");
+    cam.send(CameraCommand::GimbalRate { yaw: 40, pitch: 0 })
+        .await
+        .expect("rate");
     cam.send(STOP).await.expect("stop");
     sleep(Duration::from_millis(1_500)).await;
     cam.send(STOP).await.expect("repeat");
@@ -322,7 +324,9 @@ async fn zero_after_movement_goes_out_and_may_repeat_for_2s() {
 #[tokio::test(start_paused = true)]
 async fn zero_after_an_angle_or_roi_is_dropped() {
     let (fake, cam) = bound(FakeConfig::default()).await;
-    cam.send(CameraCommand::GimbalRate { yaw: 40, pitch: 0 }).await.expect("rate");
+    cam.send(CameraCommand::GimbalRate { yaw: 40, pitch: 0 })
+        .await
+        .expect("rate");
     let angle = CameraCommand::GimbalAngle {
         yaw_deg: 10.0,
         pitch_deg: -10.0,
@@ -331,7 +335,9 @@ async fn zero_after_an_angle_or_roi_is_dropped() {
     cam.send(STOP).await.expect("stop");
     sleep(Duration::from_millis(100)).await;
     assert_eq!(pitchyaw_count(&fake), 2, "the angle ended the movement");
-    cam.send(CameraCommand::GimbalRate { yaw: 40, pitch: 0 }).await.expect("rate");
+    cam.send(CameraCommand::GimbalRate { yaw: 40, pitch: 0 })
+        .await
+        .expect("rate");
     cam.roi_location(35.0, 139.0, 50.0).await.expect("roi");
     cam.send(STOP).await.expect("stop");
     sleep(Duration::from_millis(100)).await;

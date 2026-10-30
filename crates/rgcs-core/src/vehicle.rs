@@ -326,12 +326,27 @@ mod tests {
     fn attitude_changes_are_sent_and_start_unknown() {
         assert_eq!(base().attitude, None);
         let next = VehicleState {
-            attitude: Some(Attitude { roll: 12.5, pitch: -3.0 }),
+            attitude: Some(Attitude {
+                roll: 12.5,
+                pitch: -3.0,
+            }),
             ..base()
         };
         let d = diff(&base(), &next).expect("changed");
-        assert_eq!(d.attitude, Some(Some(Attitude { roll: 12.5, pitch: -3.0 })));
-        assert_eq!(VehicleStateDiff::full(&next).attitude, Some(Some(Attitude { roll: 12.5, pitch: -3.0 })));
+        assert_eq!(
+            d.attitude,
+            Some(Some(Attitude {
+                roll: 12.5,
+                pitch: -3.0
+            }))
+        );
+        assert_eq!(
+            VehicleStateDiff::full(&next).attitude,
+            Some(Some(Attitude {
+                roll: 12.5,
+                pitch: -3.0
+            }))
+        );
     }
 
     #[test]

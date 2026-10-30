@@ -24,8 +24,8 @@ use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use crate::app::AppState;
 use crate::guard_settings::{config, policy};
 use crate::guard_vehicle::{airframe, Ctx, Out, Pos, VehicleGuard};
-use crate::guard_worker::{ActionAudit, GuardIo, Job};
 pub use crate::guard_worker::{audit, AUDIT_TARGET, KEEP_DECISIONS};
+use crate::guard_worker::{ActionAudit, GuardIo, Job};
 
 /// Deadline / takeover-wait resolution and the 1 Hz countdown re-send.
 const TICK: Duration = Duration::from_millis(250);
@@ -448,7 +448,14 @@ impl GuardHub {
     }
 
     /// The audit row goes to the writer, behind the action's `Executing` record (its id).
-    fn audit_action(&self, sysid: SysId, alert_id: &str, mode: &'static str, result: &'static str, reason: Option<String>) {
+    fn audit_action(
+        &self,
+        sysid: SysId,
+        alert_id: &str,
+        mode: &'static str,
+        result: &'static str,
+        reason: Option<String>,
+    ) {
         let a = ActionAudit {
             sysid,
             alert_id: alert_id.to_string(),
@@ -482,7 +489,13 @@ impl GuardHub {
         }
     }
 
-    async fn await_outcome(self, sysid: SysId, alert_id: String, mode: &'static str, done: oneshot::Receiver<Outcome>) {
+    async fn await_outcome(
+        self,
+        sysid: SysId,
+        alert_id: String,
+        mode: &'static str,
+        done: oneshot::Receiver<Outcome>,
+    ) {
         let outcome = done.await.unwrap_or(Outcome::LinkClosed);
         let result = match &outcome {
             Outcome::Accepted => "ok",

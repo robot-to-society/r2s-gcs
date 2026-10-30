@@ -3,13 +3,13 @@
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{ConnectInfo, State};
-use axum::Extension;
-use std::net::SocketAddr;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
+use axum::Extension;
 use futures::{SinkExt, StreamExt};
 use rgcs_core::{CameraCommand, ClientMessage, Operator, ServerMessage, SysId};
 use rgcs_input::{Action, Gate};
+use std::net::SocketAddr;
 use tokio::sync::broadcast;
 use tracing::warn;
 
@@ -132,7 +132,12 @@ async fn session(
 }
 
 /// The deadman check: a silent session stops its gimbal once; returns the replies.
-pub async fn deadman_tick(gate: &Gate, app: &AppState, operator: &str, now_ms: u64) -> (Gate, Vec<ServerMessage>) {
+pub async fn deadman_tick(
+    gate: &Gate,
+    app: &AppState,
+    operator: &str,
+    now_ms: u64,
+) -> (Gate, Vec<ServerMessage>) {
     let (next, actions) = gate.tick(now_ms);
     (next, perform(app, operator, actions).await)
 }
@@ -353,7 +358,10 @@ mod tests {
         let gate = send_text(&Gate::default(), &app, hb, 1_000).await;
         rate_payloads(&mut sim, 200).await;
         let (gate, _) = deadman_tick(&gate, &app, "pilot", 2_600).await;
-        assert!(rate_payloads(&mut sim, 300).await.contains(&vec![0, 0]), "deadman zero");
+        assert!(
+            rate_payloads(&mut sim, 300).await.contains(&vec![0, 0]),
+            "deadman zero"
+        );
         let gate = send_text(&gate, &app, &rate_frame(20, 1), 2_700).await;
         rate_payloads(&mut sim, 200).await;
         close_session(&gate, &app, "pilot").await;
@@ -409,7 +417,10 @@ mod tests {
         let (_, _) = handle_client(&gate, &app, "pilot", &rate_frame(40, 2), 1_100).await;
         assert_eq!(app.roi.active_target(1), None);
         let frames = rate_payloads(&mut sim, 300).await;
-        let manual = frames.iter().position(|p| p == &vec![40, 0]).expect("[40, 0] forwarded");
+        let manual = frames
+            .iter()
+            .position(|p| p == &vec![40, 0])
+            .expect("[40, 0] forwarded");
         assert!(frames[..manual].contains(&vec![0, 0]), "{frames:?}");
         let rows = app.store.recent_audit(10).await.unwrap();
         let row = serde_json::to_value(&rows).unwrap();

@@ -49,6 +49,9 @@ mod tests {
             cam.roi_location(35.0, 139.0, 10.0).await,
             Err(CameraError::Unsupported("roi"))
         ));
-        assert!(matches!(cam.roi_none().await, Err(CameraError::Unsupported("roi"))));
+        assert!(matches!(
+            cam.roi_none().await,
+            Err(CameraError::Unsupported("roi"))
+        ));
     }
 }

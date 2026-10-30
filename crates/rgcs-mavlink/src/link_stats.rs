@@ -453,7 +453,10 @@ mod tests {
     fn a_successful_connect_clears_the_last_error() {
         let stats = LinkStats::default();
         stats.on_disconnected(Some("Connection refused".into()));
-        assert_eq!(stats.snapshot(0).last_error.as_deref(), Some("Connection refused"));
+        assert_eq!(
+            stats.snapshot(0).last_error.as_deref(),
+            Some("Connection refused")
+        );
         stats.on_connected(1, 0);
         assert_eq!(stats.snapshot(0).last_error, None);
     }

@@ -33,15 +33,31 @@ impl LlmClient for Metered<'_> {
 /// URLs or account details, so only its HTTP status reaches the client (and the log).
 pub fn provider_error(e: &AiError) -> (StatusCode, &'static str, String) {
     match e {
-        AiError::Timeout => (StatusCode::GATEWAY_TIMEOUT, "ai_timeout", "the AI did not answer in time".into()),
-        AiError::Refused => (StatusCode::BAD_GATEWAY, "ai_refused", "AI が応答を拒否しました".into()),
+        AiError::Timeout => (
+            StatusCode::GATEWAY_TIMEOUT,
+            "ai_timeout",
+            "the AI did not answer in time".into(),
+        ),
+        AiError::Refused => (
+            StatusCode::BAD_GATEWAY,
+            "ai_refused",
+            "AI が応答を拒否しました".into(),
+        ),
         AiError::Provider { status, .. } => (
             StatusCode::BAD_GATEWAY,
             "ai_provider_error",
             format!("AI provider error (HTTP {status})"),
         ),
-        AiError::Unreachable => (StatusCode::BAD_GATEWAY, "ai_provider_error", "AI provider unreachable".into()),
-        AiError::Malformed => (StatusCode::BAD_GATEWAY, "ai_provider_error", "unexpected AI provider response".into()),
+        AiError::Unreachable => (
+            StatusCode::BAD_GATEWAY,
+            "ai_provider_error",
+            "AI provider unreachable".into(),
+        ),
+        AiError::Malformed => (
+            StatusCode::BAD_GATEWAY,
+            "ai_provider_error",
+            "unexpected AI provider response".into(),
+        ),
     }
 }
 
@@ -77,7 +93,12 @@ mod tests {
             budget_left: None,
         };
         let limits = rgcs_ai::AiConfig::default().limits();
-        crate::ai_hub::AiHub::new(std::sync::Arc::new(ScriptedLlm::new(vec![])), status, limits, budget)
+        crate::ai_hub::AiHub::new(
+            std::sync::Arc::new(ScriptedLlm::new(vec![])),
+            status,
+            limits,
+            budget,
+        )
     }
 
     #[tokio::test]
@@ -92,7 +113,11 @@ mod tests {
         assert_eq!(h.status(h.now_ms()).budget_left, Some(880));
         let meter = Metered::new(&inner, &h);
         assert!(meter.complete(req()).await.is_err());
-        assert_eq!(h.status(h.now_ms()).budget_left, Some(880), "a failed call bills nothing");
+        assert_eq!(
+            h.status(h.now_ms()).budget_left,
+            Some(880),
+            "a failed call bills nothing"
+        );
     }
 
     #[test]
@@ -103,7 +128,10 @@ mod tests {
         };
         let (status, code, message) = provider_error(&e);
         assert_eq!((status.as_u16(), code), (502, "ai_provider_error"));
-        assert!(!message.contains("sk-ant") && !message.contains("https://"), "{message}");
+        assert!(
+            !message.contains("sk-ant") && !message.contains("https://"),
+            "{message}"
+        );
         assert!(message.contains("401"), "{message}");
     }
 }

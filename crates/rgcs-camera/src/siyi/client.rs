@@ -179,7 +179,10 @@ async fn run(
                         SessionEnd::Lost(reason) => Some(reason.clone()),
                         SessionEnd::Closed => s.last_error.clone(),
                     };
-                    *s = CameraState { last_error, ..offline(s) }
+                    *s = CameraState {
+                        last_error,
+                        ..offline(s)
+                    }
                 });
                 if matches!(end, SessionEnd::Closed) {
                     return;

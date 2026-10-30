@@ -109,11 +109,26 @@ async fn start_fake() -> (String, Fake) {
 fn standard_replies(fake: &Fake) {
     fake.on("/v1/forecast", reply(200, fixture!("open_meteo.json")));
     fake.on("/customer/v1/forecast", reply(200, fixture!("open_meteo.json")));
-    fake.on("/bosai/amedas/data/latest_time.txt", reply(200, fixture!("amedas_latest_time.txt")));
-    fake.on("/bosai/amedas/const/amedastable.json", reply(200, fixture!("amedas_table.json")));
-    fake.on("/bosai/amedas/data/map/20261025121000.json", reply(200, fixture!("amedas_map.json")));
-    fake.on("/products/noaa-planetary-k-index.json", reply(200, fixture!("swpc_kp_rows.json")));
-    fake.on("/json/planetary_k_index_1m.json", reply(200, fixture!("swpc_kp_1m.json")));
+    fake.on(
+        "/bosai/amedas/data/latest_time.txt",
+        reply(200, fixture!("amedas_latest_time.txt")),
+    );
+    fake.on(
+        "/bosai/amedas/const/amedastable.json",
+        reply(200, fixture!("amedas_table.json")),
+    );
+    fake.on(
+        "/bosai/amedas/data/map/20261025121000.json",
+        reply(200, fixture!("amedas_map.json")),
+    );
+    fake.on(
+        "/products/noaa-planetary-k-index.json",
+        reply(200, fixture!("swpc_kp_rows.json")),
+    );
+    fake.on(
+        "/json/planetary_k_index_1m.json",
+        reply(200, fixture!("swpc_kp_1m.json")),
+    );
     fake.on(
         "/products/noaa-planetary-k-index-forecast.json",
         reply(200, fixture!("swpc_kp_forecast.json")),
@@ -223,7 +238,9 @@ impl Rig {
             .uri("/api/auth/login")
             .header("x-requested-with", "rgcs")
             .header(header::CONTENT_TYPE, "application/json")
-            .body(Body::from(json!({ "username": user, "password": pass }).to_string()))
+            .body(Body::from(
+                json!({ "username": user, "password": pass }).to_string(),
+            ))
             .unwrap();
         let res = self.http.clone().oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::OK);
@@ -291,10 +308,15 @@ async fn open_meteo_sends_only_the_rounded_cell() {
     assert_eq!(st.last_ok_ms, Some(T0));
     let seen = rig.fake.seen();
     assert_eq!(seen.len(), 1, "{seen:?}");
-    assert!(seen[0].starts_with("/v1/forecast?latitude=36.25&longitude=137.64&"), "{seen:?}");
+    assert!(
+        seen[0].starts_with("/v1/forecast?latitude=36.25&longitude=137.64&"),
+        "{seen:?}"
+    );
     assert!(seen[0].contains("wind_speed_unit=ms"), "{seen:?}");
     assert!(!seen[0].contains("apikey"), "{seen:?}");
-    assert!(seen.iter().all(|u| !u.contains("36.2509") && !u.contains("137.6385")));
+    assert!(seen
+        .iter()
+        .all(|u| !u.contains("36.2509") && !u.contains("137.6385")));
 }
 
 #[tokio::test]
@@ -305,7 +327,10 @@ async fn an_open_meteo_key_switches_to_the_customer_endpoint() {
     let st = rig.fetch(SourceId::OpenMeteo).await;
     assert_eq!(st.last_error, None);
     let seen = rig.fake.seen();
-    assert!(seen[0].starts_with("/customer/v1/forecast?latitude=36.25&"), "{seen:?}");
+    assert!(
+        seen[0].starts_with("/customer/v1/forecast?latitude=36.25&"),
+        "{seen:?}"
+    );
     assert!(seen[0].contains("&apikey=om-key-77aa"), "{seen:?}");
 }
 
@@ -315,7 +340,10 @@ async fn swpc_kp_is_a_plain_get_without_a_query() {
     rig.consent(true, true);
     let st = rig.fetch(SourceId::SwpcKp).await;
     assert_eq!(st.last_error, None);
-    assert_eq!(rig.fake.seen(), vec!["/products/noaa-planetary-k-index.json".to_string()]);
+    assert_eq!(
+        rig.fake.seen(),
+        vec!["/products/noaa-planetary-k-index.json".to_string()]
+    );
 }
 
 #[tokio::test]
@@ -335,7 +363,13 @@ async fn amedas_makes_three_requests_without_coordinates() {
         ]
     );
     assert!(seen.iter().all(|u| !u.contains("36.") && !u.contains("137.")));
-    let wind = rig.env().summary().factors.into_iter().find(|f| f.kind == "wind").unwrap();
+    let wind = rig
+        .env()
+        .summary()
+        .factors
+        .into_iter()
+        .find(|f| f.kind == "wind")
+        .unwrap();
     assert!(wind.readings.iter().any(|r| r.source == "jma_amedas"));
     // The station table is cached: a second fetch skips it.
     rig.fake.clear();
@@ -376,7 +410,13 @@ async fn a_consented_scheduler_step_fetches_every_enabled_source_once() {
     rig.vehicle_at(RAW.0, RAW.1).await;
     rig.env().step().await;
     for _ in 0..400 {
-        if rig.env().sources().iter().filter(|s| s.enabled).all(|s| s.last_ok_ms.is_some()) {
+        if rig
+            .env()
+            .sources()
+            .iter()
+            .filter(|s| s.enabled)
+            .all(|s| s.last_ok_ms.is_some())
+        {
             break;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -384,7 +424,12 @@ async fn a_consented_scheduler_step_fetches_every_enabled_source_once() {
     let seen = rig.fake.seen();
     assert!(seen.iter().any(|u| u.starts_with("/v1/forecast")), "{seen:?}");
     assert!(seen.iter().any(|u| u == "/products/alerts.json"), "{seen:?}");
-    assert!(!seen.iter().any(|u| u.starts_with("/app/json") || u.starts_with("/data/2.5")), "{seen:?}");
+    assert!(
+        !seen
+            .iter()
+            .any(|u| u.starts_with("/app/json") || u.starts_with("/data/2.5")),
+        "{seen:?}"
+    );
     // Not due again until the interval passes.
     let before = rig.fake.seen().len();
     rig.env().step().await;
@@ -395,18 +440,32 @@ async fn a_consented_scheduler_step_fetches_every_enabled_source_once() {
 #[tokio::test]
 async fn fetch_now_through_the_api_needs_the_guard_and_consent_2() {
     let rig = Rig::new().await;
-    let (s, body) = rig.call_json(Method::POST, "/api/env/sources/swpc_kp/fetch", None).await;
-    assert_eq!((s, body["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("guard_disabled")));
+    let (s, body) = rig
+        .call_json(Method::POST, "/api/env/sources/swpc_kp/fetch", None)
+        .await;
+    assert_eq!(
+        (s, body["error"]["code"].as_str()),
+        (StatusCode::CONFLICT, Some("guard_disabled"))
+    );
     rig.consent(true, false);
-    let (s, body) = rig.call_json(Method::POST, "/api/env/sources/swpc_kp/fetch", None).await;
-    assert_eq!((s, body["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("consent_required")));
+    let (s, body) = rig
+        .call_json(Method::POST, "/api/env/sources/swpc_kp/fetch", None)
+        .await;
+    assert_eq!(
+        (s, body["error"]["code"].as_str()),
+        (StatusCode::CONFLICT, Some("consent_required"))
+    );
     assert_eq!(rig.fake.seen(), Vec::<String>::new());
     rig.consent(true, true);
-    let (s, body) = rig.call_json(Method::POST, "/api/env/sources/swpc_kp/fetch", None).await;
+    let (s, body) = rig
+        .call_json(Method::POST, "/api/env/sources/swpc_kp/fetch", None)
+        .await;
     assert_eq!(s, StatusCode::OK, "{body}");
     assert_eq!(body["data"]["id"], "swpc_kp");
     assert!(body["data"]["last_ok_ms"].is_u64());
-    let (s, _) = rig.call_json(Method::POST, "/api/env/sources/nope/fetch", None).await;
+    let (s, _) = rig
+        .call_json(Method::POST, "/api/env/sources/nope/fetch", None)
+        .await;
     assert_eq!(s, StatusCode::NOT_FOUND);
 }
 
@@ -431,7 +490,12 @@ async fn failing(path: &str, r: Reply, id: SourceId) -> (Rig, rgcs_core::EnvSour
 
 #[tokio::test]
 async fn a_redirect_is_an_error_and_never_followed() {
-    let (rig, st) = failing("/products/noaa-planetary-k-index.json", reply(302, ""), SourceId::SwpcKp).await;
+    let (rig, st) = failing(
+        "/products/noaa-planetary-k-index.json",
+        reply(302, ""),
+        SourceId::SwpcKp,
+    )
+    .await;
     assert_eq!(st.last_error.as_deref(), Some("redirect"));
     assert!(rig.fake.seen().iter().all(|u| u != "/elsewhere"));
 }
@@ -441,7 +505,13 @@ async fn a_slow_source_times_out() {
     let rig = Rig::new().await;
     rig.consent(true, true);
     let cfg = rig.env().source_cfg(SourceId::SwpcKp);
-    rig.env().set_source(SourceId::SwpcKp, SourceCfg { timeout_ms: 1000, ..cfg });
+    rig.env().set_source(
+        SourceId::SwpcKp,
+        SourceCfg {
+            timeout_ms: 1000,
+            ..cfg
+        },
+    );
     let slow = Reply {
         delay_ms: 1600,
         ..reply(200, fixture!("swpc_kp_rows.json"))
@@ -482,7 +552,8 @@ async fn owm_without_a_key_is_no_key_and_sends_nothing() {
     rig.consent(true, true);
     rig.vehicle_at(RAW.0, RAW.1).await;
     let cfg = rig.env().source_cfg(SourceId::Openweathermap);
-    rig.env().set_source(SourceId::Openweathermap, SourceCfg { enabled: true, ..cfg });
+    rig.env()
+        .set_source(SourceId::Openweathermap, SourceCfg { enabled: true, ..cfg });
     let st = rig.fetch(SourceId::Openweathermap).await;
     assert_eq!(st.last_error.as_deref(), Some("no_key"));
     assert_eq!(rig.fake.seen(), Vec::<String>::new());
@@ -506,14 +577,18 @@ async fn one_failed_source_is_listed_missing_and_the_rest_still_counts() {
     let s = rig.env().summary();
     assert_eq!(s.missing, vec!["open_meteo".to_string()]);
     assert!(!s.unavailable);
-    assert!(s.factors.iter().any(|f| f.kind == "kp" && f.value.is_some()), "{s:?}");
+    assert!(
+        s.factors.iter().any(|f| f.kind == "kp" && f.value.is_some()),
+        "{s:?}"
+    );
     assert_eq!(s.cell, Some((36.25, 137.64)));
 }
 
 #[tokio::test]
 async fn everything_failing_is_unavailable() {
     let (rig, _) = failing("/v1/forecast", reply(500, ""), SourceId::OpenMeteo).await;
-    rig.fake.on("/products/noaa-planetary-k-index.json", reply(503, ""));
+    rig.fake
+        .on("/products/noaa-planetary-k-index.json", reply(503, ""));
     rig.fetch(SourceId::SwpcKp).await;
     let s = rig.env().summary();
     assert!(s.unavailable, "{s:?}");
@@ -527,14 +602,22 @@ async fn kp_fixtures_raise_the_guard_context_and_broadcast_a_summary() {
     assert_eq!(rig.app.guard.context(), ExternalContext::default());
     rig.fetch(SourceId::SwpcKp).await;
     rig.fetch(SourceId::SwpcKp1m).await;
-    assert_eq!(rig.app.guard.context(), ExternalContext { kp: Some(ExtLevel::Strong) });
+    assert_eq!(
+        rig.app.guard.context(),
+        ExternalContext {
+            kp: Some(ExtLevel::Strong)
+        }
+    );
     let frames = rig.summaries();
     let last = frames.last().expect("an env_summary frame");
     let kp = last.factors.iter().find(|f| f.kind == "kp").unwrap();
     assert_eq!(kp.level, rgcs_core::EnvLevel::Strong);
     // The level comes from the nowcast; the observed reading is still listed with its source.
     assert_eq!(kp.value.as_ref().unwrap().source, "swpc_kp_1m");
-    assert!(kp.readings.iter().any(|r| r.source == "swpc_kp" && r.class == rgcs_core::EnvClass::Observed));
+    assert!(kp
+        .readings
+        .iter()
+        .any(|r| r.source == "swpc_kp" && r.class == rgcs_core::EnvClass::Observed));
     // Off again: the guard no longer gets external context.
     rig.consent(false, false);
     rig.env().refresh().await;
@@ -559,7 +642,10 @@ async fn vehicle_wind_gnss_and_local_sun_are_fused_without_consent() {
     rig.env().on_frame(&rgcs_mavlink::GuardFrame {
         sysid: 1,
         compid: 1,
-        body: rgcs_mavlink::GuardBody::Wind { dir_deg: 250.0, speed: 13.0 },
+        body: rgcs_mavlink::GuardBody::Wind {
+            dir_deg: 250.0,
+            speed: 13.0,
+        },
     });
     rig.env().refresh().await;
     let s = rig.env().summary();
@@ -579,11 +665,22 @@ async fn vehicle_wind_gnss_and_local_sun_are_fused_without_consent() {
 async fn source_put_validates_audits_and_persists() {
     let rig = Rig::new().await;
     let (s, body) = rig
-        .call_json(Method::PUT, "/api/env/sources/open_meteo", Some(json!({ "interval_s": 30 })))
+        .call_json(
+            Method::PUT,
+            "/api/env/sources/open_meteo",
+            Some(json!({ "interval_s": 30 })),
+        )
         .await;
-    assert_eq!((s, body["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("validation")));
+    assert_eq!(
+        (s, body["error"]["code"].as_str()),
+        (StatusCode::BAD_REQUEST, Some("validation"))
+    );
     let (s, body) = rig
-        .call_json(Method::PUT, "/api/env/sources/open_meteo", Some(json!({ "interval_s": 900 })))
+        .call_json(
+            Method::PUT,
+            "/api/env/sources/open_meteo",
+            Some(json!({ "interval_s": 900 })),
+        )
         .await;
     assert_eq!(s, StatusCode::OK, "{body}");
     assert_eq!(body["data"]["interval_s"], 900);
@@ -601,7 +698,11 @@ async fn source_put_validates_audits_and_persists() {
     again.load(&rig.app.store).await;
     assert_eq!(again.source_cfg(SourceId::OpenMeteo).interval_s, 900);
     let (s, _) = rig
-        .call_json(Method::PUT, "/api/env/sources/vehicle", Some(json!({ "enabled": false })))
+        .call_json(
+            Method::PUT,
+            "/api/env/sources/vehicle",
+            Some(json!({ "enabled": false })),
+        )
         .await;
     assert_eq!(s, StatusCode::NOT_FOUND);
 }
@@ -614,11 +715,19 @@ async fn settings_put_validates_the_rounding_step_and_audits() {
     assert_eq!(body["data"]["rounding_deg"], 0.01);
     assert_eq!(body["data"]["copter"]["wind"], json!([8.4, 12.0]));
     let (s, _) = rig
-        .call_json(Method::PUT, "/api/env/settings", Some(json!({ "rounding_deg": 0.02 })))
+        .call_json(
+            Method::PUT,
+            "/api/env/settings",
+            Some(json!({ "rounding_deg": 0.02 })),
+        )
         .await;
     assert_eq!(s, StatusCode::BAD_REQUEST);
     let (s, body) = rig
-        .call_json(Method::PUT, "/api/env/settings", Some(json!({ "rounding_deg": 0.1 })))
+        .call_json(
+            Method::PUT,
+            "/api/env/settings",
+            Some(json!({ "rounding_deg": 0.1 })),
+        )
         .await;
     assert_eq!(s, StatusCode::OK, "{body}");
     assert_eq!(body["data"]["rounding_deg"], 0.1);
@@ -655,7 +764,8 @@ async fn keys_never_leak() {
     rig.consent(true, true);
     rig.vehicle_at(RAW.0, RAW.1).await;
     let cfg = rig.env().source_cfg(SourceId::Openweathermap);
-    rig.env().set_source(SourceId::Openweathermap, SourceCfg { enabled: true, ..cfg });
+    rig.env()
+        .set_source(SourceId::Openweathermap, SourceCfg { enabled: true, ..cfg });
     // A good fetch sends the key to the fake (only there) …
     assert_eq!(rig.fetch(SourceId::Openweathermap).await.last_error, None);
     assert!(rig.fake.seen()[0].contains(&format!("appid={OWM_KEY}")));
@@ -681,10 +791,19 @@ async fn keys_never_leak() {
         let (_, text) = rig.call(Method::GET, path, None).await;
         assert!(!text.contains(OWM_KEY), "{path}: {text}");
     }
-    assert!(rig.env().sources().iter().all(|s| !s.last_error.clone().unwrap_or_default().contains(OWM_KEY)));
+    assert!(rig
+        .env()
+        .sources()
+        .iter()
+        .all(|s| !s.last_error.clone().unwrap_or_default().contains(OWM_KEY)));
     let config = crate::config::Config::parse("[env]\nopenweathermap_api_key_env = 'OWM_API_KEY'").unwrap();
-    let resolved = EnvKeys::resolve(&config.env, &|name| (name == "OWM_API_KEY").then(|| OWM_KEY.to_string()));
-    assert_eq!(resolved.openweathermap.as_ref().map(Secret::expose), Some(OWM_KEY));
+    let resolved = EnvKeys::resolve(&config.env, &|name| {
+        (name == "OWM_API_KEY").then(|| OWM_KEY.to_string())
+    });
+    assert_eq!(
+        resolved.openweathermap.as_ref().map(Secret::expose),
+        Some(OWM_KEY)
+    );
     assert!(!format!("{config:?}").contains(OWM_KEY));
     assert!(!format!("{resolved:?}").contains(OWM_KEY));
 }
@@ -698,11 +817,21 @@ fn default_endpoints_are_never_used_in_tests() {
 #[test]
 fn the_app_state_default_hub_is_offline() {
     let ep = EnvEndpoints::offline();
-    let all = [&ep.open_meteo, &ep.open_meteo_customer, &ep.jma, &ep.swpc, &ep.gfz, &ep.owm];
+    let all = [
+        &ep.open_meteo,
+        &ep.open_meteo_customer,
+        &ep.jma,
+        &ep.swpc,
+        &ep.gfz,
+        &ep.owm,
+    ];
     assert!(all.iter().all(|u| u.starts_with("http://127.0.0.1:0")), "{ep:?}");
     // Only the shape of the real endpoints: no test names a real host (plan Task 11 grep).
     let real = EnvEndpoints::real();
-    assert!(real.swpc.starts_with("https://") && !real.swpc.contains("127.0.0.1"), "{real:?}");
+    assert!(
+        real.swpc.starts_with("https://") && !real.swpc.contains("127.0.0.1"),
+        "{real:?}"
+    );
 }
 
 #[tokio::test]
@@ -710,12 +839,20 @@ async fn the_clock_drives_freshness() {
     let rig = Rig::new().await;
     rig.consent(true, true);
     rig.fetch(SourceId::SwpcKp).await;
-    assert!(rig.env().summary().factors.iter().any(|f| f.kind == "kp" && f.value.is_some()));
+    assert!(rig
+        .env()
+        .summary()
+        .factors
+        .iter()
+        .any(|f| f.kind == "kp" && f.value.is_some()));
     rig.clock.store(T0 + 6 * 3_600_000, Ordering::SeqCst);
     rig.env().refresh().await;
     let s = rig.env().summary();
     let kp = s.factors.iter().find(|f| f.kind == "kp").unwrap();
-    assert!(kp.value.is_none() && !kp.readings[0].fresh, "stale Kp is shown greyed, not counted");
+    assert!(
+        kp.value.is_none() && !kp.readings[0].fresh,
+        "stale Kp is shown greyed, not counted"
+    );
     assert!(s.unavailable);
     assert_eq!(rig.app.guard.context(), ExternalContext::default());
 }

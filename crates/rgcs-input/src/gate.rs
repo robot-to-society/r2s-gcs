@@ -292,7 +292,10 @@ mod tests {
     #[test]
     fn close_zeroes_the_current_target_only_while_it_moves() {
         let (g, _) = Gate::default().on_hb(4, 0);
-        assert!(g.close().is_empty(), "a page load without a stick must not send a zero");
+        assert!(
+            g.close().is_empty(),
+            "a page load without a stick must not send a zero"
+        );
         let (g, _) = g.on_gimbal_rate(4, 0, 30, 100);
         assert_eq!(zeros(&g.close()), vec![4]);
         let (g, _) = g.on_gimbal_rate(4, 0, 0, 200);

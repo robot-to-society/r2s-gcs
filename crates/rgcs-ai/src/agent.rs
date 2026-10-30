@@ -170,7 +170,9 @@ fn storable(blocks: Vec<Block>, is_answer: bool) -> Vec<Block> {
     if !is_answer || has_text {
         return kept;
     }
-    kept.into_iter().chain([Block::Text(EMPTY_REPLY.into())]).collect()
+    kept.into_iter()
+        .chain([Block::Text(EMPTY_REPLY.into())])
+        .collect()
 }
 
 fn finish(
@@ -236,7 +238,11 @@ async fn run_tools(host: &dyn ToolHost, uses: &[Use], allowed: usize) -> (Turn, 
         records.push(record);
     }
     let refused = json!({"error": "too_many_tool_calls", "message": "too many tool calls; not run"});
-    blocks.extend(uses.iter().skip(allowed).map(|u| result_block(&u.id, &refused, true)));
+    blocks.extend(
+        uses.iter()
+            .skip(allowed)
+            .map(|u| result_block(&u.id, &refused, true)),
+    );
     let turn = Turn {
         role: Role::User,
         blocks,
