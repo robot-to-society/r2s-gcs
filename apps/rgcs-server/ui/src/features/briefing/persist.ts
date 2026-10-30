@@ -1,11 +1,13 @@
-// Browser persistence of the briefing workspace (localStorage, versioned, never throws).
+// Browser persistence of the open plans (localStorage, versioned, never throws).
 import type { Mission } from '../../shared/api/types'
 import { toMission } from '../mission/model'
 import { INITIAL_MISSION_UI, loaded, type MissionStore, type MissionUi } from '../mission/store'
 import { parkActive, reseedKeys, showActive, type Row, type Workspace } from './model'
 import { replaceWorkspace, type BriefingStore } from './store'
 
-export const STORAGE_KEY = 'rgcs.briefing.v1'
+export const STORAGE_KEY = 'rgcs.plans.v1'
+/** Where the open plans lived while they formed a named briefing; read once, then removed. */
+export const LEGACY_STORAGE_KEY = 'rgcs.briefing.v1'
 
 interface StoredRow {
   readonly key: string
@@ -30,7 +32,7 @@ export function serialize(ws: Workspace, live: MissionUi): string {
     dirty: r.ui.dirty,
     mission: toMission(r.ui.history.present),
   }))
-  return JSON.stringify({ v: 1, id: parked.id, name: parked.name, active: parked.active, rows })
+  return JSON.stringify({ v: 1, active: parked.active, rows })
 }
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
@@ -52,24 +54,39 @@ export function restore(text: string | null): Workspace | null {
     const ok = rows as Row[]
     reseedKeys(ok)
     const active = typeof p.active === 'string' && ok.some((r) => r.key === p.active) ? p.active : ok[0].key
-    return showActive({ id: typeof p.id === 'number' ? p.id : null, name: typeof p.name === 'string' ? p.name : '', rows: ok, active })
+    return showActive({ rows: ok, active })
   } catch {
     return null
   }
 }
 
 /** Loads the saved workspace (if any) into both stores; true when something was restored. */
-export function restoreInto(b: BriefingStore, m: MissionStore, storage?: Pick<Storage, 'getItem'>): boolean {
+export function restoreInto(b: BriefingStore, m: MissionStore, storage?: Pick<Storage, 'getItem'> & Partial<Pick<Storage, 'removeItem'>>): boolean {
+  const s = storage ?? localStorage
   let text: string | null = null
+  let legacy = false
   try {
-    text = (storage ?? localStorage).getItem(STORAGE_KEY)
+    text = s.getItem(STORAGE_KEY)
+    if (text === null) {
+      text = s.getItem(LEGACY_STORAGE_KEY)
+      legacy = text !== null
+    }
   } catch {
     return false
   }
   const ws = restore(text)
   if (!ws) return false
   replaceWorkspace(b, m, ws)
+  if (legacy) dropLegacy(s)
   return true
+}
+
+function dropLegacy(s: Partial<Pick<Storage, 'removeItem'>>): void {
+  try {
+    s.removeItem?.(LEGACY_STORAGE_KEY)
+  } catch {
+    // best-effort: the new key wins from the next write on
+  }
 }
 
 /** Debounced write of the whole workspace on any change to either store. Returns the unsubscribe. */

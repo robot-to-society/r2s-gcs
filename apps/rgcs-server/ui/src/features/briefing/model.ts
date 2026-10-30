@@ -14,8 +14,6 @@ export interface Row {
 }
 
 export interface Workspace {
-  readonly id: number | null
-  readonly name: string
   readonly rows: readonly Row[]
   readonly active: string
 }
@@ -36,7 +34,7 @@ const makeRow = (rows: readonly Row[], ui: MissionUi): Row => ({ key: nextKey(),
 
 export function emptyWorkspace(): Workspace {
   const row = makeRow([], fresh(INITIAL_MISSION_UI))
-  return { id: null, name: '', rows: [row], active: row.key }
+  return { rows: [row], active: row.key }
 }
 
 export function addRow(ws: Workspace, ui: MissionUi): Workspace {

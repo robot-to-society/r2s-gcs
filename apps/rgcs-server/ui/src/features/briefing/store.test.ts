@@ -42,8 +42,8 @@ describe('briefing store', () => {
   it('replace_workspace_loads_the_active_row', () => {
     const { b, m } = setup()
     const ws = emptyWorkspace()
-    replaceWorkspace(b, m, { ...ws, name: 'x' })
-    expect(b.getState().name).toBe('x')
+    replaceWorkspace(b, m, ws)
+    expect(b.getState().rows).toEqual(ws.rows)
     expect(m.getState()).toBe(activeRow(b.getState()).ui)
   })
 })

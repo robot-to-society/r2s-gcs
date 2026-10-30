@@ -55,6 +55,13 @@ describe('MissionView briefing feedback (§9)', () => {
   beforeEach(() => localStorage.removeItem('rgcs.planPanel'))
   afterEach(() => vi.unstubAllGlobals())
 
+  it('the_open_plans_have_no_named_container_to_save_or_open', () => {
+    setup()
+    expect(document.querySelector('.brief-head')).toBeNull()
+    expect(document.body.textContent).not.toMatch(/ブリーフィング/)
+    expect(screen.queryByRole('textbox', { name: /ブリーフィング/ })).toBeNull()
+  })
+
   it('several_files_open_several_rows_and_a_bad_one_does_not_stop_the_rest', async () => {
     const { store } = setup()
     expect((screen.getByTestId('mission-file') as HTMLInputElement).multiple).toBe(true)

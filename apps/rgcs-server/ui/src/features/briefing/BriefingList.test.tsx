@@ -129,21 +129,4 @@ describe('BriefingList', () => {
     fireEvent.click(eye)
     expect(on.onHidden).toHaveBeenCalledWith(ws.rows[1]!.key, false)
   })
-
-  it('the_header_names_saves_and_opens_the_briefing', () => {
-    const header = { name: '', canSave: false, busy: false, onName: vi.fn(), onSave: vi.fn(), onOpen: vi.fn(), onNew: vi.fn() }
-    const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn() }
-    const { rerender } = render(<BriefingList workspace={twoRows()} liveDirty={false} vehicles={vehicles} dict={dict} header={header} {...on} />)
-    const name = screen.getByRole('textbox', { name: dict.bfName })
-    expect(name).toHaveAttribute('placeholder', dict.bfName)
-    expect(name).toHaveAttribute('maxLength', '80')
-    fireEvent.change(name, { target: { value: 'Morning' } })
-    expect(header.onName).toHaveBeenCalledWith('Morning')
-    expect(screen.getByRole('button', { name: dict.bfSave })).toBeDisabled()
-    rerender(<BriefingList workspace={twoRows()} liveDirty={false} vehicles={vehicles} dict={dict} header={{ ...header, name: 'Morning', canSave: true }} {...on} />)
-    fireEvent.click(screen.getByRole('button', { name: dict.bfSave }))
-    expect(header.onSave).toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: dict.bfOpen }))
-    expect(header.onOpen).toHaveBeenCalled()
-  })
 })

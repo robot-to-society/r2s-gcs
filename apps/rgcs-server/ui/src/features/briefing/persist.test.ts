@@ -3,7 +3,7 @@ import { appendWaypoint } from '../mission/model'
 import { MissionStore, edit } from '../mission/store'
 import { BriefingStore, openInNewRow } from './store'
 import { assign, setColor, setHidden } from './model'
-import { STORAGE_KEY, restore, restoreInto, serialize, startPersistence } from './persist'
+import { LEGACY_STORAGE_KEY, STORAGE_KEY, restore, restoreInto, serialize, startPersistence } from './persist'
 
 const build = () => {
   const b = new BriefingStore()
@@ -15,7 +15,7 @@ const build = () => {
   return { b, m }
 }
 
-describe('briefing persistence', () => {
+describe('open plans persistence', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
@@ -75,6 +75,25 @@ describe('briefing persistence', () => {
     expect(restoreInto(b2, m2, { getItem: () => { throw new Error('x') } })).toBe(false)
   })
 
+  it('stores_under_the_plans_key_without_a_container_id_or_name', () => {
+    const { b, m } = build()
+    expect(STORAGE_KEY).toBe('rgcs.plans.v1')
+    const p = JSON.parse(serialize(b.getState(), m.getState()))
+    expect(Object.keys(p).sort()).toEqual(['active', 'rows', 'v'])
+  })
+
+  it('restore_into_falls_back_to_the_old_briefing_key_once', () => {
+    const { b, m } = build()
+    const old = { ...JSON.parse(serialize(b.getState(), m.getState())), id: 7, name: 'morning' }
+    const items: Record<string, string> = { [LEGACY_STORAGE_KEY]: JSON.stringify(old) }
+    const storage = { getItem: (k: string) => items[k] ?? null, removeItem: (k: string) => void delete items[k] }
+    const b2 = new BriefingStore()
+    expect(restoreInto(b2, new MissionStore(), storage)).toBe(true)
+    expect(b2.getState().rows).toHaveLength(2)
+    expect(b2.getState()).not.toHaveProperty('name')
+    expect(items).toEqual({})
+  })
+
   it('persistence_debounces_writes_from_both_stores_and_stops_on_unsubscribe', () => {
     const { b, m } = build()
     const setItem = vi.fn()
@@ -86,7 +105,7 @@ describe('briefing persistence', () => {
     vi.advanceTimersByTime(1)
     expect(setItem).toHaveBeenCalledTimes(1)
     expect(setItem.mock.calls[0][0]).toBe(STORAGE_KEY)
-    b.update((w) => ({ ...w, name: 'n' }))
+    b.update((w) => setColor(w, w.active, '#abcdef'))
     stop()
     vi.advanceTimersByTime(1000)
     expect(setItem).toHaveBeenCalledTimes(1)
@@ -95,7 +114,7 @@ describe('briefing persistence', () => {
   it('write_failures_are_swallowed', () => {
     const { b, m } = build()
     startPersistence(b, m, { setItem: () => { throw new Error('quota') } }, 10)
-    b.update((w) => ({ ...w, name: 'n' }))
+    b.update((w) => setColor(w, w.active, '#abcdef'))
     expect(() => vi.advanceTimersByTime(20)).not.toThrow()
   })
 })
