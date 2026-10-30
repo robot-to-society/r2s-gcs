@@ -27,6 +27,14 @@ describe('MissionPicker', () => {
     expect(screen.queryByRole('button', { name: dict.mDeleteNamed.replace('{name}', 'North field') })).toBeNull()
   })
 
+  it('each_row_opens_from_its_own_button_with_the_delete_button_beside_it', async () => {
+    const onPick = await show(() => Promise.resolve(true))
+    const del = deleteButton('North field')
+    expect(del.parentElement?.closest('button, [role="button"]')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^North field\s*4 項目/ }))
+    expect(onPick).toHaveBeenCalledWith(rows[0])
+  })
+
   it('delete_asks_in_the_sheet_and_cancel_keeps_the_plan', async () => {
     const onDelete = vi.fn(() => Promise.resolve(true))
     const onPick = await show(onDelete)

@@ -66,11 +66,13 @@ export function MissionPicker({ dict, title, onPick, onClose, load = listMission
       {rows && rows.length > 0 && (
         <ul className="mission-picker">
           {rows.map((r) => (
-            <li key={r.id} onClick={() => onPick(r)} role="button">
-              <span className="grow">{r.name}</span>
-              <span className="meta num">{rowMeta(r, dict)}</span>
+            <li key={r.id} className="picker-row">
+              <button type="button" className="picker-open" onClick={() => onPick(r)}>
+                <span className="grow">{r.name}</span>
+                <span className="meta num">{rowMeta(r, dict)}</span>
+              </button>
               {onDelete && (
-                <button type="button" className="btn-icon picker-del" aria-label={dict.mDeleteNamed.replace('{name}', r.name)} onClick={(e) => (e.stopPropagation(), setAsking(r))}>
+                <button type="button" className="btn-icon picker-del" aria-label={dict.mDeleteNamed.replace('{name}', r.name)} onClick={() => setAsking(r)}>
                   <IconTrash size={14} />
                 </button>
               )}
