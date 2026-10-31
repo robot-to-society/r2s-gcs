@@ -33,6 +33,13 @@ export const lteJa = {
   lteErrBadRect: 'この範囲は取得できません',
   lteErrBusy: '取得中のため操作できません',
   lteErrOther: '失敗しました({code})',
+  lteCarrierMaps: '公式エリアマップ',
+  lteCarrierDocomo: 'ドコモ',
+  lteCarrierAu: 'au',
+  lteCarrierSoftbank: 'ソフトバンク',
+  lteCarrierRakuten: '楽天モバイル',
+  lteCopyCenter: '地図の中心の緯度経度をコピー',
+  lteCopied: 'コピーしました',
 } as const
 
 export const lteEn: Record<keyof typeof lteJa, string> = {
@@ -68,4 +75,11 @@ export const lteEn: Record<keyof typeof lteJa, string> = {
   lteErrBadRect: 'This area cannot be fetched',
   lteErrBusy: 'Busy fetching: try again when it ends',
   lteErrOther: 'Failed ({code})',
+  lteCarrierMaps: 'Official coverage maps',
+  lteCarrierDocomo: 'docomo',
+  lteCarrierAu: 'au',
+  lteCarrierSoftbank: 'SoftBank',
+  lteCarrierRakuten: 'Rakuten Mobile',
+  lteCopyCenter: 'Copy the map centre (lat, lon)',
+  lteCopied: 'Copied',
 }

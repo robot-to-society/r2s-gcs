@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import type { Basemap } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconCheck, IconLayers } from '../../shared/ui/icons'
-import { LteAreasSheet, LteMenuSection, type LteMapKey } from '../lte'
+import { CarrierLinks, LteAreasSheet, LteMenuSection, type LteMapKey } from '../lte'
 import { useDismiss } from './useDismiss'
 
 interface Props {
@@ -55,6 +55,7 @@ export function BasemapPicker({ basemaps, current, dict, onPick, className = 'fl
               }}
             />
           )}
+          {lte && <CarrierLinks dict={dict} mapKey={lte} />}
         </div>
       )}
       {lte && sheet && <LteAreasSheet dict={dict} mapKey={lte} onClose={() => setSheet(false)} />}
