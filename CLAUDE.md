@@ -12,7 +12,7 @@ designs and plans: `docs/superpowers/{specs,plans}/`.
 - No vehicle commands or parameter writes unless asked; a mission upload is a write, leave it to the user.
 - Do not touch the dev stack's ports: 5760–5793, 8000, 5173, 14550, 14551, 37260. Scratch SITLs use instances 6 / 7.
 - No pkill or pattern kills: stop processes by PID.
-- SITL home is Kamikochi: 36.2509, 137.6385, 1505. SITL runs in Docker: `scripts/sitl-docker.sh build`, then `scripts/dev.sh --docker ...`.
+- SITL home is Kamikochi: 36.2509, 137.6385, 1505, except the QuadPlane at Nachikatsuura: 33.6682026, 135.9041309, 87.36 (`QUADPLANE_HOME`). SITL runs in Docker: `scripts/sitl-docker.sh build`, then `scripts/dev.sh --docker ...`.
 - Run Python with `-I`. curl to the API needs `-H 'X-Requested-With: rgcs'` and a login cookie (admin / admin).
 - AI tests: no real LLM calls; never log, print or commit API keys. External-data tests: fixtures and a local fake server, no internet.
 
