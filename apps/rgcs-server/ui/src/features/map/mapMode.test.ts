@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { applyMapMode, readMapMode, saveMapMode } from './mapMode'
+import { applyMapMode, readMapMode, saveMapMode, SKY } from './mapMode'
 
 function host() {
   const calls: string[] = []
@@ -9,6 +9,7 @@ function host() {
     vis,
     stop: vi.fn(() => calls.push('stop')),
     setTerrain: vi.fn((t: unknown) => calls.push(`terrain:${t === null ? 'off' : 'on'}`)),
+    setSky: vi.fn(),
     easeTo: vi.fn((o: { pitch: number }) => calls.push(`ease:${o.pitch}`)),
     getLayer: (id: string) => (['a', 'b'].includes(id) ? { id } : undefined),
     getSource: (id: string) => (id === 'dem' ? {} : undefined),
@@ -25,6 +26,13 @@ describe('applyMapMode', () => {
     expect(m.easeTo).toHaveBeenCalledWith({ pitch: 60, bearing: -25, duration: 900, freezeElevation: true })
     expect(m.vis.get('a')).toBe('visible')
     expect(m.vis.get('b')).toBe('none')
+  })
+  it('paints a sky above the horizon in 3D and clears it in 2D', () => {
+    const m = host()
+    applyMapMode(m, '3d', { only3d: [], only2d: [] })
+    expect(m.setSky).toHaveBeenLastCalledWith(SKY)
+    applyMapMode(m, '2d', { only3d: [], only2d: [] })
+    expect(m.setSky).toHaveBeenLastCalledWith(undefined)
   })
   it('flattens the map in 2D', () => {
     const m = host()

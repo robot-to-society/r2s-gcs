@@ -64,6 +64,10 @@ class FakeMap {
   setTerrain(t: unknown) {
     this.terrain = t
   }
+  sky: unknown = undefined
+  setSky(s: unknown) {
+    this.sky = s
+  }
   setLayoutProperty(id: string, _k: string, v: string) {
     this.visibility.set(id, v)
   }

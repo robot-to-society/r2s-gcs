@@ -95,6 +95,10 @@ export class FakeMap {
   setTerrain(t: unknown) {
     this.terrain = t
   }
+  sky: unknown = undefined
+  setSky(s: unknown) {
+    this.sky = s
+  }
   paint = new Map<string, unknown>()
   setPaintProperty(id: string, k: string, v: unknown) {
     this.paint.set(`${id}.${k}`, v)

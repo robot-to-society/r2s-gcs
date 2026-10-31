@@ -2,7 +2,7 @@
 // mission maps. MapLibre gotcha (memory): stop the camera and set the terrain BEFORE easing —
 // enabling terrain mid-animation crashes the render loop and the map freezes silently.
 import { useSyncExternalStore } from 'react'
-import type { TerrainSpecification } from 'maplibre-gl'
+import type { SkySpecification, TerrainSpecification } from 'maplibre-gl'
 
 export type MapMode = '2d' | '3d'
 
@@ -13,6 +13,7 @@ export const DEM_SOURCE = 'dem'
 export interface ModeHost {
   stop(): unknown
   setTerrain(t: TerrainSpecification | null): unknown
+  setSky(s: SkySpecification | undefined): unknown
   easeTo(o: { pitch: number; bearing: number; duration: number; freezeElevation: boolean }): unknown
   getLayer(id: string): unknown
   getSource(id: string): unknown
@@ -33,6 +34,20 @@ export const KEEP_ELEVATION = { freezeElevation: true } as const
  */
 export const MAX_PITCH = 85
 
+/**
+ * The 3D sky: daylight blue fading into a pale haze at the horizon, and the same haze over far
+ * terrain so the ridgelines meet the sky instead of the map's dark background.
+ */
+export const SKY: SkySpecification = {
+  'sky-color': '#4f8fd6',
+  'horizon-color': '#cfe2f3',
+  'fog-color': '#dbe7f1',
+  'sky-horizon-blend': 0.6,
+  'horizon-fog-blend': 0.7,
+  'fog-ground-blend': 0.85,
+  'atmosphere-blend': 0,
+}
+
 export interface ModeLayers {
   readonly only3d: readonly string[]
   readonly only2d: readonly string[]
@@ -42,6 +57,7 @@ export function applyMapMode(map: ModeHost, mode: MapMode, layers: ModeLayers, a
   const is3d = mode === '3d' && map.getSource(DEM_SOURCE) !== undefined
   map.stop()
   map.setTerrain(is3d ? { source: DEM_SOURCE, exaggeration: 1 } : null)
+  map.setSky(is3d ? SKY : undefined)
   const vis = (id: string, on: boolean) => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
   layers.only3d.forEach((id) => vis(id, is3d))
   layers.only2d.forEach((id) => vis(id, !is3d))
