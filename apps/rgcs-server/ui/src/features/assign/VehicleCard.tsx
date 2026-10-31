@@ -145,7 +145,8 @@ export function VehicleCard({ view, dragProps, onTap, onUnassign, onWrite, dict 
       <Slot view={view} dragProps={dragProps} onUnassign={onUnassign} dict={dict} />
       {view.why !== null && <div className="as-why">{view.why}</div>}
       <Foot view={view} onWrite={onWrite} dict={dict} />
-      {view.flash !== null && <div className="as-flash" role="status">{view.flash}</div>}
+      {/* a flash that repeats the reason line (an incompatible tap) adds nothing */}
+      {view.flash !== null && view.flash !== view.why && <div className="as-flash" role="status">{view.flash}</div>}
     </div>
   )
 }

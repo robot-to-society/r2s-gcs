@@ -179,6 +179,12 @@ describe('VehicleCards', () => {
     expect(within(card('UAV-01')).getByText('位置が分かりません')).toBeInTheDocument()
   })
 
+  it('a_flash_that_repeats_the_reason_line_is_not_shown_twice', () => {
+    const vehicles = [vehicle(2, 'R-01', 'rover')]
+    setup({ vehicles, picked: 1, flash: new Map([[2, 'Rover は離陸のあるプランを走れません']]) })
+    expect(within(card('R-01')).getAllByText('Rover は離陸のあるプランを走れません')).toHaveLength(1)
+  })
+
   it('footer_counts_write_targets', () => {
     const vehicles = [vehicle(1, 'UAV-01', 'copter'), vehicle(2, 'UAV-02', 'copter'), vehicle(3, 'UAV-03', 'copter'), vehicle(4, 'UAV-04', 'copter', { link: 'lost' })]
     const assignments = rows(row(1, 1), row(2, 1, written(1, 100)), row(3, 1, written(1, 200)), row(4, 1))
