@@ -10,7 +10,7 @@ import { assign, forgetSaved } from '../plans/model'
 import type { PlanSetStore } from '../plans/store'
 import { localResultId } from '../vehicles/localResultId'
 import type { VehicleStore } from '../vehicles/store'
-import { createMission, deleteMission, downloadMission, exportWaypoints, getMission, importWaypoints, updateMission, uploadMission, validateMission } from './api'
+import { createMission, deleteMission, downloadMission, exportWaypoints, getMission, importWaypoints, updateMission, uploadMission, uploadSavedMission, validateMission } from './api'
 import { downloadText, parseRgcsMission, readFileText, safeFileStem, serializeRgcsMission } from './files'
 import { toMission } from './model'
 import { INITIAL_MISSION_UI, fresh as freshUi, loaded, markSaved, setBusy, setFindings, setReport, type MissionStore, type MissionUi } from './store'
@@ -61,9 +61,10 @@ export function useMissionIo(store: MissionStore, plans: PlanSetStore, sysid: nu
 
   /**
    * Validates and writes the plan to one vehicle; false when the validation stopped it. `keep`:
-   * an earlier vehicle's fatal findings stay on screen instead of this one's.
+   * an earlier vehicle's fatal findings stay on screen instead of this one's. `savedId`: the plan
+   * is saved and unchanged, so it goes through the saved upload and the server records it.
    */
-  const uploadOne = async (to: number, mission: Mission, keep: boolean): Promise<boolean> => {
+  const uploadOne = async (to: number, mission: Mission, keep: boolean, savedId: number | null): Promise<boolean> => {
     try {
       const { findings } = await validateMission(mission, to)
       const fatal = findings.some((f) => f.level === 'fatal')
@@ -72,7 +73,7 @@ export function useMissionIo(store: MissionStore, plans: PlanSetStore, sysid: nu
         result('mission_upload', false, dict.upFatal, to)
         return false
       }
-      const report = await uploadMission(to, mission)
+      const report = savedId === null ? await uploadMission(to, mission) : await uploadSavedMission(to, savedId)
       store.update((u) => setReport(keep ? u : setFindings(u, report.findings), report))
       if (report.verified) vehicles.setVehicleMission(to, { ...mission, sysid: to })
       result('mission_upload', report.verified, report.verified ? `${report.items} ${dict.mItems}, ${dict.mVerified}` : `${dict.mMismatch}: ${report.mismatched.join(', ')}`, to)
@@ -82,14 +83,16 @@ export function useMissionIo(store: MissionStore, plans: PlanSetStore, sysid: nu
     return true
   }
 
-  /** Writes the plan to `targets` (default: the mission's vehicle) one after another. */
+  /** Writes the plan to `targets` (default: the mission's vehicle) one after another; a saved, clean plan by its id (the written plan is recorded). */
   const upload = async (targets: readonly number[] = sysid === null ? [] : [sysid]) => {
     if (targets.length === 0) return
-    const mission = toMission(store.getState().history.present)
+    const ui = store.getState()
+    const mission = toMission(ui.history.present)
+    const savedId = ui.dirty ? null : ui.savedId
     store.update((u) => setBusy(u, 'uploading'))
     try {
       let stopped = false
-      for (const to of targets) stopped = !(await uploadOne(to, mission, stopped)) || stopped
+      for (const to of targets) stopped = !(await uploadOne(to, mission, stopped, savedId)) || stopped
     } finally {
       store.update((u) => setBusy(u, 'idle'))
     }
