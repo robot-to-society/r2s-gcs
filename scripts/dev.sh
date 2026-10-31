@@ -17,7 +17,8 @@
 #   scripts/dev.sh --docker ...  # SITL in Docker containers (scripts/sitl-docker.sh build once);
 #                             # no native ArduPilot build needed. Same ports, SYSIDs and homes.
 #
-# Env overrides: SITL_DOCKER=1 (= --docker), ARDUPILOT_DIR, SITL_HOME (lat,lon,alt,yaw), SITL_SPEEDUP, SITL_COUNT, RGCS_PORT, UI_PORT.
+# Env overrides: SITL_DOCKER=1 (= --docker), ARDUPILOT_DIR, SITL_HOME (lat,lon,alt,yaw), SITL_SPEEDUP, SITL_COUNT, RGCS_PORT, UI_PORT,
+#   QUADPLANE_HOME (the QuadPlane's own home, lat,lon,alt,yaw).
 # Everything runtime-related lives in .dev/ (git-ignored). Ctrl-C stops all three processes.
 set -euo pipefail
 
@@ -37,6 +38,8 @@ PLANE_PARAMS="$ARDUPILOT_DIR/Tools/autotest/models/plane.parm"
 ROVER_BIN="$ARDUPILOT_DIR/build/sitl/bin/ardurover"
 ROVER_PARAMS="$ARDUPILOT_DIR/Tools/autotest/default_params/rover.parm"
 SITL_HOME="${SITL_HOME:-36.2509,137.6385,1505,0}"  # 上高地 (河童橋付近): 3D 地図の確認用
+# The QuadPlane flies from 那智勝浦 (the home of the saved plan nachikatsuura_abso_loiter), not 上高地.
+QUADPLANE_HOME="${QUADPLANE_HOME:-33.6682026,135.9041309,87.36,0}"
 SITL_SPEEDUP="${SITL_SPEEDUP:-1}"
 SITL_PORT=5760
 SITL_COUNT="${SITL_COUNT:-1}"
@@ -135,11 +138,12 @@ start_sitl() {
   PIDS+=($!)
 }
 
-# One non-copter SITL after the copters: start_extra <name> <label> <vehicle>.
-# Takes the next instance from $n (next SYSID n+1, home n*100 m north) and advances it.
+# One non-copter SITL after the copters: start_extra <name> <label> <vehicle> [home].
+# Takes the next instance from $n (next SYSID n+1; home n*100 m north unless given) and advances it.
 start_extra() {
-  echo "[dev] starting $2 SITL (SYSID $((n + 1)), home $(home_of "$n")) -> $DEV_DIR/sitl-$1.log"
-  start_sitl "$1" "$3" "$n" "$(home_of "$n")" "$DEV_DIR/sitl-$1.log" relay
+  local home="${4:-$(home_of "$n")}"
+  echo "[dev] starting $2 SITL (SYSID $((n + 1)), home $home) -> $DEV_DIR/sitl-$1.log"
+  start_sitl "$1" "$3" "$n" "$home" "$DEV_DIR/sitl-$1.log" relay
   n=$((n + 1))
 }
 
@@ -158,7 +162,7 @@ if [ "$START_SITL" = 1 ] && { [ "$SITL_COUNT" -gt 1 ] || [ "$EXTRAS" -gt 0 ]; };
     start_sitl "$((i + 1))" copter "$i" "$(home_of "$i")" "$DEV_DIR/sitl-$((i + 1)).log" relay
   done
   n=$SITL_COUNT
-  [ "$QUADPLANE" = 1 ] && start_extra qp QuadPlane quadplane
+  [ "$QUADPLANE" = 1 ] && start_extra qp QuadPlane quadplane "$QUADPLANE_HOME"
   [ "$PLANE" = 1 ] && start_extra plane Plane plane
   [ "$ROVER" = 1 ] && start_extra rover Rover rover
 elif [ "$START_SITL" = 1 ]; then

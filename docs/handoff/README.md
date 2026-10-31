@@ -55,6 +55,7 @@
    ```
    - UI は http://127.0.0.1:5173 で、ログインは admin / admin です。
    - UAV-01 コプター、UAV-02 QuadPlane、UAV-03 Plane、UAV-04 Rover。ホームは上高地(36.2509, 137.6385, 1505 m)から 100 m ずつ北です。
+     ただし QuadPlane だけは那智勝浦(33.6682026, 135.9041309, 87.36 m、2026-10-31〜)。`QUADPLANE_HOME=lat,lon,alt,yaw` で変えられます。
    - Ctrl-C でコンテナも含めて止まります。
 10. テストを流して確認します(§3 の既知の失敗を除いて通るはずです)。
     - `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`
