@@ -11,6 +11,7 @@ pub mod ai_tools_guard;
 pub mod ai_validate;
 pub mod api;
 pub mod app;
+pub mod assignment_api;
 pub mod auth;
 pub mod auto_record;
 pub mod branding;

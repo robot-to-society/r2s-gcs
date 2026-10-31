@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use axum::response::Html;
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::{middleware, Router as AxumRouter};
 use rgcs_core::{ServerMessage, SysId};
 use rgcs_mavlink::{Outgoing, QueuedCommand, Router};
@@ -22,9 +22,9 @@ use crate::params::ParamCache;
 use crate::settings;
 use crate::video::VideoHub;
 use crate::{
-    api, auth, branding, calib_api, camera_api, commands, export_api, flight_api, geofence_api, guided,
-    input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api, network_api, param_api,
-    param_pick, present_api, roi_api, survey_camera_api, video_api, ws,
+    api, assignment_api, auth, branding, calib_api, camera_api, commands, export_api, flight_api,
+    geofence_api, guided, input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api,
+    network_api, param_api, param_pick, present_api, roi_api, survey_camera_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -523,6 +523,8 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         .route("/messages", get(messages_api::list_all))
         .route("/vehicles/{sysid}/messages", get(messages_api::list_vehicle))
         .route("/vehicles/{sysid}/messages/{id}/ack", post(messages_api::ack))
+        .route("/assignments", get(assignment_api::list_assignments))
+        .route("/assignments/{sysid}", put(assignment_api::put_assignment))
         .route(
             "/missions",
             get(mission_api::list_missions).post(mission_api::create_mission),

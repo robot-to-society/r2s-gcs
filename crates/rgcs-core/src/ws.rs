@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::assignment::Assignment;
 use crate::camera::{CameraCaps, CameraSnapshot, CameraState, Deadman, VideoSourceStatus};
 use crate::command::CommandResult;
 use crate::env::EnvSummary;
@@ -171,6 +172,10 @@ pub enum ServerMessage {
     EnvSummary {
         summary: EnvSummary,
     },
+    /// Every plan assignment row, sent after each change (plan assignment board).
+    Assignments {
+        rows: Vec<Assignment>,
+    },
     VehicleDiscovered {
         sysid: SysId,
     },
@@ -216,6 +221,21 @@ mod tests {
             serde_json::to_string(&telemetry).unwrap(),
             r#"{"t":"telemetry","sysid":1,"diff":{}}"#
         );
+    }
+
+    #[test]
+    fn assignments_frame_carries_the_rows() {
+        let row = crate::assignment::Assignment {
+            sysid: 2,
+            plan_id: Some(7),
+            assigned_by: Some("admin".into()),
+            assigned_at: Some(1),
+            written: None,
+        };
+        let json = serde_json::to_value(&ServerMessage::Assignments { rows: vec![row] }).unwrap();
+        assert_eq!(json["t"], "assignments");
+        assert_eq!(json["rows"][0]["sysid"], 2);
+        assert_eq!(json["rows"][0]["plan_id"], 7);
     }
 
     #[test]
