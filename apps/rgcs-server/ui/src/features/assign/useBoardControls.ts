@@ -1,6 +1,7 @@
 // What the assignment board does with taps, double-taps and drops (spec 2026-10-31 §4): assign
 // through the store, refuse a plan that does not suit the vehicle (and say why on its card),
-// move a chip between vehicles, and frame a card on the map.
+// move a chip between vehicles, and frame a card on the map. Each change is reported
+// (`onChange`) for the undo toast.
 import { useEffect, useState, type RefObject } from 'react'
 import type { VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
@@ -10,6 +11,7 @@ import type { AssignDrag } from './board'
 import { compatibility } from './logic'
 import type { AssignmentStore, Assignments } from './store'
 import { escape, initialTaps, tap, type TapAction, type TapState, type TapTarget } from './taps'
+import type { Change } from './undo'
 import { useCardDrag, type CardDrag } from './useCardDrag'
 import type { LibraryPlan } from './usePlanLibrary'
 
@@ -21,6 +23,8 @@ export interface BoardControlsArgs {
   readonly dict: Dict
   /** A short message on one vehicle card. */
   readonly flash: (sysid: number, text: string) => void
+  /** What an assign, replace, move or unassign changed (one call per action). */
+  readonly onChange: (changes: readonly Change[]) => void
   readonly onFit: (points: readonly LatLon[]) => void
   readonly scrollRef: RefObject<HTMLDivElement | null>
 }
@@ -66,14 +70,23 @@ export function useBoardControls(a: BoardControlsArgs): BoardControls {
   const [taps, setTaps] = useState<TapState>(initialTaps)
   useEscape(setTaps)
 
-  /** The vehicle already holding that plan sends nothing. */
-  const assign = (planId: number, sysid: number) => {
-    if (a.assignments.get(sysid)?.plan_id !== planId) void a.store.set(sysid, planId)
+  const planOf = (sysid: number): number | null => a.assignments.get(sysid)?.plan_id ?? null
+
+  /** Sets `sysid`'s plan; a vehicle already holding it sends nothing. */
+  const change = (sysid: number, planId: number | null): Change[] => {
+    const before = planOf(sysid)
+    if (before === planId) return []
+    void a.store.set(sysid, planId)
+    return [{ sysid, before, after: planId }]
+  }
+
+  const report = (changes: readonly Change[]) => {
+    if (changes.length > 0) a.onChange(changes)
   }
 
   const run = (action: TapAction) => {
     if (typeof action === 'string' || 'locked' in action) return // the plan card shows its own note
-    if ('assign' in action) assign(...action.assign)
+    if ('assign' in action) report(change(action.assign[1], action.assign[0]))
     else if ('blocked' in action) {
       const [planId, sysid] = action.blocked
       a.flash(sysid, misfit(a.plans, a.vehicles, planId, sysid, a.dict) ?? '')
@@ -95,13 +108,13 @@ export function useBoardControls(a: BoardControlsArgs): BoardControls {
       const sysid = Number(target)
       if (p.from === sysid) return
       // a move: the source lets go first
-      if (p.from !== null) void a.store.set(p.from, null)
-      assign(p.planId, sysid)
+      const from = p.from === null ? [] : change(p.from, null)
+      report([...from, ...change(sysid, p.planId)])
     },
     scrollRef: a.scrollRef,
   })
 
-  const onUnassign = (sysid: number) => void a.store.set(sysid, null)
+  const onUnassign = (sysid: number) => report(change(sysid, null))
 
   return { picked: taps.picked, drag, onTap, onUnassign }
 }

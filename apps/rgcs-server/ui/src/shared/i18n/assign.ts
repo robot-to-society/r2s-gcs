@@ -55,6 +55,12 @@ export const assignJa = {
   asKindQuadPlane: 'QuadPlane',
   asKindRover: 'Rover',
   asKindOther: 'Other',
+  // the undo toast
+  asToastAssigned: '{plan} を {vehicle} に割り当てました',
+  asToastReplaced: '{vehicle}: {old} を {new} に置き換えました',
+  asToastUnassigned: '{vehicle} の割当を外しました',
+  asToastMoved: '{plan} を {from} から {to} に移しました',
+  asUndo: '元に戻す',
 }
 
 export const assignEn: Record<keyof typeof assignJa, string> = {
@@ -109,4 +115,9 @@ export const assignEn: Record<keyof typeof assignJa, string> = {
   asKindQuadPlane: 'QuadPlane',
   asKindRover: 'Rover',
   asKindOther: 'Other',
+  asToastAssigned: 'Assigned {plan} to {vehicle}',
+  asToastReplaced: '{vehicle}: replaced {old} with {new}',
+  asToastUnassigned: 'Unassigned {vehicle}',
+  asToastMoved: 'Moved {plan} from {from} to {to}',
+  asUndo: 'Undo',
 }

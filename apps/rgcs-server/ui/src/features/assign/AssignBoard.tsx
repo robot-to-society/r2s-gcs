@@ -2,8 +2,9 @@
 // on the right, the map in between. It owns the filters, the pick, the drag, the hovered card
 // and the per-card messages; the planner draws what it reports (`onOverlay`) and frames what it
 // asks for (`onFit`). The plan library loads afresh each time the board opens, since another
-// operator may have saved plans meanwhile. It hands the write sheet's lines to the planner (`onWrite`).
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+// operator may have saved plans meanwhile. It hands the write sheet's lines to the planner (`onWrite`)
+// and shows the undo toast for the last change.
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import type { LatLon } from '../mission/geo'
@@ -16,6 +17,8 @@ import { planColours, writeTargets, type ColourRow } from './logic'
 import { DragGhost, PlanCards } from './PlanCards'
 import { assignmentStore, useAssignments, type AssignmentStore, type Assignments } from './store'
 import { useBoardControls } from './useBoardControls'
+import { undoText, type Change, type Undo } from './undo'
+import { UndoToast } from './UndoToast'
 import { useFlash } from './useFlash'
 import { usePlanLibrary, type LibraryPlan, type PlanLibraryDeps } from './usePlanLibrary'
 import { VehicleCards } from './VehicleCards'
@@ -82,6 +85,17 @@ function useOverlay(overlay: BoardOverlay, onOverlay: (o: BoardOverlay | null) =
   useEffect(() => () => onOverlay(null), [onOverlay])
 }
 
+/** The last change's toast; undo restores each vehicle's previous plan, last change first. */
+function useUndo(store: AssignmentStore) {
+  const [undo, setUndo] = useState<Undo | null>(null)
+  const close = useCallback(() => setUndo(null), [])
+  const run = (u: Undo) => {
+    u.changes.toReversed().forEach((c) => void store.set(c.sysid, c.before))
+    setUndo(null)
+  }
+  return { undo, setUndo, close, run }
+}
+
 export function AssignBoard({ vehicles, openRows, dict, onOverlay, onFit, onWrite, store = assignmentStore, library }: AssignBoardProps) {
   const lib = usePlanLibrary(library)
   const plans = lib.plans ?? NO_PLANS
@@ -90,7 +104,12 @@ export function AssignBoard({ vehicles, openRows, dict, onOverlay, onFit, onWrit
   const [vehicleFilter, setVehicleFilter] = useState('')
   const [flash, showFlash] = useFlash()
   const scrollRef = useRef<HTMLDivElement>(null)
-  const ctl = useBoardControls({ plans, vehicles, assignments, store, dict, flash: showFlash, onFit, scrollRef })
+  const undo = useUndo(store)
+  const onChange = (changes: readonly Change[]) => {
+    const text = undoText(changes, { plans, vehicles }, dict)
+    if (text !== null) undo.setUndo({ text, changes })
+  }
+  const ctl = useBoardControls({ plans, vehicles, assignments, store, dict, flash: showFlash, onChange, onFit, scrollRef })
   const { hover, props: hoverProps } = useHover()
   const colours = useMemo(() => planColours(openRows, plans), [openRows, plans])
   const counts = useMemo(() => countsOf(assignments), [assignments])
@@ -119,6 +138,7 @@ export function AssignBoard({ vehicles, openRows, dict, onOverlay, onFit, onWrit
           dragProps={ctl.drag.dragProps} scrollRef={scrollRef} filter={vehicleFilter} onFilter={setVehicleFilter} flash={flash}
           onTap={ctl.onTap} onUnassign={ctl.onUnassign} onWrite={writeOne} onWriteAll={writeAll} dict={dict} />
       </aside>
+      <UndoToast undo={undo.undo} dict={dict} onUndo={undo.run} onClose={undo.close} />
       {ghost && <DragGhost name={ghost.name} colour={colours.get(ghost.id) ?? 'var(--text-4)'} x={ctl.drag.x} y={ctl.drag.y} />}
     </>
   )

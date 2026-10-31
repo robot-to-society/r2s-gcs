@@ -95,3 +95,8 @@
 .plans-vchip { font: inherit; font-size: 10.5px; line-height: 1.5; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line-hi); color: var(--text-2); background: none; cursor: pointer; white-space: nowrap; }
 .plans-vchip:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
 .plans-vchip.none { border-style: dashed; color: var(--text-4); }
+
+/* undo toast: bottom centre of the map */
+.as-toast { position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 14px; border-radius: 14px; font-size: 12.5px; max-width: calc(100% - 32px); }
+.as-toast > span { min-width: 0; overflow-wrap: anywhere; }
+.as-undo { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; font-size: 12px; }
