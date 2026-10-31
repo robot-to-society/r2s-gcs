@@ -2,15 +2,17 @@
 // on the right, the map in between. It owns the filters, the pick, the drag, the hovered card
 // and the per-card messages; the planner draws what it reports (`onOverlay`) and frames what it
 // asks for (`onFit`). The plan library loads afresh each time the board opens, since another
-// operator may have saved plans meanwhile. Writing (`onWrite`, `onWriteAll`) is the planner's.
+// operator may have saved plans meanwhile. It hands the write sheet's lines to the planner (`onWrite`).
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import type { LatLon } from '../mission/geo'
 import { useEndurance } from '../plans/useEndurance'
 import { fitAllPoints, type Highlight } from './assignOverlay'
+import type { SheetLine } from '../plans/BatchWriteSheet'
 import type { BoardOverlay } from './board'
-import { planColours, type ColourRow } from './logic'
+import { boardLines } from './boardWrite'
+import { planColours, writeTargets, type ColourRow } from './logic'
 import { DragGhost, PlanCards } from './PlanCards'
 import { assignmentStore, useAssignments, type AssignmentStore, type Assignments } from './store'
 import { useBoardControls } from './useBoardControls'
@@ -29,10 +31,8 @@ export interface AssignBoardProps {
   readonly onOverlay: (overlay: BoardOverlay | null) => void
   /** Frames points on the map, clear of the panels. */
   readonly onFit: (points: readonly LatLon[]) => void
-  /** A vehicle card's 書き込む. */
-  readonly onWrite: (sysid: number) => void
-  /** The footer's 変更のある n 機に書き込む. */
-  readonly onWriteAll: () => void
+  /** Opens the write sheet: a vehicle card's 書き込む (that vehicle) or the footer's 変更のある n 機に書き込む. */
+  readonly onWrite: (lines: readonly SheetLine[]) => void
   /** Test seams. */
   readonly store?: AssignmentStore
   readonly library?: PlanLibraryDeps
@@ -82,7 +82,7 @@ function useOverlay(overlay: BoardOverlay, onOverlay: (o: BoardOverlay | null) =
   useEffect(() => () => onOverlay(null), [onOverlay])
 }
 
-export function AssignBoard({ vehicles, openRows, dict, onOverlay, onFit, onWrite, onWriteAll, store = assignmentStore, library }: AssignBoardProps) {
+export function AssignBoard({ vehicles, openRows, dict, onOverlay, onFit, onWrite, store = assignmentStore, library }: AssignBoardProps) {
   const lib = usePlanLibrary(library)
   const plans = lib.plans ?? NO_PLANS
   const assignments = useAssignments(store)
@@ -104,6 +104,9 @@ export function AssignBoard({ vehicles, openRows, dict, onOverlay, onFit, onWrit
   useFitOnOpen(lib.plans, vehicles, onFit)
   const ghost = ctl.drag.dragging === null ? undefined : plans.find((p) => p.id === ctl.drag.dragging?.planId)
   const { dragging, over, blocked, overReason } = ctl.drag
+  const writeCtx = { vehicles, assignments, plans, colours }
+  const writeOne = (sysid: number) => onWrite(boardLines([sysid], writeCtx))
+  const writeAll = () => onWrite(boardLines(writeTargets(vehicles, assignments, plans), writeCtx))
 
   return (
     <>
@@ -114,7 +117,7 @@ export function AssignBoard({ vehicles, openRows, dict, onOverlay, onFit, onWrit
       <aside className="g panel float float-r as-right" aria-label={dict.asVehicles} {...hoverProps}>
         <VehicleCards vehicles={vehicles} assignments={assignments} plans={plans} colours={colours} endurance={endurance} picked={ctl.picked} drag={{ dragging, over, blocked, overReason }}
           dragProps={ctl.drag.dragProps} scrollRef={scrollRef} filter={vehicleFilter} onFilter={setVehicleFilter} flash={flash}
-          onTap={ctl.onTap} onUnassign={ctl.onUnassign} onWrite={onWrite} onWriteAll={onWriteAll} dict={dict} />
+          onTap={ctl.onTap} onUnassign={ctl.onUnassign} onWrite={writeOne} onWriteAll={writeAll} dict={dict} />
       </aside>
       {ghost && <DragGhost name={ghost.name} colour={colours.get(ghost.id) ?? 'var(--text-4)'} x={ctl.drag.x} y={ctl.drag.y} />}
     </>

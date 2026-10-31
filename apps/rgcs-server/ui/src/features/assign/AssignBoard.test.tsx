@@ -4,6 +4,7 @@ import type { Assignment, Mission, MissionItem, MissionSummaryRow, VehicleKind, 
 import { t } from '../../shared/i18n'
 import { MissionStore } from '../mission/store'
 import { PlanSetStore } from '../plans/store'
+import { BatchWriteSheet, type SheetLine } from '../plans/BatchWriteSheet'
 import { AssignBoard, FLASH_MS, type AssignBoardProps } from './AssignBoard'
 import { AssignmentStore, type AssignApi } from './store'
 import { clearPlanLibraryCache, type LibraryApi } from './usePlanLibrary'
@@ -45,7 +46,6 @@ function setup(over: Partial<AssignBoardProps> = {}) {
     onOverlay: vi.fn(),
     onFit: vi.fn(),
     onWrite: vi.fn(),
-    onWriteAll: vi.fn(),
     store,
     library: { api: library, plans: new PlanSetStore(), editor: new MissionStore() },
     ...over,
@@ -183,5 +183,26 @@ describe('AssignBoard', () => {
     })
     expect(flashOf(vehicleCard('UAV-04'))).toBe('位置が分かりません')
     expect(props.onFit).toHaveBeenCalledTimes(1)
+  })
+
+  it('the_per_card_button_opens_the_sheet_for_that_vehicle', async () => {
+    let sheet: readonly SheetLine[] = []
+    const onWrite = vi.fn((lines: readonly SheetLine[]) => {
+      sheet = lines
+    })
+    const { store } = setup({ onWrite, vehicles: [VEHICLES[0]!, { ...VEHICLES[1]!, armed: true, mode: 'AUTO' }, VEHICLES[2]!] })
+    await ready()
+    const row = (sysid: number, plan_id: number): Assignment => ({ sysid, plan_id, assigned_by: 'admin', assigned_at: 1, written: null })
+    act(() => store.applyFrame([row(1, 1), row(2, 1), row(3, 2)]))
+    fireEvent.click(screen.getByRole('button', { name: 'UAV-02 に書き込む' }))
+    expect(onWrite).toHaveBeenCalledTimes(1)
+    expect(sheet.map((l) => [l.sysid, l.vehicle, l.name, l.savedId, l.armed])).toEqual([[2, 'UAV-02', '上高地 北', 1, 'AUTO']])
+    expect(sheet[0]!.mission).toEqual(MISSIONS.get(1))
+    render(<BatchWriteSheet lines={sheet} leftovers={new Map()} states={new Map()} running={false} dict={dict} onWrite={vi.fn()} onClose={vi.fn()} />)
+    const dialog = screen.getByRole('dialog', { name: '割当どおり書き込む' })
+    expect(within(dialog).getAllByRole('listitem').map((li) => li.querySelector('.plans-sheet-name')?.textContent)).toEqual(['上高地 北 → UAV-02'])
+    // the footer opens it for every changed vehicle
+    fireEvent.click(screen.getByRole('button', { name: '変更のある 3 機に書き込む' }))
+    expect(sheet.map((l) => l.sysid)).toEqual([1, 2, 3])
   })
 })

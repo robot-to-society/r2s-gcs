@@ -13,6 +13,7 @@ function deps(over: Partial<BatchDeps> = {}): BatchDeps {
   return {
     validate: vi.fn(async () => ({ findings: [], stats: { distance_m: 0, duration_s: 0, max_alt: 0 } })) as unknown as BatchDeps['validate'],
     upload: vi.fn(async () => report()),
+    uploadSaved: vi.fn(async () => report()),
     writeFence: vi.fn(async () => report()),
     writeRally: vi.fn(async () => report()),
     connected: () => true,
@@ -97,6 +98,48 @@ describe('runBatch fence / rally step', () => {
       ['a', 'failed', 'fenceMismatch'],
       ['b', 'failed', 'rallyMismatch'],
     ])
+  })
+})
+
+describe('runBatch board jobs', () => {
+  const saved = (key: string, sysid: number, m: Mission = mission(key)): BatchJob => ({ ...job(key, sysid, m), savedId: sysid * 10 })
+  const BOARD = { missionLast: true }
+
+  it('board_jobs_write_fence_rally_then_mission', async () => {
+    const calls: string[] = []
+    const d = deps({
+      validate: vi.fn(async () => (calls.push('validate'), { findings: [], stats: { distance_m: 0, duration_s: 0, max_alt: 0 } })) as unknown as BatchDeps['validate'],
+      uploadSaved: vi.fn(async () => (calls.push('mission'), report())),
+      writeFence: vi.fn(async () => (calls.push('fence'), report())),
+      writeRally: vi.fn(async () => (calls.push('rally'), report())),
+    })
+    await runBatch([saved('a', 1, mission('a', { fence: [ZONE], rally: [RALLY] }))], d, () => {}, BOARD)
+    expect(calls).toEqual(['validate', 'fence', 'rally', 'mission'])
+  })
+
+  it('board_jobs_use_the_saved_upload', async () => {
+    const d = deps()
+    const states: BatchState[] = []
+    await runBatch([saved('a', 1), saved('b', 2)], d, (s) => states.push(s), BOARD)
+    expect(vi.mocked(d.uploadSaved).mock.calls).toEqual([[1, 10], [2, 20]])
+    expect(d.upload).not.toHaveBeenCalled()
+    expect(finals(states)).toEqual([['a', 'done', null], ['b', 'done', null]])
+  })
+
+  it('one_failure_does_not_stop_the_rest', async () => {
+    // a's fence fails: its mission is not written (the card stays 書込待ち); b and c still go
+    const d = deps({
+      writeFence: vi.fn(async (sysid: number) => report(sysid !== 1)),
+      uploadSaved: vi.fn(async (sysid: number) => (sysid === 2 ? Promise.reject(new Error('timeout')) : report())),
+    })
+    const states: BatchState[] = []
+    await runBatch([saved('a', 1, mission('a', { fence: [ZONE] })), saved('b', 2), saved('c', 3)], d, (s) => states.push(s), BOARD)
+    expect(finals(states)).toEqual([
+      ['a', 'failed', 'fenceMismatch'],
+      ['b', 'failed', 'timeout'],
+      ['c', 'done', null],
+    ])
+    expect(vi.mocked(d.uploadSaved).mock.calls.map((c) => c[0])).toEqual([2, 3])
   })
 })
 

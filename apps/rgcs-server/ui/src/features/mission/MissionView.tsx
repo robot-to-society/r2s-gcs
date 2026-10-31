@@ -71,8 +71,6 @@ interface Props {
 
 const NUDGE = 0.0001
 const NO_TRANSFERS: ReadonlyMap<number, MissionTransfer> = new Map()
-/** The board's 書き込む buttons: the write sheet comes with plan 2026-10-31 Task 13. */
-const boardWrite = (): void => undefined
 
 /** The mission planning screen (spec 10 §6, 2D subset) built on the Glass prototype's layout. */
 export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore, plans = planSetStore, opsSelected = null }: Props) {
@@ -212,7 +210,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       <MapModeToggle mode={mapMode} available={terrainTiles !== null} dict={dict} onChange={saveMapMode} />
       {ui.busy === 'idle' && <ModeSwitch on={board.on} dict={dict} onChange={board.setOn} />}
       {editing && <PlanTabs tab={plan.tab} dict={dict} onChange={plan.setTab} />}
-      {board.on && <AssignBoard vehicles={list} openRows={openPlans.list.workspace.rows} dict={dict} onOverlay={board.onOverlay} onFit={onFit} onWrite={boardWrite} onWriteAll={boardWrite} />}
+      {board.on && <AssignBoard vehicles={list} openRows={openPlans.list.workspace.rows} dict={dict} onOverlay={board.onOverlay} onFit={onFit} onWrite={batch.open} />}
       {editing && <ElevationSheet draft={placed} selected={ui.selected} terrainTiles={terrainTiles} ceiling={plan.fenceParams?.alt_max ?? null} dict={dict} onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))} />}
       <button type="button" className={`g-ctl ctl float map-r2 top1 help-btn${help ? ' on' : ''}`} title={dict.mHelpTitle} aria-label={dict.mHelpTitle} onClick={() => setHelp((h) => !h)}>
         ?

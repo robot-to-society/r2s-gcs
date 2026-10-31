@@ -1,7 +1,9 @@
 // 割当どおり書き込む (spec 2026-10-20 §5.5): each assigned row to its vehicle, one after another,
 // with the same validate → upload → read-back check as 機体に書き込む; a failure never stops the rest.
+// A board write (2026-10-31 §7) sends the saved plan by id and the mission last (fence → rally →
+// mission): the server records the written plan only when the mission verifies.
 import type { FenceZone, Mission, RallyPoint } from '../../shared/api/types'
-import type { readFence, readRally, uploadMission, validateMission, writeFence, writeRally } from '../mission/api'
+import type { readFence, readRally, uploadMission, uploadSavedMission, validateMission, writeFence, writeRally } from '../mission/api'
 
 export interface BatchJob {
   readonly key: string
@@ -10,6 +12,13 @@ export interface BatchJob {
   /** Write an empty fence when the mission has none (the vehicle's old one is removed). */
   readonly clearFence: boolean
   readonly clearRally: boolean
+  /** The saved plan's id: the mission goes through the saved upload (`POST …/mission/upload`). */
+  readonly savedId?: number
+}
+
+export interface BatchOptions {
+  /** Fence and rally first, the mission last (a board write). */
+  readonly missionLast?: boolean
 }
 
 /** `reason`: one of BATCH_REASONS, or a thrown error's message. */
@@ -21,6 +30,7 @@ export const BATCH_REASONS = { offline: 'offline', fatal: 'fatal', mismatch: 'mi
 export interface BatchDeps {
   validate: typeof validateMission
   upload: typeof uploadMission
+  uploadSaved: typeof uploadSavedMission
   writeFence: typeof writeFence
   writeRally: typeof writeRally
   connected: (sysid: number) => boolean
@@ -34,13 +44,13 @@ function extra<T>(own: readonly T[], clear: boolean): readonly T[] | null {
   return clear ? [] : null
 }
 
-/** One job; resolves to its failure reason, or null when done (a fence / rally reason: the mission itself was written). */
-async function writeJob(job: BatchJob, deps: BatchDeps): Promise<string | null> {
+async function writeMission(job: BatchJob, deps: BatchDeps): Promise<string | null> {
+  const report = job.savedId === undefined ? await deps.upload(job.sysid, job.mission) : await deps.uploadSaved(job.sysid, job.savedId)
+  return report.verified ? null : BATCH_REASONS.mismatch
+}
+
+async function writeExtras(job: BatchJob, deps: BatchDeps): Promise<string | null> {
   const { sysid, mission } = job
-  if (!deps.connected(sysid)) return BATCH_REASONS.offline
-  const { findings } = await deps.validate(mission, sysid)
-  if (findings.some((f) => f.level === 'fatal')) return BATCH_REASONS.fatal
-  if (!(await deps.upload(sysid, mission)).verified) return BATCH_REASONS.mismatch
   const fence: readonly FenceZone[] | null = extra(mission.fence, job.clearFence)
   if (fence !== null && !(await deps.writeFence(sysid, fence)).verified) return BATCH_REASONS.fenceMismatch
   const rally: readonly RallyPoint[] | null = extra(mission.rally, job.clearRally)
@@ -48,13 +58,26 @@ async function writeJob(job: BatchJob, deps: BatchDeps): Promise<string | null> 
   return null
 }
 
-export async function runBatch(jobs: readonly BatchJob[], deps: BatchDeps, onState: (s: BatchState) => void): Promise<void> {
+/** One job; resolves to its failure reason, or null when done (a fence / rally reason after the mission: the mission itself was written). */
+async function writeJob(job: BatchJob, deps: BatchDeps, opts: BatchOptions): Promise<string | null> {
+  if (!deps.connected(job.sysid)) return BATCH_REASONS.offline
+  const { findings } = await deps.validate(job.mission, job.sysid)
+  if (findings.some((f) => f.level === 'fatal')) return BATCH_REASONS.fatal
+  const steps = opts.missionLast ? [writeExtras, writeMission] : [writeMission, writeExtras]
+  for (const step of steps) {
+    const reason = await step(job, deps)
+    if (reason !== null) return reason
+  }
+  return null
+}
+
+export async function runBatch(jobs: readonly BatchJob[], deps: BatchDeps, onState: (s: BatchState) => void, opts: BatchOptions = {}): Promise<void> {
   for (const { key } of jobs) onState({ key, phase: 'waiting', reason: null })
   for (const job of jobs) {
     onState({ key: job.key, phase: 'writing', reason: null })
     let reason: string | null
     try {
-      reason = await writeJob(job, deps)
+      reason = await writeJob(job, deps, opts)
     } catch (e) {
       reason = errText(e)
     }
