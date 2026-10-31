@@ -37,4 +37,3 @@
 .instruments-values { display: flex; justify-content: center; gap: 16px; padding: 6px 0 2px; font-size: 13px; color: var(--text); }
 .instruments-values .lbl { color: var(--text-3); font-size: 11px; }
 /* a rover: the compass alone, larger (UX-25) */
-.instruments.ground .instrument.compass { width: min(60%, 150px); }

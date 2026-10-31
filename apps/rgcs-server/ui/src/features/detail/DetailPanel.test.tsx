@@ -47,16 +47,17 @@ describe('DetailPanel', () => {
     expect(screen.getByTestId('detail-state')).toHaveTextContent('ディスアーム')
   })
 
-  it('a rover shows its distance from home, not altitude, and only the compass (UX-16, UX-25)', () => {
+  it('a rover shows its distance from home, not altitude, and its attitude for slopes (UX-16; user 2026-11-01)', () => {
     render(<DetailPanel {...base} vehicle={{ ...v, kind: 'rover', lat: 36.001, lon: 139, home: { lat: 36, lon: 139, alt: 0 }, attitude: { roll: 1, pitch: 2 }, hdg: 87 }} />)
     expect(screen.queryByTestId('alt')).toBeNull()
     expect(screen.getByTestId('dist')).toHaveTextContent('111 m')
     expect(screen.getByText('ホームから')).toBeInTheDocument()
     const row = screen.getByTestId('instruments')
-    expect(within(row).queryByRole('img', { name: /姿勢/ })).toBeNull()
+    expect(within(row).getByRole('img', { name: /姿勢/ })).toBeInTheDocument()
     expect(within(row).getByRole('img', { name: /方位/ })).toBeInTheDocument()
     expect(screen.getByTestId('instruments-values')).toHaveTextContent('方位 087°')
-    expect(screen.getByTestId('instruments-values')).not.toHaveTextContent('ロール')
+    expect(screen.getByTestId('instruments-values')).toHaveTextContent('ロール')
+    expect(screen.getByTestId('instruments-values')).toHaveTextContent('ピッチ')
   })
 
   it('the battery reads a dash, not 0.0 V, without a battery monitor', () => {

@@ -10,31 +10,27 @@ interface Props {
   readonly dict: Dict
 }
 
-/** 姿勢 + 方位 row of the detail panel with the numeric ロール / ピッチ / 方位 line; a rover gets the compass only (UX-25). */
+/** 姿勢 + 方位 row of the detail panel with the numeric ロール / ピッチ / 方位 line. Rovers get it too:
+ * on slopes and rough ground the tilt warns of a rollover (user 2026-11-01, reverting UX-25). */
 export function InstrumentsRow({ vehicle, dict }: Props) {
-  const ground = vehicle.kind === 'rover'
   const att = readAttitude(vehicle.attitude)
   const hdg = readHeading(vehicle.hdg)
   const cog = readHeading(vehicle.cog)
   const roll = att?.roll ?? null
   const pitch = att?.pitch ?? null
   return (
-    <div className={ground ? 'instruments ground' : 'instruments'} data-testid="instruments">
+    <div className="instruments" data-testid="instruments">
       <div className="instruments-dials">
-        {!ground && <AttitudeIndicator roll={roll} pitch={pitch} dict={dict} />}
+        <AttitudeIndicator roll={roll} pitch={pitch} dict={dict} />
         <CompassRose hdg={hdg} cog={cog} frame={modelFor(vehicle.kind, vehicle.vtol ?? false)} dict={dict} />
       </div>
       <div className="instruments-values num" data-testid="instruments-values">
-        {!ground && (
-          <>
-            <span>
-              <span className="lbl">{dict.instRoll}</span> {fmtSigned(roll)}
-            </span>
-            <span>
-              <span className="lbl">{dict.instPitch}</span> {fmtSigned(pitch)}
-            </span>
-          </>
-        )}
+        <span>
+          <span className="lbl">{dict.instRoll}</span> {fmtSigned(roll)}
+        </span>
+        <span>
+          <span className="lbl">{dict.instPitch}</span> {fmtSigned(pitch)}
+        </span>
         <span>
           <span className="lbl">{dict.instHeading}</span> {fmtHeading(hdg)}
         </span>
