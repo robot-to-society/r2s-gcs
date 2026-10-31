@@ -1,11 +1,13 @@
 // Re-exports of the ts-rs generated bindings (`cargo test -p rgcs-core` regenerates them).
 export type { AppSettings } from './generated/AppSettings'
+export type { Assignment } from './generated/Assignment'
 export type { AxisFunction } from './generated/AxisFunction'
 export type { AxisMapping } from './generated/AxisMapping'
 export type { ButtonFunction } from './generated/ButtonFunction'
 export type { ButtonMapping } from './generated/ButtonMapping'
 export type { GimbalInputProfile } from './generated/GimbalInputProfile'
 export type { Attitude } from './generated/Attitude'
+export type { Written } from './generated/Written'
 export type { Battery } from './generated/Battery'
 export type { CameraCaps } from './generated/CameraCaps'
 export type { CameraCommand } from './generated/CameraCommand'

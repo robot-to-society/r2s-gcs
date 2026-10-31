@@ -2,6 +2,7 @@
 //! clone (it wraps a connection pool) and every method takes `&self`.
 
 pub mod app_settings;
+pub mod assignments;
 pub mod audit;
 pub mod calibrations;
 pub mod camera_profiles;
@@ -47,6 +48,8 @@ pub enum StoreError {
     Io(#[from] std::io::Error),
     #[error("invalid stored data: {0}")]
     Invalid(String),
+    #[error("not found: {0}")]
+    NotFound(String),
 }
 
 pub type Result<T> = std::result::Result<T, StoreError>;
