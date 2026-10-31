@@ -4,9 +4,9 @@ import { climbColor, itemAmsl, mercatorLine, vehicleAmsl, type ElevAt } from './
 
 const flat = (h: number): ElevAt => () => h
 const none: ElevAt = () => null
-const v = (over: Partial<VehicleState> = {}) => ({ sysid: 1, kind: 'copter', armed: true, lat: 36.16, lon: 139.37, alt_rel: 30, alt_msl: 430 }) as unknown as VehicleState & typeof over
-const item = (frame: MissionItem['frame'], alt: number): MissionItem => ({ command: 16, frame, params: [0, 0, 0, 0], lat: 36.17, lon: 139.38, alt, autocontinue: true })
-const HOME = { lat: 36.16, lon: 139.37 }
+const v = (over: Partial<VehicleState> = {}) => ({ sysid: 1, kind: 'copter', armed: true, lat: 35.479883, lon: 138.47829, alt_rel: 30, alt_msl: 430 }) as unknown as VehicleState & typeof over
+const item = (frame: MissionItem['frame'], alt: number): MissionItem => ({ command: 16, frame, params: [0, 0, 0, 0], lat: 35.489883, lon: 138.48829, alt, autocontinue: true })
+const HOME = { lat: 35.479883, lon: 138.47829 }
 
 describe('vehicleAmsl', () => {
   it('is the ground at home plus the relative altitude (not alt_msl)', () => {

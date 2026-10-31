@@ -112,7 +112,7 @@ describe('useCameraSettingsFlow', () => {
   })
 
   it('a map pick without terrain uses the home altitude and reopens the sheet on the ROI tab', async () => {
-    const home = { lat: 36.15, lon: 139.36, alt: 412 }
+    const home = { lat: 35.469883, lon: 138.46829, alt: 412 }
     const { result, setModal, rerender } = setup(new Map([[1, { sysid: 1, home } as VehicleState]]))
     await waitFor(() => expect(result.current.profile).not.toBeNull())
     act(() => result.current.startPick(1, draft, 0))

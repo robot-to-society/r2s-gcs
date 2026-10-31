@@ -5,13 +5,13 @@ import { t } from '../../shared/i18n'
 import { MissionProgressRow } from './MissionProgressRow'
 
 const v = (armed: boolean): VehicleState => ({
-  sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'AUTO', armed, lat: 36.162, lon: 139.37755, alt_rel: 60, alt_msl: 0, hdg: 0,
+  sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'AUTO', armed, lat: 35.481883, lon: 138.48584, alt_rel: 60, alt_msl: 0, hdg: 0,
   ground_speed: 8, climb: 0, battery: { pct: 70, volt: 23, current: null }, link: 'ok', last_rx_ms: 0, gps: { fix: 3, sats: 12, hdop: 1 }, warn: false, unread: 0,
 })
 const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
 const mission: Mission = {
   id: 1, name: 'demo', sysid: 1, default_alt: 60, default_frame: 'rel', speed: 8, home: null, fence: [], rally: [], surveys: [],
-  items: [item(22, 36.162, 139.372, 30), item(16, 36.162, 139.3831, 60), item(16, 36.162, 139.3942, 60), item(20, 0, 0, 0)],
+  items: [item(22, 35.481883, 138.48029, 30), item(16, 35.481883, 138.49139, 60), item(16, 35.481883, 138.50249, 60), item(20, 0, 0, 0)],
 }
 
 describe('MissionProgressRow', () => {

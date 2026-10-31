@@ -119,7 +119,7 @@ class FakeMap {
     this.padding = p
     this.paddingCalls += 1
   }
-  center: [number, number] = [139.372, 36.162]
+  center: [number, number] = [138.48029, 35.481883]
   /** About ±1 km around the centre counts as on screen. */
   getBounds() {
     return { contains: ([lon, lat]: [number, number]) => Math.abs(lon - this.center[0]) < 0.01 && Math.abs(lat - this.center[1]) < 0.01 }
@@ -171,7 +171,7 @@ const { emptyTargets } = await import('../roi/schema')
 const { roiTargetsStore } = await import('../roi/targetsStore')
 const { IntroStore } = await import('../auth/introStore')
 
-const v = (sysid: number, fix: number, lon = 139.37, lat = 36.16): VehicleState => ({
+const v = (sysid: number, fix: number, lon = 138.47829, lat = 35.479883): VehicleState => ({
   sysid, name: `UAV-0${sysid}`, kind: 'copter', mode: 'AUTO', armed: true, lat, lon, alt_rel: 50, alt_msl: 0, hdg: 10,
   ground_speed: 0, climb: 0, battery: { pct: 50, volt: 22, current: null }, link: 'ok', last_rx_ms: 0,
   gps: { fix, sats: 10, hdop: 1 }, warn: false, unread: 0,
@@ -195,7 +195,7 @@ describe('MapView', () => {
   it('mission_path_is_set_when_the_style_loads_late', () => {
     created.deferLoad = true
     const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
-    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [], items: [item(22, 36.162, 139.372, 30), item(16, 36.163, 139.373, 60)] }
+    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [], items: [item(22, 35.481883, 138.48029, 30), item(16, 35.482883, 138.48129, 60)] }
     render(
       <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={mission} missionCurrent={null} />,
     )
@@ -232,7 +232,7 @@ describe('MapView', () => {
     )
     expect(created.maps).toHaveLength(1)
     expect(created.markers).toHaveLength(1)
-    expect(created.markers[0]!.lngLat).toEqual([139.37, 36.16])
+    expect(created.markers[0]!.lngLat).toEqual([138.47829, 35.479883])
     expect(created.markers[0]!.el.className).toBe('rg-mk sel')
     rerender(
       <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} />,
@@ -247,14 +247,14 @@ describe('MapView', () => {
     )
     const map = created.maps[0]!
     expect(map.padding).toEqual(pad)
-    expect(map.eased.at(-1)).toMatchObject({ center: [139.37, 36.16], duration: 200, freezeElevation: true })
-    const moved = new Map([[1, v(1, 3, 139.38, 36.17)]])
+    expect(map.eased.at(-1)).toMatchObject({ center: [138.47829, 35.479883], duration: 200, freezeElevation: true })
+    const moved = new Map([[1, v(1, 3, 138.48829, 35.489883)]])
     const pad2 = { ...pad, right: 396 }
     rerender(
       <MapView vehicles={moved} tracks={new Map()} follow={1} selected={null} padding={pad2} style={style} onDragStart={() => {}} onClick={() => {}} target={null} />,
     )
     expect(map.padding).toEqual(pad2)
-    expect(map.eased.at(-1)).toMatchObject({ center: [139.38, 36.17] })
+    expect(map.eased.at(-1)).toMatchObject({ center: [138.48829, 35.489883] })
   })
 
   it('draws the guided line from the selected vehicle to the target', () => {
@@ -265,7 +265,7 @@ describe('MapView', () => {
     )
     const src = created.maps[0]!.sources.get('guided')!
     const last = src.setData.mock.calls.at(-1)![0] as { features: { geometry: { coordinates: number[][] } }[] }
-    expect(last.features[0]?.geometry.coordinates).toEqual([[139.37, 36.16], [139.4, 36.2]])
+    expect(last.features[0]?.geometry.coordinates).toEqual([[138.47829, 35.479883], [139.4, 36.2]])
     expect(created.markers.some((m) => m.el.className === 'rg-tgt')).toBe(true)
   })
 
@@ -298,7 +298,7 @@ describe('MapView', () => {
     const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
     const mission = {
       id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [],
-      items: [item(22, 36.162, 139.372, 30), item(16, 36.163, 139.373, 60), item(16, 36.164, 139.374, 60), item(20, 0, 0, 0)],
+      items: [item(22, 35.481883, 138.48029, 30), item(16, 35.482883, 138.48129, 60), item(16, 35.483883, 138.48229, 60), item(20, 0, 0, 0)],
     }
     render(
       <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={mission} missionCurrent={2} />,
@@ -315,7 +315,7 @@ describe('MapView', () => {
     const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
     const mission = {
       id: 1, name: 'm', sysid: 4, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [],
-      items: [item(16, 36.162, 139.372, 30), item(178, 0, 0, 0), item(16, 36.164, 139.374, 60)],
+      items: [item(16, 35.481883, 138.48029, 30), item(178, 0, 0, 0), item(16, 35.483883, 138.48229, 60)],
     }
     const onWaypoint = vi.fn()
     const onClick = vi.fn()
@@ -337,7 +337,7 @@ describe('MapView', () => {
   })
   it('badges are not clickable without a handler (audience mini-map)', () => {
     const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
-    const mission = { id: 1, name: 'm', sysid: 4, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [], items: [item(16, 36.162, 139.372, 30)] }
+    const mission = { id: 1, name: 'm', sysid: 4, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [], items: [item(16, 35.481883, 138.48029, 30)] }
     render(
       <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={mission} missionCurrent={null} />,
     )
@@ -348,25 +348,25 @@ describe('MapView', () => {
     const item = (command: number, lat: number, lon: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon, alt, autocontinue: true })
     const mission = {
       id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [],
-      items: [item(84, 0, 0, 30), item(16, 36.163, 139.373, 60)],
+      items: [item(84, 0, 0, 30), item(16, 35.482883, 138.48129, 60)],
     }
     render(
-      <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={mission} missionCurrent={null} homes={new Map([[1, { lat: 36.162, lon: 139.372 }]])} />,
+      <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={mission} missionCurrent={null} homes={new Map([[1, { lat: 35.481883, lon: 138.48029 }]])} />,
     )
     const badges = created.markers.filter((m) => m.el.classList.contains('wp-mk'))
     expect(badges.map((b) => b.el.textContent)).toEqual(['T', '2'])
-    expect(badges[0]!.lngLat).toEqual([139.372, 36.162])
+    expect(badges[0]!.lngLat).toEqual([138.48029, 35.481883])
   })
 
   it('draws the predicted flight of the selected vehicle as a thin dashed line (2D)', () => {
-    const predicted = { home: { lat: 36.162, lon: 139.372 }, points: [{ lat: 36.162, lon: 139.372, alt: 0 }, { lat: 36.163, lon: 139.373, alt: 50 }] }
+    const predicted = { home: { lat: 35.481883, lon: 138.48029 }, points: [{ lat: 35.481883, lon: 138.48029, alt: 0 }, { lat: 35.482883, lon: 138.48129, alt: 50 }] }
     const { rerender } = render(
       <MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} predicted={predicted} />,
     )
     const map = created.maps[0]!
     act(() => map.fire('load'))
     const data = () => map.sources.get('mission-predicted')!.setData.mock.calls.at(-1)![0] as { features: { geometry: { coordinates: number[][] } }[] }
-    expect(data().features[0]!.geometry.coordinates).toEqual([[139.372, 36.162], [139.373, 36.163]])
+    expect(data().features[0]!.geometry.coordinates).toEqual([[138.48029, 35.481883], [138.48129, 35.482883]])
     expect(map.layers).toContain('mission-predicted-line')
     rerender(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} predicted={null} />)
     expect(data().features).toHaveLength(0)
@@ -378,7 +378,7 @@ describe('MapView', () => {
   })
 
   it('shows the selected vehicle ROI presets, lights the active one and draws the sight line to it', () => {
-    const presets = emptyTargets().map((x, i) => (i === 0 ? { ...x, name: '送電塔 A', lat: 36.17, lon: 139.37 } : i === 1 ? { ...x, name: '橋', lat: 36.15, lon: 139.38 } : x))
+    const presets = emptyTargets().map((x, i) => (i === 0 ? { ...x, name: '送電塔 A', lat: 35.489883, lon: 138.47829 } : i === 1 ? { ...x, name: '橋', lat: 35.469883, lon: 138.48829 } : x))
     roiTargetsStore.set(1, presets)
     const cam: CameraSnapshot = {
       sysid: 1,
@@ -397,18 +397,18 @@ describe('MapView', () => {
     const sight = created.maps.at(-1)!.sources.get('sight')!.setData
     const last = sight.mock.calls.at(-1)![0] as { features: { geometry: { coordinates: number[][] } }[] }
     // hdg 10 − yaw 10 = due north, as far as the target
-    expect(last.features[0]!.geometry.coordinates[1]![1]).toBeCloseTo(36.17, 6)
+    expect(last.features[0]!.geometry.coordinates[1]![1]).toBeCloseTo(35.489883, 6)
   })
 
   it('places vehicle markers like the prototype and a home tile per known home', () => {
-    const homes = new Map([[1, { lat: 36.161, lon: 139.371 }]])
+    const homes = new Map([[1, { lat: 35.480883, lon: 138.47929 }]])
     const { rerender } = render(
       <MapView vehicles={new Map([[1, v(1, 3)]])} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} homes={homes} onDragStart={() => {}} onClick={() => {}} />,
     )
     const vehicle = created.markers.find((m) => m.el.classList.contains('rg-mk'))!
     expect(vehicle.opts).toMatchObject({ anchor: 'left', offset: [-17, 0], rotationAlignment: 'map', opacityWhenCovered: '1' })
     const home = created.markers.find((m) => m.el.className === 'rg-home')!
-    expect(home.lngLat).toEqual([139.371, 36.161])
+    expect(home.lngLat).toEqual([138.47929, 35.480883])
     rerender(<MapView vehicles={new Map([[1, v(1, 3)]])} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} homes={new Map()} onDragStart={() => {}} onClick={() => {}} />)
     expect(home.removed).toBe(true)
   })
@@ -444,12 +444,12 @@ describe('MapView', () => {
   it('following ignores a hovering vehicle\'s GPS jitter so the map (and its waypoints) stay still', () => {
     const at = (lon: number, lat: number) => new Map([[1, v(1, 3, lon, lat)]])
     const props = { tracks: new Map(), follow: 1, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
-    const { rerender } = render(<MapView {...props} vehicles={at(139.37, 36.16)} />)
+    const { rerender } = render(<MapView {...props} vehicles={at(138.47829, 35.479883)} />)
     const map = created.maps.at(-1)!
     const eased = map.eased.length
-    rerender(<MapView {...props} vehicles={at(139.370001, 36.160002)} />) // ~2 px
+    rerender(<MapView {...props} vehicles={at(138.478291, 35.479885)} />) // ~2 px
     expect(map.eased.length).toBe(eased)
-    rerender(<MapView {...props} vehicles={at(139.37003, 36.16)} />) // 30 px
+    rerender(<MapView {...props} vehicles={at(138.47832, 35.479883)} />) // 30 px
     expect(map.eased.length).toBe(eased + 1)
   })
   it('draws the course vector and navigation line of moving vehicles', () => {
@@ -492,7 +492,7 @@ describe('MapView', () => {
     expect((m.layerObjs.get('veh-air3d') as { visible: boolean }).visible).toBe(true)
   })
   it('3D draws each vehicle as a low-poly model (amber when selected) and hides its 2D disc; 2D brings the disc back', () => {
-    const props = { vehicles: new Map([[1, { ...v(1, 3), kind: 'plane' as const, hdg: 90, alt_msl: 1600, attitude: { roll: 25, pitch: 4 } }], [2, v(2, 3, 139.371)]]), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
+    const props = { vehicles: new Map([[1, { ...v(1, 3), kind: 'plane' as const, hdg: 90, alt_msl: 1600, attitude: { roll: 25, pitch: 4 } }], [2, v(2, 3, 138.47929)]]), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
     const { rerender } = render(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" />)
     const m = created.maps.at(-1)!
     const layer = m.layerObjs.get('veh-air3d-models') as { visible: boolean; models: { sysid: number; model: string; hdg: number; at: { amsl: number }; accent: number[] }[] }
@@ -564,11 +564,11 @@ describe('MapView', () => {
   })
 
   it('selecting a vehicle that is off screen eases the map to it; one on screen leaves the map alone (UX-10)', () => {
-    const vehicles = new Map([[1, v(1, 3, 130, 30)], [2, v(2, 3, 139.373, 36.162)]])
+    const vehicles = new Map([[1, v(1, 3, 130, 30)], [2, v(2, 3, 138.48129, 35.481883)]])
     const props = { vehicles, tracks: new Map(), follow: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
     const { rerender } = render(<MapView {...props} selected={null} />)
     const m = created.maps.at(-1)!
-    m.center = [139.372, 36.162]
+    m.center = [138.48029, 35.481883]
     const before = m.eased.length
     rerender(<MapView {...props} selected={2} />)
     expect(m.eased.length).toBe(before)
@@ -581,24 +581,24 @@ describe('MapView', () => {
   })
 
   it('a focus request centres the map on that vehicle once per request', () => {
-    const vehicles = new Map([[2, v(2, 3, 139.39, 36.17)]])
+    const vehicles = new Map([[2, v(2, 3, 138.49829, 35.489883)]])
     const props = { vehicles, tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
     const { rerender } = render(<MapView {...props} focus={null} />)
     const m = created.maps.at(-1)!
     const before = m.eased.length
     rerender(<MapView {...props} focus={{ sysid: 2, n: 1 }} />)
-    expect(m.eased.at(-1)).toMatchObject({ center: [139.39, 36.17], freezeElevation: true })
+    expect(m.eased.at(-1)).toMatchObject({ center: [138.49829, 35.489883], freezeElevation: true })
     rerender(<MapView {...props} focus={{ sysid: 2, n: 1 }} vehicles={new Map([[2, v(2, 3, 139.4, 36.2)]])} />)
     expect(m.eased.length).toBe(before + 1)
   })
   it('entering the operations view (arrival) moves the camera to the vehicle nearest the map centre', () => {
-    const vehicles = new Map([[1, v(1, 3, 130, 30)], [2, v(2, 3, 139.39, 36.17)]])
+    const vehicles = new Map([[1, v(1, 3, 130, 30)], [2, v(2, 3, 138.49829, 35.489883)]])
     const props = { vehicles, tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
     const { rerender } = render(<MapView {...props} arrival={0} />)
     const m = created.maps.at(-1)!
     const before = m.eased.length
     rerender(<MapView {...props} arrival={1} />)
-    expect(m.eased.at(-1)).toMatchObject({ center: [139.39, 36.17] })
+    expect(m.eased.at(-1)).toMatchObject({ center: [138.49829, 35.489883] })
     rerender(<MapView {...props} arrival={1} vehicles={new Map([[2, v(2, 3, 139.4, 36.2)]])} />)
     expect(m.eased.length).toBe(before + 1)
     // while following, the follow camera owns the view
@@ -609,18 +609,18 @@ describe('MapView', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     try {
       vi.setSystemTime(1_000_000)
-      const at = (lon: number) => new Map([[1, v(1, 3, lon, 36.16)]])
+      const at = (lon: number) => new Map([[1, v(1, 3, lon, 35.479883)]])
       const props = { tracks: new Map(), follow: 1, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {}, terrainTiles: 'https://dem/{z}/{x}/{y}.png' }
-      const { rerender } = render(<MapView {...props} vehicles={at(139.37)} mode="2d" />)
+      const { rerender } = render(<MapView {...props} vehicles={at(138.47829)} mode="2d" />)
       const m = created.maps.at(-1)!
-      rerender(<MapView {...props} vehicles={at(139.37)} mode="3d" />)
+      rerender(<MapView {...props} vehicles={at(138.47829)} mode="3d" />)
       expect(m.eased.at(-1)).toMatchObject({ pitch: 60 })
       vi.setSystemTime(1_000_300)
-      rerender(<MapView {...props} vehicles={at(139.3701)} mode="3d" />) // 100 px away
+      rerender(<MapView {...props} vehicles={at(138.47839)} mode="3d" />) // 100 px away
       expect(m.eased.at(-1)).toMatchObject({ pitch: 60 })
       vi.setSystemTime(1_001_000)
-      rerender(<MapView {...props} vehicles={at(139.3702)} mode="3d" />)
-      expect(m.eased.at(-1)).toMatchObject({ center: [139.3702, 36.16] })
+      rerender(<MapView {...props} vehicles={at(138.47849)} mode="3d" />)
+      expect(m.eased.at(-1)).toMatchObject({ center: [138.47849, 35.479883] })
     } finally {
       vi.useRealTimers()
     }
@@ -629,10 +629,10 @@ describe('MapView', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 404 }))
     try {
       const props = { vehicles: new Map([[1, { ...v(1, 3), alt_rel: 40 }]]), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
-      const { rerender } = render(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="2d" homes={new Map([[1, { lat: 36.16, lon: 139.37 }]])} />)
-      rerender(<MapView {...props} vehicles={new Map([[1, { ...v(1, 3, 139.371), alt_rel: 41 }]])} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="2d" homes={new Map([[1, { lat: 36.16, lon: 139.37 }]])} />)
+      const { rerender } = render(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="2d" homes={new Map([[1, { lat: 35.479883, lon: 138.47829 }]])} />)
+      rerender(<MapView {...props} vehicles={new Map([[1, { ...v(1, 3, 138.47929), alt_rel: 41 }]])} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="2d" homes={new Map([[1, { lat: 35.479883, lon: 138.47829 }]])} />)
       expect(fetchSpy).not.toHaveBeenCalled()
-      rerender(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" homes={new Map([[1, { lat: 36.16, lon: 139.37 }]])} />)
+      rerender(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" homes={new Map([[1, { lat: 35.479883, lon: 138.47829 }]])} />)
       expect(fetchSpy).toHaveBeenCalled()
     } finally {
       fetchSpy.mockRestore()
@@ -643,17 +643,17 @@ describe('MapView', () => {
     created.markers = []
     render(
       <StrictMode>
-        <MapView vehicles={new Map([[1, v(1, 3)]])} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} target={{ lat: 36.17, lon: 139.38 }} homes={new Map([[1, { lat: 36.161, lon: 139.371 }]])} onDragStart={() => {}} onClick={() => {}} />
+        <MapView vehicles={new Map([[1, v(1, 3)]])} tracks={new Map()} follow={null} selected={1} padding={pad} style={style} target={{ lat: 35.489883, lon: 138.48829 }} homes={new Map([[1, { lat: 35.480883, lon: 138.47929 }]])} onDragStart={() => {}} onClick={() => {}} />
       </StrictMode>,
     )
     const live = (pred: (m: (typeof created.markers)[number]) => boolean) => created.markers.filter((m) => pred(m) && m.live)
     expect(live((m) => m.el.className === 'rg-home')).toHaveLength(1)
-    expect(live((m) => m.lngLat?.[0] === 139.38 && m.lngLat?.[1] === 36.17)).toHaveLength(1)
+    expect(live((m) => m.lngLat?.[0] === 138.48829 && m.lngLat?.[1] === 35.489883)).toHaveLength(1)
   })
 
   it('3D shows the mission like the planner (badges floated, 2D route and 2D tracks hidden), display only', () => {
-    const item = (command: number, lat: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon: 139.372, alt, autocontinue: true })
-    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [], items: [item(22, 36.162, 30), item(16, 36.163, 60)] }
+    const item = (command: number, lat: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon: 138.48029, alt, autocontinue: true })
+    const mission = { id: 1, name: 'm', sysid: 1, default_alt: 60, default_frame: 'rel' as const, speed: 8, home: null, fence: [], rally: [], surveys: [], items: [item(22, 35.481883, 30), item(16, 35.482883, 60)] }
     const props = { vehicles: new Map(), tracks: new Map(), follow: null, selected: 1, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {}, mission, missionCurrent: 2 }
     const { rerender } = render(<MapView {...props} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" />)
     const m = created.maps.at(-1)!
@@ -661,7 +661,7 @@ describe('MapView', () => {
     expect(m.visibility.get('tracks-others')).toBe('none')
     expect(m.visibility.get('tracks-selected')).toBe('none')
     // a new mission rebuilds the badges: they float too
-    rerender(<MapView {...props} mission={{ ...mission, items: [...mission.items, item(16, 36.164, 60)] }} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" />)
+    rerender(<MapView {...props} mission={{ ...mission, items: [...mission.items, item(16, 35.483883, 60)] }} terrainTiles="https://dem/{z}/{x}/{y}.png" mode="3d" />)
     const layer = m.layerObjs.get('veh-air3d') as { onFrame: (mx: number[]) => void }
     layer.onFrame([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
     const badges = created.markers.filter((mk) => mk.el.classList.contains('wp-mk') && mk.live)
@@ -678,12 +678,12 @@ describe('MapView', () => {
     const { rerender } = render(<MapView {...props} vehicles={new Map([[1, flying]])} mode="3d" />)
     const m = created.maps.at(-1)!
     vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 5000) // past the 2D / 3D tilt
-    rerender(<MapView {...props} vehicles={new Map([[1, { ...flying, lon: 139.3705 }]])} mode="3d" />)
+    rerender(<MapView {...props} vehicles={new Map([[1, { ...flying, lon: 138.47879 }]])} mode="3d" />)
     expect(m.clamped).toBe(false)
     // no DEM tile yet: the reported MSL altitude stands in
     expect(m.jumps.at(-1)).toEqual({ elevation: 1625 })
-    expect(m.eased.at(-1)).toMatchObject({ center: [139.3705, 36.16], bearing: 135, freezeElevation: true })
-    rerender(<MapView {...props} vehicles={new Map([[1, { ...flying, lon: 139.3705 }]])} mode="3d" follow={null} />)
+    expect(m.eased.at(-1)).toMatchObject({ center: [138.47879, 35.479883], bearing: 135, freezeElevation: true })
+    rerender(<MapView {...props} vehicles={new Map([[1, { ...flying, lon: 138.47879 }]])} mode="3d" follow={null} />)
     expect(m.clamped).toBe(true)
     vi.restoreAllMocks()
   })

@@ -24,7 +24,7 @@ describe('decodeTerrarium', () => {
 })
 
 describe('TerrainSampler', () => {
-  const at = { lon: 139.372, lat: 36.162 }
+  const at = { lon: 138.48029, lat: 35.481883 }
   it('is null until the tile arrives, loads it once, then interpolates', async () => {
     let resolve: (t: Float32Array) => void = () => {}
     const load = vi.fn(() => new Promise<Float32Array | null>((r) => (resolve = r)))

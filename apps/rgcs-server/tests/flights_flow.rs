@@ -27,7 +27,7 @@ async fn sitl_like_arm_disarm_creates_a_draft_with_times_and_positions() {
         .unwrap();
     let mut rx = state.tx.subscribe();
     seed_copter(&state, 1, COPTER_STABILIZE, true, false).await;
-    seed_position(&state, 1, 36.162, 139.372, 3).await;
+    seed_position(&state, 1, 35.481883, 138.48029, 3).await;
     state.flights.poll(&state.router, 10_000).await;
     assert!(
         state.store.open_flight_of(1).await.unwrap().is_some(),
@@ -52,7 +52,7 @@ async fn sitl_like_arm_disarm_creates_a_draft_with_times_and_positions() {
         ),
         (FlightStatus::Draft, 1, 10_000, Some(70_000))
     );
-    assert!((flight.takeoff_lat.unwrap() - 36.162).abs() < 1e-6);
+    assert!((flight.takeoff_lat.unwrap() - 35.481883).abs() < 1e-6);
     assert!(flight.landing_lon.is_some());
     assert_eq!(flight.pilot, "admin");
 

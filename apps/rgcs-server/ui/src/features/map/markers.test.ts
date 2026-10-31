@@ -4,7 +4,7 @@ import { hfovAt } from './gimbal'
 import { DEFAULT_HFOV_DEG, gimbalPose, hasPosition, homeEl, markerEl, updateMarkerEl } from './markers'
 
 const base: VehicleState = {
-  sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'AUTO', armed: true, lat: 36.162, lon: 139.372, alt_rel: 80, alt_msl: 480,
+  sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'AUTO', armed: true, lat: 35.481883, lon: 138.48029, alt_rel: 80, alt_msl: 480,
   hdg: 90, ground_speed: 5, climb: 0, battery: { pct: 70, volt: 23, current: null }, link: 'ok', last_rx_ms: 0,
   gps: { fix: 3, sats: 12, hdop: 1 }, warn: false, unread: 0,
 }

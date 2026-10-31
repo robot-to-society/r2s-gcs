@@ -7,7 +7,7 @@ const item = (command: number, lat: number, lon: number, alt: number, p1 = 0): M
 
 describe('summary', () => {
   it('stats_match_the_core_rule', () => {
-    const items = [item(22, 36.162, 139.372, 30), item(16, 36.162, 139.3831, 80, 10)]
+    const items = [item(22, 35.481883, 138.48029, 30), item(16, 35.481883, 138.49139, 80, 10)]
     const s = stats(items, null, 8)
     expect(s.distance_m).toBeGreaterThan(990)
     expect(s.distance_m).toBeLessThan(1010)
@@ -15,7 +15,7 @@ describe('summary', () => {
     expect(s.duration_s).toBeLessThan(137)
     expect(s.max_alt).toBe(80)
     expect(stats([], null, 8)).toEqual({ distance_m: 0, duration_s: 0, max_alt: 0 })
-    const withHome = stats(items, { lat: 36.162, lon: 139.361, alt: 0 }, 8)
+    const withHome = stats(items, { lat: 35.481883, lon: 138.46929, alt: 0 }, 8)
     expect(withHome.distance_m).toBeGreaterThan(s.distance_m + 900)
   })
 

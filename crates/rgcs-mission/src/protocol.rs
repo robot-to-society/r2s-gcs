@@ -662,8 +662,8 @@ mod tests {
             command: 16,
             frame: MissionFrame::Abs,
             params: [0.0; 4],
-            lat: 36.162,
-            lon: 139.372,
+            lat: 35.481883,
+            lon: 138.48029,
             alt: 0.0,
             autocontinue: true,
         };
@@ -682,7 +682,7 @@ mod tests {
                 let got = res.expect("done").expect("ok");
                 assert_eq!(got.items.len(), 2);
                 assert_eq!(got.items[0].command, 22);
-                assert!((got.home.unwrap().lat - 36.162).abs() < 1e-6);
+                assert!((got.home.unwrap().lat - 35.481883).abs() < 1e-6);
             }
             dl = next;
         }

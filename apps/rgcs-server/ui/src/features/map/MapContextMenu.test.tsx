@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { t } from '../../shared/i18n'
 import { MapContextMenu } from './MapContextMenu'
 
-const at = { lat: 36.17, lon: 139.38, x: 300, y: 200 }
+const at = { lat: 35.489883, lon: 138.48829, x: 300, y: 200 }
 
 describe('MapContextMenu', () => {
   it('offers Guided to the point for the selected vehicle', () => {
@@ -13,7 +13,7 @@ describe('MapContextMenu', () => {
     const item = screen.getByRole('menuitem', { name: /ここへ Guided 移動/ })
     expect(screen.getByRole('menu')).toHaveTextContent('UAV-01')
     fireEvent.click(item)
-    expect(onGuided).toHaveBeenCalledWith({ lat: 36.17, lon: 139.38 })
+    expect(onGuided).toHaveBeenCalledWith({ lat: 35.489883, lon: 138.48829 })
     expect(onClose).toHaveBeenCalled()
   })
   it('is disabled without a vehicle', () => {

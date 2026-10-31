@@ -18,7 +18,7 @@ fn parsed_fixture_has_twenty_items_and_home() {
     assert_eq!(m.items[0].command, MAV_CMD_NAV_TAKEOFF);
     assert_eq!(m.items[0].frame, MissionFrame::Rel);
     let home = m.home.expect("home line");
-    assert!((home.lat - 36.162).abs() < 1e-9);
+    assert!((home.lat - 35.481883).abs() < 1e-9);
     assert_eq!(m.default_alt, 30.0, "first positional altitude");
     assert_eq!(m.default_frame, MissionFrame::Rel);
     assert_eq!(m.speed, 8.0);
@@ -86,7 +86,7 @@ fn export_without_home_uses_first_positional_item() {
     let line0 = text.lines().nth(1).unwrap();
     assert_eq!(
         line0,
-        "0\t1\t0\t16\t0.000000\t0.000000\t0.000000\t0.000000\t36.16200000\t139.37200000\t0.000000\t1"
+        "0\t1\t0\t16\t0.000000\t0.000000\t0.000000\t0.000000\t35.48188300\t138.48029000\t0.000000\t1"
     );
     let back = from_wpl(&text).unwrap();
     assert_eq!(back.home.unwrap().alt, 0.0);

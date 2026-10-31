@@ -223,8 +223,8 @@ mod tests {
         assert_eq!(
             s.target,
             Some(GeoPoint {
-                lat: 36.162,
-                lon: 139.372,
+                lat: 35.481883,
+                lon: 138.48029,
                 alt: 50.0
             })
         );
@@ -257,8 +257,8 @@ mod tests {
         assert_eq!(
             apply(&base(), &msg).unwrap().home,
             Some(GeoPoint {
-                lat: 36.162,
-                lon: 139.372,
+                lat: 35.481883,
+                lon: 138.48029,
                 alt: 400.5
             })
         );

@@ -78,7 +78,7 @@ function watchViewMoves(m: MlMap, cb: { readonly current: (() => void) | undefin
   for (const ev of ['movestart', 'rotatestart', 'pitchstart'] as const) m.on(ev, (e: { originalEvent?: unknown }) => e.originalEvent && cb.current?.())
 }
 
-const HOME: [number, number] = [139.372, 36.162]
+const HOME: [number, number] = [138.48029, 35.481883]
 const defaultHomeTitle = (sysid: number) => `Home #${sysid}`
 const TRACKS = 'tracks'
 const GUIDED = 'guided'

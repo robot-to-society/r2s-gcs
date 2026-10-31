@@ -273,8 +273,8 @@ export function insertCommandAfter(d: Draft, afterUid: number | null, key: strin
   if (!spec) return d
   const idx = afterUid === null ? d.items.length - 1 : d.items.findIndex((it) => it.uid === afterUid)
   const anchor = [...d.items.slice(0, idx + 1)].reverse().find((it) => CMDS[cmdKey(it)]?.pos && !(it.lat === 0 && it.lon === 0))
-  const lat = spec.pos && anchor ? anchor.lat + 0.0005 : spec.pos ? 36.162 : 0
-  const lon = spec.pos && anchor ? anchor.lon + 0.0005 : spec.pos ? 139.372 : 0
+  const lat = spec.pos && anchor ? anchor.lat + 0.0005 : spec.pos ? 35.481883 : 0
+  const lon = spec.pos && anchor ? anchor.lon + 0.0005 : spec.pos ? 138.48029 : 0
   const base = newItem(d, key, lat, lon)
   const item = spec.pos ? base : { ...base, lat: 0, lon: 0 }
   return { ...d, items: [...d.items.slice(0, idx + 1), item, ...d.items.slice(idx + 1)], nextUid: d.nextUid + 1 }

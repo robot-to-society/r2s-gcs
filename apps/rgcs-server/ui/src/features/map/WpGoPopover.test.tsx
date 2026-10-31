@@ -6,7 +6,7 @@ import { WpGoPopover } from './WpGoPopover'
 import { popoverPlacement, wpGoCommand } from './wpGo'
 
 const vehicle = (mode: string, link: VehicleState['link'] = 'ok'): VehicleState => ({
-  sysid: 3, name: 'UAV-03', kind: 'copter', mode, armed: true, lat: 36.16, lon: 139.37, alt_rel: 50, alt_msl: 0, hdg: 10,
+  sysid: 3, name: 'UAV-03', kind: 'copter', mode, armed: true, lat: 35.479883, lon: 138.47829, alt_rel: 50, alt_msl: 0, hdg: 10,
   ground_speed: 0, climb: 0, battery: { pct: 50, volt: 22, current: null }, link, last_rx_ms: 0,
   gps: { fix: 3, sats: 10, hdop: 1 }, warn: false, unread: 0,
 })

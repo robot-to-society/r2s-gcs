@@ -23,7 +23,7 @@ async fn guided_token(app: &axum::Router, cookie: &str) -> String {
 }
 
 fn body(alt: Option<f32>, token: Option<&str>) -> Value {
-    let mut b = json!({ "lat": 36.1625, "lon": 139.3725, "alt_mode": "keep" });
+    let mut b = json!({ "lat": 35.482383, "lon": 138.48079, "alt_mode": "keep" });
     if let Some(a) = alt {
         b["alt_mode"] = json!("set");
         b["alt_rel"] = json!(a);

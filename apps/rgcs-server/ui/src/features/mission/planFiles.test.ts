@@ -37,12 +37,12 @@ describe('fence / rally files', () => {
   it('reads a QGroundControl .plan (geoFence polygons / circles, rallyPoints)', () => {
     const plan = JSON.stringify({
       fileType: 'Plan',
-      geoFence: { version: 2, polygons: [{ inclusion: false, version: 1, polygon: [[36.1, 137.1], [36.2, 137.1], [36.2, 137.2]] }], circles: [{ inclusion: true, version: 1, circle: { center: [36.15, 137.15], radius: 500 } }] },
+      geoFence: { version: 2, polygons: [{ inclusion: false, version: 1, polygon: [[36.1, 137.1], [36.2, 137.1], [36.2, 137.2]] }], circles: [{ inclusion: true, version: 1, circle: { center: [35.469883, 137.15], radius: 500 } }] },
       rallyPoints: { version: 2, points: [[36.12, 137.12, 30]] },
     })
     expect(parseFenceFile(plan)).toEqual([
       { kind: 'polygon', inclusion: false, vertices: [{ lat: 36.1, lon: 137.1 }, { lat: 36.2, lon: 137.1 }, { lat: 36.2, lon: 137.2 }] },
-      { kind: 'circle', inclusion: true, center: { lat: 36.15, lon: 137.15 }, radius: 500 },
+      { kind: 'circle', inclusion: true, center: { lat: 35.469883, lon: 137.15 }, radius: 500 },
     ])
     expect(parseRallyFile(plan)).toEqual([{ lat: 36.12, lon: 137.12, alt: 30 }])
   })

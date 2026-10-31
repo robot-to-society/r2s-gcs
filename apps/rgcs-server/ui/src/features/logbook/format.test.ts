@@ -9,8 +9,8 @@ describe('logbook format', () => {
   })
 
   it('place_falls_back_to_coordinates', () => {
-    expect(placeText('熊谷市', 36.162, 139.372)).toBe('熊谷市')
-    expect(placeText('', 36.162, 139.372)).toBe('36.16200, 139.37200')
+    expect(placeText('熊谷市', 35.481883, 138.48029)).toBe('熊谷市')
+    expect(placeText('', 35.481883, 138.48029)).toBe('35.48188, 138.48029')
     expect(placeText('', null, null)).toBe('')
   })
 

@@ -80,7 +80,7 @@ interface Props {
   readonly assign?: AssignOverlayInput | null
 }
 
-const HOME: [number, number] = [139.372, 36.162]
+const HOME: [number, number] = [138.48029, 35.481883]
 const FOCUS_ZOOM = 16
 /** Fits keep clear of the floating panels (left list, right editor, top bar, bottom summary). */
 const FIT_PADDING = { top: 100, bottom: 110, left: 380, right: 400 }

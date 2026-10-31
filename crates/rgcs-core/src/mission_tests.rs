@@ -102,8 +102,8 @@ fn validate_flags_empty_and_first_not_takeoff() {
 #[test]
 fn fence_alt_is_fatal_only_when_known_and_enabled() {
     let m = mission(vec![
-        item(MAV_CMD_NAV_TAKEOFF, 36.162, 139.372, 30.0),
-        item(MAV_CMD_NAV_WAYPOINT, 36.163, 139.373, 120.0),
+        item(MAV_CMD_NAV_TAKEOFF, 35.481883, 138.48029, 30.0),
+        item(MAV_CMD_NAV_WAYPOINT, 35.482883, 138.48129, 120.0),
     ]);
     let f = m.validate(&FenceInfo {
         enabled: Some(true),
@@ -128,8 +128,8 @@ fn fence_alt_is_fatal_only_when_known_and_enabled() {
 #[test]
 fn fence_radius_uses_home_when_present() {
     let mut m = mission(vec![
-        item(MAV_CMD_NAV_TAKEOFF, 36.162, 139.372, 30.0),
-        item(MAV_CMD_NAV_WAYPOINT, 36.162, 139.390, 50.0), // ≈1.6 km east
+        item(MAV_CMD_NAV_TAKEOFF, 35.481883, 138.48029, 30.0),
+        item(MAV_CMD_NAV_WAYPOINT, 35.481883, 138.49829, 50.0), // ≈1.6 km east
     ]);
     let fence = FenceInfo {
         enabled: Some(true),
@@ -140,8 +140,8 @@ fn fence_radius_uses_home_when_present() {
     assert!(codes(&f).contains(&"fence_radius"));
     // Home halfway between the two points: both are ~810 m from it, inside the 1 km fence.
     m.home = Some(Home {
-        lat: 36.162,
-        lon: 139.381,
+        lat: 35.481883,
+        lon: 138.48929,
         alt: 0.0,
     });
     let f = m.validate(&fence);
@@ -152,7 +152,7 @@ fn fence_radius_uses_home_when_present() {
 fn jump_target_out_of_range_is_fatal() {
     let mut jump = item(MAV_CMD_DO_JUMP, 0.0, 0.0, 0.0);
     jump.params[0] = 5.0;
-    let m = mission(vec![item(MAV_CMD_NAV_TAKEOFF, 36.162, 139.372, 30.0), jump]);
+    let m = mission(vec![item(MAV_CMD_NAV_TAKEOFF, 35.481883, 138.48029, 30.0), jump]);
     let f = m.validate(&FenceInfo::default());
     let j = f.iter().find(|x| x.code == "jump_target").expect("finding");
     assert_eq!(j.level, FindingLevel::Fatal);
@@ -161,9 +161,9 @@ fn jump_target_out_of_range_is_fatal() {
 
 #[test]
 fn stats_sum_distance_time_and_max_alt() {
-    let mut wp = item(MAV_CMD_NAV_WAYPOINT, 36.162, 139.3831, 80.0);
+    let mut wp = item(MAV_CMD_NAV_WAYPOINT, 35.481883, 138.49139, 80.0);
     wp.params[0] = 10.0;
-    let m = mission(vec![item(MAV_CMD_NAV_TAKEOFF, 36.162, 139.372, 30.0), wp]);
+    let m = mission(vec![item(MAV_CMD_NAV_TAKEOFF, 35.481883, 138.48029, 30.0), wp]);
     let s = m.stats();
     assert!((990.0..1010.0).contains(&s.distance_m), "{}", s.distance_m);
     assert!((123.0..137.0).contains(&s.duration_s), "{}", s.duration_s);

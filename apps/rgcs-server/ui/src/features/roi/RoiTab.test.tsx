@@ -8,7 +8,7 @@ import { DEFAULT_ROI_CONTROL, emptyTargets, roiControlSchema } from './schema'
 
 const dict = t('ja')
 const targets: RoiTarget[] = emptyTargets().map((x, i) =>
-  i === 0 ? { ...x, name: '送電塔 A', lat: 36.16, lon: 139.38, alt_msl: 412 } : i === 1 ? { ...x, name: '貯水池', lat: 36.15, lon: 139.365, alt_msl: 388.4 } : x,
+  i === 0 ? { ...x, name: '送電塔 A', lat: 35.479883, lon: 138.48829, alt_msl: 412 } : i === 1 ? { ...x, name: '貯水池', lat: 35.469883, lon: 138.47329, alt_msl: 388.4 } : x,
 )
 
 type Data = Pick<Parameters<typeof RoiTab>[0], 'targets' | 'control' | 'activeId' | 'targetsIssue' | 'controlIssue' | 'roiMode'>
@@ -35,8 +35,8 @@ describe('RoiTab', () => {
     expect([...rows].map((r) => r.querySelector('td')?.textContent)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'])
     expect(rows[1]).toHaveClass('on')
     expect(rows[0]).not.toHaveClass('on')
-    expect(rows[1]?.textContent).toContain('36.15000')
-    expect(rows[1]?.textContent).toContain('139.36500')
+    expect(rows[1]?.textContent).toContain('35.46988')
+    expect(rows[1]?.textContent).toContain('138.47329')
     expect(rows[1]?.textContent).toContain('388 m')
     expect(rows[2]?.textContent).not.toContain('0.00000')
   })

@@ -6,7 +6,7 @@ import { monthRange } from './format'
 import { LogbookTab } from './LogbookTab'
 
 const copter: VehicleState = {
-  sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'STABILIZE', armed: false, lat: 36.162, lon: 139.372, alt_rel: 0, alt_msl: 0, hdg: 0,
+  sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'STABILIZE', armed: false, lat: 35.481883, lon: 138.48029, alt_rel: 0, alt_msl: 0, hdg: 0,
   ground_speed: 0, climb: 0, battery: { pct: 90, volt: 24, current: null }, link: 'ok', last_rx_ms: 0, gps: { fix: 3, sats: 12, hdop: 1 }, warn: false, unread: 0,
 }
 const me: Operator = { username: 'admin', role: 'admin', dev_mode: true }

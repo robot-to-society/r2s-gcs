@@ -9,13 +9,13 @@ const mission: Mission = {
   default_alt: 50,
   default_frame: 'rel',
   speed: 8,
-  home: { lat: 36.162, lon: 139.372, alt: 0 },
-  items: [{ command: 22, frame: 'rel', params: [0, 0, 0, 0], lat: 36.162, lon: 139.372, alt: 30, autocontinue: true }],
+  home: { lat: 35.481883, lon: 138.48029, alt: 0 },
+  items: [{ command: 22, frame: 'rel', params: [0, 0, 0, 0], lat: 35.481883, lon: 138.48029, alt: 30, autocontinue: true }],
   fence: [
-    { kind: 'circle', inclusion: true, center: { lat: 36.162, lon: 139.372 }, radius: 300 },
-    { kind: 'polygon', inclusion: false, vertices: [{ lat: 36.16, lon: 139.37 }, { lat: 36.16, lon: 139.38 }, { lat: 36.17, lon: 139.38 }] },
+    { kind: 'circle', inclusion: true, center: { lat: 35.481883, lon: 138.48029 }, radius: 300 },
+    { kind: 'polygon', inclusion: false, vertices: [{ lat: 35.479883, lon: 138.47829 }, { lat: 35.479883, lon: 138.48829 }, { lat: 35.489883, lon: 138.48829 }] },
   ],
-  rally: [{ lat: 36.163, lon: 139.373, alt: 60 }],
+  rally: [{ lat: 35.482883, lon: 138.48129, alt: 60 }],
   surveys: [],
 }
 

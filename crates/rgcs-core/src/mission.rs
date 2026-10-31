@@ -542,7 +542,7 @@ impl Mission {
 
 /// The 20-item demo mission around the SITL home (also the `.waypoints` golden fixture).
 pub fn demo20() -> Mission {
-    let (lat0, lon0): (f64, f64) = (36.162, 139.372);
+    let (lat0, lon0): (f64, f64) = (35.481883, 138.48029);
     let dlat = 400.0 / 111_320.0 / 4.0; // 4 rows across 400 m north
     let dlon = 1000.0 / (111_320.0 * lat0.to_radians().cos()); // 1 km east
     let item = |command: u16, lat: f64, lon: f64, alt: f32| MissionItem {

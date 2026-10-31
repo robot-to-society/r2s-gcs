@@ -142,8 +142,8 @@ mod tests {
         t[2] = RoiTarget {
             id: "roi_3".into(),
             name: "送電塔 A".into(),
-            lat: 36.16,
-            lon: 139.38,
+            lat: 35.479883,
+            lon: 138.48829,
             alt_msl: 412.0,
         };
         t

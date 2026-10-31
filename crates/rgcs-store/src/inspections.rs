@@ -364,8 +364,8 @@ mod tests {
         InspectionRunInput {
             template_id,
             place: "テスト場".into(),
-            lat: Some(36.162),
-            lon: Some(139.372),
+            lat: Some(35.481883),
+            lon: Some(138.48029),
             performed_on: "2026-12-05".into(),
             inspector: "admin".into(),
             notes: "".into(),

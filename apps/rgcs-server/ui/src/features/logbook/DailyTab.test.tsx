@@ -5,7 +5,7 @@ import { t } from '../../shared/i18n'
 import { DailyTab } from './DailyTab'
 
 const copter: VehicleState = {
-  sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'STABILIZE', armed: false, lat: 36.162, lon: 139.372, alt_rel: 0, alt_msl: 0, hdg: 0,
+  sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'STABILIZE', armed: false, lat: 35.481883, lon: 138.48029, alt_rel: 0, alt_msl: 0, hdg: 0,
   ground_speed: 0, climb: 0, battery: { pct: 90, volt: 24, current: null }, link: 'ok', last_rx_ms: 0, gps: { fix: 3, sats: 12, hdop: 1 }, warn: false, unread: 0,
 }
 const me: Operator = { username: 'admin', role: 'admin', dev_mode: true }
@@ -85,11 +85,11 @@ describe('DailyTab', () => {
     const { calls } = setup({ fix: 3 })
     await waitFor(() => expect(screen.getByText('プロペラ')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: '機体の位置を使う' }))
-    expect(screen.getByText('36.16200, 139.37200')).toBeInTheDocument()
+    expect(screen.getByText('35.48188, 138.48029')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(screen.getByText('保存しました')).toBeInTheDocument())
-    expect(postBody(calls).lat).toBeCloseTo(36.162)
-    expect(postBody(calls).lon).toBeCloseTo(139.372)
+    expect(postBody(calls).lat).toBeCloseTo(35.481883)
+    expect(postBody(calls).lon).toBeCloseTo(138.48029)
   })
 
   it('position_button_is_disabled_without_a_fix', async () => {

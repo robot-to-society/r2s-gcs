@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn guided_target_is_a_position_only_relative_alt_setpoint() {
-        let m = encode_guided_target(1, 36.162, 139.372, 50.0);
+        let m = encode_guided_target(1, 35.481883, 138.48029, 50.0);
         let MavMessage::SET_POSITION_TARGET_GLOBAL_INT(d) = m else {
             panic!("{m:?}")
         };

@@ -3,7 +3,7 @@ import type { CameraSnapshot, VehicleState } from '../../shared/api/types'
 import { footprintsGeoJson } from './footprints'
 
 const v = (sysid: number, alt_rel = 100): VehicleState => ({
-  sysid, name: `UAV-0${sysid}`, kind: 'copter', mode: 'AUTO', armed: true, lat: 36.16, lon: 139.37, alt_rel, alt_msl: 0, hdg: 0,
+  sysid, name: `UAV-0${sysid}`, kind: 'copter', mode: 'AUTO', armed: true, lat: 35.479883, lon: 138.47829, alt_rel, alt_msl: 0, hdg: 0,
   ground_speed: 0, climb: 0, battery: { pct: 50, volt: 22, current: null }, link: 'ok', last_rx_ms: 0,
   gps: { fix: 3, sats: 10, hdop: 1 }, warn: false, unread: 0,
 })

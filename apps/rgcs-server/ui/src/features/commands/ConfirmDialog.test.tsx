@@ -66,9 +66,9 @@ describe('ConfirmDialog', () => {
     await waitFor(() => expect(onDone).toHaveBeenCalledWith({ kind: 'error', code: 'unknown', message: 'offline' }))
   })
   const veh = (over: Partial<VehicleState> = {}): VehicleState => ({
-    sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'LOITER', armed: true, lat: 36.161, lon: 139.372, alt_rel: 29.6, alt_msl: 0, hdg: null,
+    sysid: 1, name: 'UAV-01', kind: 'copter', mode: 'LOITER', armed: true, lat: 35.480883, lon: 138.48029, alt_rel: 29.6, alt_msl: 0, hdg: null,
     ground_speed: 0, climb: 0, battery: { pct: 50, volt: 22, current: null }, link: 'ok', last_rx_ms: 0,
-    gps: { fix: 3, sats: 10, hdop: 1 }, warn: false, unread: 0, home: { lat: 36.16, lon: 139.372, alt: 400 }, ...over,
+    gps: { fix: 3, sats: 10, hdop: 1 }, warn: false, unread: 0, home: { lat: 35.479883, lon: 138.48029, alt: 400 }, ...over,
   })
   const deps = () => ({ confirm: vi.fn().mockResolvedValue({ confirm_token: 'tok', expires_in: 30 }), send: vi.fn().mockResolvedValue({ id: 9 }) })
   const show = (cmd: 'rtl' | 'disarm', d = deps(), onCancel = vi.fn(), v = veh()) => {

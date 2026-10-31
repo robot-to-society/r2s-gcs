@@ -6,7 +6,7 @@ const getRoiTargets = vi.fn<(sysid: number) => Promise<RoiTarget[]>>()
 vi.mock('./api', () => ({ getRoiTargets: (sysid: number) => getRoiTargets(sysid) }))
 const { createRoiTargetsStore, useRoiTargets, roiTargetsStore } = await import('./targetsStore')
 
-const row: RoiTarget = { id: 'roi_1', name: '送電塔 A', lat: 36.16, lon: 139.38, alt_msl: 412 }
+const row: RoiTarget = { id: 'roi_1', name: '送電塔 A', lat: 35.479883, lon: 138.48829, alt_msl: 412 }
 
 describe('roiTargetsStore', () => {
   beforeEach(() => {

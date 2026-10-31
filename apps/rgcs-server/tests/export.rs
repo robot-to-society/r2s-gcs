@@ -45,10 +45,10 @@ fn flight(i: u64, squawks: usize) -> Flight {
         pilot_license: "T123".into(),
         takeoff_at: takeoff,
         landed_at: Some(takeoff + 90_000),
-        takeoff_lat: Some(36.162),
-        takeoff_lon: Some(139.372),
-        landing_lat: Some(36.163),
-        landing_lon: Some(139.373),
+        takeoff_lat: Some(35.481883),
+        takeoff_lon: Some(138.48029),
+        landing_lat: Some(35.482883),
+        landing_lon: Some(138.48129),
         takeoff_place: if i % 2 == 0 {
             "熊谷市 ○○運動場".into()
         } else {

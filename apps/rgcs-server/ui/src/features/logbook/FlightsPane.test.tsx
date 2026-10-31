@@ -8,7 +8,7 @@ import { FlightsPane } from './FlightsPane'
 const T0 = 1_796_050_800_000 + 4 * 86_400_000 + 10 * 3_600_000
 const flight = (id: number, status: Flight['status']): Flight => ({
   id, sysid: 1, status, pilot: '川村', pilot_license: 'T123', takeoff_at: T0 + id * 3_600_000, landed_at: T0 + id * 3_600_000 + 90_000,
-  takeoff_lat: 36.162, takeoff_lon: 139.372, landing_lat: null, landing_lon: null, takeoff_place: '', landing_place: '', purposes: ['空撮'], specific_flight: [],
+  takeoff_lat: 35.481883, takeoff_lon: 138.48029, landing_lat: null, landing_lon: null, takeoff_place: '', landing_place: '', purposes: ['空撮'], specific_flight: [],
   summary: '', safety_notes: '', flight_minutes: 2, total_minutes: 100 + 2 * id, squawks: [], supersedes: null, created_by: 'system', created_at: 0, updated_at: 0,
 })
 const ok = (data: unknown, status = 200) => new Response(JSON.stringify({ success: true, data }), { status, headers: { 'content-type': 'application/json' } })

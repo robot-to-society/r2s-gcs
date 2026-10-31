@@ -23,7 +23,7 @@ vi.mock('../features/map/MapView', () => ({ MapView: (p: { follow: number | null
 const { PresentApp } = await import('./PresentApp')
 
 const config = { sysid: 1, vehicle_name: 'UAV-01', logo: true, map_tile_url: 'https://t/{z}/{x}/{y}.png', map_attribution: 'x', whep_path: 'mt11' }
-const vehicle = { sysid: 1, name: 'UAV-01', lat: 36.16, lon: 139.37, hdg: 10, alt_rel: 40, mode: 'AUTO', armed: true, link: 'ok' }
+const vehicle = { sysid: 1, name: 'UAV-01', lat: 35.479883, lon: 138.47829, hdg: 10, alt_rel: 40, mode: 'AUTO', armed: true, link: 'ok' }
 
 function envelope(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })

@@ -4,7 +4,7 @@ import { toMercator } from './air'
 import { vehicleAirData, vehicleModels } from './vehicleAir'
 import type { Mission } from '../../shared/api/types'
 
-const v = (sysid: number, alt_rel: number, lon = 139.37, lat = 36.16) => ({ sysid, lat, lon, alt_rel, gps: { fix: 3 }, link: 'ok', armed: true, mode: 'LOITER', ground_speed: 0, climb: 0 }) as unknown as VehicleState
+const v = (sysid: number, alt_rel: number, lon = 138.47829, lat = 35.479883) => ({ sysid, lat, lon, alt_rel, gps: { fix: 3 }, link: 'ok', armed: true, mode: 'LOITER', ground_speed: 0, climb: 0 }) as unknown as VehicleState
 
 describe('vehicleModels', () => {
   it('gives each airframe its own model: a VTOL plane is a QuadPlane, unknown kinds fly as copters', () => {
@@ -15,7 +15,7 @@ describe('vehicleModels', () => {
 })
 
 describe('vehicleAirData', () => {
-  const homes = new Map([[1, { lat: 36.16, lon: 139.37 }]])
+  const homes = new Map([[1, { lat: 35.479883, lon: 138.47829 }]])
   it('gives a flying vehicle a post from the ground to its altitude, amber when selected', () => {
     const d = vehicleAirData(new Map([[1, v(1, 30)]]), 1, homes, new Map(), () => 100)
     expect(d.posts).toHaveLength(1)
@@ -30,7 +30,7 @@ describe('vehicleAirData', () => {
     expect(d.alts.get(1)).toBe(100)
   })
   it('falls back to the first track point for home, and to the ground while the DEM is missing', () => {
-    const tracks = new Map([[2, [[139.36, 36.15, 0, 0]] as const]])
+    const tracks = new Map([[2, [[138.46829, 35.469883, 0, 0]] as const]])
     expect(vehicleAirData(new Map([[2, v(2, 20)]]), null, new Map(), tracks, () => 50).alts.get(2)).toBe(70)
     const none = vehicleAirData(new Map([[2, v(2, 20)]]), null, new Map(), tracks, () => null)
     expect(none.alts.get(2)).toBeNull()
@@ -38,17 +38,17 @@ describe('vehicleAirData', () => {
   })
 
   it('draws each track in the air at home ground + its recorded altitude, in Mission Planner purple', () => {
-    const tracks = new Map([[1, [[139.37, 36.16, 0, 0], [139.371, 36.16, 40, 1000]] as const]])
+    const tracks = new Map([[1, [[138.47829, 35.479883, 0, 0], [138.47929, 35.479883, 40, 1000]] as const]])
     const d = vehicleAirData(new Map([[1, v(1, 40)]]), 1, homes, tracks, () => 100)
     expect(d.lines).toHaveLength(1)
     const [a, b] = d.lines[0]!
-    expect(a!.z).toBeCloseTo(toMercator(139.37, 36.16, 100).z, 12)
-    expect(b!.z).toBeCloseTo(toMercator(139.371, 36.16, 140).z, 12)
+    expect(a!.z).toBeCloseTo(toMercator(138.47829, 35.479883, 100).z, 12)
+    expect(b!.z).toBeCloseTo(toMercator(138.47929, 35.479883, 140).z, 12)
     expect(a!.c).toEqual([0x80 / 255, 0, 0x80 / 255])
   })
   it('adds the mission like the planner: climb-coloured legs, posts and the altitude of each positioned item', () => {
-    const item = (command: number, lat: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon: 139.37, alt, autocontinue: true })
-    const mission = { id: null, name: 'm', sysid: 1, default_alt: 50, default_frame: 'rel', speed: 8, home: null, items: [item(22, 36.16, 50), item(16, 36.161, 50), item(178, 0, 0)] } as unknown as Mission
+    const item = (command: number, lat: number, alt: number) => ({ command, frame: 'rel' as const, params: [0, 0, 0, 0] as [number, number, number, number], lat, lon: 138.47829, alt, autocontinue: true })
+    const mission = { id: null, name: 'm', sysid: 1, default_alt: 50, default_frame: 'rel', speed: 8, home: null, items: [item(22, 35.479883, 50), item(16, 35.480883, 50), item(178, 0, 0)] } as unknown as Mission
     const d = vehicleAirData(new Map(), null, homes, new Map(), () => 100, mission)
     expect(d.lines).toHaveLength(1) // one leg T → 2, level → cyan
     expect(d.lines[0]![0]!.c).toEqual([0x9c / 255, 0xc9 / 255, 1])
@@ -61,8 +61,8 @@ describe('vehicleAirData', () => {
     const d = vehicleAirData(new Map([[1, flying]]), 1, homes, new Map(), () => 100)
     expect(d.lines).toHaveLength(1)
     const [a, b] = d.lines[0]!
-    expect(a!.z).toBeCloseTo(toMercator(139.37, 36.16, 130).z, 12)
-    expect(b!.z).toBeCloseTo(toMercator(139.37, 36.16, 150).z, 12) // +2 m/s for 10 s
+    expect(a!.z).toBeCloseTo(toMercator(138.47829, 35.479883, 130).z, 12)
+    expect(b!.z).toBeCloseTo(toMercator(138.47829, 35.479883, 150).z, 12) // +2 m/s for 10 s
     expect(b!.x).toBeGreaterThan(a!.x) // east
     expect(a!.c).toEqual([1, 1, 1]) // white for the selected vehicle, like 2D
   })

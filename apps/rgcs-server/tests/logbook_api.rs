@@ -25,7 +25,7 @@ fn results(n: u32, ng_at: Option<u32>) -> Value {
 
 fn run_body(date: &str, n: u32, ng_at: Option<u32>) -> Value {
     json!({
-        "template_id": 1, "place": "テスト場", "lat": 36.162, "lon": 139.372, "performed_on": date,
+        "template_id": 1, "place": "テスト場", "lat": 35.481883, "lon": 138.48029, "performed_on": date,
         "inspector": "admin", "notes": "", "results": results(n, ng_at), "supersedes": null
     })
 }

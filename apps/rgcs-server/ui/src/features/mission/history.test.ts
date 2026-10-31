@@ -4,12 +4,12 @@ import { appendWaypoint, emptyDraft, moveItem } from './model'
 
 describe('history', () => {
   it('undo_restores_dragged_position', () => {
-    const d0 = appendWaypoint(emptyDraft(), 36.162, 139.372)
+    const d0 = appendWaypoint(emptyDraft(), 35.481883, 138.48029)
     const h0 = initHistory(d0)
-    const h1 = push(h0, moveItem(d0, 1, 36.17, 139.38))
-    expect(h1.present.items[0]).toMatchObject({ lat: 36.17, lon: 139.38 })
+    const h1 = push(h0, moveItem(d0, 1, 35.489883, 138.48829))
+    expect(h1.present.items[0]).toMatchObject({ lat: 35.489883, lon: 138.48829 })
     const h2 = undo(h1)
-    expect(h2.present.items[0]).toMatchObject({ lat: 36.162, lon: 139.372 })
+    expect(h2.present.items[0]).toMatchObject({ lat: 35.481883, lon: 138.48029 })
     expect(h2.present).toBe(d0)
     expect(canUndo(h2)).toBe(false)
     expect(canRedo(h2)).toBe(true)
