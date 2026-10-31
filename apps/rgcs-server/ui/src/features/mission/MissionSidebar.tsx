@@ -6,8 +6,9 @@ import { surveyAt } from '../survey/draftOps'
 import { SurveyPanel } from '../survey/SurveyPanel'
 import type { SurveyEditor } from '../survey/useSurveyEditor'
 import { durText, km } from './labels'
-import type { Draft, DraftItem } from './model'
+import type { Draft, DraftItem, TakeoffKey } from './model'
 import { findingDetail } from './findingDetail'
+import { findingFix, type FixInput } from './findingFix'
 import { findingText, type LocalWarning } from './summary'
 import { CollapseButton } from './PlanRail'
 import { TransferBar } from './TransferBar'
@@ -33,6 +34,10 @@ interface Props {
   readonly onMeta: (patch: Partial<Draft['mission']>) => void
   readonly onItemChange: (uid: number, patch: Parameters<React.ComponentProps<typeof ItemEditor>['onChange']>[1]) => void
   readonly onItemCommand: (uid: number, key: string) => void
+  /** The airframe's takeoff, for the 「先頭に離陸を追加」 fix. */
+  readonly takeoff: TakeoffKey | null
+  /** Applies a warning's one-click fix as an ordinary (undoable) edit. */
+  readonly onFix: (apply: (d: Draft) => Draft) => void
   readonly onNew: () => void
   readonly onOpen: () => void
   readonly onSave: () => void
@@ -160,25 +165,13 @@ export function MissionSidebar(p: Props) {
             {p.kind !== 'rover' && <span className="t2">{dict.mMaxAlt}</span>}
             {p.kind !== 'rover' && <span>{`${Math.round(p.stats.max_alt)} m`}</span>}
           </div>
-          {p.findings.map((f, i) => {
-            const detail = findingDetail(f, draft.items, dict)
-            return (
-              <div key={`f${i}`} className={`warnbox${f.level === 'fatal' ? ' fatal' : ''}`} role="listitem">
-                <span className="seq">{f.seq !== null ? `#${f.seq}` : ''}</span>
-                <span>
-                  {findingText(f.code, dict)}
-                  {detail && <span className="warn-detail">{detail}</span>}
-                </span>
-              </div>
-            )
-          })}
+          {p.findings.map((f, i) => (
+            <WarnRow key={`f${i}`} f={f} fatal={f.level === 'fatal'} detail={findingDetail(f, draft.items, dict)} p={p} />
+          ))}
           {p.warnings
             .filter((w) => !p.findings.some((f) => f.code === w.code))
             .map((w, i) => (
-              <div key={`w${i}`} className="warnbox" role="listitem">
-                <span className="seq">{w.seq !== null ? `#${w.seq}` : ''}</span>
-                <span>{findingText(w.code, dict)}</span>
-              </div>
+              <WarnRow key={`w${i}`} f={w} fatal={false} detail={null} p={p} />
             ))}
         </div>
       </div>
@@ -223,5 +216,23 @@ function DefaultAlt({ mission: m, dict, onMeta }: { readonly mission: Draft['mis
         <span className="unit">m</span>
       </div>
     </>
+  )
+}
+
+function WarnRow({ f, fatal, detail, p }: { f: FixInput; fatal: boolean; detail: string | null; p: Props }) {
+  const fix = findingFix(f, p.draft, { takeoff: p.takeoff, dict: p.dict })
+  return (
+    <div className={`warnbox${fatal ? ' fatal' : ''}${fix ? ' with-fix' : ''}`} role="listitem">
+      <span className="seq">{f.seq !== null ? `#${f.seq}` : ''}</span>
+      <span className="grow">
+        {findingText(f.code, p.dict)}
+        {detail && <span className="warn-detail">{detail}</span>}
+        {fix && (
+          <button type="button" className="btn btn-sm warn-fix" onClick={() => p.onFix(fix.apply)}>
+            {fix.label}
+          </button>
+        )}
+      </span>
+    </div>
   )
 }

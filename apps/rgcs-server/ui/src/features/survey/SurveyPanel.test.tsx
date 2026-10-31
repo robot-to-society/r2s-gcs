@@ -50,6 +50,8 @@ function Harness({ store, dict, kind }: { store: MissionStore; dict: Dict; kind:
       onMeta={noop}
       onItemChange={noop}
       onItemCommand={noop}
+      takeoff={null}
+      onFix={noop}
       onNew={noop}
       onOpen={noop}
       onSave={noop}

@@ -119,6 +119,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
     return (d: Draft) => predictFor(d, model, vHome)
   }, [kind, pathValues, hLat, hLon, hAlt])
   const change = (fn: (d: Draft) => Draft) => store.update((u) => edit(u, fn(u.history.present)))
+  const takeoff = takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1)
   const isOnline = (s: number) => online.some((v) => v.sysid === s)
   const io = useMissionIo(store, plans, sysid, dict, vehicleStore, isOnline)
   const readFrom = sysid ?? (opsSelected !== null && isOnline(opsSelected) ? opsSelected : null)
@@ -188,7 +189,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         assign={board.assign}
         surveyDraw={sv.mapDraw}
         survey={sv.mapSurvey}
-        onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, { takeoff: takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1) }))}
+        onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, { takeoff }))}
         onInsertAfter={(uid, lat, lon) => change((d) => insertAfter(d, uid, lat, lon))}
         onMove={(uid, lat, lon) => change((d) => moveItem(d, uid, lat, lon))}
         onMoveSelected={(dLat, dLon) => change((d) => moveItems(d, ui.selected, dLat, dLon))}
@@ -352,6 +353,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         }}
         onItemChange={(uid, patch) => change((d) => updateItem(d, uid, patch))}
         onItemCommand={(uid, key) => change((d) => setCommand(d, uid, key))}
+        takeoff={takeoff}
+        onFix={change}
         onNew={io.fresh}
         onOpen={io.openPicker}
         onSave={() => void io.save()}
