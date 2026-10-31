@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 
 use mavlink::dialects::ardupilotmega::MavMissionType;
-use rgcs_core::{Mission, MissionProgress, ServerMessage, SysId, TransferPhase, UploadReport};
+use rgcs_core::{Mission, MissionProgress, ServerMessage, SysId, TransferPhase, UploadReport, VehicleKind};
 
 use crate::transfer::Reporter;
 use rgcs_mavlink::{MissionFrame, Outgoing};
@@ -60,9 +60,20 @@ impl Drop for BusyGuard {
     }
 }
 
-/// Frames only matter for items that carry a position: ArduPilot stores none for RTL / DO_*
-/// items and reads them back as MAV_FRAME_GLOBAL.
-fn items_match(a: &rgcs_core::MissionItem, b: &rgcs_core::MissionItem) -> bool {
+/// `got` is what ArduPilot reads back for `sent`: params as AP_Mission stores them
+/// ([`rgcs_core::as_stored`]) or exactly as sent (a firmware that keeps more is not a mismatch),
+/// positions within the storage resolution. Frames only matter for
+/// items that carry a position: ArduPilot stores none for RTL / DO_* items and reads them back
+/// as MAV_FRAME_GLOBAL.
+fn items_match(
+    sent: &rgcs_core::MissionItem,
+    got: &rgcs_core::MissionItem,
+    kind: Option<VehicleKind>,
+) -> bool {
+    close(sent, got) || rgcs_core::stored_forms(sent, kind).iter().any(|a| close(a, got))
+}
+
+fn close(a: &rgcs_core::MissionItem, b: &rgcs_core::MissionItem) -> bool {
     a.command == b.command
         && (!a.has_position() || a.frame == b.frame)
         && a.params == b.params
@@ -71,12 +82,13 @@ fn items_match(a: &rgcs_core::MissionItem, b: &rgcs_core::MissionItem) -> bool {
         && (a.alt - b.alt).abs() <= ALT_EPS
 }
 
-/// 1-based sequences where the read-back differs (length differences count every extra seq).
-pub fn mismatches(sent: &Mission, got: &Mission) -> Vec<u16> {
+/// 1-based sequences where the read-back differs from what a `kind` vehicle stores (`None`:
+/// either packing); length differences count every extra seq.
+pub fn mismatches(sent: &Mission, got: &Mission, kind: Option<VehicleKind>) -> Vec<u16> {
     let n = sent.items.len().max(got.items.len());
     (0..n)
         .filter(|&i| match (sent.items.get(i), got.items.get(i)) {
-            (Some(a), Some(b)) => !items_match(a, b),
+            (Some(a), Some(b)) => !items_match(a, b, kind),
             _ => true,
         })
         .map(|i| (i + 1) as u16)
@@ -165,12 +177,14 @@ impl MissionHub {
         })
     }
 
-    /// Writes the mission, reads it back and compares. Holds the vehicle's transaction slot.
+    /// Writes the mission, reads it back and compares with what ArduPilot stores for `kind`
+    /// (`None`: either packing). Holds the vehicle's transaction slot.
     pub async fn upload(
         &self,
         sysid: SysId,
         component: u8,
         mission: &Mission,
+        kind: Option<VehicleKind>,
         outgoing: &mpsc::Sender<Outgoing>,
     ) -> Result<UploadReport, MissionError> {
         let _guard = self.acquire(sysid)?;
@@ -208,7 +222,7 @@ impl MissionHub {
             }
         };
         report.send(TransferPhase::Done, total);
-        let mismatched = mismatches(mission, &got);
+        let mismatched = mismatches(mission, &got, kind);
         let verified = mismatched.is_empty();
         if verified {
             self.remember(sysid, mission);
@@ -248,7 +262,8 @@ impl MissionHub {
             started.elapsed().as_millis() as u64,
         );
         let got = run_download(dl.for_gcs(gcs), out, sysid, &mut rx, outgoing, started, None).await?;
-        let mismatched = mismatches(&sent, &got);
+        // Fence and rally items are not AP_Mission commands: compared as sent.
+        let mismatched = mismatches(&sent, &got, None);
         Ok((got.items, mismatched))
     }
 
@@ -431,10 +446,14 @@ mod tests {
         let a = demo20();
         let mut b = a.clone();
         b.items[19].frame = rgcs_core::MissionFrame::Abs;
-        assert!(mismatches(&a, &b).is_empty(), "{:?}", mismatches(&a, &b));
+        assert!(
+            mismatches(&a, &b, None).is_empty(),
+            "{:?}",
+            mismatches(&a, &b, None)
+        );
         b.items[1].frame = rgcs_core::MissionFrame::Abs;
         assert_eq!(
-            mismatches(&a, &b),
+            mismatches(&a, &b, None),
             vec![2],
             "positional items still compare the frame"
         );
@@ -446,9 +465,9 @@ mod tests {
         a.items[2].alt = 30.123;
         let mut b = a.clone();
         b.items[2].alt = 30.12;
-        assert!(mismatches(&a, &b).is_empty());
+        assert!(mismatches(&a, &b, None).is_empty());
         b.items[2].alt = 30.2;
-        assert_eq!(mismatches(&a, &b), vec![3]);
+        assert_eq!(mismatches(&a, &b, None), vec![3]);
     }
 
     #[test]
@@ -457,7 +476,130 @@ mod tests {
         let mut b = a.clone();
         b.items[2].alt += 1.0;
         b.items.truncate(19);
-        assert_eq!(mismatches(&a, &b), vec![3, 20]);
-        assert!(mismatches(&a, &a).is_empty());
+        assert_eq!(mismatches(&a, &b, None), vec![3, 20]);
+        assert!(mismatches(&a, &a, None).is_empty());
+    }
+
+    use rgcs_core::{MissionFrame, MissionItem};
+
+    /// (command, rel frame, params, lat, lon, alt).
+    type Row = (u16, bool, [f32; 4], f64, f64, f32);
+
+    /// Saved plan 12 (QuadPlane, absolute altitudes).
+    #[rustfmt::skip]
+    const PLAN_12: &[Row] = &[
+        (84, true, [0.0, 0.0, 0.0, 0.0], 0.0, 0.0, 30.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.669_836_3, 135.901_157_8, 210.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.671_604_2, 135.898_497_1, 230.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.670_336_3, 135.898_239_6, 240.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.669_639_8, 135.900_943_3, 220.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.665_371_6, 135.907_498_6, 184.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.665_621_7, 135.909_075_7, 161.0),
+        (16, false, [0.0, 5.0, 0.0, 0.0], 33.666_746_8, 135.909_762_4, 204.0),
+        (16, false, [0.0, 5.0, 0.0, 0.0], 33.668_675_5, 135.907_595_2, 185.0),
+        (16, false, [0.0, 5.0, 0.0, 0.0], 33.670_086_3, 135.904_870_0, 196.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.671_068_5, 135.903_067_6, 219.0),
+        (16, false, [0.0, 5.0, 0.0, 0.0], 33.673_023_9, 135.899_044_3, 210.0),
+        (16, false, [0.0, 5.0, 0.0, 0.0], 33.670_854_2, 135.898_325_4, 218.0),
+        (16, false, [0.0, 5.0, 0.0, 0.0], 33.667_675_4, 135.903_303_6, 201.0),
+        (16, false, [0.0, 5.0, 0.0, 0.0], 33.663_746_5, 135.908_196_0, 185.0),
+        (16, false, [0.0, 5.0, 0.0, 0.0], 33.661_389_0, 135.909_740_9, 181.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.659_906_6, 135.911_618_5, 182.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.656_209_5, 135.913_828_6, 135.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.654_932_4, 135.914_257_8, 129.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.652_851_6, 135.916_800_5, 120.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.651_637_0, 135.920_276_6, 120.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.651_226_2, 135.922_401_0, 150.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.651_404_8, 135.924_353_6, 180.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.650_261_6, 135.924_375_1, 180.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.651_244_0, 135.922_401_0, 130.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.651_565_4, 135.920_319_6, 122.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.652_923_0, 135.916_800_5, 134.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.654_834_2, 135.914_257_8, 128.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.654_066_2, 135.911_393_2, 153.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.652_637_2, 135.910_234_5, 181.0),
+        (16, false, [0.0, 5.0, 0.0, 0.0], 33.653_117_0, 135.906_822_0, 208.0),
+        (16, false, [0.0, 5.0, 0.0, 0.0], 33.654_486_0, 135.899_886_0, 307.0),
+        (31, false, [100.0, 0.0, 0.0, 0.0], 33.654_486_0, 135.899_886_0, 560.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.654_485_9, 135.897_907_0, 560.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.655_557_6, 135.896_394_3, 560.0),
+        (18, false, [1.0, 0.0, 100.0, 0.0], 33.657_459_7, 135.893_626_2, 560.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.655_566_5, 135.896_394_3, 560.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.654_468_0, 135.897_896_3, 560.0),
+        (31, false, [100.0, 0.0, 0.0, 0.0], 33.654_530_6, 135.899_848_9, 307.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.662_282_0, 135.905_342_1, 233.0),
+        (16, false, [0.0, 0.0, 0.0, 0.0], 33.664_353_7, 135.907_788_3, 198.0),
+        (16, true, [0.0, 0.0, 0.0, 0.0], 33.666_210_9, 135.905_771_3, 30.0),
+        (85, true, [0.0, 0.0, 0.0, 0.0], 33.668_202_3, 135.904_130_0, 0.0),
+    ];
+
+    fn plan_12() -> Mission {
+        let items = PLAN_12
+            .iter()
+            .map(|&(command, rel, params, lat, lon, alt)| MissionItem {
+                command,
+                frame: if rel { MissionFrame::Rel } else { MissionFrame::Abs },
+                params,
+                lat,
+                lon,
+                alt,
+                autocontinue: true,
+            })
+            .collect();
+        Mission { items, ..demo20() }
+    }
+
+    #[test]
+    fn plan_12_read_back_from_arduplane_is_verified() {
+        // ArduPlane stores LOITER_TO_ALT's radius from param2 and drops param1 (seq 33 and 39)
+        let sent = plan_12();
+        let mut got = sent.clone();
+        got.items[32].params = [0.0; 4];
+        got.items[38].params = [0.0; 4];
+        assert_eq!(sent.items[32].params[0], 100.0);
+        assert!(
+            mismatches(&sent, &got, Some(VehicleKind::Plane)).is_empty(),
+            "{:?}",
+            mismatches(&sent, &got, Some(VehicleKind::Plane))
+        );
+        assert!(mismatches(&sent, &got, None).is_empty());
+    }
+
+    #[test]
+    fn a_real_difference_is_still_a_mismatch() {
+        let sent = plan_12();
+        let mut got = sent.clone();
+        assert!(
+            mismatches(&sent, &got, Some(VehicleKind::Plane)).is_empty(),
+            "an exact echo"
+        );
+        got.items[38].params = [0.0; 4]; // what ArduPlane stores
+        got.items[32].params = [0.0, 80.0, 0.0, 0.0]; // a radius nobody sent
+        got.items[35].params[2] = -100.0; // loiter direction flipped
+        got.items[7].params[1] = 0.0; // acceptance radius lost
+        got.items[9].alt += 1.0;
+        assert_eq!(
+            mismatches(&sent, &got, Some(VehicleKind::Plane)),
+            vec![8, 10, 33, 36]
+        );
+    }
+
+    #[test]
+    fn float32_params_compare_equal_after_the_wire() {
+        // JSON numbers become f32 once (the MISSION_ITEM_INT param type): no further rounding
+        let mut sent = demo20();
+        sent.items.insert(1, item_from_json(r#"[1, 8.3, 33.333333, 0]"#));
+        let got = sent.clone();
+        assert!(mismatches(&sent, &got, Some(VehicleKind::Copter)).is_empty());
+        let mut off = got.clone();
+        off.items[1].params[1] = f32::from_bits(8.3f32.to_bits() + 1);
+        assert_eq!(mismatches(&sent, &off, Some(VehicleKind::Copter)), vec![2]);
+    }
+
+    fn item_from_json(params: &str) -> MissionItem {
+        serde_json::from_str(&format!(
+            r#"{{"command":178,"frame":"rel","params":{params},"lat":0,"lon":0,"alt":0,"autocontinue":true}}"#
+        ))
+        .unwrap()
     }
 }

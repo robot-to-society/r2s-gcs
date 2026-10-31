@@ -173,7 +173,7 @@ async fn do_upload(
     let component = component_of(app, sysid).await;
     match app
         .missions
-        .upload(sysid, component, mission, &app.outgoing)
+        .upload(sysid, component, mission, kind, &app.outgoing)
         .await
     {
         Ok(report) => {
