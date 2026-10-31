@@ -1,0 +1,16 @@
+// Shapes shared by the assignment board's panels (plan 2026-10-31 Tasks 9-12).
+import type { PointerEvent as ReactPointerEvent } from 'react'
+
+/** What a board drag carries: a plan, and the vehicle it is moved off (null from a plan card). */
+export interface AssignDrag {
+  readonly planId: number
+  readonly from: number | null
+}
+
+/** `useCardDrag<AssignDrag>().dragProps`. */
+export type DragPropsFn = (payload: AssignDrag, enabled?: boolean) => { onPointerDown: (e: ReactPointerEvent) => void }
+
+/** Enter / Space on a role="button" card act like a click. */
+export function isActivation(key: string): boolean {
+  return key === 'Enter' || key === ' '
+}

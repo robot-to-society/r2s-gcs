@@ -83,6 +83,10 @@ import {
   Navigation2,
   Check,
   Trash2,
+  Lock,
+  GripVertical,
+  CircleHelp,
+  Clock,
 } from 'lucide-react'
 
 interface IconProps {
@@ -224,3 +228,8 @@ export const IconPan = ({ size = 13, className }: IconProps) => <Lucide icon={Mo
 export const IconTilt = ({ size = 13, className }: IconProps) => <Lucide icon={MoveVertical} size={size} className={className} />
 export const IconNav = ({ size = 14, className }: IconProps) => <Lucide icon={Navigation2} size={size} className={className} />
 export const IconTick = ({ size = 14, className }: IconProps) => <Lucide icon={Check} size={size} className={className} />
+// Plan assignment board (plan 2026-10-31): a locked (unsaved) plan, the drag grip, 不明, 書込待ち.
+export const IconLock = ({ size = 16, className }: IconProps) => <Lucide icon={Lock} size={size} className={className} />
+export const IconGripVertical = ({ size = 16, className }: IconProps) => <Lucide icon={GripVertical} size={size} className={className} />
+export const IconHelp = ({ size = 12, className }: IconProps) => <Lucide icon={CircleHelp} size={size} className={className} />
+export const IconPending = ({ size = 12, className }: IconProps) => <Lucide icon={Clock} size={size} className={className} />
