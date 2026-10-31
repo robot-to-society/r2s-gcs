@@ -49,6 +49,7 @@ import { MissionStore, addToSelection, clearSelection, copySelected, dismissNoti
 import { localWarnings, stats } from './summary'
 import { BasemapPicker } from '../map/BasemapPicker'
 import { LabelToggle } from './LabelToggle'
+import { LteNotice } from '../lte'
 import { labelClasses, labelPrefsStore, useLabelPrefs, type LabelPrefsStore } from './labelPrefs'
 import { MapModeToggle } from '../map/MapModeToggle'
 import { saveMapMode, useMapMode } from '../map/mapMode'
@@ -213,8 +214,9 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         </svg>
       </div>
       <MapFinder vehicles={located} dict={dict} onGo={(to) => setFocus((f) => ({ ...to, seq: (f?.seq ?? 0) + 1 }))} />
-      {basemap && onPickBasemap && basemaps.length > 1 && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" />}
-      {editing && <LabelToggle prefs={labelPrefs} dict={dict} onToggle={(k) => labelStore.toggle(k)} className={`float map-r ${basemap && onPickBasemap && basemaps.length > 1 ? 'top3' : 'top2'}`} />}
+      {basemap && onPickBasemap && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" lte="plan" />}
+      <LteNotice dict={dict} />
+      {editing && <LabelToggle prefs={labelPrefs} dict={dict} onToggle={(k) => labelStore.toggle(k)} className={`float map-r ${basemap && onPickBasemap ? 'top3' : 'top2'}`} />}
       <MapModeToggle mode={mapMode} available={terrainTiles !== null} dict={dict} onChange={saveMapMode} />
       {ui.busy === 'idle' && <ModeSwitch on={board.on} dict={dict} onChange={board.setOn} />}
       {editing && <PlanTabs tab={plan.tab} dict={dict} onChange={plan.setTab} />}

@@ -37,4 +37,30 @@ describe('BasemapPicker', () => {
     fireEvent.pointerDown(screen.getByText('outside'))
     expect(screen.queryByRole('menu')).toBeNull()
   })
+
+  it('lists_no_base_choice_when_there_is_only_one_map', () => {
+    render(<BasemapPicker basemaps={list.slice(0, 1)} current="map" dict={t('ja')} onPick={() => {}} lte="ops" />)
+    fireEvent.click(screen.getByRole('button', { name: 'マップタイプ' }))
+    expect(screen.queryByRole('menuitemradio')).toBeNull()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'ドコモ LTE エリア' })).toBeInTheDocument()
+  })
+
+  it('carries_the_lte_overlay_section_and_opens_its_sheet', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true, data: [] }))))
+    render(<BasemapPicker basemaps={list} current="map" dict={t('ja')} onPick={() => {}} lte="plan" />)
+    fireEvent.click(screen.getByRole('button', { name: 'マップタイプ' }))
+    expect(screen.getByRole('group', { name: 'オーバーレイ' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: '範囲を管理…' }))
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'ドコモ LTE エリア' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '閉じる' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('has_no_overlay_section_without_a_map_key', () => {
+    render(<BasemapPicker basemaps={list} current="map" dict={t('ja')} onPick={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'マップタイプ' }))
+    expect(screen.queryByRole('group', { name: 'オーバーレイ' })).toBeNull()
+  })
 })

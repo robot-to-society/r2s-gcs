@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { created } from '../../test/fakeMaplibre'
@@ -13,6 +13,8 @@ const { missionAirData } = await import('./missionAir')
 const { planSetMapOf } = await import('../plans/usePlanSetMap')
 const { activeRow, addRow, emptyWorkspace } = await import('../plans/model')
 const { INITIAL_MISSION_UI } = await import('./store')
+const { lteOverlayStore } = await import('../lte/prefs')
+const { area: lteArea } = await import('../lte/testArea')
 
 const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
 const draft3 = () => appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
@@ -715,5 +717,19 @@ describe('MissionMap survey preview', () => {
     rerender(<MissionMap {...props} predict={predict} survey={survey} draft={frame2} />)
     expect(handles()).toHaveLength(4)
     expect(predict).toHaveBeenCalledTimes(calls + 1)
+  })
+
+  it('draws the docomo LTE overlay right above the base map and below the mission path', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true, data: [lteArea()] }))))
+    lteOverlayStore().toggle()
+    try {
+      renderMap()
+      const m = created.maps.at(-1)!
+      await waitFor(() => expect(m.layers).toContain('lte-area'))
+      expect(m.before.get('lte-area')).toBe('mission-path-casing')
+    } finally {
+      lteOverlayStore().toggle()
+      vi.unstubAllGlobals()
+    }
   })
 })

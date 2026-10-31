@@ -8,6 +8,7 @@ import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl, type ContextMe
 import { cmdKey, emptyDraft, isTakeoff, moveItem, moveItems, setArc, shiftAlts, type Draft, type DraftItem } from './model'
 import type { Tool } from './store'
 import { useBasemapSwap } from '../map/basemaps'
+import { useLteOverlay } from '../lte/useLteOverlay'
 import { addPredictedLayer, setPredicted } from '../map/predictedLayer'
 import type { Basemap } from '../../shared/api/types'
 import { KEEP_ELEVATION, MAX_PITCH, type MapMode } from '../map/mapMode'
@@ -183,6 +184,8 @@ export function MissionMap(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // after the map exists (effects run in declaration order)
+  useLteOverlay(map, loaded, 'plan')
   const is3d = props.mode === '3d' && (props.terrainTiles ?? null) !== null
   const pathColor = props.pathColor
   const pathColorRef = useRef(pathColor)

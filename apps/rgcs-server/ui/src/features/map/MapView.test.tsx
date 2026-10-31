@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CameraSnapshot, VehicleState } from '../../shared/api/types'
@@ -165,6 +165,8 @@ vi.mock('maplibre-gl', () => ({
 
 const { MapView } = await import('./MapView')
 const { rasterStyle } = await import('./style')
+const { lteOverlayStore } = await import('../lte/prefs')
+const { area: lteArea } = await import('../lte/testArea')
 const { emptyTargets } = await import('../roi/schema')
 const { roiTargetsStore } = await import('../roi/targetsStore')
 const { IntroStore } = await import('../auth/introStore')
@@ -706,5 +708,21 @@ describe('MapView', () => {
     expect(calls()).toEqual(before)
     rerender(<MapView {...props} vehicles={new Map([[1, { ...v(1, 3), cog: 90, ground_speed: 5 }]])} />)
     expect(calls()[0]).toBe(before[0]! + 1) // the course really changed
+  })
+
+  it('draws the docomo LTE overlay below every app layer, on the operations map only', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true, data: [lteArea()] }))))
+    lteOverlayStore().toggle()
+    try {
+      render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} />)
+      const ops = created.maps.at(-1)!
+      await waitFor(() => expect(ops.layers[0]).toBe('lte-area'))
+      render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} target={null} onDragStart={() => {}} onClick={() => {}} interactive={false} />)
+      await act(async () => {})
+      expect(created.maps.at(-1)!.layers).not.toContain('lte-area')
+    } finally {
+      lteOverlayStore().toggle()
+      vi.unstubAllGlobals()
+    }
   })
 })

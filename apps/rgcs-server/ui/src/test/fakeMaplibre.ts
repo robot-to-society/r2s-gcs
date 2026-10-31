@@ -85,6 +85,15 @@ export class FakeMap {
   getLayer(id: string) {
     return this.layers.includes(id) ? { id } : undefined
   }
+  getStyle() {
+    return { layers: this.layers.map((id) => ({ id })) }
+  }
+  removeLayer(id: string) {
+    this.layers = this.layers.filter((x) => x !== id)
+  }
+  removeSource(id: string) {
+    this.sources.delete(id)
+  }
   moveLayer() {}
   stop() {}
   easeTo() {}
