@@ -1,5 +1,6 @@
 // Shapes shared by the assignment board's panels (plan 2026-10-31 Tasks 9-12).
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { AssignOverlayInput } from './assignOverlay'
 
 /** What a board drag carries: a plan, and the vehicle it is moved off (null from a plan card). */
 export interface AssignDrag {
@@ -14,3 +15,6 @@ export type DragPropsFn = (payload: AssignDrag, enabled?: boolean) => { onPointe
 export function isActivation(key: string): boolean {
   return key === 'Enter' || key === ' '
 }
+
+/** What the board feeds the planner map; the planner adds the vehicles it already has. */
+export type BoardOverlay = Omit<AssignOverlayInput, 'vehicles'>

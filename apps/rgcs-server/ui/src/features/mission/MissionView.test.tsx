@@ -432,7 +432,7 @@ describe('MissionView', () => {
       return envelope([])
     }, new Map(), two)
     addPoints(2)
-    fireEvent.change(within(planRows()[0]!).getByLabelText('割当機体'), { target: { value: '2' } })
+    target('2')
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
     })
@@ -494,14 +494,14 @@ describe('MissionView', () => {
 
   it('the_right_panel_vehicle_assigns_the_row_and_frees_it_elsewhere', async () => {
     const two = new Map([[1, copter], [2, { ...copter, sysid: 2, name: 'UAV-02' }]])
-    setup(undefined, new Map(), two)
+    const { plans } = setup(undefined, new Map(), two)
     await loadFile(missionFile('Alpha', 1))
-    fireEvent.change(within(planRows()[0]!).getByLabelText('割当機体'), { target: { value: '2' } })
+    target('2')
     await loadFile(missionFile('Beta', 1))
-    const assigned = () => planRows().map((r) => (within(r).getByLabelText('割当機体') as HTMLSelectElement).value)
-    expect(assigned()).toEqual(['2', ''])
+    const assigned = () => plans.getState().rows.map((r) => r.sysid)
+    expect(assigned()).toEqual([2, null])
     const right = screen.getByRole('complementary', { name: 'editor' })
     fireEvent.change(within(right).getByLabelText('対象機体'), { target: { value: '2' } })
-    expect(assigned()).toEqual(['', '2'])
+    expect(assigned()).toEqual([null, 2])
   })
 })

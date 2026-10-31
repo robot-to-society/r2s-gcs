@@ -122,7 +122,6 @@ describe('MissionView plans feedback (§9)', () => {
     fireEvent.doubleClick(planRows()[1]!)
     expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 2)
     // a double-click on the row's controls frames nothing
-    fireEvent.doubleClick(within(planRows()[1]!).getByLabelText('割当機体'))
     fireEvent.doubleClick(within(planRows()[1]!).getByLabelText('色'))
     fireEvent.doubleClick(within(planRows()[1]!).getByLabelText('上へ'))
     expect(Number(screen.getByTestId('mission-map').dataset.seq)).toBe(seq + 2)

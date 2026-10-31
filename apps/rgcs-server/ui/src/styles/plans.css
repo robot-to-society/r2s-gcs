@@ -9,7 +9,6 @@
 .plans-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plans-dirty { color: var(--caution); font-size: 10px; flex: none; }
 .plans-missing { color: var(--caution); border-color: var(--caution-line); flex: none; }
-.plans-sel { max-width: 104px; height: 26px; font-size: 12px; flex: none; }
 .plans-ctl { display: flex; flex: none; opacity: 0.55; transition: opacity 0.15s; }
 .plans-row:hover .plans-ctl, .plans-row.on .plans-ctl { opacity: 1; }
 .plans-ctl .btn-icon.sm { width: 22px; height: 22px; border-radius: 6px; }
@@ -28,7 +27,6 @@
 .plans-cmp-name { max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
 .plans-dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 3px; flex: none; }
 .plans-cmp-note { margin: 6px 0 10px; font-size: 10px; line-height: 1.4; }
-.plans-cmp-write { width: 100%; }
 
 /* 割当どおり書き込む sheet (§5.5): one line per assigned row, leftover choice, progress. */
 .plans-reading { padding: 0 16px 8px; font-size: 12px; }

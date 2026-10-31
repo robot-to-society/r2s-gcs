@@ -48,7 +48,6 @@ export function switchIfIdle(b: PlanSetStore, m: MissionStore, key: string): voi
 export interface PlanListWiring {
   readonly workspace: Workspace
   readonly onSwitch: (key: string) => void
-  readonly onAssign: (key: string, sysid: number | null) => void
   readonly onRemove: (key: string) => void
   readonly onMove: (key: string, delta: -1 | 1) => void
   readonly onColor: (key: string, color: string) => void
@@ -100,7 +99,6 @@ export function usePlanSet(b: PlanSetStore, m: MissionStore, live: MissionUi, on
   const list: PlanListWiring = {
     workspace,
     onSwitch: (key) => switchIfIdle(b, m, key),
-    onAssign: (key, sysid) => b.update((w) => assign(w, key, sysid)),
     onRemove: (key) => removeLive(b, m, key),
     onMove: (key, delta) => b.update((w) => moveRow(w, key, delta)),
     onColor: (key, color) => b.update((w) => setColor(w, key, color)),

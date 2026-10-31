@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { Mission, VehicleState } from '../../shared/api/types'
+import type { Assignment, Mission, VehicleState } from '../../shared/api/types'
 import { t } from '../../shared/i18n'
 import { emptyDraft } from '../mission/model'
 import { INITIAL_MISSION_UI, loaded } from '../mission/store'
@@ -16,7 +16,11 @@ const vehicle = (sysid: number, name: string): VehicleState =>
 const vehicles = [vehicle(1, 'UAV-01'), vehicle(2, 'UAV-02')]
 const mission = (name: string): Mission => ({ ...emptyDraft().mission, name, items: [] }) as unknown as Mission
 
-/** Alpha (active, first) and Beta (dirty, on UAV-02). */
+const row = (sysid: number, plan_id: number | null): Assignment => ({ sysid, plan_id, assigned_by: 'admin', assigned_at: 1, written: null })
+/** The server's assignments: Alpha (saved as 1) on UAV-02 and UAV-01, Beta (saved as 2) nowhere. */
+const ASSIGNED = new Map([[2, row(2, 1)], [1, row(1, 1)], [3, row(3, null)]])
+
+/** Alpha (active, first) and Beta (dirty, edit-mode target UAV-02). */
 function twoRows(): Workspace {
   const base = emptyWorkspace()
   const alpha: Workspace = { ...base, rows: base.rows.map((r) => ({ ...r, ui: loaded(INITIAL_MISSION_UI, mission('Alpha'), 1) })) }
@@ -25,8 +29,8 @@ function twoRows(): Workspace {
 }
 
 function setup(ws: Workspace = twoRows(), liveDirty = false) {
-  const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn() }
-  render(<PlanList workspace={ws} liveDirty={liveDirty} vehicles={vehicles} dict={dict} {...on} />)
+  const on = { onSwitch: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn(), onOpenBoard: vi.fn(), onFrame: vi.fn() }
+  render(<PlanList workspace={ws} liveDirty={liveDirty} vehicles={vehicles} assignments={ASSIGNED} dict={dict} {...on} />)
   const rows = () => [...document.querySelectorAll<HTMLElement>('.plans-row')]
   return { ws, on, rows }
 }
@@ -41,9 +45,10 @@ describe('PlanList', () => {
     const chips = rows().map((r) => r.querySelector<HTMLElement>('.plans-chip')!.style.background)
     expect(chips[0]).not.toBe(chips[1])
     expect(ws.rows.map((r) => r.color)).toEqual([PALETTE[0], PALETTE[1]])
-    const selects = rows().map((r) => within(r).getByLabelText('割当機体') as HTMLSelectElement)
-    expect(selects.map((s) => s.value)).toEqual(['', '2'])
-    expect(within(selects[0]!).getByRole('option', { name: '未割当' })).toBeInTheDocument()
+    // the server's assignments of each saved plan, read-only; no select any more
+    expect(screen.queryByRole('combobox')).toBeNull()
+    const assigned = rows().map((r) => within(r).getByRole('group', { name: '割当機体' }).textContent)
+    expect(assigned).toEqual(['UAV-01UAV-02', '未割当'])
     // the active row follows the live editor's flag, a parked one its own
     expect(rows().map((r) => r.querySelector('.plans-dirty') !== null)).toEqual([true, true])
   })
@@ -58,17 +63,22 @@ describe('PlanList', () => {
     fireEvent.click(screen.getByText('Beta'))
     expect(on.onSwitch).toHaveBeenCalledWith(ws.rows[1]!.key)
     // controls inside a row do not switch
-    fireEvent.change(screen.getAllByLabelText('割当機体')[1]!, { target: { value: '1' } })
+    fireEvent.click(within(screen.getAllByRole('group', { name: '割当機体' })[1]!).getByRole('button'))
     expect(on.onSwitch).toHaveBeenCalledTimes(1)
   })
 
-  it('choosing_a_vehicle_assigns', () => {
-    const { ws, on } = setup()
-    const [first, second] = screen.getAllByLabelText('割当機体')
-    fireEvent.change(first!, { target: { value: '1' } })
-    expect(on.onAssign).toHaveBeenCalledWith(ws.rows[0]!.key, 1)
-    fireEvent.change(second!, { target: { value: '' } })
-    expect(on.onAssign).toHaveBeenLastCalledWith(ws.rows[1]!.key, null)
+  it('a_vehicle_chip_opens_the_board_and_unsaved_rows_have_none', () => {
+    const base = twoRows()
+    const unsaved = { ...base, rows: base.rows.map((r, i) => (i === 1 ? { ...r, ui: { ...r.ui, savedId: null } } : r)) }
+    const { on, rows } = setup(unsaved)
+    fireEvent.click(within(rows()[0]!).getByRole('button', { name: 'UAV-02' }))
+    expect(on.onOpenBoard).toHaveBeenCalledTimes(1)
+    expect(within(rows()[1]!).queryByRole('group', { name: '割当機体' })).toBeNull()
+    // the chips are controls: a double-click there frames nothing
+    fireEvent.doubleClick(within(rows()[0]!).getByRole('button', { name: 'UAV-01' }))
+    expect(on.onFrame).not.toHaveBeenCalled()
+    fireEvent.doubleClick(rows()[0]!)
+    expect(on.onFrame).toHaveBeenCalledTimes(1)
   })
 
   it('missing_rows_say_so_and_can_be_removed', () => {
@@ -102,8 +112,8 @@ describe('PlanList', () => {
   })
 
   it('the_edited_rows_remove_is_disabled_while_busy', () => {
-    const on = { onSwitch: vi.fn(), onAssign: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn() }
-    render(<PlanList workspace={twoRows()} liveDirty={false} busy vehicles={vehicles} dict={dict} {...on} />)
+    const on = { onSwitch: vi.fn(), onRemove: vi.fn(), onMove: vi.fn(), onColor: vi.fn(), onHidden: vi.fn(), onOpenBoard: vi.fn() }
+    render(<PlanList workspace={twoRows()} liveDirty={false} busy vehicles={vehicles} assignments={ASSIGNED} dict={dict} {...on} />)
     const remove = screen.getAllByRole('button', { name: '一覧から外す' })
     expect(remove.map((b) => (b as HTMLButtonElement).disabled)).toEqual([true, false])
   })

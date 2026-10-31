@@ -1,9 +1,12 @@
 // The open plans list at the top of the planner's left panel: one compact row per open mission
-// (colour chip, name, unsaved mark, assigned vehicle, ↑ / ↓, remove). Spec 2026-10-20 §5.1 / §5.5.
+// (colour chip, name, unsaved mark, the vehicles its saved plan is assigned to, ↑ / ↓, remove).
+// Spec 2026-10-20 §5.1; the read-only vehicle chips open the assignment board (2026-10-31 §9).
 import { useEffect, useRef, useState } from 'react'
 import type { VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconChevronDown, IconChevronUp, IconClose, IconEye, IconEyeOff } from '../../shared/ui/icons'
+import { assignedTo } from '../assign/logic'
+import type { Assignments } from '../assign/store'
 import { PALETTE, type Row, type Workspace } from './model'
 
 interface Props {
@@ -12,9 +15,12 @@ interface Props {
   /** The live editor is saving / writing / reading: its row cannot be removed meanwhile. */
   readonly busy?: boolean
   readonly vehicles: readonly VehicleState[]
+  /** The server's plan assignments: each saved row lists the vehicles holding its plan. */
+  readonly assignments: Assignments
   readonly dict: Dict
   readonly onSwitch: (key: string) => void
-  readonly onAssign: (key: string, sysid: number | null) => void
+  /** A vehicle chip: open the assignment board. */
+  readonly onOpenBoard: () => void
   readonly onRemove: (key: string) => void
   readonly onMove: (key: string, delta: -1 | 1) => void
   readonly onColor: (key: string, color: string) => void
@@ -48,10 +54,29 @@ export function PlanList({ workspace, liveDirty, busy = false, ...rest }: Props)
   )
 }
 
-function OpenPlanRow({ row, active, dirty, first, last, locked, vehicles, dict, onSwitch, onAssign, onRemove, onMove, onColor, onHidden, onFrame }: RowProps) {
+function VehicleChips({ row, vehicles, assignments, dict, onOpenBoard }: Pick<RowProps, 'row' | 'vehicles' | 'assignments' | 'dict' | 'onOpenBoard'>) {
+  const savedId = row.ui.savedId
+  if (savedId === null) return null
+  const on = assignedTo(savedId, assignments, vehicles)
+  return (
+    <span className="plans-vchips" role="group" aria-label={dict.plVehicle} title={dict.plOpenBoard} onClick={stop} onDoubleClick={stop}>
+      {on.map((v) => (
+        <button key={v.sysid} type="button" className="plans-vchip" onClick={onOpenBoard}>
+          {v.name}
+        </button>
+      ))}
+      {on.length === 0 && (
+        <button type="button" className="plans-vchip none" onClick={onOpenBoard}>
+          {dict.plUnassigned}
+        </button>
+      )}
+    </span>
+  )
+}
+
+function OpenPlanRow({ row, active, dirty, first, last, locked, vehicles, assignments, dict, onSwitch, onOpenBoard, onRemove, onMove, onColor, onHidden, onFrame }: RowProps) {
   const [palette, setPalette] = useState(false)
   const shown = !row.hidden
-  const known = row.sysid === null || vehicles.some((v) => v.sysid === row.sysid)
   return (
     <div className={`plans-row${active ? ' on' : ''}`} role="listitem" aria-current={active ? 'true' : undefined} onClick={() => !active && onSwitch(row.key)} onDoubleClick={() => onFrame?.(row.key)}>
       <span className="plans-chip-wrap" onClick={stop} onDoubleClick={stop}>
@@ -67,15 +92,7 @@ function OpenPlanRow({ row, active, dirty, first, last, locked, vehicles, dict, 
         </span>
       )}
       {row.missing && <span className="rg-natag plans-missing">{dict.plMissing}</span>}
-      <select className="rg-sel plans-sel" aria-label={dict.plVehicle} value={row.sysid ?? ''} onClick={stop} onDoubleClick={stop} onChange={(e) => onAssign(row.key, e.target.value === '' ? null : Number(e.target.value))}>
-        <option value="">{dict.plUnassigned}</option>
-        {vehicles.map((v) => (
-          <option key={v.sysid} value={v.sysid}>
-            {v.name}
-          </option>
-        ))}
-        {!known && <option value={row.sysid ?? ''}>{`#${row.sysid}`}</option>}
-      </select>
+      <VehicleChips row={row} vehicles={vehicles} assignments={assignments} dict={dict} onOpenBoard={onOpenBoard} />
       <span className="plans-ctl" onClick={stop} onDoubleClick={stop}>
         <button type="button" className="btn-icon sm" aria-label={dict.plShow} title={dict.plShow} aria-pressed={shown} disabled={active} onClick={() => onHidden(row.key, shown)}>
           {shown ? <IconEye /> : <IconEyeOff />}

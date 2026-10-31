@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Assignment, Mission, MissionItem, VehicleKind } from '../../shared/api/types'
 import { PALETTE } from '../plans/palette'
-import { batteryPct, cardStatus, compatibility, planColours, writeTargets, type CardStatus, type VersionedPlan } from './logic'
+import { assignedTo, batteryPct, cardStatus, compatibility, planColours, writeTargets, type CardStatus, type VersionedPlan } from './logic'
 
 const item = (command: number, hold = 0): MissionItem => ({ command, frame: 'rel', params: [hold, 0, 0, 0], lat: 36.25, lon: 137.64, alt: 50, autocontinue: true })
 
@@ -144,5 +144,16 @@ describe('planColours', () => {
     const rows = Object.freeze([Object.freeze(row(1, '#111111'))])
     const frozen = Object.freeze(plans.map((p) => Object.freeze({ ...p })))
     expect(() => planColours(rows, frozen)).not.toThrow()
+  })
+})
+
+describe('assignedTo', () => {
+  it('lists_the_vehicles_holding_a_plan_by_name', () => {
+    const rows = new Map([[1, assign(1, 7)], [2, assign(2, 8)], [3, assign(3, 7)], [9, assign(9, 7)]])
+    const vehicles = [{ sysid: 1, name: 'UAV-B' }, { sysid: 2, name: 'UAV-C' }, { sysid: 3, name: 'UAV-A' }]
+    expect(assignedTo(7, rows, vehicles)).toEqual([{ sysid: 9, name: '#9' }, { sysid: 3, name: 'UAV-A' }, { sysid: 1, name: 'UAV-B' }])
+    expect(assignedTo(8, rows, vehicles)).toEqual([{ sysid: 2, name: 'UAV-C' }])
+    expect(assignedTo(5, rows, vehicles)).toEqual([])
+    expect(assignedTo(null, new Map([[4, assign(4, null)]]), vehicles)).toEqual([])
   })
 })

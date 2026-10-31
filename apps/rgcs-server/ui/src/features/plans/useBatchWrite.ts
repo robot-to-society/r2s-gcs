@@ -8,11 +8,17 @@ import { leftovers, runBatch, type BatchDeps, type BatchJob } from './batch'
 import { batchStore, useBatchSheet, type BatchStore } from './batchStore'
 import type { SheetLine } from './BatchWriteSheet'
 import { compareRows, type CompareRow } from './compare'
-import type { CompareLine } from './CompareTable'
 import type { Row, Workspace } from './model'
 import { useEndurance } from './useEndurance'
 
 type Vehicles = ReadonlyMap<number, VehicleState>
+
+/** One open row's figures, with its edit-mode target vehicle's name (null = none). */
+export interface PlanLine extends CompareRow {
+  readonly color: string
+  readonly name: string
+  readonly vehicle: string | null
+}
 const vehicleName = (vehicles: Vehicles, sysid: number): string => vehicles.get(sysid)?.name ?? `#${sysid}`
 
 const figuresFor = (rows: readonly Row[], endurance: ReadonlyMap<number, number | null>): readonly CompareRow[] =>
@@ -24,7 +30,7 @@ export function useBatchWrite(ws: Workspace, vehicles: Vehicles, onVerified: (sy
   const endurance = useEndurance(rows.flatMap((r) => (r.sysid === null ? [] : [r.sysid])))
   // the figures follow the plans; the names follow the telemetry (which updates far more often)
   const figures = useMemo(() => figuresFor(rows, endurance), [rows, endurance])
-  const lines: CompareLine[] = rows.map((r, i) => ({ ...figures[i]!, color: r.color, name: r.ui.history.present.mission.name, vehicle: r.sysid === null ? null : vehicleName(vehicles, r.sysid) }))
+  const lines: PlanLine[] = rows.map((r, i) => ({ ...figures[i]!, color: r.color, name: r.ui.history.present.mission.name, vehicle: r.sysid === null ? null : vehicleName(vehicles, r.sysid) }))
   const sheet = useBatchSheet(store)
   const latest = useRef(vehicles)
   useEffect(() => {

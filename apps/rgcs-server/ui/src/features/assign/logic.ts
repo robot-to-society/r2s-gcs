@@ -73,7 +73,7 @@ export function writeTargets(vehicles: readonly TargetVehicle[], assignments: As
     .sort((x, y) => x - y)
 }
 
-interface ColourRow {
+export interface ColourRow {
   readonly color: string
   readonly ui: { readonly savedId: number | null }
 }
@@ -90,4 +90,19 @@ export function planColours(openRows: readonly ColourRow[], plans: readonly { re
     return { used: [...acc.used, colour], out: [...acc.out, [id, colour] as const] }
   }, start)
   return new Map(out)
+}
+
+export interface AssignedVehicle {
+  readonly sysid: number
+  readonly name: string
+}
+
+/** The vehicles the server assigns `planId` to, by name; an unknown vehicle shows as `#sysid`. */
+export function assignedTo(planId: number | null, assignments: Assignments, vehicles: readonly AssignedVehicle[]): AssignedVehicle[] {
+  if (planId === null) return []
+  const names = new Map(vehicles.map((v) => [v.sysid, v.name]))
+  return [...assignments.values()]
+    .filter((a) => a.plan_id === planId)
+    .map((a) => ({ sysid: a.sysid, name: names.get(a.sysid) ?? `#${a.sysid}` }))
+    .sort((x, y) => x.name.localeCompare(y.name))
 }

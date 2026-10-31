@@ -8,6 +8,10 @@ import { planSetStore, type PlanSetStore } from '../plans/store'
 import { usePlanSet } from '../plans/usePlanSet'
 import { usePlanSetWrite } from '../plans/BatchWrite'
 import { usePlanSetMap } from '../plans/usePlanSetMap'
+import { AssignBoard } from '../assign/AssignBoard'
+import { ModeSwitch } from '../assign/ModeSwitch'
+import { useAssignMode } from '../assign/useAssignMode'
+import { useAssignments } from '../assign/store'
 import { pathModel, predictFor } from '../flightpath/predict'
 import { vehicleParamNames } from '../survey/vehicleParams'
 import { usePathParams } from '../flightpath/usePathParams'
@@ -67,6 +71,8 @@ interface Props {
 
 const NUDGE = 0.0001
 const NO_TRANSFERS: ReadonlyMap<number, MissionTransfer> = new Map()
+/** The board's 書き込む buttons: the write sheet comes with plan 2026-10-31 Task 13. */
+const boardWrite = (): void => undefined
 
 /** The mission planning screen (spec 10 §6, 2D subset) built on the Glass prototype's layout. */
 export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore, plans = planSetStore, opsSelected = null }: Props) {
@@ -84,6 +90,9 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const [targets, setTargets] = useState(false)
   const [focus, setFocus] = useState<{ lat: number; lon: number; seq: number } | null>(null)
   const plansMap = usePlanSetMap(openPlans.list.workspace)
+  const board = useAssignMode(vehicles)
+  const editing = !board.on
+  const assignments = useAssignments()
   const [bulk, setBulk] = useState<{ alt: string; frame: MissionFrame }>({ alt: String(draft.mission.default_alt), frame: draft.mission.default_frame })
   const file = useRef<HTMLInputElement>(null)
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
@@ -111,7 +120,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const readFrom = sysid ?? (opsSelected !== null && isOnline(opsSelected) ? opsSelected : null)
   const saved = draft.mission.sysid
   const savedOffline = sysid === null && saved !== null && !isOnline(saved) ? dict.mSavedOffline.replace('{name}', vehicles.get(saved)?.name ?? `#${saved}`) : null
-  const batch = usePlanSetWrite(openPlans.list.workspace, vehicles, ui.busy !== 'idle', dict)
+  const batch = usePlanSetWrite(openPlans.list.workspace, vehicles, dict)
   const fileHome = draft.mission.home ?? (vehicle?.home ? { lat: vehicle.home.lat, lon: vehicle.home.lon, alt: vehicle.home.alt } : null)
   const plan = usePlanEditor({ draft, sysid, dict, change, home: fileHome, onFit, store })
   const planIo = { sysid, targetName: vehicle?.name, busy: plan.busy, status: plan.status, dict, onWrite: plan.write, onRead: plan.read, onSaveFile: plan.saveFile, onLoadFile: (f: File) => void plan.loadFile(f), onCollapse: panel.collapse }
@@ -121,7 +130,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const st = stats(draft.items, draft.mission.home, draft.mission.speed)
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (ownsKey(e.target, e) || sv.onKey(e)) return
+    if (board.on || ownsKey(e.target, e) || sv.onKey(e)) return
     const meta = e.metaKey || e.ctrlKey
     // fence / rally tabs: only undo / redo and finishing or cancelling a zone; waypoints stay put
     if (plan.tab !== 'mission' && !(meta && e.key.toLowerCase() === 'z')) {
@@ -156,7 +165,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   }
 
   return (
-    <div className={`mission-view${panel.collapsed ? ' panel-collapsed' : ''}`} style={{ position: 'absolute', inset: 0 }} tabIndex={-1} onKeyDown={onKeyDown} data-testid="mission-view">
+    <div className={`mission-view${editing ? (panel.collapsed ? ' panel-collapsed' : '') : ' assign-mode'}`} style={{ position: 'absolute', inset: 0 }} tabIndex={-1} onKeyDown={onKeyDown} data-testid="mission-view">
       <MissionMap
         draft={sv.mapDraft}
         selected={ui.selected}
@@ -171,7 +180,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         focus={focus}
         fitTo={fitTo}
         pathColor={openPlans.pathColor}
-        panelCollapsed={panel.collapsed}
+        panelCollapsed={panel.collapsed && editing}
+        assign={board.assign}
         surveyDraw={sv.mapDraw}
         survey={sv.mapSurvey}
         onAdd={(lat, lon) => change((d) => appendWaypoint(d, lat, lon, { takeoff: takeoffFor(vehicle?.kind ?? null, (pathValues.get('Q_ENABLE') ?? 0) >= 1) }))}
@@ -200,17 +210,19 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       <MapFinder vehicles={located} dict={dict} onGo={(to) => setFocus((f) => ({ ...to, seq: (f?.seq ?? 0) + 1 }))} />
       {basemap && onPickBasemap && basemaps.length > 1 && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" />}
       <MapModeToggle mode={mapMode} available={terrainTiles !== null} dict={dict} onChange={saveMapMode} />
-      <PlanTabs tab={plan.tab} dict={dict} onChange={plan.setTab} />
-      <ElevationSheet draft={placed} selected={ui.selected} terrainTiles={terrainTiles} ceiling={plan.fenceParams?.alt_max ?? null} dict={dict} onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))} />
+      {ui.busy === 'idle' && <ModeSwitch on={board.on} dict={dict} onChange={board.setOn} />}
+      {editing && <PlanTabs tab={plan.tab} dict={dict} onChange={plan.setTab} />}
+      {board.on && <AssignBoard vehicles={list} openRows={openPlans.list.workspace.rows} dict={dict} onOverlay={board.onOverlay} onFit={onFit} onWrite={boardWrite} onWriteAll={boardWrite} />}
+      {editing && <ElevationSheet draft={placed} selected={ui.selected} terrainTiles={terrainTiles} ceiling={plan.fenceParams?.alt_max ?? null} dict={dict} onSelect={(uid, additive, range) => store.update((u) => (range ? selectRange(u, uid) : selectOne(u, uid, additive)))} />}
       <button type="button" className={`g-ctl ctl float map-r2 top1 help-btn${help ? ' on' : ''}`} title={dict.mHelpTitle} aria-label={dict.mHelpTitle} onClick={() => setHelp((h) => !h)}>
         ?
       </button>
       {help && <HelpPanel dict={dict} onClose={() => setHelp(false)} />}
-      <SurveyFootToggle {...sv.footButton} dict={dict} />
+      {editing && <SurveyFootToggle {...sv.footButton} dict={dict} />}
       {/* one summary at a time: the HUD only while the right summary is folded away (UX-39) */}
-      {(panel.collapsed || plan.tab !== 'mission') && <MissionHud stats={st} kind={kind} dict={dict} />}
+      {editing && (panel.collapsed || plan.tab !== 'mission') && <MissionHud stats={st} kind={kind} dict={dict} />}
 
-      {plan.tab === 'fence' && (
+      {editing && plan.tab === 'fence' && (
         <FencePanel
           zones={draft.mission.fence}
           armed={plan.armed}
@@ -223,7 +235,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           onRemove={(zi) => change((d) => removeZone(d, zi))}
         />
       )}
-      {plan.tab === 'rally' && (
+      {editing && plan.tab === 'rally' && (
         <RallyPanel
           points={draft.mission.rally}
           dict={dict}
@@ -231,9 +243,9 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           onRemove={(i) => change((d) => removeRally(d, i))}
         />
       )}
-      {plan.tab === 'mission' && (
+      {editing && plan.tab === 'mission' && (
         <aside className="g panel float float-l mission-left" aria-label={dict.navMission}>
-          <PlanList {...openPlans.list} liveDirty={ui.dirty} busy={ui.busy !== 'idle'} vehicles={list} dict={dict} />
+          <PlanList {...openPlans.list} liveDirty={ui.dirty} busy={ui.busy !== 'idle'} vehicles={list} assignments={assignments} dict={dict} onOpenBoard={() => board.setOn(true)} />
           <MissionListHeader count={draft.items.length} dict={dict} canUndo={canUndo(ui.history)} canRedo={canRedo(ui.history)} onUndo={() => store.update(undoUi)} onRedo={() => store.update(redoUi)} onReverse={() => change(reverseItems)} onClear={() => change(clearItems)} />
           <div className="hair mission-tools">
             <div className="seg" style={{ height: 36 }} role="group" aria-label="tool">
@@ -299,8 +311,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
         </aside>
       )}
 
-      {panel.collapsed && <PlanRail dict={dict} onExpand={panel.expand} />}
-      {!panel.collapsed && plan.tab === 'fence' && (
+      {editing && panel.collapsed && <PlanRail dict={dict} onExpand={panel.expand} />}
+      {editing && !panel.collapsed && plan.tab === 'fence' && (
         <FenceSidebar
           zones={draft.mission.fence}
           fenceParams={plan.fenceParams}
@@ -308,8 +320,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
           {...planIo}
         />
       )}
-      {!panel.collapsed && plan.tab === 'rally' && <RallySidebar points={draft.mission.rally} {...planIo} />}
-      {!panel.collapsed && plan.tab === 'mission' && (
+      {editing && !panel.collapsed && plan.tab === 'rally' && <RallySidebar points={draft.mission.rally} {...planIo} />}
+      {editing && !panel.collapsed && plan.tab === 'mission' && (
       <MissionSidebar
         transfer={sysid === null ? null : (transfers.get(sysid) ?? null)}
         draft={draft}

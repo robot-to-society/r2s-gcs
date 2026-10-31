@@ -80,3 +80,18 @@
 /* map overlay (§3.4): plan names at their start, vehicles filled with their plan's colour */
 .as-map-label { font: 600 12px/1 var(--font); white-space: nowrap; pointer-events: none; text-shadow: 0 0 3px #0b1018, 0 0 3px #0b1018, 0 0 2px #0b1018; }
 .rg-mk.as-veh .vmk .disc { background: var(--as-plan, #4b5664); color: #fff; }
+
+/* the planner's 編集 | 割当 switch (§3.1): left of the 300 px plan tabs (the right of the top row
+   holds 2D / 3D and help); centred over the map on the board, where the tabs are gone */
+.as-modes { z-index: 3; height: 40px; width: 120px; left: calc(50% + (var(--aside-w) - var(--right-w)) / 2 - 158px); transform: translateX(-100%); }
+.mission-view.assign-mode .as-modes { left: calc(50% + (var(--aside-w) - var(--right-w)) / 2); transform: translateX(-50%); }
+/* the board's panels: plans narrow on the left, two columns of vehicles on the right */
+.mission-view.assign-mode { --aside-w: 300px; --right-w: 444px; }
+@media (max-width: 1280px) { .mission-view.assign-mode { --aside-w: 260px; --right-w: 380px; } }
+.as-err { color: var(--danger); }
+
+/* open-plan rows (edit mode): the vehicles the saved plan is assigned to, read-only (§9) */
+.plans-vchips { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; max-width: 120px; flex: none; }
+.plans-vchip { font: inherit; font-size: 10.5px; line-height: 1.5; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line-hi); color: var(--text-2); background: none; cursor: pointer; white-space: nowrap; }
+.plans-vchip:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+.plans-vchip.none { border-style: dashed; color: var(--text-4); }

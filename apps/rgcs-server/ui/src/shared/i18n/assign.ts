@@ -2,6 +2,10 @@
 
 export const assignJa = {
   asRoverNoTakeoff: 'Rover は離陸のあるプランを走れません',
+  // the planner's mode switch
+  asModes: 'モード',
+  asModeEdit: '編集',
+  asModeAssign: '割当',
   asAirNeedsTakeoff: 'この機体は TAKEOFF のないプランを飛べません',
   // left panel: plan cards
   asPlans: 'プラン',
@@ -55,6 +59,9 @@ export const assignJa = {
 
 export const assignEn: Record<keyof typeof assignJa, string> = {
   asRoverNoTakeoff: 'A rover cannot run a plan that takes off',
+  asModes: 'Mode',
+  asModeEdit: 'Edit',
+  asModeAssign: 'Assign',
   asAirNeedsTakeoff: 'This vehicle cannot fly a plan without a TAKEOFF',
   asPlans: 'Plans',
   asFilterPlans: 'Filter plans',
