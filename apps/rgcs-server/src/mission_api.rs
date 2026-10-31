@@ -208,13 +208,9 @@ pub async fn put_mission(
 ) -> Response {
     match do_upload(&app, &op.username, sysid, &mission).await {
         Ok(report) => {
-            if report.verified {
-                // other content now sits on the vehicle: no saved plan version describes it
-                if let Err(e) = app.store.clear_written(sysid).await {
-                    tracing::error!(error = %e, "clearing the written plan failed");
-                }
-                broadcast_assignments(&app).await;
-            }
+            // other content (or, on a read-back mismatch, unknown content) now sits on the
+            // vehicle: no saved plan version describes it
+            clear_written(&app, sysid).await;
             ok(report)
         }
         Err(r) => *r,
@@ -233,6 +229,9 @@ pub async fn upload_saved(
             Ok(report) => {
                 if report.verified {
                     record_written(&app, sysid, body.mission_id, version, &op.username).await;
+                } else {
+                    // the transfer ran but the read-back differs: what the vehicle holds is unknown
+                    clear_written(&app, sysid).await;
                 }
                 ok(report)
             }
@@ -245,6 +244,15 @@ pub async fn upload_saved(
         ),
         Err(e) => err(StatusCode::INTERNAL_SERVER_ERROR, "store", e.to_string()),
     }
+}
+
+/// Forgets the written plan of a vehicle whose mission changed outside a verified saved-plan
+/// write, then broadcasts the board.
+async fn clear_written(app: &AppState, sysid: SysId) {
+    if let Err(e) = app.store.clear_written(sysid).await {
+        tracing::error!(error = %e, "clearing the written plan failed");
+    }
+    broadcast_assignments(app).await;
 }
 
 /// Remembers which saved plan version a verified upload wrote, then broadcasts the board.
