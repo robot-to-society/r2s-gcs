@@ -12,6 +12,7 @@ use serde_json::json;
 
 use crate::api::{err, ok};
 use crate::app::{unix_ms, AppState};
+use crate::assignment_api::broadcast_assignments;
 use crate::auth::AuthUser;
 use crate::missions::MissionError;
 
@@ -121,14 +122,21 @@ async fn component_of(app: &AppState, sysid: SysId) -> u8 {
     app.router.lock().await.fc_component(sysid).unwrap_or(1)
 }
 
-async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) -> Response {
+/// Validates, writes and reads back. `Ok` carries the report (verified or a mismatch); `Err` is
+/// the error response (refused, rejected, timed out, link lost).
+async fn do_upload(
+    app: &AppState,
+    op: &str,
+    sysid: SysId,
+    mission: &Mission,
+) -> Result<UploadReport, Box<Response>> {
     let sent = mission.for_vehicle();
     let mission = &sent;
     // ArduPilot accepts a mission while armed (a flying vehicle picks up the new one); only the
     // link and the transfer lock gate a write.
     let kind = match vehicle_for_write(app, sysid).await {
         Ok(v) => Some(v.kind),
-        Err(r) => return *r,
+        Err(r) => return Err(r),
     };
     // Structural problems are refused before anything goes to the link (Review Focus 4); the
     // fence check then waits briefly for parameters that may still be in flight.
@@ -144,7 +152,7 @@ async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) ->
             Some("mission_invalid"),
         )
         .await;
-        return invalid_response(&pre);
+        return Err(Box::new(invalid_response(&pre)));
     }
     let fence = await_fence(app, sysid).await;
     let findings = mission.validate_for(&fence, kind);
@@ -159,7 +167,7 @@ async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) ->
             Some("mission_invalid"),
         )
         .await;
-        return invalid_response(&findings);
+        return Err(Box::new(invalid_response(&findings)));
     }
     request_missing_fence_params(app, sysid, &fence);
     let component = component_of(app, sysid).await;
@@ -182,11 +190,11 @@ async fn do_upload(app: &AppState, op: &str, sysid: SysId, mission: &Mission) ->
                     ts: unix_ms(),
                     mav_cmd: None,
                 }));
-            ok(UploadReport { findings, ..report })
+            Ok(UploadReport { findings, ..report })
         }
         Err(e) => {
             audit(app, op, sysid, "upload", mission, "error", Some(&e.to_string())).await;
-            mission_error(e)
+            Err(Box::new(mission_error(e)))
         }
     }
 }
@@ -198,7 +206,19 @@ pub async fn put_mission(
     Path(sysid): Path<SysId>,
     Json(mission): Json<Mission>,
 ) -> Response {
-    do_upload(&app, &op.username, sysid, &mission).await
+    match do_upload(&app, &op.username, sysid, &mission).await {
+        Ok(report) => {
+            if report.verified {
+                // other content now sits on the vehicle: no saved plan version describes it
+                if let Err(e) = app.store.clear_written(sysid).await {
+                    tracing::error!(error = %e, "clearing the written plan failed");
+                }
+                broadcast_assignments(&app).await;
+            }
+            ok(report)
+        }
+        Err(r) => *r,
+    }
 }
 
 /// `POST /api/vehicles/{sysid}/mission/upload {mission_id}` — write a saved mission.
@@ -208,8 +228,16 @@ pub async fn upload_saved(
     Path(sysid): Path<SysId>,
     Json(body): Json<UploadSavedBody>,
 ) -> Response {
-    match app.store.get_mission(body.mission_id).await {
-        Ok(Some(mission)) => do_upload(&app, &op.username, sysid, &mission).await,
+    match app.store.get_mission_versioned(body.mission_id).await {
+        Ok(Some((mission, version))) => match do_upload(&app, &op.username, sysid, &mission).await {
+            Ok(report) => {
+                if report.verified {
+                    record_written(&app, sysid, body.mission_id, version, &op.username).await;
+                }
+                ok(report)
+            }
+            Err(r) => *r,
+        },
         Ok(None) => err(
             StatusCode::NOT_FOUND,
             "not_found",
@@ -217,6 +245,14 @@ pub async fn upload_saved(
         ),
         Err(e) => err(StatusCode::INTERNAL_SERVER_ERROR, "store", e.to_string()),
     }
+}
+
+/// Remembers which saved plan version a verified upload wrote, then broadcasts the board.
+async fn record_written(app: &AppState, sysid: SysId, plan_id: i64, version: u64, op: &str) {
+    if let Err(e) = app.store.record_written(sysid, plan_id, version, op).await {
+        tracing::error!(error = %e, "recording the written plan failed");
+    }
+    broadcast_assignments(app).await;
 }
 
 /// `GET /api/vehicles/{sysid}/mission` — read the vehicle's mission.
@@ -428,7 +464,11 @@ pub async fn delete_mission(
     Path(id): Path<i64>,
 ) -> Response {
     match app.store.delete_mission(id).await {
-        Ok(true) => StatusCode::NO_CONTENT.into_response(),
+        Ok(true) => {
+            // `plan_assignments.plan_id` is `ON DELETE SET NULL`: the board changed too
+            broadcast_assignments(&app).await;
+            StatusCode::NO_CONTENT.into_response()
+        }
         Ok(false) => not_found(id),
         Err(e) => store_error(e),
     }

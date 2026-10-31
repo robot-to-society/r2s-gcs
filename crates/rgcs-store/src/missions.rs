@@ -83,6 +83,17 @@ impl Store {
         row.as_ref().map(row_to_mission).transpose()
     }
 
+    /// The mission with its `updated_at` (ms), read together so the version matches the content.
+    pub async fn get_mission_versioned(&self, id: i64) -> Result<Option<(Mission, u64)>> {
+        let row = sqlx::query("SELECT * FROM missions WHERE id = ?1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
+        row.as_ref()
+            .map(|r| Ok((row_to_mission(r)?, r.get::<i64, _>("updated_at") as u64)))
+            .transpose()
+    }
+
     /// Inserts and returns the mission with its new id.
     pub async fn create_mission(&self, m: &Mission, created_by: &str) -> Result<Mission> {
         let now = unix_ms();
@@ -258,6 +269,17 @@ mod tests {
         let again = s.get_mission(id).await.unwrap().unwrap();
         assert_eq!(again.surveys[0].count, 5);
         assert_eq!(again.surveys[0].spec, spec);
+    }
+
+    /// The plan assignment board records the version that was read with the content it wrote.
+    #[tokio::test]
+    async fn get_mission_versioned_returns_the_updated_at() {
+        let s = Store::open_memory().await.unwrap();
+        assert!(s.get_mission_versioned(1).await.unwrap().is_none());
+        s.create_mission(&demo20(), "admin").await.unwrap();
+        let (m, version) = s.get_mission_versioned(1).await.unwrap().expect("exists");
+        assert_eq!(m.items.len(), 20);
+        assert_eq!(version, s.list_missions().await.unwrap()[0].updated_at);
     }
 
     /// Flight plans replaced briefings (migration 0014): their tables are gone, plans stay.
