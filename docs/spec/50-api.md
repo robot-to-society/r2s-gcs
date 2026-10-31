@@ -85,6 +85,21 @@
 - プランを削除すると、それを割り当てていた行は `plan_id = NULL` になる(書込記録は履歴として残る)。
 - 書込記録を付けるのは保存済みプランの書込(`POST …/mission/upload {mission_id}`)が照合まで成功したときだけ。内容そのものの書込(`PUT …/mission`)や読み戻し不一致では記録を消す。フェンス・ラリーの書込は記録に触れない。
 
+### 2.2.4 ドコモ LTE エリア(2026-10-31、実験・社内評価用)
+ドコモ公開のサービスエリア地図タイルを、画面で選んだ矩形ごとにサーバーが取得・保存し、同一オリジンで配る(設計 `docs/superpowers/specs/2026-10-31-docomo-lte-overlay-design.md`)。すべてログイン必須。取得は手動だけ。取得元は config.toml `lte_tile_url`。
+| メソッド | パス | 本文 / 応答 |
+|---|---|---|
+| GET | `/api/lte/areas` | → `[LteArea{id, name, south, west, north, east, status: idle \| fetching \| ready \| partial \| failed, tiles_total, tiles_ok, tiles_failed, fetched_at \| null, data_modified \| null, last_error \| null, created_at}]`(id 昇順、時刻は unix ms。取得中は UI が 1 秒ごとに読み直して進捗を出す) |
+| POST | `/api/lte/areas/estimate` | `{south, west, north, east}` → `LteEstimate{tiles}`(ズーム 8–14 の枚数。上限判定は UI)。矩形が不正なら `400 bad_rect` |
+| POST | `/api/lte/areas` | `{name, south, west, north, east}` → `LteArea`(`fetching`)。裏で取得を始める。`400 bad_name`(1–60 文字)/ `bad_rect` / `too_many_tiles`(3000 枚超、何も取得しない) |
+| POST | `/api/lte/areas/{id}/refresh` | → `LteArea`(`fetching`、カウンタは 0 から)。取得中は `409 busy`、無ければ `404 not_found` |
+| DELETE | `/api/lte/areas/{id}` | → `204`。他の範囲が覆わないタイルも消す。取得中は `409 busy` |
+| GET | `/api/lte/tiles/{z}/{x}/{y}.gif` | 保存済みタイル(`image/gif`、`Cache-Control: private, max-age=3600`)。無いときは透明 GIF(`200`、`private, no-cache`)でエラーにしない。範囲外の z / x / y(z > 22 など)は `404` |
+
+- 矩形: `-85 < south < north < 85`、`-180 <= west < east <= 180`。
+- 取得: サーバー全体で同時 2 本、間隔 100 ms、タイムアウト 10 s、リダイレクトなし、512 KiB 上限。受け入れるのは 200・`image/gif`・GIF87a/89a・256×256 だけ。失敗は短いコード(`http_<status>` / `html` / `not_gif` / `bad_size` / `too_large` / `timeout` / `connect` / `redirect`)で `last_error` に残し、保存済みタイルは消さない。URL と本文はログに出さない。
+- 終了時: 失敗なし `ready`、一部失敗 `partial`、全部失敗 `failed`。サーバー再起動で `fetching` のまま残った行は `partial`(取得済みあり)か `idle` に戻し、`last_error = interrupted`。
+
 ### 2.2.3 測量カメラ(2026-10-21)
 写真測量(サーベイグリッド)の計画に使う共有カメラ一覧。セッション認証は `/api/missions` と同じ。組込みカメラ `Sony α7R IV 35mm`(センサー 35.7 × 23.8 mm、9504 × 6336 px、焦点距離 35 mm、シャッター 1/1000 s、最小間隔 1.0 s)を初期データとして持つ。
 | メソッド | パス | 本文 / 応答 |

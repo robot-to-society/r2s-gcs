@@ -13,6 +13,7 @@ pub mod guard;
 pub mod input_profile;
 pub mod inspections;
 pub mod lockout;
+pub mod lte_areas;
 pub mod maintenance;
 pub mod messages;
 pub mod missions;

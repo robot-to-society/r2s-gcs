@@ -41,6 +41,12 @@ async fn main() -> anyhow::Result<()> {
     if dev_mode {
         tracing::warn!("development login admin/admin is active");
     }
+    // LTE overlay: a fetch cut off by the last shutdown is not running any more.
+    match store.reset_interrupted_lte_fetches().await {
+        Ok(0) => {}
+        Ok(n) => info!(areas = n, "reset interrupted LTE fetches"),
+        Err(e) => tracing::warn!(error = %e, "LTE fetch reset failed"),
+    }
 
     let router = Arc::new(Mutex::new(Router::default()));
     let (tx, _) = broadcast::channel(BROADCAST_CAPACITY);
@@ -60,6 +66,7 @@ async fn main() -> anyhow::Result<()> {
         .with_map(config.map_tile_url.clone(), config.map_attribution.clone())
         .with_basemaps(config.basemaps())
         .with_terrain(config.terrain())
+        .with_lte(rgcs_server::lte_fetch::LteFetcher::new(&config.lte_tile_url))
         .with_whep_upstream(&config.whep_upstream)
         .with_data_dir(config.data_dir.clone())
         .with_ai(rgcs_server::ai_api::build_ai(&config.ai))

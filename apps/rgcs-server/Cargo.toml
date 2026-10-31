@@ -44,6 +44,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 futures = { workspace = true }
+httpdate = "1"
 tokio-util = { workspace = true }
 printpdf = { workspace = true }
 csv = { workspace = true }

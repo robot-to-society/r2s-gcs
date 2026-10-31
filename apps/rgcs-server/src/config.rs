@@ -98,6 +98,8 @@ pub struct Config {
     pub basemaps: Vec<Basemap>,
     /// Terrarium DEM tile template for the 3D map; `""` turns 3D off (offline sites).
     pub terrain_tiles: String,
+    /// Docomo LTE service-area tile template (`{z}`, `{x}`, `{y}`); tests point it at a fake.
+    pub lte_tile_url: String,
     /// AI chat provider (spec 70 §4); absent → disabled.
     pub ai: rgcs_ai::AiConfig,
     /// External-factor sources (外的要因): key env-var names and base-URL overrides.
@@ -166,6 +168,7 @@ impl Default for Config {
             log_fetch: LogFetch::Auto,
             basemaps: Vec::new(),
             terrain_tiles: DEFAULT_TERRAIN_TILES.into(),
+            lte_tile_url: crate::lte_tiles::DEFAULT_LTE_TILE_URL.into(),
             ai: rgcs_ai::AiConfig::default(),
             env: EnvConfig::default(),
         }
@@ -239,6 +242,16 @@ mod tests {
         assert_eq!(Config::parse("terrain_tiles = ''").unwrap().terrain(), None);
         let c = Config::parse("terrain_tiles = 'https://dem.local/{z}/{x}/{y}.png'").unwrap();
         assert_eq!(c.terrain().as_deref(), Some("https://dem.local/{z}/{x}/{y}.png"));
+    }
+
+    #[test]
+    fn lte_tile_url_defaults_to_docomo_and_can_be_overridden() {
+        assert_eq!(
+            Config::default().lte_tile_url,
+            crate::lte_tiles::DEFAULT_LTE_TILE_URL
+        );
+        let c = Config::parse("lte_tile_url = 'http://127.0.0.1:18112/{z}/{x}/{y}.gif'").unwrap();
+        assert_eq!(c.lte_tile_url, "http://127.0.0.1:18112/{z}/{x}/{y}.gif");
     }
 
     #[test]

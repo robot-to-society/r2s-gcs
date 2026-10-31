@@ -36,6 +36,7 @@
 | `guard_decisions` | AI 緊急介入の判定記録(状態が変わるたびに 1 行、再生可) | 2026-10-26、§3.11 |
 | `env_sources` | 外的要因の取得元ごとの有効・間隔・タイムアウト | 2026-10-26、§3.11 |
 | `plan_assignments` | 機体ごとの割当プランと、最後に書き込んだ保存済みプランの版 | 2026-10-31、§3.12 |
+| `lte_areas` | ドコモ LTE エリアを取得する矩形と取得状況 | 2026-10-31、§3.13 |
 
 ## 3. 定義
 
@@ -153,6 +154,11 @@ CREATE TABLE param_history (
 - `plan_id` は割り当てたプラン。プランを削除すると NULL(割当なし)になる。
 - `written_*` は最後に書き込んだ保存済みプランの id と版(`missions.updated_at`)、時刻、人。`POST …/mission/upload {mission_id}` が照合まで成功したときに付け、内容そのものの書込や読み戻し不一致で消す(4 列とも NULL)。`written_plan_id` は履歴なので外部キーを持たない。
 - 画面の状態バッジ: 一致 = `written_plan_id = plan_id` かつ `written_plan_updated_at` = プランの今の `updated_at`、更新あり = 同じプランで版が古い、書込待ち = 記録が無い(接続中)か別のプラン、不明 = 記録が無く未接続。
+
+### 3.13 ドコモ LTE エリア(2026-10-31、マイグレーション `0016_lte_areas.sql`)
+- `lte_areas(id INTEGER PK AUTOINCREMENT, name TEXT, south REAL, west REAL, north REAL, east REAL, status TEXT('idle' | 'fetching' | 'ready' | 'partial' | 'failed'), tiles_total INTEGER, tiles_ok INTEGER, tiles_failed INTEGER, fetched_at INTEGER NULL, data_modified INTEGER NULL, last_error TEXT NULL, created_at INTEGER)`。時刻は unix ms。`/api/lte/*`(spec 50 §2.2.4)の元。
+- `fetched_at` は最後に取得が終わった時刻、`data_modified` はタイルの `Last-Modified` のうち最新(ドコモのデータ日付)、`last_error` は最後に失敗したタイルの短いコード。
+- タイル本体は DB に入れず `<data_dir>/lte/{z}/{x}/{y}.gif`(一時ファイル + rename)。複数の範囲が覆うタイルは 1 枚だけ持ち、範囲を消すときは他の範囲が覆わないものだけ消す。
 
 ## 4. 検証の二重化
 

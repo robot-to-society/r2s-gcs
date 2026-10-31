@@ -17,6 +17,7 @@ pub mod inspector;
 pub mod jst;
 pub mod log;
 pub mod logbook;
+pub mod lte;
 pub mod mission;
 pub mod mission_stored;
 pub mod network;
@@ -63,6 +64,7 @@ pub use logbook::{
     InspectionRunInput, InspectionTemplate, InspectionTemplateInput, LogFetchProgress, LogSource,
     MaintenanceInput, MaintenanceRecord, PilotInfo, PilotInput, VehicleRegistry, VehicleRegistryInput,
 };
+pub use lte::{LteArea, LteEstimate, LteStatus};
 pub use mission::{
     demo20, haversine_m, FenceInfo, Finding, FindingLevel, Home, Mission, MissionFrame, MissionItem,
     MissionProgress, MissionStats, MissionSummaryRow, MissionTransfer, StoredParam, SurveyBlock,

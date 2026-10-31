@@ -23,8 +23,8 @@ use crate::settings;
 use crate::video::VideoHub;
 use crate::{
     api, assignment_api, auth, branding, calib_api, camera_api, commands, export_api, flight_api,
-    geofence_api, guided, input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api,
-    network_api, param_api, param_pick, present_api, roi_api, survey_camera_api, video_api, ws,
+    geofence_api, guided, input_api, inspector_api, logbook_api, logs_api, lte_api, messages_api,
+    mission_api, network_api, param_api, param_pick, present_api, roi_api, survey_camera_api, video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -89,6 +89,8 @@ pub struct AppState {
     pub basemaps: Vec<crate::config::Basemap>,
     /// Terrarium DEM tiles for the 3D map; `None` turns 3D off.
     pub terrain_tiles: Option<String>,
+    /// Docomo LTE tile fetcher (config `lte_tile_url`); offline until `with_lte`.
+    pub lte: crate::lte_fetch::LteFetcher,
     started: Instant,
     started_unix_ms: u64,
     lockout: Arc<StdMutex<Lockout>>,
@@ -167,6 +169,7 @@ impl AppState {
             map_attribution: crate::config::Config::default().map_attribution,
             basemaps: crate::config::Config::default().basemaps(),
             terrain_tiles: crate::config::Config::default().terrain(),
+            lte: crate::lte_fetch::LteFetcher::offline(),
             started: Instant::now(),
             started_unix_ms: unix_ms(),
             lockout: Arc::new(StdMutex::new(Lockout::default())),
@@ -288,6 +291,11 @@ impl AppState {
             terrain_tiles,
             ..self
         }
+    }
+
+    /// Installs the LTE tile fetcher (main: `lte_tile_url`; tests: the local fake).
+    pub fn with_lte(self, lte: crate::lte_fetch::LteFetcher) -> Self {
+        Self { lte, ..self }
     }
 
     pub fn with_map(self, tile_url: String, attribution: String) -> Self {
@@ -523,6 +531,11 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         .route("/messages", get(messages_api::list_all))
         .route("/vehicles/{sysid}/messages", get(messages_api::list_vehicle))
         .route("/vehicles/{sysid}/messages/{id}/ack", post(messages_api::ack))
+        .route("/lte/areas", get(lte_api::list).post(lte_api::create))
+        .route("/lte/areas/estimate", post(lte_api::estimate))
+        .route("/lte/areas/{id}/refresh", post(lte_api::refresh))
+        .route("/lte/areas/{id}", delete(lte_api::delete))
+        .route("/lte/tiles/{z}/{x}/{y}", get(lte_api::tile))
         .route("/assignments", get(assignment_api::list_assignments))
         .route("/assignments/{sysid}", put(assignment_api::put_assignment))
         .route(
