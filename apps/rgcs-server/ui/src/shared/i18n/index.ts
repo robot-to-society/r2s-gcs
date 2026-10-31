@@ -24,6 +24,7 @@ import { guardEn, guardJa } from './guard'
 import { guardAlertEn, guardAlertJa } from './guardAlert'
 import { uxEn, uxJa } from './ux'
 import { inputFnsEn, inputFnsJa } from './inputFns'
+import { assignEn, assignJa } from './assign'
 
 export type Lang = 'ja' | 'en'
 
@@ -353,7 +354,7 @@ const baseJa = {
   cmd_param_write: 'パラメータ書込',
 } as const
 
-const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa, ...plannerJa, ...calibJa, ...plansJa, ...surveyJa, ...instrumentsJa, ...wpGoJa, ...inspRateJa, ...roiJa, ...cameraMediaJa, ...mavlinkCameraJa, ...cameraVideoJa, ...missionItemsJa, ...networkJa, ...aiJa, ...loginJa, ...guardJa, ...guardAlertJa, ...uxJa, ...inputFnsJa } as const
+const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa, ...plannerJa, ...calibJa, ...plansJa, ...surveyJa, ...instrumentsJa, ...wpGoJa, ...inspRateJa, ...roiJa, ...cameraMediaJa, ...mavlinkCameraJa, ...cameraVideoJa, ...missionItemsJa, ...networkJa, ...aiJa, ...loginJa, ...guardJa, ...guardAlertJa, ...uxJa, ...inputFnsJa, ...assignJa } as const
 
 const baseEn: Record<keyof typeof baseJa, string> = {
   vehicles: 'Vehicles',
@@ -681,7 +682,7 @@ const baseEn: Record<keyof typeof baseJa, string> = {
   cmd_param_write: 'Parameter write',
 }
 
-const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn, ...videoEn, ...planeCmdEn, ...plannerEn, ...calibEn, ...plansEn, ...surveyEn, ...instrumentsEn, ...wpGoEn, ...inspRateEn, ...roiEn, ...cameraMediaEn, ...mavlinkCameraEn, ...cameraVideoEn, ...missionItemsEn, ...networkEn, ...aiEn, ...loginEn, ...guardEn, ...guardAlertEn, ...uxEn, ...inputFnsEn }
+const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToolsEn, ...p9En, ...edit3dEn, ...planEn, ...videoEn, ...planeCmdEn, ...plannerEn, ...calibEn, ...plansEn, ...surveyEn, ...instrumentsEn, ...wpGoEn, ...inspRateEn, ...roiEn, ...cameraMediaEn, ...mavlinkCameraEn, ...cameraVideoEn, ...missionItemsEn, ...networkEn, ...aiEn, ...loginEn, ...guardEn, ...guardAlertEn, ...uxEn, ...inputFnsEn, ...assignEn }
 
 export type Dict = Record<keyof typeof ja, string>
 
