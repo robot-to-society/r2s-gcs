@@ -196,3 +196,8 @@ html[data-intro='fade'] .shell { animation: ls-fade 300ms ease both; }
   .ls-backdrop:not([data-phase='idle']) .ls-terrain { transform: rotateX(62deg); }
   .ls-backdrop:not([data-phase='idle']) .ls-map { transform: scale(1); }
 }
+/* four languages (LangSwitch) */
+.ls-foot:has(.lang4) { flex-wrap: wrap; row-gap: 10px; }
+.ls-seg.lang4 { width: 100%; }
+.ls-seg.lang4 .ls-lens { width: calc((100% - 6px) / 4); }
+.ls-seg.lang4 button { font-size: 11px; padding: 0 2px; }

@@ -3,7 +3,7 @@
 // 観客用画面 card opening the links and logo sheet (UX-53). Card grid after the prototype's app tab.
 import type { Operator, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { useLang } from '../../shared/i18n/lang'
+import { LangSwitch } from '../../shared/ui/LangSwitch'
 import { IconCloudSun, IconFlask } from '../../shared/ui/icons'
 import { DisplayCard } from './DisplayCard'
 import { LaunchCard } from './LaunchCard'
@@ -24,21 +24,12 @@ interface Props {
 }
 
 export function AppTab({ sysid, vehicle, me, dict, onOpenPresent, onOpenGuard, onOpenEnv }: Props) {
-  const [lang, setLang] = useLang()
   const isAdmin = me.role === 'admin'
   return (
     <div className="maint-body lb-cards">
       <div className="surface">
         <div className="h1">{dict.lbLanguage}</div>
-        <div className="seg lang">
-          <span className="lens" style={{ transform: `translateX(${lang === 'ja' ? 0 : 100}%)` }} />
-          <button type="button" className={lang === 'ja' ? 'on' : ''} onClick={() => setLang('ja')}>
-            日本語
-          </button>
-          <button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>
-            English
-          </button>
-        </div>
+        <LangSwitch variant="seg" />
       </div>
       <div className="surface" data-testid="present-card">
         <div className="h1">{dict.presentTitle}</div>

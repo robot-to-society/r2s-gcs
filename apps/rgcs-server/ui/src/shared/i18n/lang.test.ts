@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { readLang, writeLang, LANG_KEY } from './lang'
+import { readLang, writeLang, detectLang, LANG_KEY, LANGS } from './lang'
 import { dictionaries } from './index'
 import { aiEn, aiJa } from './ai'
+import { zhStrings } from './zh'
+import { koStrings } from './ko'
 
 describe('language persistence', () => {
   afterEach(() => {
@@ -9,10 +11,21 @@ describe('language persistence', () => {
     localStorage.clear()
   })
 
-  it('defaults to ja and ignores unknown stored values', () => {
+  it('without a stored pick, follows the browser language and falls back to English', () => {
+    vi.stubGlobal('navigator', { languages: ['fr-FR', 'ja-JP'], language: 'fr-FR' })
     expect(readLang()).toBe('ja')
     localStorage.setItem(LANG_KEY, 'fr')
     expect(readLang()).toBe('ja')
+    vi.stubGlobal('navigator', { languages: ['de-DE'], language: 'de-DE' })
+    expect(readLang()).toBe('en')
+  })
+
+  it('maps browser tags to the supported languages', () => {
+    expect(detectLang(['zh-TW'])).toBe('zh')
+    expect(detectLang(['ko-KR', 'en'])).toBe('ko')
+    expect(detectLang(['en-GB'])).toBe('en')
+    expect(detectLang([])).toBe('en')
+    expect(LANGS).toEqual(['en', 'ja', 'zh', 'ko'])
   })
 
   it('round-trips through localStorage', () => {
@@ -22,6 +35,7 @@ describe('language persistence', () => {
   })
 
   it('survives a throwing storage', () => {
+    vi.stubGlobal('navigator', { languages: [] })
     vi.stubGlobal('localStorage', {
       getItem: () => {
         throw new Error('blocked')
@@ -30,16 +44,24 @@ describe('language persistence', () => {
         throw new Error('blocked')
       },
     })
-    expect(readLang()).toBe('ja')
+    expect(readLang()).toBe('en')
     expect(() => writeLang('en')).not.toThrow()
   })
 })
 
 describe('dictionaries', () => {
-  it('ja and en carry the same non-empty keys', () => {
+  it('every language carries the same non-empty keys', () => {
     const ja = Object.keys(dictionaries.ja).sort()
-    expect(Object.keys(dictionaries.en).sort()).toEqual(ja)
-    for (const lang of ['ja', 'en'] as const) for (const k of ja) expect(dictionaries[lang][k as keyof typeof dictionaries.ja], `${lang}.${k}`).not.toBe('')
+    for (const lang of LANGS) {
+      expect(Object.keys(dictionaries[lang]).sort(), lang).toEqual(ja)
+      for (const k of ja) expect(dictionaries[lang][k as keyof typeof dictionaries.ja], `${lang}.${k}`).not.toBe('')
+    }
+  })
+
+  it('zh and ko translate every key (no English fallback left)', () => {
+    const ja = Object.keys(dictionaries.ja).sort()
+    expect(Object.keys(zhStrings).sort()).toEqual(ja)
+    expect(Object.keys(koStrings).sort()).toEqual(ja)
   })
 
   it('carries the network view strings', () => {

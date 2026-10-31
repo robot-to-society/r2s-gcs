@@ -26,10 +26,13 @@ import { uxEn, uxJa } from './ux'
 import { inputFnsEn, inputFnsJa } from './inputFns'
 import { assignEn, assignJa } from './assign'
 import { lteEn, lteJa } from './lte'
+import { zhStrings } from './zh'
+import { koStrings } from './ko'
 
-export type Lang = 'ja' | 'en'
+export type Lang = 'en' | 'ja' | 'zh' | 'ko'
 
 const baseJa = {
+  weekdays: '日,月,火,水,木,金,土',
   vehicles: '機体',
   filterVehicles: '機体を絞り込み (名前・モード)',
   ground: '地表',
@@ -372,6 +375,7 @@ const baseJa = {
 const ja = { ...baseJa, ...logbookJa, ...opsToolsJa, ...p9Ja, ...edit3dJa, ...planJa, ...videoJa, ...planeCmdJa, ...plannerJa, ...calibJa, ...plansJa, ...surveyJa, ...instrumentsJa, ...wpGoJa, ...inspRateJa, ...roiJa, ...cameraMediaJa, ...mavlinkCameraJa, ...cameraVideoJa, ...missionItemsJa, ...networkJa, ...aiJa, ...loginJa, ...guardJa, ...guardAlertJa, ...uxJa, ...inputFnsJa, ...assignJa, ...lteJa } as const
 
 const baseEn: Record<keyof typeof baseJa, string> = {
+  weekdays: 'Sun,Mon,Tue,Wed,Thu,Fri,Sat',
   vehicles: 'Vehicles',
   filterVehicles: 'Filter vehicles (name, mode)',
   ground: 'GROUND',
@@ -715,7 +719,11 @@ const en: Record<keyof typeof ja, string> = { ...baseEn, ...logbookEn, ...opsToo
 
 export type Dict = Record<keyof typeof ja, string>
 
-export const dictionaries: Record<Lang, Dict> = { ja, en }
+// Chinese (Simplified) and Korean: any key a translation lacks falls back to English.
+const zh: Dict = { ...en, ...zhStrings }
+const ko: Dict = { ...en, ...koStrings }
+
+export const dictionaries: Record<Lang, Dict> = { en, ja, zh, ko }
 
 export function t(lang: Lang): Dict {
   return dictionaries[lang]

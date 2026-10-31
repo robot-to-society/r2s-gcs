@@ -18,7 +18,7 @@ export const loginEn: Record<keyof typeof loginJa, string> = {
   loginServer: 'Server',
   loginSigningIn: 'Signing in…',
   loginSignedIn: 'Signed in',
-  loginCredit: '出典: 国土地理院(シームレス空中写真)',
+  loginCredit: 'Imagery: GSI Japan (seamless aerial photos)',
   loginServerUp: 'Server up',
   loginServerUnknown: 'Server status unknown',
   themeTitle: 'Sign-in screen theme',

@@ -36,7 +36,7 @@ import { executeProposal } from './aiExecute'
 
 function formatClock(d: Date, lang: Lang): string {
   const p = (n: number) => String(n).padStart(2, '0')
-  const wd = lang === 'ja' ? ['日', '月', '火', '水', '木', '金', '土'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const wd = t(lang).weekdays.split(',')
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} (${wd[d.getDay()]}) ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 

@@ -3,6 +3,7 @@ import { apiFetch } from '../../shared/api/client'
 import type { Health } from '../../shared/api/types'
 import { t, type Dict } from '../../shared/i18n'
 import { useLang } from '../../shared/i18n/lang'
+import { LangSwitch } from '../../shared/ui/LangSwitch'
 import { IconCheck, IconLoader } from '../../shared/ui/icons'
 import { useTheme } from '../../shared/theme/theme'
 import { isScene, type Phase } from './intro'
@@ -124,7 +125,6 @@ function SubmitButton({ phase, dict }: { readonly phase: Phase; readonly dict: D
 }
 
 function CardFoot({ dev, dict }: { readonly dev: boolean; readonly dict: Dict }) {
-  const [lang, setLang] = useLang()
   return (
     <div className="ls-foot">
       <span className="ls-note">
@@ -135,15 +135,7 @@ function CardFoot({ dev, dict }: { readonly dev: boolean; readonly dict: Dict })
           </>
         )}
       </span>
-      <div className="ls-seg" role="group" aria-label="language">
-        <span className="ls-lens" style={{ transform: `translateX(${lang === 'ja' ? 0 : 100}%)` }} />
-        <button type="button" className={lang === 'ja' ? 'on' : ''} aria-pressed={lang === 'ja'} onClick={() => setLang('ja')}>
-          日本語
-        </button>
-        <button type="button" className={lang === 'en' ? 'on' : ''} aria-pressed={lang === 'en'} onClick={() => setLang('en')}>
-          English
-        </button>
-      </div>
+      <LangSwitch variant="login" />
     </div>
   )
 }

@@ -50,9 +50,9 @@ export const planJa = {
 
 export const planEn: Record<keyof typeof planJa, string> = {
   planTabs: 'Plan type',
-  planMission: 'ミッション',
-  planFence: 'フェンス',
-  planRally: 'ラリー',
+  planMission: 'Mission',
+  planFence: 'Fence',
+  planRally: 'Rally',
   fenceTitle: 'Fence',
   fenceAddIncPoly: 'Inclusion polygon',
   fenceAddExcPoly: 'Exclusion polygon',
