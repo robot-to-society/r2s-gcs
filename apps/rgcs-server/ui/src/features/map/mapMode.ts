@@ -27,6 +27,12 @@ export interface ModeHost {
  */
 export const KEEP_ELEVATION = { freezeElevation: true } as const
 
+/**
+ * How far Ctrl+drag may tilt the 3D view (MapLibre's default is 60°): 85° looks along the
+ * ground for terrain and low routes; beyond 90° the camera would look up at the sky.
+ */
+export const MAX_PITCH = 85
+
 export interface ModeLayers {
   readonly only3d: readonly string[]
   readonly only2d: readonly string[]

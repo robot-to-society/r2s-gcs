@@ -10,7 +10,7 @@ import type { Tool } from './store'
 import { useBasemapSwap } from '../map/basemaps'
 import { addPredictedLayer, setPredicted } from '../map/predictedLayer'
 import type { Basemap } from '../../shared/api/types'
-import { KEEP_ELEVATION, type MapMode } from '../map/mapMode'
+import { KEEP_ELEVATION, MAX_PITCH, type MapMode } from '../map/mapMode'
 import { altChip, useMissionAir, type MissionAir3d, type Predicted } from './missionAir'
 import { attachAltDrag } from './altDrag'
 import { useMissionFeet, type FeetCallbacks } from './missionFeet'
@@ -145,7 +145,7 @@ export function MissionMap(props: Props) {
 
   useEffect(() => {
     if (!container.current) return
-    const m = new maplibregl.Map({ container: container.current, style, center: HOME, zoom: 14, attributionControl: { compact: true }, boxZoom: false })
+    const m = new maplibregl.Map({ container: container.current, style, center: HOME, zoom: 14, maxPitch: MAX_PITCH, attributionControl: { compact: true }, boxZoom: false })
     m.addControl(new maplibregl.NavigationControl({ showZoom: false, visualizePitch: false }), 'top-right')
     m.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right')
     m.on('load', () => {

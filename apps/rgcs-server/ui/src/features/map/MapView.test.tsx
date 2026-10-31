@@ -49,7 +49,9 @@ class FakeMap {
   padding: unknown = null
   eased: unknown[] = []
   sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>()
-  constructor() {
+  options: unknown
+  constructor(options?: unknown) {
+    this.options = options
     created.maps.push(this)
   }
   terrain: unknown = 'unset'
@@ -177,6 +179,11 @@ describe('MapView', () => {
     created.maps = []
     created.markers = []
     created.deferLoad = false
+  })
+
+  it('3d_can_tilt_down_to_near_the_ground', () => {
+    render(<MapView vehicles={new Map()} tracks={new Map()} follow={null} selected={null} padding={pad} style={style} onDragStart={() => {}} onClick={() => {}} target={null} mission={null} missionCurrent={null} />)
+    expect((created.maps[0]!.options as { maxPitch?: number }).maxPitch).toBe(85)
   })
 
   it('mission_path_is_set_when_the_style_loads_late', () => {

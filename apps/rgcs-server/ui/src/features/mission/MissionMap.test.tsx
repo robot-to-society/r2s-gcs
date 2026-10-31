@@ -54,6 +54,11 @@ describe('MissionMap', () => {
     created.deferLoad = false
   })
 
+  it('3d_can_tilt_down_to_near_the_ground', () => {
+    renderMap()
+    expect((created.maps[0]!.options as { maxPitch?: number }).maxPitch).toBe(85)
+  })
+
   it('path_is_set_when_the_style_loads_after_mount_with_an_existing_draft', () => {
     created.deferLoad = true
     renderMap()

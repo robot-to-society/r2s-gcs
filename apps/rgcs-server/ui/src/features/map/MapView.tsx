@@ -11,7 +11,7 @@ import { addPredictedLayer, setPredicted } from './predictedLayer'
 import { cmdKeyOf } from '../mission/cmds'
 import { follow3dCamera, followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
-import { KEEP_ELEVATION, type MapMode } from './mapMode'
+import { KEEP_ELEVATION, MAX_PITCH, type MapMode } from './mapMode'
 import { useVehicleAir } from './vehicleAir'
 import { useArrival } from './useArrival'
 import { useFleetView, useRevealSelected } from './useFleetView'
@@ -131,7 +131,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
 
   useEffect(() => {
     if (!container.current) return
-    const m = new maplibregl.Map({ container: container.current, style, center: HOME, zoom: 14, attributionControl: { compact: true }, interactive })
+    const m = new maplibregl.Map({ container: container.current, style, center: HOME, zoom: 14, maxPitch: MAX_PITCH, attributionControl: { compact: true }, interactive })
     if (interactive) {
       m.addControl(new maplibregl.NavigationControl({ showZoom: false, visualizePitch: false }), 'top-right')
       m.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right')
