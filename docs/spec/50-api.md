@@ -56,11 +56,11 @@
 ### 2.2.1 ミッション(P3、2026-10-17 追補 §5.2 / §5.9)
 | メソッド | パス | 本文 / 応答 |
 |---|---|---|
-| PUT | `/api/vehicles/{sysid}/mission` | `Mission` → `UploadReport{items, verified, mismatched[], findings[]}`。書込 → 読込 → 一致検証。`409 mission_busy` / `409 mission_invalid`(`data.findings` に致命) / `409 mission_rejected`(MISSION_ACK) / `503 link_lost` / `504 mission_timeout`(1.5 s × 3 回)。監査 target `mission` |
+| PUT | `/api/vehicles/{sysid}/mission` | `Mission` → `UploadReport{items, verified, mismatched[], findings[]}`。書込 → 読込 → 一致検証。書込が済むと機体の書込記録を消す(内容そのものの書込はどの保存済みプランの版とも言えないため、2026-10-31)。`409 mission_busy` / `409 mission_invalid`(`data.findings` に致命) / `409 mission_rejected`(MISSION_ACK) / `503 link_lost` / `504 mission_timeout`(1.5 s × 3 回)。監査 target `mission` |
 | GET / PUT | `/api/vehicles/{sysid}/fence` | PUT `{zones: FenceZone[]}` → `UploadReport`。`FenceZone` = `{kind: "polygon", inclusion, vertices: [{lat, lon}]}` / `{kind: "circle", inclusion, center, radius}`。`MAV_MISSION_TYPE_FENCE` で書込(ホームなし、ポリゴンは頂点を連続で 5001 / 5002 + param1 = 頂点数、円は 5003 / 5004 + param1 = 半径 m)→ 読込 → 一致検証。`409 fence_invalid`(頂点 3〜255、半径 > 0、緯度経度の範囲。`data.findings`)。GET `{zones}`(リターンポイント 5000 は Copter が使わないので読み飛ばす)。監査 target `fence` |
 | GET | `/api/vehicles/{sysid}/fence/params` | `FenceParams{enabled, alt_max, alt_max_on, zones_on}`(キャッシュから。未取得の項目は機体に問い合わせて最大 ~1 s 待つ。`alt_max_on` = FENCE_TYPE bit 0、`zones_on` = bit 2) |
 | GET / PUT | `/api/vehicles/{sysid}/rally` | PUT `{points: [{lat, lon, alt}]}`(alt はホーム相対 m。整数 m に丸める = ArduPilot int16)→ `UploadReport`。`MAV_MISSION_TYPE_RALLY`、5100。`409 rally_invalid`(緯度経度の範囲、±10000 m)。GET `{points}`。監査 target `rally` |
-| POST | `/api/vehicles/{sysid}/mission/upload` | `{mission_id}` → 保存済みミッションを同じ手順で書込 |
+| POST | `/api/vehicles/{sysid}/mission/upload` | `{mission_id}` → 保存済みミッションを同じ手順で書込。照合まで成功すると機体の書込記録(`plan_assignments.written_*` = プラン id・版 `updated_at`・時刻・人)を付け、読み戻しが合わなければ記録を消す。どちらも `assignments` フレームを流す(2026-10-31、§2.2.2) |
 | GET | `/api/vehicles/{sysid}/mission` | 機体から読込 → `Mission`(`sysid` 入り) |
 | GET | `/api/vehicles/{sysid}/mission/progress` | → `MissionProgress{seq, total}` または `null`(`total` = 項目数) |
 | GET | `/api/vehicles/{sysid}/mission/known` | サーバーが最後に書込 / 読込した機体のミッション → `Mission` または `null`(再読込した画面の経路 / 進捗表示に使う) |
@@ -74,6 +74,16 @@
 
 ### 2.2.2 フライトプラン(2026-10-31)
 画面の「フライトプラン」は API の保存済みミッション(`/api/missions`)そのもので、`id` がプラン ID。`DELETE /api/missions/{id}` は `204`(本文なし)、無ければ `404 not_found`。2026-10-20 に足したブリーフィング(`/api/briefings`、名前付きのミッションの組)は 2026-10-31 に廃止した(マイグレーション `0014_drop_briefings.sql` で表ごと削除。保存済みの組は移行しない)。
+
+機体ごとのプランの割当(2026-10-31、割当モード spec 10 §6.6、表は spec 60 §3.12)。1 プランを複数機に割り当てられ、1 機には 1 プラン。
+
+| メソッド | パス | 本文 / 応答 |
+|---|---|---|
+| GET | `/api/assignments` | → `[Assignment{sysid, plan_id \| null, assigned_by \| null, assigned_at \| null, written: Written{plan_id, plan_updated_at, at, by} \| null}]`(行のある機体だけ、sysid 昇順。時刻は unix ms) |
+| PUT | `/api/assignments/{sysid}` | `{plan_id: number \| null}`(null で外す)→ `Assignment`。行が無ければ作る。書込記録はそのまま残す。無いプランは `404 not_found`。監査 target `assignment`(`assign` / `unassign`、args `{plan_id}`)。変更のたびに全行を `assignments` フレームで流す |
+
+- プランを削除すると、それを割り当てていた行は `plan_id = NULL` になる(書込記録は履歴として残る)。
+- 書込記録を付けるのは保存済みプランの書込(`POST …/mission/upload {mission_id}`)が照合まで成功したときだけ。内容そのものの書込(`PUT …/mission`)や読み戻し不一致では記録を消す。フェンス・ラリーの書込は記録に触れない。
 
 ### 2.2.3 測量カメラ(2026-10-21)
 写真測量(サーベイグリッド)の計画に使う共有カメラ一覧。セッション認証は `/api/missions` と同じ。組込みカメラ `Sony α7R IV 35mm`(センサー 35.7 × 23.8 mm、9504 × 6336 px、焦点距離 35 mm、シャッター 1/1000 s、最小間隔 1.0 s)を初期データとして持つ。
@@ -254,6 +264,7 @@ type ClientSession = { id: number; username: string; role: Role; addr: string | 
 | `error` | `{code, message}` | 入力拒否時 |
 | `guard_alert` | `{alert: GuardAlert {id, sysid, vehicle_name, event: "toilet_bowl", phase: alerting\|countdown\|executing\|executed\|cancelled\|taken_over\|unanswered\|refused\|cleared, level, confidence, signs {a, b, c, turn_deg, radius_m, compass_var}, deadline_ms?, action_mode?, rc_stale, kp_raised, sound, text, ts}}` | 状態が変わるたび + カウントダウン中は 1 Hz で再送(2026-10-26、§2.9)。`cleared` で画面から消す |
 | `env_summary` | `{summary: EnvSummary}` | 外的要因の総合結果が変わるたび(取得・機体の WIND / GNSS) |
+| `assignments` | `{rows: [Assignment]}`(差分でなく全体、§2.2.2) | 割当の変更・書込記録の付与 / 消去のたび(2026-10-31)。`snapshot` には含めず、画面は `snapshot` を受けるたび(接続・再接続)に `GET /api/assignments` で読み直す |
 
 ### 3.2 クライアント → サーバー
 | `t` | ペイロード | 周期 / 規則 |

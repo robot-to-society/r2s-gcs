@@ -35,6 +35,7 @@
 | `presentation_tokens` | 観客用画面の提示トークン(P2) | 追補 §5.1 |
 | `guard_decisions` | AI 緊急介入の判定記録(状態が変わるたびに 1 行、再生可) | 2026-10-26、§3.11 |
 | `env_sources` | 外的要因の取得元ごとの有効・間隔・タイムアウト | 2026-10-26、§3.11 |
+| `plan_assignments` | 機体ごとの割当プランと、最後に書き込んだ保存済みプランの版 | 2026-10-31、§3.12 |
 
 ## 3. 定義
 
@@ -146,6 +147,12 @@ CREATE TABLE param_history (
 ### 3.11 AI 緊急介入で追加した表(2026-10-26、マイグレーション `0013_guard.sql`)
 - `guard_decisions(id PK AUTOINCREMENT, ts INTEGER(unix ms), sysid, alert_id TEXT(g-<uuid>), event 'toilet_bowl', phase, level l0|l1|l2|l3, flight_id NULL, record TEXT)` + 索引 `(sysid, ts)`。`record` は `rgcs_guard::DecisionRecord` の JSON: `{version: 1, config, context, samples(検知の窓、最大 120), last_detected_ms, verdict, phase, action, by, owner: "gcs", ts_ms}`。`rgcs_guard::replay(record)` が記録時の判定を返す。`flight_id` は記録時にアーム中の飛行(`flights` の下書き)。最新 5 000 行を残して古い行を消す(記録系で唯一の削除。監査は `audit_log` に別に残る)。
 - `env_sources(id PK, enabled, interval_s, timeout_ms, updated_at)`。行が無い取得元は既定値(設計 v0.4 §5.4.1)。API キーは DB に置かない(config / 環境変数だけ)。
+
+### 3.12 プランの割当(2026-10-31、マイグレーション `0015_plan_assignments.sql`)
+- `plan_assignments(sysid PK, plan_id INTEGER NULL REFERENCES missions(id) ON DELETE SET NULL, assigned_by TEXT, assigned_at INTEGER(unix ms), written_plan_id INTEGER NULL, written_plan_updated_at INTEGER NULL, written_at INTEGER NULL, written_by TEXT NULL)`。1 機 1 行(1 プランは複数機に入れられる)。割当モード(spec 10 §6.6)と `/api/assignments`(spec 50 §2.2.2)の元。
+- `plan_id` は割り当てたプラン。プランを削除すると NULL(割当なし)になる。
+- `written_*` は最後に書き込んだ保存済みプランの id と版(`missions.updated_at`)、時刻、人。`POST …/mission/upload {mission_id}` が照合まで成功したときに付け、内容そのものの書込や読み戻し不一致で消す(4 列とも NULL)。`written_plan_id` は履歴なので外部キーを持たない。
+- 画面の状態バッジ: 一致 = `written_plan_id = plan_id` かつ `written_plan_updated_at` = プランの今の `updated_at`、更新あり = 同じプランで版が古い、書込待ち = 記録が無い(接続中)か別のプラン、不明 = 記録が無く未接続。
 
 ## 4. 検証の二重化
 
