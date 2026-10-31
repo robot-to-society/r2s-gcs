@@ -254,6 +254,20 @@ pub fn leg_distance_m(lat: f64, lon: f64, it: &MissionItem) -> f64 {
     chord / (2.0 * (theta / 2.0).sin().abs()) * theta
 }
 
+/// One item of [`Mission::for_vehicle`].
+fn vehicle_item(it: &MissionItem) -> MissionItem {
+    match it.command {
+        MAV_CMD_NAV_ARC_WAYPOINT => {
+            let [angle, p2, p3, p4] = it.params;
+            MissionItem {
+                params: [angle.round(), p2, p3, p4],
+                ..it.clone()
+            }
+        }
+        _ => it.clone(),
+    }
+}
+
 pub fn haversine_m(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     let (p1, p2) = (lat1.to_radians(), lat2.to_radians());
     let dp = p2 - p1;
@@ -267,22 +281,8 @@ impl Mission {
     /// sent: ArduPilot keeps an ARC_WAYPOINT angle as whole degrees (uint16 magnitude + a
     /// direction flag), so 45.5 is sent as 46 rather than read back as 45.
     pub fn for_vehicle(&self) -> Mission {
-        let items = self
-            .items
-            .iter()
-            .map(|it| match it.command {
-                MAV_CMD_NAV_ARC_WAYPOINT => {
-                    let [angle, p2, p3, p4] = it.params;
-                    MissionItem {
-                        params: [angle.round(), p2, p3, p4],
-                        ..it.clone()
-                    }
-                }
-                _ => it.clone(),
-            })
-            .collect();
         Mission {
-            items,
+            items: self.items.iter().map(vehicle_item).collect(),
             ..self.clone()
         }
     }
@@ -324,6 +324,8 @@ impl Mission {
                 .filter(|f| !(ground && f.code == "no_land_or_rtl")),
         );
         out.extend(self.survey_findings());
+        let sent: Vec<MissionItem> = self.items.iter().map(vehicle_item).collect();
+        out.extend(crate::mission_stored::ignored_param_findings(&sent, kind));
         if self.stats().duration_s > LONG_FLIGHT_S {
             out.push(Finding::warn(
                 "long_flight",

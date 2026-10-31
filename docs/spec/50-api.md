@@ -70,7 +70,7 @@
 | POST | `/api/missions/import` | 本文 = `.waypoints` テキスト(≤ 1 MB)、`X-Mission-Name` → 未保存の `Mission`。`400 invalid_waypoints` |
 | POST | `/api/missions/validate?sysid=` | `Mission` → `{findings: [Finding{level, code, seq, message}], stats: {distance_m, duration_s, max_alt}}`。`sysid` があれば機体のフェンス値で判定(未取得なら `fence_unknown` を付け `PARAM_REQUEST_READ`) |
 
-`Finding.code`: 致命 `empty` / `first_not_takeoff` / `fence_alt` / `fence_radius` / `jump_target`、警告 `fence_unknown` / `fence_frame_unchecked` / `mixed_frames` / `terrain_frame` / `zero_position` / `no_land_or_rtl` / `long_flight`。
+`Finding.code`: 致命 `empty` / `first_not_takeoff` / `fence_alt` / `fence_radius` / `jump_target`、警告 `fence_unknown` / `fence_frame_unchecked` / `mixed_frames` / `terrain_frame` / `zero_position` / `no_land_or_rtl` / `long_flight` / `param_ignored`(ArduPilot の AP_Mission が保存しない、または値を変えて保存する非ゼロのパラメータ。`seq` は該当項目、`message` にコマンド名とパラメータ番号。機体種別が不明なときは全ビルドで失われるものだけ。予測は `rgcs_core::as_stored`、アップロードの照合も同じ予測と比較する)。
 
 ### 2.2.2 フライトプラン(2026-10-31)
 画面の「フライトプラン」は API の保存済みミッション(`/api/missions`)そのもので、`id` がプラン ID。`DELETE /api/missions/{id}` は `204`(本文なし)、無ければ `404 not_found`。2026-10-20 に足したブリーフィング(`/api/briefings`、名前付きのミッションの組)は 2026-10-31 に廃止した(マイグレーション `0014_drop_briefings.sql` で表ごと削除。保存済みの組は移行しない)。

@@ -2,7 +2,8 @@
 //! small `Mission_Command` (`mavlink_int_to_mission_cmd`) and rebuilds the MAVLink item from it
 //! (`mission_cmd_to_mavlink_int`): a param it has no room for comes back as 0, an integer field
 //! comes back truncated and some fields come back as a flag or a constant. The upload check
-//! compares the read-back with this prediction.
+//! compares the read-back with this prediction, and the planner warns when a param the operator
+//! set would not survive (`param_ignored`).
 //!
 //! `AP_Mission.cpp:N` refers to ArduPilot master e96bd9053e, libraries/AP_Mission/AP_Mission.cpp
 //! (`mavlink_int_to_mission_cmd` from :1075, `mission_cmd_to_mavlink_int` from :1700); field
@@ -12,7 +13,7 @@
 //! sent. C's float → integer conversion truncates toward zero; out-of-range values are undefined
 //! behaviour there and are clamped here. A command not modelled below reads back as sent.
 
-use crate::mission::MissionItem;
+use crate::mission::{Finding, MissionItem};
 use crate::vehicle::VehicleKind;
 
 /// How one field survives storage.
@@ -294,6 +295,48 @@ pub fn stored_forms(item: &MissionItem, kind: Option<VehicleKind>) -> Vec<Missio
             }
         }
     }
+}
+
+/// params 1–4, then x / y / z (only for a command without a location).
+fn slots(it: &MissionItem) -> Vec<f64> {
+    let mut out: Vec<f64> = it.params.iter().map(|&v| f64::from(v)).collect();
+    if !stored_in_location(it.command) {
+        out.extend([it.lat, it.lon, f64::from(it.alt)]);
+    }
+    out
+}
+
+fn ignored_slot(it: &MissionItem, forms: &[MissionItem]) -> Vec<(usize, f64, f64)> {
+    let sent = slots(it);
+    let stored: Vec<Vec<f64>> = forms.iter().map(slots).collect();
+    (0..sent.len())
+        .filter(|&i| sent[i] != 0.0 && stored.iter().all(|s| s[i] != sent[i]))
+        .map(|i| (i, sent[i], stored[0][i]))
+        .collect()
+}
+
+/// `param_ignored` warnings: a non-zero param that ArduPilot (every build when `kind` is
+/// unknown) would drop or change. `items` are what RGCS sends.
+pub(crate) fn ignored_param_findings(items: &[MissionItem], kind: Option<VehicleKind>) -> Vec<Finding> {
+    let mut out = Vec::new();
+    for (i, it) in items.iter().enumerate() {
+        let Some((name, _)) = rule(it.command) else {
+            continue;
+        };
+        for (slot, sent, stored) in ignored_slot(it, &stored_forms(it, kind)) {
+            let how = if stored == 0.0 {
+                "is not stored by ArduPilot".to_string()
+            } else {
+                format!("is stored by ArduPilot as {}", stored as f32)
+            };
+            out.push(Finding::warn(
+                "param_ignored",
+                Some((i + 1) as u16),
+                format!("{name} param{} {} {how}", slot + 1, sent as f32),
+            ));
+        }
+    }
+    out
 }
 
 #[cfg(test)]

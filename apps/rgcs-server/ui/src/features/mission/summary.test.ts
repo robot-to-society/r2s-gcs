@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MissionItem } from '../../shared/api/types'
-import { localWarnings, stats } from './summary'
+import { dictionaries } from '../../shared/i18n'
+import { findingText, localWarnings, stats } from './summary'
 
 const item = (command: number, lat: number, lon: number, alt: number, p1 = 0): MissionItem => ({ command, frame: 'rel', params: [p1, 0, 0, 0], lat, lon, alt, autocontinue: true })
 
@@ -47,5 +48,13 @@ describe('summary', () => {
     expect(codes).not.toContain('first_not_takeoff')
     expect(codes).not.toContain('no_land_or_rtl')
     expect(localWarnings(wps, 2, 'copter').map((w) => w.code)).toContain('first_not_takeoff')
+  })
+})
+
+describe('findingText', () => {
+  it('translates the server param_ignored warning in both languages', () => {
+    expect(findingText('param_ignored', dictionaries.ja)).toContain('ArduPilot')
+    expect(findingText('param_ignored', dictionaries.en)).toContain('ArduPilot')
+    expect(findingText('param_ignored', dictionaries.ja)).not.toBe(findingText('param_ignored', dictionaries.en))
   })
 })

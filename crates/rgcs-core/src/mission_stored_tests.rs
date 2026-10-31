@@ -1,5 +1,5 @@
 use super::*;
-use crate::mission::MissionFrame;
+use crate::mission::{FenceInfo, FindingLevel, Mission, MissionFrame};
 
 /// A positioned item, or one with x / y / z at 0 for a command without a location.
 fn item(command: u16, params: [f32; 4]) -> MissionItem {
@@ -25,6 +25,22 @@ fn do_item(command: u16, params: [f32; 4], xyz: (f64, f64, f32)) -> MissionItem 
         lon: xyz.1,
         alt: xyz.2,
         ..item(command, params)
+    }
+}
+
+fn mission(items: Vec<MissionItem>) -> Mission {
+    Mission {
+        id: None,
+        name: "t".into(),
+        sysid: None,
+        default_alt: 50.0,
+        default_frame: MissionFrame::Rel,
+        speed: 8.0,
+        home: None,
+        items,
+        fence: Vec::new(),
+        rally: Vec::new(),
+        surveys: Vec::new(),
     }
 }
 
@@ -146,4 +162,71 @@ fn an_unknown_airframe_accepts_either_waypoint_packing() {
         [3.0, 0.0, 0.0, 0.0]
     );
     assert_eq!(stored_forms(&item(31, [0.0; 4]), None).len(), 1);
+}
+
+fn ignored(m: &Mission, kind: Option<VehicleKind>) -> Vec<crate::mission::Finding> {
+    m.validate_for(&FenceInfo::default(), kind)
+        .into_iter()
+        .filter(|f| f.code == "param_ignored")
+        .collect()
+}
+
+#[test]
+fn validation_warns_about_a_param_ardupilot_discards() {
+    let m = mission(vec![
+        item(84, [0.0; 4]),
+        item(31, [100.0, 0.0, 0.0, 0.0]),
+        item(19, [10.0, 0.0, 0.0, 0.0]),
+        item(85, [0.0; 4]),
+    ]);
+    let f = ignored(&m, Some(VehicleKind::Plane));
+    assert_eq!(f.len(), 1, "{f:?}");
+    assert_eq!(f[0].level, FindingLevel::Warn);
+    assert_eq!(f[0].seq, Some(2));
+    assert!(f[0].message.contains("NAV_LOITER_TO_ALT"), "{}", f[0].message);
+    assert!(f[0].message.contains("param1"), "{}", f[0].message);
+}
+
+#[test]
+fn validation_names_a_changed_param_and_skips_what_survives() {
+    let m = mission(vec![
+        item(22, [0.0; 4]),
+        item(16, [2.5, 0.0, 0.0, 0.0]),
+        item(16, [0.0, 5.0, 0.0, 0.0]),
+        item(178, [1.0, 8.5, -1.0, 0.0]),
+        item(20, [0.0; 4]),
+    ]);
+    let f = ignored(&m, Some(VehicleKind::Copter));
+    let seqs: Vec<_> = f.iter().map(|f| f.seq).collect();
+    assert_eq!(seqs, vec![Some(2), Some(3)], "{f:?}");
+    assert!(
+        f[0].message.contains("2.5") && f[0].message.contains('2'),
+        "{}",
+        f[0].message
+    );
+    assert!(f[1].message.contains("param2"), "{}", f[1].message);
+}
+
+#[test]
+fn an_unknown_airframe_warns_only_about_what_every_build_discards() {
+    let m = mission(vec![
+        item(22, [0.0; 4]),
+        item(16, [3.0, 0.0, 0.0, 0.0]),
+        item(16, [0.0, 5.0, 0.0, 0.0]),
+        item(31, [100.0, 0.0, 0.0, 0.0]),
+        item(20, [0.0; 4]),
+    ]);
+    let seqs: Vec<_> = ignored(&m, None).iter().map(|f| f.seq).collect();
+    assert_eq!(seqs, vec![Some(4)]);
+}
+
+#[test]
+fn validation_judges_the_arc_angle_rgcs_actually_sends() {
+    // for_vehicle rounds 45.5 to 46, which ArduPilot keeps: no warning about param1
+    let m = mission(vec![
+        item(22, [0.0; 4]),
+        item(36, [45.5, 0.0, 0.0, 0.0]),
+        item(20, [0.0; 4]),
+    ]);
+    assert!(ignored(&m, Some(VehicleKind::Copter)).is_empty());
 }
