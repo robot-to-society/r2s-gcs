@@ -1,4 +1,4 @@
-// Which planner map labels are shown (WP numbers, the 3D altitude chips). Kept per browser:
+// Which planner map labels are shown (WP numbers, the 3D altitude chips, the + between WPs). Kept per browser:
 // a viewing preference, never sent to the server.
 import { useSyncExternalStore } from 'react'
 
@@ -7,21 +7,27 @@ export interface LabelPrefs {
   readonly wpNumbers: boolean
   /** The altitude and frame chip under each waypoint ("80 m REL", 3D). */
   readonly altitudes: boolean
+  /** The "+" between two waypoints that inserts one (`.rg-mid`). */
+  readonly insertHandles: boolean
 }
 
 export type LabelKey = keyof LabelPrefs
 
 export const LABELS_KEY = 'rgcs.planLabels'
-export const DEFAULT_LABELS: LabelPrefs = { wpNumbers: true, altitudes: true }
+export const DEFAULT_LABELS: LabelPrefs = { wpNumbers: true, altitudes: true, insertHandles: true }
 
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>
 
+const KEYS = Object.keys(DEFAULT_LABELS) as LabelKey[]
+
+/** A stored entry; a key it lacks (saved by an older version) shows. Any wrong type: the defaults. */
 function read(storage: Storage): LabelPrefs {
   try {
     const p: unknown = JSON.parse(storage.getItem(LABELS_KEY) ?? 'null')
-    if (typeof p !== 'object' || p === null) return DEFAULT_LABELS
-    const { wpNumbers, altitudes } = p as Record<string, unknown>
-    return typeof wpNumbers === 'boolean' && typeof altitudes === 'boolean' ? { wpNumbers, altitudes } : DEFAULT_LABELS
+    if (typeof p !== 'object' || p === null || Array.isArray(p)) return DEFAULT_LABELS
+    const stored = p as Record<string, unknown>
+    if (KEYS.some((k) => k in stored && typeof stored[k] !== 'boolean')) return DEFAULT_LABELS
+    return Object.fromEntries(KEYS.map((k) => [k, stored[k] ?? DEFAULT_LABELS[k]])) as unknown as LabelPrefs
   } catch {
     return DEFAULT_LABELS
   }
@@ -64,4 +70,4 @@ export function useLabelPrefs(store: LabelPrefsStore = labelPrefsStore()): Label
 }
 
 /** Classes for the planner root that hide the labels switched off (styles/mission.css). */
-export const labelClasses = (p: LabelPrefs): string => `${p.wpNumbers ? '' : ' labels-no-num'}${p.altitudes ? '' : ' labels-no-alt'}`
+export const labelClasses = (p: LabelPrefs): string => `${p.wpNumbers ? '' : ' labels-no-num'}${p.altitudes ? '' : ' labels-no-alt'}${p.insertHandles ? '' : ' labels-no-mid'}`

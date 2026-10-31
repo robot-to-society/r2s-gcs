@@ -147,3 +147,5 @@
 .labels-no-num .rg-wp .dot { width: 16px; height: 16px; font-size: 0; }
 .labels-no-num .rg-wp.sel .dot { width: 18px; height: 18px; }
 .labels-no-alt .rg-wp .chips { display: none; }
+/* Insert buttons off: waypoints can still be inserted from the command palette or the right-click menu. */
+.labels-no-mid .rg-mid { display: none; }

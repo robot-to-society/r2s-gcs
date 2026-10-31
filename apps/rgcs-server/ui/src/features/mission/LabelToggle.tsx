@@ -12,7 +12,7 @@ interface Props {
   readonly className?: string
 }
 
-/** Map labels button + menu: show or hide the WP numbers and the altitude chips, one by one. */
+/** Map labels button + menu: show or hide the WP numbers, the altitude chips and the + between WPs, one by one. */
 export function LabelToggle({ prefs, dict, onToggle, className = 'float map-r top3' }: Props) {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
@@ -20,6 +20,7 @@ export function LabelToggle({ prefs, dict, onToggle, className = 'float map-r to
   const items: readonly [LabelKey, string][] = [
     ['wpNumbers', dict.mLabelWp],
     ['altitudes', dict.mLabelAlt],
+    ['insertHandles', dict.mLabelInsert],
   ]
   return (
     <div ref={box} className={`basemap-picker ${className}`}>
