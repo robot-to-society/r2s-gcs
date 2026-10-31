@@ -8,7 +8,7 @@ import { nextColor } from '../plans/palette'
 import type { Assignments } from './store'
 
 /** A saved plan with its version (`missions.updated_at`, ms); `Mission` alone does not carry it. */
-export interface LibraryPlan {
+export interface VersionedPlan {
   readonly id: number
   readonly updated_at: number
   readonly mission: Mission
@@ -27,7 +27,6 @@ export type CompatKey = 'asRoverNoTakeoff' | 'asAirNeedsTakeoff'
 
 const NAV_TAKEOFF = 22
 const NAV_VTOL_TAKEOFF = 84
-const AIR: ReadonlySet<VehicleKind> = new Set<VehicleKind>(['copter', 'plane'])
 
 /** Spec §5. `plan` is the assigned plan as loaded now (undefined while unknown to the board). */
 export function cardStatus(a: Assignment | undefined, plan: PlanVersion | undefined, online: boolean): CardStatus {
@@ -40,14 +39,13 @@ export function cardStatus(a: Assignment | undefined, plan: PlanVersion | undefi
 
 /**
  * Mirrors the takeoff rule of `Mission::validate_for(kind)`: an air vehicle needs a first item
- * that takes off, a rover cannot take one. `other` is not judged here (the server still is).
+ * that takes off, a rover cannot take one. Like the server's `validate_for`, every other kind (`other` included) needs one.
  */
 export function compatibility(plan: Mission, kind: VehicleKind): CompatKey | null {
   const first = plan.items[0]?.command
   const takesOff = first === NAV_TAKEOFF || first === NAV_VTOL_TAKEOFF
   if (kind === 'rover') return takesOff ? 'asRoverNoTakeoff' : null
-  if (AIR.has(kind)) return takesOff ? null : 'asAirNeedsTakeoff'
-  return null
+  return takesOff ? null : 'asAirNeedsTakeoff'
 }
 
 /** Estimated minutes / endurance minutes in percent (目安); null when unknown or incompatible. */
@@ -60,7 +58,7 @@ export function batteryPct(plan: Mission, kind: VehicleKind, enduranceMin: numbe
 type TargetVehicle = Pick<VehicleState, 'sysid' | 'kind' | 'link'>
 
 /** Online vehicles whose card is pending or updated and whose plan suits them, by sysid. */
-export function writeTargets(vehicles: readonly TargetVehicle[], assignments: Assignments, plans: readonly LibraryPlan[]): number[] {
+export function writeTargets(vehicles: readonly TargetVehicle[], assignments: Assignments, plans: readonly VersionedPlan[]): number[] {
   const byId = new Map(plans.map((p) => [p.id, p]))
   return vehicles
     .filter((v) => {

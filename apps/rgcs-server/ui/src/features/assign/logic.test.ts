@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Assignment, Mission, MissionItem, VehicleKind } from '../../shared/api/types'
 import { PALETTE } from '../plans/palette'
-import { batteryPct, cardStatus, compatibility, planColours, writeTargets, type CardStatus, type LibraryPlan } from './logic'
+import { batteryPct, cardStatus, compatibility, planColours, writeTargets, type CardStatus, type VersionedPlan } from './logic'
 
 const item = (command: number, hold = 0): MissionItem => ({ command, frame: 'rel', params: [hold, 0, 0, 0], lat: 36.25, lon: 137.64, alt: 50, autocontinue: true })
 
@@ -19,7 +19,7 @@ const mission = (id: number, items: readonly MissionItem[]): Mission => ({
   surveys: [],
 })
 
-const lib = (id: number, updated_at: number, items: readonly MissionItem[] = [item(22), item(16)]): LibraryPlan => ({ id, updated_at, mission: mission(id, items) })
+const lib = (id: number, updated_at: number, items: readonly MissionItem[] = [item(22), item(16)]): VersionedPlan => ({ id, updated_at, mission: mission(id, items) })
 
 const written = (plan_id: number, plan_updated_at: number) => ({ plan_id, plan_updated_at, at: 1, by: 'admin' })
 
@@ -61,7 +61,7 @@ describe('compatibility', () => {
     ['plane without a takeoff', ground, 'plane', 'asAirNeedsTakeoff'],
     ['copter with an empty plan', empty, 'copter', 'asAirNeedsTakeoff'],
     ['rover with an empty plan', empty, 'rover', null],
-    ['other kind is not judged', ground, 'other', null],
+    ['other kind flies like the server judges it', ground, 'other', 'asAirNeedsTakeoff'],
   ]
   it.each(rows)('%s', (_name, m, kind, want) => {
     expect(compatibility(m, kind)).toBe(want)
