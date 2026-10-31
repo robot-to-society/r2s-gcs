@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { Mission } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { hhmmss } from '../../shared/format/time'
+import { planLibraryChanged } from '../assign/usePlanLibrary'
 import { openMission } from '../plans/usePlanSet'
 import { assign, forgetSaved } from '../plans/model'
 import type { PlanSetStore } from '../plans/store'
@@ -48,6 +49,7 @@ export function useMissionIo(store: MissionStore, plans: PlanSetStore, sysid: nu
       const saved = ui.savedId === null ? await createMission(mission) : await updateMission(ui.savedId, mission)
       const id = saved.id ?? ui.savedId
       if (id !== null) store.update((u) => markSaved(u, id))
+      planLibraryChanged()
       return id
     } catch (e) {
       result('mission_save', false, errText(e))
@@ -164,6 +166,7 @@ export function useMissionIo(store: MissionStore, plans: PlanSetStore, sysid: nu
     }
     plans.update((w) => forgetSaved(w, id))
     store.update((ui) => (ui.savedId === id ? { ...ui, savedId: null, dirty: true } : ui))
+    planLibraryChanged()
     return true
   }
 
