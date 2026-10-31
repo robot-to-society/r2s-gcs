@@ -4,6 +4,7 @@ import { introStore, prefersReducedMotion, useIntro, type IntroStore } from '../
 import { Login } from '../features/auth/Login'
 import { LoginBackdrop, LoginOverlay } from '../features/auth/LoginScene'
 import { authStore, useAuth, type AuthStore } from '../features/auth/store'
+import { assignmentStore } from '../features/assign/store'
 import { vehicleStore } from '../features/vehicles/store'
 import { useLang } from '../shared/i18n/lang'
 import { useTheme } from '../shared/theme/theme'
@@ -64,10 +65,15 @@ export function App({ store = authStore, intro: introSource = introStore }: Prop
 
   useEffect(() => {
     if (auth.status !== 'authed') return
+    // attached first: the connect's snapshot frame loads the assignment table
+    const detach = assignmentStore.attach(vehicleStore)
     vehicleStore.connect(defaultWsUrl(), (code) => {
       if (RECHECK_SESSION_CODES.has(code)) void store.recheck()
     })
-    return () => vehicleStore.disconnect()
+    return () => {
+      vehicleStore.disconnect()
+      detach()
+    }
   }, [auth.status, store])
 
   if (auth.status === 'unknown') return null
