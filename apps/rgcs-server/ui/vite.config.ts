@@ -8,6 +8,8 @@ const SERVER = process.env.RGCS_SERVER ?? 'http://127.0.0.1:8000'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Tailscale MagicDNS names (`tailscale serve` forwards the tailnet's :5173 to this server).
+    allowedHosts: ['.ts.net'],
     proxy: {
       '/api': SERVER,
       '/ws': { target: SERVER.replace(/^http/, 'ws'), ws: true },
