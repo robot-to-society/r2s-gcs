@@ -5,7 +5,7 @@ import { t } from '../../shared/i18n'
 import { MissionStore } from '../mission/store'
 import { PlanSetStore } from '../plans/store'
 import { BatchWriteSheet, type SheetLine } from '../plans/BatchWriteSheet'
-import { AssignBoard, FLASH_MS, type AssignBoardProps } from './AssignBoard'
+import { AssignBoard, type AssignBoardProps } from './AssignBoard'
 import { AssignmentStore, type AssignApi } from './store'
 import { clearPlanLibraryCache, type LibraryApi } from './usePlanLibrary'
 
@@ -139,7 +139,8 @@ describe('AssignBoard', () => {
     fireEvent.click(planCard('上高地 北'))
     later()
     fireEvent.click(vehicleCard('UGV-03'))
-    expect(flashOf(vehicleCard('UGV-03'))).toBe('Rover は離陸のあるプランを走れません')
+    // the card already says why (its reason line), once; nothing is sent
+    expect(within(vehicleCard('UGV-03')).getAllByText('Rover は離陸のあるプランを走れません')).toHaveLength(1)
     expect(put).not.toHaveBeenCalled()
     // a drop there is refused too
     const mouse = { pointerType: 'mouse', pointerId: 1, button: 0 }
@@ -148,7 +149,7 @@ describe('AssignBoard', () => {
     fireEvent.pointerMove(window, { ...mouse, clientX: 300, clientY: 40 })
     fireEvent.pointerUp(window, { ...mouse, clientX: 300, clientY: 40 })
     expect(put).not.toHaveBeenCalled()
-    await waitFor(() => expect(flashOf(vehicleCard('UGV-03'))).toBeNull(), { timeout: FLASH_MS + 1000 })
+    expect(flashOf(vehicleCard('UGV-03'))).toBeNull()
   })
 
   it('double_tap_focuses_the_map', async () => {
