@@ -143,3 +143,7 @@
 /* the header wraps its buttons below the title instead of clipping ライブラリに保存 (UX-34) */
 .mission-right .sec > .row:first-child { flex-wrap: wrap; row-gap: 6px; }
 .mission-head-btns { gap: 6px; margin-left: auto; }
+/* Map labels switched off in the planner (LabelToggle): a numberless dot keeps its hit area small but grabbable. */
+.labels-no-num .rg-wp .dot { width: 16px; height: 16px; font-size: 0; }
+.labels-no-num .rg-wp.sel .dot { width: 18px; height: 18px; }
+.labels-no-alt .rg-wp .chips { display: none; }

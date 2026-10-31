@@ -48,6 +48,8 @@ import { appendWaypoint, moveItemsTo, takeoffFor, clearItems, insertAfter, inser
 import { MissionStore, addToSelection, clearSelection, copySelected, dismissNotice, pasteClipboard, edit, missionStore, redoUi, removeSelected, selectOne, selectRange, setTool, undoUi, useMissionUi } from './store'
 import { localWarnings, stats } from './summary'
 import { BasemapPicker } from '../map/BasemapPicker'
+import { LabelToggle } from './LabelToggle'
+import { labelClasses, labelPrefsStore, useLabelPrefs, type LabelPrefsStore } from './labelPrefs'
 import { MapModeToggle } from '../map/MapModeToggle'
 import { saveMapMode, useMapMode } from '../map/mapMode'
 import type { Basemap, MissionTransfer } from '../../shared/api/types'
@@ -65,6 +67,8 @@ interface Props {
   readonly terrainTiles?: string | null
   readonly store?: MissionStore
   readonly plans?: PlanSetStore
+  /** Which map labels show (tests pass their own store). */
+  readonly labels?: LabelPrefsStore
   /** The vehicle selected in the ops list: 機体から読込 offers it when no target is chosen. */
   readonly opsSelected?: number | null
 }
@@ -73,7 +77,7 @@ const NUDGE = 0.0001
 const NO_TRANSFERS: ReadonlyMap<number, MissionTransfer> = new Map()
 
 /** The mission planning screen (spec 10 §6, 2D subset) built on the Glass prototype's layout. */
-export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore, plans = planSetStore, opsSelected = null }: Props) {
+export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore, plans = planSetStore, labels, opsSelected = null }: Props) {
   const mapMode = useMapMode()
   const is3d = mapMode === '3d' && terrainTiles !== null
   const ui = useMissionUi(store)
@@ -90,6 +94,8 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   const plansMap = usePlanSetMap(openPlans.list.workspace)
   const board = useAssignMode(vehicles)
   const editing = !board.on
+  const labelStore = labels ?? labelPrefsStore()
+  const labelPrefs = useLabelPrefs(labelStore)
   const assignments = useAssignments()
   const [bulk, setBulk] = useState<{ alt: string; frame: MissionFrame }>({ alt: String(draft.mission.default_alt), frame: draft.mission.default_frame })
   const file = useRef<HTMLInputElement>(null)
@@ -163,7 +169,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
   }
 
   return (
-    <div className={`mission-view${editing ? (panel.collapsed ? ' panel-collapsed' : '') : ' assign-mode'}`} style={{ position: 'absolute', inset: 0 }} tabIndex={-1} onKeyDown={onKeyDown} data-testid="mission-view">
+    <div className={`mission-view${editing ? (panel.collapsed ? ' panel-collapsed' : '') : ' assign-mode'}${labelClasses(labelPrefs)}`} style={{ position: 'absolute', inset: 0 }} tabIndex={-1} onKeyDown={onKeyDown} data-testid="mission-view">
       <MissionMap
         draft={sv.mapDraft}
         selected={ui.selected}
@@ -207,6 +213,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       </div>
       <MapFinder vehicles={located} dict={dict} onGo={(to) => setFocus((f) => ({ ...to, seq: (f?.seq ?? 0) + 1 }))} />
       {basemap && onPickBasemap && basemaps.length > 1 && <BasemapPicker basemaps={basemaps} current={basemap.id} dict={dict} onPick={onPickBasemap} className="float map-r top2" />}
+      {editing && <LabelToggle prefs={labelPrefs} dict={dict} onToggle={(k) => labelStore.toggle(k)} className={`float map-r ${basemap && onPickBasemap && basemaps.length > 1 ? 'top3' : 'top2'}`} />}
       <MapModeToggle mode={mapMode} available={terrainTiles !== null} dict={dict} onChange={saveMapMode} />
       {ui.busy === 'idle' && <ModeSwitch on={board.on} dict={dict} onChange={board.setOn} />}
       {editing && <PlanTabs tab={plan.tab} dict={dict} onChange={plan.setTab} />}

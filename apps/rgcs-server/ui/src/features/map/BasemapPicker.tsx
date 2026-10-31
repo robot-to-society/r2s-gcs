@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Basemap } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconCheck, IconLayers } from '../../shared/ui/icons'
+import { useDismiss } from './useDismiss'
 
 interface Props {
   readonly basemaps: readonly Basemap[]
@@ -44,21 +45,4 @@ export function BasemapPicker({ basemaps, current, dict, onPick, className = 'fl
       )}
     </div>
   )
-}
-
-/** Closes the menu on Escape or a press outside it, like the user popover (UX-06). */
-function useDismiss(open: boolean, box: React.RefObject<HTMLDivElement | null>, close: () => void): void {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close()
-    const onDown = (e: PointerEvent) => {
-      if (e.target instanceof Node && !box.current?.contains(e.target)) close()
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onDown)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onDown)
-    }
-  }, [open, box, close])
 }

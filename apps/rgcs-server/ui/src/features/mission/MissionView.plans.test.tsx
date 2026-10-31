@@ -66,6 +66,23 @@ describe('MissionView plans feedback (§9)', () => {
     expect(screen.getByRole('list', { name: '開いているプラン' })).toBeInTheDocument()
   })
 
+  it('the_label_menu_hides_wp_numbers_and_altitudes_one_by_one', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => envelope([])))
+    const { LabelPrefsStore } = await import('./labelPrefs')
+    const items: Record<string, string> = {}
+    const labels = new LabelPrefsStore({ getItem: (k) => items[k] ?? null, setItem: (k, v) => void (items[k] = v) })
+    render(<MissionView vehicles={new Map([[1, copter]])} dict={t('ja')} style={style} store={new MissionStore()} plans={new PlanSetStore()} labels={labels} />)
+    const root = screen.getByTestId('mission-view')
+    fireEvent.click(screen.getByRole('button', { name: '地図のラベル' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'WP 番号' }))
+    expect(root.classList.contains('labels-no-num')).toBe(true)
+    expect(root.classList.contains('labels-no-alt')).toBe(false)
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '高度と高度の種類 (3D)' }))
+    expect(root.classList.contains('labels-no-alt')).toBe(true)
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'WP 番号' }))
+    expect(root.classList.contains('labels-no-num')).toBe(false)
+  })
+
   it('several_files_open_several_rows_and_a_bad_one_does_not_stop_the_rest', async () => {
     const { store } = setup()
     expect((screen.getByTestId('mission-file') as HTMLInputElement).multiple).toBe(true)
