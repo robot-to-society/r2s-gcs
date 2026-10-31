@@ -5,7 +5,7 @@ import type { VehicleState } from '../../shared/api/types'
 import { hasPosition as vehicleHasPosition, markerEl, updateMarkerEl } from '../map/markers'
 import { hasPosition, pathGeoJson, placeTakeoffs, takeoffAnchor } from './geo'
 import { badgeEl, dragDelta, handleEl, midHandles, updateBadgeEl, type ContextMenu } from './mapEdit'
-import { cmdKey, isTakeoff, moveItem, moveItems, setArc, shiftAlts, type Draft, type DraftItem } from './model'
+import { cmdKey, emptyDraft, isTakeoff, moveItem, moveItems, setArc, shiftAlts, type Draft, type DraftItem } from './model'
 import type { Tool } from './store'
 import { useBasemapSwap } from '../map/basemaps'
 import { addPredictedLayer, setPredicted } from '../map/predictedLayer'
@@ -22,6 +22,8 @@ import type { OtherMission } from '../plans/overlay'
 import { usePlanSetOverlay } from '../plans/usePlanSetOverlay'
 import { useSurveyDrawLayer, type SurveyDrawMap } from '../survey/surveyDrawLayer'
 import { useSettled, useSurveyMap, type SurveyMapProps } from '../survey/surveyMap'
+import type { AssignOverlayInput } from '../assign/assignOverlay'
+import { useAssignOverlay } from '../assign/useAssignOverlay'
 
 interface Props {
   readonly draft: Draft
@@ -73,6 +75,8 @@ interface Props {
   readonly surveyDraw?: SurveyDrawMap | null
   /** The surveys' layers and their vertex / rotate drags. */
   readonly survey?: SurveyMapProps | null
+  /** The assignment board: its overlay replaces the active plan, nothing is edited. */
+  readonly assign?: AssignOverlayInput | null
 }
 
 const HOME: [number, number] = [139.372, 36.162]
@@ -86,6 +90,8 @@ const VEHICLE_OFFSET = [-17, 0] as const
 const PATH = 'mission-path'
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 const NO_OTHERS: readonly OtherMission[] = []
+/** What the editing layers draw while the board is open: nothing. */
+const BLANK = emptyDraft()
 const NO_SURVEY: SurveyMapProps = { metrics: () => null, onPolygon: () => {}, onAngle: () => {}, onCancel: () => {}, showFootprints: false, previewing: false }
 /** `--accent` → `--alt-hi` (spec 10 §6: the path is coloured by altitude). */
 const ALT_COLOR: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'alt_t'], 0, '#9cc9ff', 1, '#d8a8ff']
@@ -99,7 +105,9 @@ type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap'
 
 /** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
-  const { draft, selected, tool, style, vehicle, fitRequest } = props
+  const { selected, tool, style, fitRequest } = props
+  const assign = props.assign ?? null
+  const [draft, vehicle, others] = assign ? [BLANK, null, NO_OTHERS] : [props.draft, props.vehicle, props.others ?? NO_OTHERS]
   const tab = props.tab ?? 'mission'
   const tabRef = useRef(tab)
   tabRef.current = tab
@@ -153,6 +161,7 @@ export function MissionMap(props: Props) {
     })
     m.on('click', (e) => {
       const t = tabRef.current
+      if (cb.current.assign) return
       if (t !== 'mission') return cb.current.onPlanClick(t, e.lngLat.lat, e.lngLat.lng)
       if (cb.current.surveyDraw) return cb.current.surveyDraw.onClick(e.lngLat.lat, e.lngLat.lng)
       if (toolRef.current === 'add') cb.current.onAdd(e.lngLat.lat, e.lngLat.lng)
@@ -190,7 +199,7 @@ export function MissionMap(props: Props) {
     src?.setData(pathGeoJson(shown.items, shown.mission.home))
   }, [shown])
 
-  const predict = props.predict
+  const predict = assign ? undefined : props.predict
   const settled = useSettled(shown, previewing)
   const predicted = useMemo(() => (predict ? predict(settled) : null), [predict, settled])
   const predictedRef = useRef(predicted)
@@ -252,7 +261,7 @@ export function MissionMap(props: Props) {
   }, [draft, drawing, previewing])
 
   // After the map, the badges and the handles exist: effects run in declaration order.
-  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle), predicted, others: props.others ?? NO_OTHERS, color: pathColor ?? null })
+  air.current = useMissionAir({ map, loaded, mode: props.mode ?? '2d', terrainTiles: props.terrainTiles ?? null, draft: shown, selected, badges, handles, ceiling: props.ceiling ?? null, vehicleHome: vehicleHomeOf(vehicle), predicted, others, color: pathColor ?? null })
   const feetCb = useRef<FeetCallbacks>(null!)
   feetCb.current = {
     onPreview: (uid, multi, from, to) => setPreview(() => (d: Draft) => (multi ? moveItems(d, selectedRef.current, to.lat - from.lat, to.lon - from.lon) : moveItem(d, uid, to.lat, to.lon))),
@@ -270,9 +279,10 @@ export function MissionMap(props: Props) {
   useFenceRally({ map, loaded, draft: shown, tab, onFenceEdit, onRallyMove })
   const onBox = useRef((uids: number[]) => cb.current.onBoxSelect(uids))
   const boxActive = useRef(tab === 'mission')
-  boxActive.current = tab === 'mission' && !drawing
+  boxActive.current = tab === 'mission' && !drawing && !assign
   useBoxSelect(container, badges, onBox, boxActive)
-  usePlanSetOverlay({ map, loaded, others: props.others ?? NO_OTHERS, is3d })
+  usePlanSetOverlay({ map, loaded, others: others, is3d })
+  useAssignOverlay({ map, loaded, assign })
   useSurveyDrawLayer({ map, loaded, draw: props.surveyDraw ?? null })
   useSurveyMap({ map, loaded, draft: shown, is3d, editable: tab === 'mission' && !drawing, ...(props.survey ?? NO_SURVEY) })
 

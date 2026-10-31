@@ -1,0 +1,5 @@
+/* Plan assignment board (spec 2026-10-31, mock assign-board.html). Tokens from prototype.css. */
+
+/* map overlay (§3.4): plan names at their start, vehicles filled with their plan's colour */
+.as-map-label { font: 600 12px/1 var(--font); white-space: nowrap; pointer-events: none; text-shadow: 0 0 3px #0b1018, 0 0 3px #0b1018, 0 0 2px #0b1018; }
+.rg-mk.as-veh .vmk .disc { background: var(--as-plan, #4b5664); color: #fff; }
