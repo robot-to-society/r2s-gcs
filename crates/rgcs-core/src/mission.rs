@@ -166,6 +166,20 @@ pub struct Finding {
     /// 1-based mission sequence of the offending item, when there is one.
     pub seq: Option<u16>,
     pub message: String,
+    /// `param_ignored` only: the param that ArduPilot would not keep as sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub param: Option<StoredParam>,
+}
+
+/// A mission item field as sent and as ArduPilot would store it.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct StoredParam {
+    /// MAVLink param index: 1–4 are params, 5 / 6 / 7 are x / y / z.
+    pub index: u8,
+    pub sent: f32,
+    pub stored: f32,
 }
 
 impl Finding {
@@ -175,6 +189,7 @@ impl Finding {
             code: code.into(),
             seq,
             message: message.into(),
+            param: None,
         }
     }
 
@@ -184,6 +199,7 @@ impl Finding {
             code: code.into(),
             seq,
             message: message.into(),
+            param: None,
         }
     }
 }

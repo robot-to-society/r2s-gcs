@@ -331,6 +331,22 @@ describe('MissionView', () => {
     expect(calls).toEqual(['POST /api/missions/validate?sysid=1'])
   })
 
+  it('a param_ignored warning says which param and what ArduPilot keeps', async () => {
+    const findings = [
+      { level: 'fatal', code: 'first_not_takeoff', seq: 1, message: 'x' },
+      { level: 'warn', code: 'param_ignored', seq: 2, message: 'x', param: { index: 1, sent: 2.5, stored: 2 } },
+    ]
+    setup((url) => (url.startsWith('/api/missions/validate') ? envelope({ findings, stats: { distance_m: 0, duration_s: 0, max_alt: 0 } }) : envelope([])))
+    addPoints(2)
+    target()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '機体に書き込む' }))
+    })
+    const summary = screen.getByTestId('mission-summary')
+    expect(within(summary).getByText(/^ArduPilot が保存しない/)).toBeInTheDocument()
+    expect(within(summary).getByText(/\(2\.5\) は 2 として保存されます$/)).toBeInTheDocument()
+  })
+
   it('with several vehicles connected the write asks which ones, then writes each in turn', async () => {
     const two = new Map([[1, copter], [2, { ...copter, sysid: 2, name: 'UAV-02' }], [3, { ...copter, sysid: 3, name: 'UAV-03', link: 'lost' as const }]])
     const ok = { findings: [], stats: { distance_m: 0, duration_s: 0, max_alt: 0 } }

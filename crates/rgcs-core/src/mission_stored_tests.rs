@@ -185,6 +185,14 @@ fn validation_warns_about_a_param_ardupilot_discards() {
     assert_eq!(f[0].seq, Some(2));
     assert!(f[0].message.contains("NAV_LOITER_TO_ALT"), "{}", f[0].message);
     assert!(f[0].message.contains("param1"), "{}", f[0].message);
+    assert_eq!(
+        f[0].param,
+        Some(crate::mission::StoredParam {
+            index: 1,
+            sent: 100.0,
+            stored: 0.0
+        })
+    );
 }
 
 #[test]
@@ -205,6 +213,16 @@ fn validation_names_a_changed_param_and_skips_what_survives() {
         f[0].message
     );
     assert!(f[1].message.contains("param2"), "{}", f[1].message);
+    let change = f[0].param.expect("param detail");
+    assert_eq!((change.index, change.sent, change.stored), (1, 2.5, 2.0));
+}
+
+#[test]
+fn other_findings_carry_no_param_detail() {
+    let m = mission(vec![item(16, [0.0; 4])]);
+    let f = m.validate_for(&FenceInfo::default(), Some(VehicleKind::Copter));
+    assert!(!f.is_empty());
+    assert!(f.iter().all(|f| f.param.is_none()), "{f:?}");
 }
 
 #[test]

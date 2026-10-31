@@ -7,6 +7,7 @@ import { SurveyPanel } from '../survey/SurveyPanel'
 import type { SurveyEditor } from '../survey/useSurveyEditor'
 import { durText, km } from './labels'
 import type { Draft, DraftItem } from './model'
+import { findingDetail } from './findingDetail'
 import { findingText, type LocalWarning } from './summary'
 import { CollapseButton } from './PlanRail'
 import { TransferBar } from './TransferBar'
@@ -159,12 +160,18 @@ export function MissionSidebar(p: Props) {
             {p.kind !== 'rover' && <span className="t2">{dict.mMaxAlt}</span>}
             {p.kind !== 'rover' && <span>{`${Math.round(p.stats.max_alt)} m`}</span>}
           </div>
-          {p.findings.map((f, i) => (
-            <div key={`f${i}`} className={`warnbox${f.level === 'fatal' ? ' fatal' : ''}`} role="listitem">
-              <span className="seq">{f.seq !== null ? `#${f.seq}` : ''}</span>
-              <span>{findingText(f.code, dict)}</span>
-            </div>
-          ))}
+          {p.findings.map((f, i) => {
+            const detail = findingDetail(f, draft.items, dict)
+            return (
+              <div key={`f${i}`} className={`warnbox${f.level === 'fatal' ? ' fatal' : ''}`} role="listitem">
+                <span className="seq">{f.seq !== null ? `#${f.seq}` : ''}</span>
+                <span>
+                  {findingText(f.code, dict)}
+                  {detail && <span className="warn-detail">{detail}</span>}
+                </span>
+              </div>
+            )
+          })}
           {p.warnings
             .filter((w) => !p.findings.some((f) => f.code === w.code))
             .map((w, i) => (

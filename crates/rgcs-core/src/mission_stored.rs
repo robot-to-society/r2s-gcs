@@ -13,7 +13,7 @@
 //! sent. C's float → integer conversion truncates toward zero; out-of-range values are undefined
 //! behaviour there and are clamped here. A command not modelled below reads back as sent.
 
-use crate::mission::{Finding, MissionItem};
+use crate::mission::{Finding, MissionItem, StoredParam};
 use crate::vehicle::VehicleKind;
 
 /// How one field survives storage.
@@ -329,11 +329,17 @@ pub(crate) fn ignored_param_findings(items: &[MissionItem], kind: Option<Vehicle
             } else {
                 format!("is stored by ArduPilot as {}", stored as f32)
             };
-            out.push(Finding::warn(
+            let mut f = Finding::warn(
                 "param_ignored",
                 Some((i + 1) as u16),
                 format!("{name} param{} {} {how}", slot + 1, sent as f32),
-            ));
+            );
+            f.param = Some(StoredParam {
+                index: (slot + 1) as u8,
+                sent: sent as f32,
+                stored: stored as f32,
+            });
+            out.push(f);
         }
     }
     out
