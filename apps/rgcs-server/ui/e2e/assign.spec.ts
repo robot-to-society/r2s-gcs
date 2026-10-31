@@ -51,8 +51,11 @@ test('the board lists saved plans, shows no vehicles without a link and 編集 r
       await expect(planCard(page, name)).toBeVisible()
       await expect(planCard(page, name).locator('.as-ptag')).toHaveText('未割当')
     }
-    await expect(vehicleList(page)).toContainText('該当する機体はありません')
-    await expect(vehicleList(page).locator('.as-vcard')).toHaveCount(0)
+    // without --with-sitl the server has no link: the vehicle panel shows its empty state
+    if (!process.env.RGCS_E2E_SITL) {
+      await expect(vehicleList(page)).toContainText('該当する機体はありません')
+      await expect(vehicleList(page).locator('.as-vcard')).toHaveCount(0)
+    }
     await page.getByRole('group', { name: 'モード' }).getByRole('button', { name: '編集' }).click()
     await expect(page.getByRole('complementary', { name: 'プラン', exact: true })).toHaveCount(0)
     await expect(page.getByLabel('プラン名')).toBeVisible()
