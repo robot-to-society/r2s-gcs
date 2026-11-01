@@ -194,7 +194,7 @@ mod tests {
             .put_pilot(
                 "admin",
                 &PilotInput {
-                    full_name: "川村".into(),
+                    full_name: "山田".into(),
                     license_no: "T123".into()
                 }
             )

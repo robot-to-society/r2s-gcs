@@ -11,14 +11,14 @@
 # --publish: SERIAL0 / 1 / 2 (tcp 5760+10*I, +2, +3) and RC input (udp 5501+10*I) on the
 #   host's 127.0.0.1, like a native SITL. Instance state (eeprom, logs) in .dev/sitl/<name>.
 #
-# Env: ARDUPILOT_DIR (checkout with submodules; default ~/github/rtos/ardupilot), SITL_SPEEDUP.
+# Env: ARDUPILOT_DIR (checkout with submodules; default ../ardupilot next to this repo), SITL_SPEEDUP.
 # Build output: .dev/sitl-docker/{build,ccache} (git-ignored). Rebuild after updating the checkout.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/.dev/sitl-docker"
 IMAGE="rgcs-sitl:latest"
-ARDUPILOT_DIR="${ARDUPILOT_DIR:-$HOME/github/rtos/ardupilot}"
+ARDUPILOT_DIR="${ARDUPILOT_DIR:-$(dirname "$ROOT")/ardupilot}"
 SITL_SPEEDUP="${SITL_SPEEDUP:-1}"
 USER_ARGS=(--user "$(id -u):$(id -g)" -e HOME=/tmp)
 

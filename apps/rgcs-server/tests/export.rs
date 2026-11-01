@@ -41,7 +41,7 @@ fn flight(i: u64, squawks: usize) -> Flight {
         id: i as i64 + 1,
         sysid: 1,
         status: FlightStatus::Confirmed,
-        pilot: "川村".into(),
+        pilot: "山田".into(),
         pilot_license: "T123".into(),
         takeoff_at: takeoff,
         landed_at: Some(takeoff + 90_000),
@@ -69,7 +69,7 @@ fn flight(i: u64, squawks: usize) -> Flight {
                 description: "振動が大きい".into(),
                 action_on: "2026-12-06".into(),
                 action: "プロペラ交換".into(),
-                confirmer: "川村".into(),
+                confirmer: "山田".into(),
                 created_by: "admin".into(),
                 created_at: 0,
             })
@@ -193,7 +193,7 @@ fn csv_form1_has_bom_crlf_and_squawks() {
         "{header}"
     );
     assert!(
-        csv.contains("発生 2026-12-05: 振動が大きい → 処置 2026-12-06: プロペラ交換 (川村)"),
+        csv.contains("発生 2026-12-05: 振動が大きい → 処置 2026-12-06: プロペラ交換 (山田)"),
         "{csv}"
     );
     assert!(csv.contains("10:00,10:01,2,102"), "{csv}");

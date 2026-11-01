@@ -95,11 +95,11 @@ describe('AppTab', () => {
   it('pilot_form_saves_my_name_and_license', async () => {
     const { calls } = setup('operator')
     await waitFor(() => expect(screen.getByLabelText('氏名')).toBeInTheDocument())
-    fireEvent.change(screen.getByLabelText('氏名'), { target: { value: '川村' } })
+    fireEvent.change(screen.getByLabelText('氏名'), { target: { value: '山田' } })
     fireEvent.change(screen.getByLabelText('技能証明書番号'), { target: { value: 'T123' } })
     fireEvent.click(within(screen.getByTestId('pilot-card')).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/users/me/pilot') && c.init?.method === 'PUT')).toBe(true))
-    expect(JSON.parse(String(calls.find((c) => c.url.endsWith('/users/me/pilot') && c.init?.method === 'PUT')?.init?.body))).toEqual({ full_name: '川村', license_no: 'T123' })
+    expect(JSON.parse(String(calls.find((c) => c.url.endsWith('/users/me/pilot') && c.init?.method === 'PUT')?.init?.body))).toEqual({ full_name: '山田', license_no: 'T123' })
   })
 
   it('present_button_calls_the_callback_and_language_toggles', async () => {

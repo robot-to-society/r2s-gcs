@@ -123,7 +123,7 @@ async fn pilot_info_is_mine() {
             Method::PUT,
             "/api/users/me/pilot",
             Some(&admin),
-            Some(json!({ "full_name": "川村", "license_no": "T123" })),
+            Some(json!({ "full_name": "山田", "license_no": "T123" })),
         ),
     )
     .await;
