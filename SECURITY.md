@@ -20,7 +20,7 @@ Please include:
 
 ## What happens next
 
-- We acknowledge the report within 7 days.
+- We acknowledge the report within 14 days.
 - We confirm the problem, agree on its severity with you, and work on a fix in a private
   advisory.
 - We publish the fix and a GitHub security advisory together. With your permission, we credit
@@ -59,4 +59,4 @@ Out of scope:
 
 脆弱性は公開の Issue などには書かず、このリポジトリの **Security** タブ →
 **Report a vulnerability**(GitHub の非公開報告)から報告してください。日本語での報告も受け付けます。
-7 日以内に受け付けの返事をし、修正と公表は報告者と調整して行います。
+2 週間以内に受け付けの返事をし、修正と公表は報告者と調整して行います。
