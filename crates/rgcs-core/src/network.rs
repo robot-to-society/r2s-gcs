@@ -1,4 +1,4 @@
-//! Network view types (`docs/spec/80-network.md`, `GET /api/network`). `NetworkTopology` is assembled by
+//! Network view types (`GET /api/network`). `NetworkTopology` is assembled by
 //! rgcs-server and sent as `GET /api/network` and the 1 Hz WS `network_status` frame.
 
 use serde::{Deserialize, Serialize};

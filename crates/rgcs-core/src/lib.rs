@@ -1,7 +1,7 @@
 //! Domain types shared by every RGCS crate and exported to TypeScript with `ts-rs`.
 //!
 //! Nothing here depends on MAVLink, tokio or the web framework: these are the
-//! values that cross the WebSocket / HTTP boundary (`docs/spec/50-api.md`).
+//! values that cross the WebSocket / HTTP boundary.
 
 pub mod ai;
 pub mod assignment;

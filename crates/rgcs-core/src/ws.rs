@@ -1,4 +1,4 @@
-//! WebSocket frames (`docs/spec/50-api.md` §3). Every frame is `{"t": "<type>", ...}`.
+//! WebSocket frames. Every frame is `{"t": "<type>", ...}`.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

@@ -1,5 +1,4 @@
-// MAV_CMD table for the mission editor, ported from the design prototype (`design_base/project/
-// RGCS Prototype.dc.html` CMDS / FRAMES). `p` is the MAVLink param index: 1–4 → params[], 5/6/7 → lat/lon/alt.
+// MAV_CMD table for the mission editor, ported from the design prototype's CMDS / FRAMES tables. `p` is the MAVLink param index: 1–4 → params[], 5/6/7 → lat/lon/alt.
 import type { MissionFrame, VehicleKind } from '../../shared/api/types'
 
 export type FieldType = 'num' | 'sel' | 'tog'

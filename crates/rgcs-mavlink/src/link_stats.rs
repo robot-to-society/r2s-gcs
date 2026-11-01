@@ -1,6 +1,6 @@
-//! Link statistics for the network view (`docs/spec/80-network.md` §3, network view plan
-//! Task 1): per (sysid, compid) received msg/s, bytes/s (estimated), loss from MAVLink sequence
-//! gaps, MAV_TYPE from HEARTBEAT and last-rx age, plus the link's connection state.
+//! Link statistics for the network view: per (sysid, compid) received msg/s, bytes/s
+//! (estimated), loss from MAVLink sequence gaps, MAV_TYPE from HEARTBEAT and last-rx age, plus
+//! the link's connection state.
 //!
 //! Rates are 1 s buckets summed over the last [`STATS_WINDOW_S`] complete seconds; the
 //! current, incomplete second is excluded. `record` runs on the link task for every frame, so

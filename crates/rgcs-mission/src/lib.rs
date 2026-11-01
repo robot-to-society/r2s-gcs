@@ -1,5 +1,5 @@
 //! Mission planning without I/O: `.waypoints` (QGC WPL 110) read / write and the Mission
-//! Protocol upload / download state machines (`docs/spec/30-architecture.md`, addendum §5.2).
+//! Protocol upload / download state machines.
 
 pub mod protocol;
 pub mod wpl;

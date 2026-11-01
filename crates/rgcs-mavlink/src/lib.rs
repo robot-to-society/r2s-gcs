@@ -1,6 +1,6 @@
 //! MAVLink side of RGCS: link URL parsing, per-system routing, ArduPilot telemetry decoding,
 //! heartbeat-based link health and the "ask for streams only if they are missing" logic
-//! ported from the MT11 Python app (`docs/spec/30-architecture.md` §4).
+//! ported from the MT11 Python app.
 
 pub mod calib_frame;
 pub mod command;

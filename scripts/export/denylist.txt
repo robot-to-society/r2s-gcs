@@ -12,3 +12,4 @@ arcgisonline\.com	Esri imagery outside the config example (its terms are the ope
 basemaps\.cartocdn\.com	CARTO tiles outside the config example (its terms are the operator's)	deploy/config.toml.example
 fonts\.googleapis\.com	fonts from Google's CDN (self-host them)
 BEGIN [A-Z ]*PRIVATE KEY	private key
+docs/(spec|superpowers|plan|handoff)/|design_base/	path into the internal docs or design sources (not exported)	crates/rgcs-store/migrations/0001_init.sql
