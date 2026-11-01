@@ -212,9 +212,14 @@ async fn link_loss_disconnects_and_rebinds() {
     let before = info_requests(&fake).len();
     fake.set_paused(false);
     assert!(wait_for(Duration::from_secs(3), || st.borrow().connected).await);
-    sleep(Duration::from_millis(500)).await;
-    let after = info_requests(&fake);
-    assert!(after[before..].contains(&(259.0, 0)), "{after:?}");
+    // The camera stream marks it connected at once, but the driver re-asks for its info on the
+    // first tick after the FC HEARTBEAT is back (1 Hz in the fake): up to ~1.25 s later.
+    let reasked = || info_requests(&fake)[before..].contains(&(259.0, 0));
+    assert!(
+        wait_for(Duration::from_secs(2), reasked).await,
+        "{:?}",
+        info_requests(&fake)
+    );
 }
 
 #[tokio::test(start_paused = true)]
