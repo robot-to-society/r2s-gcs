@@ -1,0 +1,25 @@
+# INTERNAL ONLY — never part of the public export (scripts/export exclude list).
+# docomo's terms keep the copyright with docomo and allow copying for private use only; caching
+# and serving these tiles to other devices may need docomo's permission. Internal evaluation.
+id = "docomo-lte"
+api = 1
+version = "1.0.0"
+name = { en = "docomo LTE area", ja = "ドコモ LTE エリア", zh = "docomo LTE 覆盖区", ko = "docomo LTE 커버리지" }
+description = { en = "docomo's public LTE service-area map, fetched for chosen areas (internal evaluation).", ja = "ドコモ公開の LTE サービスエリア地図を、選んだ範囲だけ取得して表示します(社内評価用)。" }
+author = "RtoS Co., Ltd."
+
+[[overlay]]
+id = "lte"
+name = { en = "docomo LTE area", ja = "ドコモ LTE エリア", zh = "docomo LTE 覆盖区", ko = "docomo LTE 커버리지" }
+tiles = "https://servicearea.nttdocomo.co.jp/map/1014/0000000000000000/{z}/{x}/{z}_{x}_{y}.gif"
+cache = "area"
+format = "gif"
+tile_size = 256
+min_zoom = 8
+max_zoom = 14
+attribution = { en = "© NTT DOCOMO", ja = "© NTT ドコモ" }
+notice = { en = "docomo public LTE area. No guarantee in the air.", ja = "ドコモ公開LTEエリア・上空通信の保証なし", zh = "docomo 公开的 LTE 覆盖区，不保证空中可用", ko = "docomo 공개 LTE 커버리지, 상공 통신 보장 없음" }
+
+[[link]]
+label = { en = "docomo coverage map", ja = "ドコモ公式エリアマップ" }
+url = "https://www.docomo.ne.jp/area/map/"

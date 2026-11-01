@@ -281,3 +281,20 @@ The exception covers stage 2 / 3 plugins too, once `PLUGINS.md` documents their 
 - Stage 3: server-side plugins as supervised external processes behind
   `/api/plugins/{p}/...`.
 - Installing plugins from the UI, hot reload, signing.
+
+## Implementation notes (2026-11-01)
+Where the build differs from the text above:
+- **Migrations**: two of them. `0017_plugin_state.sql` (step 3) and `0018_overlay_areas.sql`
+  (step 4, which creates `overlay_areas` and drops `lte_areas`).
+- **Layer ids**: `ov/<plugin>/<overlay>` (layer and source alike), so `a-b/c` and `a/b-c` cannot
+  collide. Inside the band, overlays are ordered by that id.
+- **The language** for plugin text comes from the dictionary's `langCode` key, or from `useLang()`
+  on the maps, which have no dictionary.
+- **Settings**: a 「プラグイン」 card on the app settings tab. Its note names `PLUGINS.md`, not the
+  server path, which only the admin's shell needs.
+- **The legend and opacity slider** show only while the overlay is on. 「範囲を管理…」 carries the
+  overlay name in its accessible label.
+- **Two extra error codes**: `too_many` and `bad_value` (listed above).
+- **Tests**: `tests/plugin_examples.rs` checks that every `toml` block in `PLUGINS.md`, the
+  examples and the deploy plugins load.
+

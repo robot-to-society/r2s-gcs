@@ -1,5 +1,10 @@
 # Docomo LTE area overlay (design)
 
+> **Superseded 2026-11-01** by [2026-11-01-plugin-overlays-design.md](2026-11-01-plugin-overlays-design.md):
+> the engine below became the generic `area` overlay of plugins, and the docomo source moved to
+> the internal plugin `deploy/plugins/docomo-lte/plugin.toml`. `/api/lte/*`, `lte_tile_url` and
+> `lte_areas` are gone.
+
 User request 2026-10-31: overlay NTT docomo's public LTE service-area map on the web GCS, from
 tiles the server fetched for chosen rectangles and serves from the same origin.
 
