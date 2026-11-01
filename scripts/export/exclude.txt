@@ -1,0 +1,12 @@
+# Paths left out of the public export (git pathspecs, relative to the repo root).
+# Internal docs, design sources and agent notes:
+docs
+design_base
+CLAUDE.md
+.claude
+# Internal plugins (docomo's tiles must not be redistributed):
+deploy/plugins
+# Tools that need design_base, and this exporter:
+scripts/sync-css.py
+scripts/design-shots.cjs
+scripts/export

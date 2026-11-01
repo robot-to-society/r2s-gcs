@@ -1,0 +1,13 @@
+# Strings that must not reach the public repo: <extended regex><TAB><reason>.
+# The export stops when any of them is found in the exported tree.
+servicearea\.nttdocomo	docomo tile URL (internal plugin only; terms forbid redistribution)
+川村	real name (use a made-up name in tests and fixtures)
+[Kk]awamura	real name or account
+[Tt]suyoshi	real name or home path
+/Users/	personal home path
+github/rtos	personal checkout path
+R2S Operations	internal product name
+arcgisonline\.com	Esri imagery as a default (move it to a config example with its terms)
+basemaps\.cartocdn\.com	CARTO tiles as a default (move it to a config example with its terms)
+fonts\.googleapis\.com	fonts from Google's CDN (self-host them)
+BEGIN [A-Z ]*PRIVATE KEY	private key
