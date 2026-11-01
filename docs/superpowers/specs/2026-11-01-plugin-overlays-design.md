@@ -205,15 +205,31 @@ polling, sheet); it is keyed by `(pluginId, overlayId)`.
   excludes it (it goes on the export script's exclude list).
 
 ## License exception
-`LICENSE` = the AGPL-3.0 text, followed by "Additional permission under GNU AGPL version 3
-section 7: RGCS Plugin Exception 1.0".
-- In short: a plugin that uses RGCS only through the Plugin Interface (`PLUGINS.md`) may be
-  conveyed and offered over a network under any terms. It does not have to be AGPL, and its
-  source does not have to be provided.
-- RGCS itself and any modification of RGCS stay under the AGPL.
-- The exception covers stage 2 / 3 plugins too, once `PLUGINS.md` documents their interface.
-- `license = "AGPL-3.0-only"` in `Cargo.toml` (workspace) and `package.json`. The exception is
-  stated in `LICENSE` and the README, because SPDX has no identifier for it.
+`LICENSE` = copyright notice (RtoS Co., Ltd., AGPL-3.0-or-later), then "RGCS Plugin Exception
+1.0" (additional permission under AGPLv3 section 7), then the AGPL-3.0 text.
+`license = "AGPL-3.0-or-later"` in `Cargo.toml` (workspace) and `package.json`; the exception is
+stated in `LICENSE` and the README (SPDX has no identifier for it).
+
+The wording follows existing exceptions, clause by clause (researched 2026-11-01):
+- Structure and core grant: the FSF's "linking over a controlled interface" exception
+  (GPL FAQ `#LinkingOverControlledInterface`), with ABC = RGCS and the interface = `PLUGINS.md`.
+  Kept: "combining is making a combined work", "provided that you do not modify the interface",
+  and the paragraph on modified versions (may carry forward / must remove if the interface is
+  modified). Dropped: its proviso to include the other modules' source "when and as the GPL
+  requires", since the point here is that a plugin's own terms govern it.
+- Header "is an additional permission under section 7 …" and numbered definitions / grant:
+  GCC Runtime Library Exception 3.1 and the Viewflow AGPL exception.
+- "Can be installed and removed without modifying" and "no part of RGCS except …":
+  CondationCMS's module exception (AGPL, public documented extension APIs).
+- "No weakening of the copyleft": Viewflow exception section 2.
+- "May extend the exception / delete it from your version": GStreamer exception (2008).
+- Scope limited to material RtoS Co., Ltd. holds copyright on: the FSF note that only copyright
+  holders can grant an exception (third-party GPL material, e.g. ArduPilot parameter docs in
+  `ui/public/params`, is not covered).
+- Not adopted: pretix's extra section 7 terms (SaaS limits): not wanted.
+
+The exception covers stage 2 / 3 plugins too, once `PLUGINS.md` documents their interface.
+`PLUGINS.md` must exist before the first public release (step 7).
 
 ## Tests (TDD, no internet)
 - **Rust core**: manifest parsing and validation.
@@ -244,7 +260,8 @@ section 7: RGCS Plugin Exception 1.0".
   OpenSeaMap example and check `direct` loading and the layer order.
 
 ## Steps and commits
-1. `docs: plugin exception and AGPL-3.0 license` (`LICENSE`, license fields). Done with this design.
+1. `docs: plugin exception and AGPL-3.0 license` (`LICENSE`, license fields). Done with this design
+   (e2610f1, then the copyright holder / or-later / wording revision).
 2. `feat(core): plugin manifest format and validation`
 3. `feat(server): load plugins from plugins_dir`, including `/api/plugins` and enable state
    (migration 0017).
