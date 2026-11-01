@@ -59,4 +59,8 @@ export const overlaysKo: Record<keyof typeof overlaysJa, string> = {
   plugErr_too_many: '오버레이 또는 링크가 너무 많습니다',
   plugErr_bad_value: '값이 범위를 벗어났습니다(크기, 불투명도, 색, 글자 수)',
   plugErr_no_en_text: '영어(en)가 없는 문구가 있습니다',
+  bmMap: '지도',
+  bmGsiStd: 'GSI 표준 지도',
+  bmGsiPhoto: 'GSI 항공사진',
+  bmSatellite: '위성 사진',
 }

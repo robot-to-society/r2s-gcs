@@ -160,20 +160,20 @@ mod tests {
     fn the_name_is_stripped_from_the_text_only_as_a_prefix() {
         let a = alert(
             "UAV-03",
-            "UAV-03 トイレットボウルの兆候 — 手動で引き継いでください",
+            "UAV-03 Unstable circling (toilet bowl). Take over manually",
         );
         assert_eq!(
             text_without_name(&a),
-            "トイレットボウルの兆候 — 手動で引き継いでください"
+            "Unstable circling (toilet bowl). Take over manually"
         );
-        assert_eq!(text_without_name(&alert("", "引き継ぎ済み")), "引き継ぎ済み");
-        assert_eq!(text_without_name(&alert("X", "引き継ぎ済み")), "引き継ぎ済み");
+        assert_eq!(text_without_name(&alert("", "Taken over")), "Taken over");
+        assert_eq!(text_without_name(&alert("X", "Taken over")), "Taken over");
     }
 
     #[test]
     fn untrusted_strings_and_lists_are_capped() {
         let long = "命令".repeat(500);
-        let a = alert(&long, "引き継ぎ済み");
+        let a = alert(&long, "Taken over");
         let on = GuardSettings {
             enabled: true,
             ..GuardSettings::default()

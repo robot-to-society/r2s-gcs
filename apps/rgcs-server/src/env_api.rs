@@ -84,7 +84,7 @@ pub async fn fetch(
     if let Err(code) = app.env.gate() {
         let message = match code {
             "consent_required" => "consent 2 (external data) is off",
-            _ => "AI 緊急介入 is disabled",
+            _ => "the AI guard is disabled",
         };
         return err(StatusCode::CONFLICT, code, message);
     }

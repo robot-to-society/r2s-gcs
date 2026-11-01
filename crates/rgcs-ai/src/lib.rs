@@ -19,5 +19,5 @@ pub use llm::{
     client_for, AiError, Block, LlmClient, LlmRequest, LlmResponse, Role, Stop, Turn, Usage,
     DEFAULT_MAX_TOKENS,
 };
-pub use prompt::SYSTEM_PROMPT_JA;
+pub use prompt::SYSTEM_PROMPT;
 pub use tools::{parse_call, tool_specs, ToolCall, ToolError, ToolSpec, PROPOSABLE_COMMANDS, TOOL_NAMES};

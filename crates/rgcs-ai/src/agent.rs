@@ -20,7 +20,7 @@ use crate::config::Limits;
 use crate::llm::{
     AiError, Block, LlmClient, LlmRequest, Role, Stop, Turn, Usage, DEFAULT_MAX_TOKENS, INVALID_JSON_KEY,
 };
-use crate::prompt::SYSTEM_PROMPT_JA;
+use crate::prompt::SYSTEM_PROMPT;
 use crate::tools::{parse_call, tool_specs, ToolCall, ToolError, ToolSpec};
 
 /// The reply when the iteration or token cap ends the loop without a text answer.
@@ -130,7 +130,7 @@ async fn complete(
     tools: Option<&[ToolSpec]>,
 ) -> Result<crate::llm::LlmResponse, AiError> {
     llm.complete(LlmRequest {
-        system: SYSTEM_PROMPT_JA,
+        system: SYSTEM_PROMPT,
         turns,
         tools,
         max_tokens: DEFAULT_MAX_TOKENS,

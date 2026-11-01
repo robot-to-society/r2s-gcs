@@ -48,7 +48,7 @@ async fn the_active_alert_is_listed_with_the_vehicle_name_untrusted() {
     assert_eq!(got["sysid"], 1);
     assert!(got["phase"].is_string() && got["event"] == "toilet_bowl", "{got}");
     assert_eq!(got["untrusted_text"], "UAV-01");
-    assert!(got["text"].as_str().unwrap().contains("トイレットボウル") || got["phase"] != "alerting");
+    assert!(got["text"].as_str().unwrap().contains("toilet bowl") || got["phase"] != "alerting");
     let mut found = Vec::new();
     strings("", &v, &mut found);
     let named: Vec<_> = found.iter().filter(|(_, s)| s.contains("UAV-01")).collect();

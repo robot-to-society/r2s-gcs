@@ -3,6 +3,7 @@ import type { Basemap } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconCheck, IconLayers } from '../../shared/ui/icons'
 import { AreasSheet, CarrierLinks, OverlayMenuSection, type ActiveOverlay, type MapKey } from '../overlays'
+import { basemapLabel } from './basemapLabel'
 import { useDismiss } from './useDismiss'
 
 interface Props {
@@ -42,7 +43,7 @@ export function BasemapPicker({ basemaps, current, dict, onPick, className = 'fl
                   onPick(b.id)
                 }}
               >
-                <span className="grow">{b.label}</span>
+                <span className="grow">{basemapLabel(b, dict)}</span>
                 {b.id === current && <IconCheck size={16} />}
               </button>
             ))}

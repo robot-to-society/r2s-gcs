@@ -59,4 +59,8 @@ export const overlaysZh: Record<keyof typeof overlaysJa, string> = {
   plugErr_too_many: '叠加图层或链接过多',
   plugErr_bad_value: '数值超出范围（尺寸、不透明度、颜色或文字长度）',
   plugErr_no_en_text: '有文字缺少英文（en）',
+  bmMap: '地图',
+  bmGsiStd: 'GSI 标准地图',
+  bmGsiPhoto: 'GSI 航空照片',
+  bmSatellite: '卫星影像',
 }

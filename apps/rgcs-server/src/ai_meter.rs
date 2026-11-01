@@ -41,7 +41,7 @@ pub fn provider_error(e: &AiError) -> (StatusCode, &'static str, String) {
         AiError::Refused => (
             StatusCode::BAD_GATEWAY,
             "ai_refused",
-            "AI が応答を拒否しました".into(),
+            "the AI refused to answer".into(),
         ),
         AiError::Provider { status, .. } => (
             StatusCode::BAD_GATEWAY,

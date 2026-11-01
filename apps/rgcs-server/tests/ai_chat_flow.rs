@@ -25,7 +25,7 @@ use tokio::sync::mpsc::{error::TryRecvError, UnboundedReceiver};
 
 const KEY: &str = "sk-test-123";
 const COPTER_LOITER: u32 = 5;
-const PREFIX: &str = "[対象機体: UAV-03 (sysid 3)]";
+const PREFIX: &str = "[Target vehicle: UAV-03 (sysid 3)]";
 
 struct Fixture {
     app: AxumRouter,

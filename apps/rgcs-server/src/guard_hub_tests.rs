@@ -439,7 +439,7 @@ async fn l1_warns_once_and_sends_nothing() {
     assert_eq!((a.phase, a.sound, a.sysid), (GuardPhase::Alerting, true, 1));
     assert_eq!(
         a.text,
-        "UAV-01 旋回が不安定です (トイレットボウル) — 手動で引き継いでください"
+        "UAV-01 Unstable circling (toilet bowl). Take over manually"
     );
     assert!(a.id.starts_with("g-") && a.rc_stale && !a.kp_raised);
     let msgs = r.messages().await;
@@ -526,7 +526,8 @@ async fn l2_counts_down_then_switches_to_alt_hold_once() {
     );
     assert!(args["decision_id"].is_i64());
     let texts: Vec<String> = r.messages().await.into_iter().map(|m| m.text).collect();
-    assert!(texts.contains(&"ALT_HOLD に切り替えました — 風で流れます。手動で引き継いでください".to_string()));
+    assert!(texts
+        .contains(&"Switched to ALT_HOLD: the vehicle drifts with the wind. Take over manually".to_string()));
 }
 
 #[tokio::test]

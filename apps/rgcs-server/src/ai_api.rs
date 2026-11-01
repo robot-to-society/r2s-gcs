@@ -101,7 +101,10 @@ pub async fn chat(
     let tools = ServerTools::new(app.clone(), op.username.clone(), conversation.clone());
     let input = TurnInput {
         history: &history,
-        user_text: format!("[対象機体: {name} (sysid {})]\n{}", body.sysid, body.message),
+        user_text: format!(
+            "[Target vehicle: {name} (sysid {})]\n{}",
+            body.sysid, body.message
+        ),
         limits: hub.limits(),
     };
     // every answered call is charged as it answers (success, failure, timeout or a dropped request)

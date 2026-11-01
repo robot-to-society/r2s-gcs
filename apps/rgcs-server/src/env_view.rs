@@ -42,27 +42,31 @@ pub fn default_cfg(id: SourceId) -> SourceCfg {
 pub fn label(id: SourceId) -> &'static str {
     match id {
         SourceId::OpenMeteo => "Open-Meteo",
-        SourceId::JmaAmedas => "気象庁 AMeDAS",
-        SourceId::SwpcKp => "NOAA SWPC Kp(観測)",
-        SourceId::SwpcKp1m => "NOAA SWPC Kp(1 分推定)",
-        SourceId::SwpcKpForecast => "NOAA SWPC Kp(予報)",
-        SourceId::SwpcAlerts => "NOAA SWPC 警報",
+        SourceId::JmaAmedas => "JMA AMeDAS",
+        SourceId::SwpcKp => "NOAA SWPC Kp (observed)",
+        SourceId::SwpcKp1m => "NOAA SWPC Kp (1-minute estimate)",
+        SourceId::SwpcKpForecast => "NOAA SWPC Kp (forecast)",
+        SourceId::SwpcAlerts => "NOAA SWPC alerts",
         SourceId::GfzKp => "GFZ Kp",
         SourceId::Openweathermap => "OpenWeatherMap",
-        SourceId::Vehicle => "機体",
-        SourceId::Local => "ローカル計算",
+        SourceId::Vehicle => "Vehicle",
+        SourceId::Local => "Computed locally",
     }
 }
 
 pub fn terms(id: SourceId) -> &'static str {
     match id {
-        SourceId::OpenMeteo => "無料 API は非商用利用のみ(商用は API キー契約)。CC BY 4.0",
-        SourceId::JmaAmedas => "出典: 気象庁ホームページ(bosai JSON は契約 API ではありません)",
-        SourceId::SwpcKp | SourceId::SwpcKp1m | SourceId::SwpcKpForecast | SourceId::SwpcAlerts => {
-            "NOAA SWPC(米国政府の公開データ)"
+        SourceId::OpenMeteo => {
+            "Free API for non-commercial use only (commercial use needs an API key plan). CC BY 4.0"
         }
-        SourceId::GfzKp => "GFZ Potsdam Kp(CC BY 4.0)",
-        SourceId::Openweathermap => "OpenWeatherMap 利用規約(API キーが必要)",
+        SourceId::JmaAmedas => {
+            "Source: Japan Meteorological Agency website (the bosai JSON is not a contracted API)"
+        }
+        SourceId::SwpcKp | SourceId::SwpcKp1m | SourceId::SwpcKpForecast | SourceId::SwpcAlerts => {
+            "NOAA SWPC (US government public data)"
+        }
+        SourceId::GfzKp => "GFZ Potsdam Kp (CC BY 4.0)",
+        SourceId::Openweathermap => "OpenWeatherMap terms of use (API key required)",
         SourceId::Vehicle | SourceId::Local => "",
     }
 }
@@ -360,4 +364,24 @@ fn factor(f: &FusedFactor) -> EnvFactor {
 
 pub fn factors(fused: &Fused) -> Vec<EnvFactor> {
     fused.factors.iter().map(factor).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The UI translates names and terms by source id; the server's own text is the English
+    /// fallback (and what the AI tools see).
+    #[test]
+    fn source_names_and_terms_are_english() {
+        let all = SourceId::EXTERNAL
+            .into_iter()
+            .chain([SourceId::Vehicle, SourceId::Local]);
+        for id in all {
+            for s in [label(id), terms(id)] {
+                assert!(s.is_ascii(), "{id:?}: {s}");
+            }
+        }
+        assert_eq!(label(SourceId::JmaAmedas), "JMA AMeDAS");
+    }
 }

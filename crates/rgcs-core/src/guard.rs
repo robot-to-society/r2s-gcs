@@ -155,7 +155,7 @@ pub(crate) mod tests {
             rc_stale: false,
             kp_raised: false,
             sound: true,
-            text: "UAV-03 トイレットボウルの兆候 — 手動で引き継いでください".into(),
+            text: "UAV-03 Unstable circling (toilet bowl). Take over manually".into(),
             ts: 1_761_350_395_000,
         }
     }

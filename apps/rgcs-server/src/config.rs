@@ -214,7 +214,7 @@ impl Config {
         vec![
             basemap(
                 "map",
-                "地図",
+                "Map",
                 &[self.map_tile_url.as_str()],
                 &self.map_attribution,
                 19,
@@ -222,7 +222,7 @@ impl Config {
             ),
             basemap(
                 "gsi_std",
-                "地理院 標準",
+                "GSI standard",
                 &["https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png"],
                 "地理院タイル",
                 18,
@@ -230,7 +230,7 @@ impl Config {
             ),
             basemap(
                 "gsi_photo",
-                "地理院 写真",
+                "GSI photo",
                 &["https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"],
                 "地理院タイル",
                 18,
@@ -416,6 +416,9 @@ mod tests {
             "{all}"
         );
         assert!(c.basemaps().iter().all(|b| b.overlay.is_none()));
+        // English labels: the UI shows its own translation for these ids
+        let labels: Vec<_> = c.basemaps().iter().map(|b| b.label.clone()).collect();
+        assert_eq!(labels, vec!["Map", "GSI standard", "GSI photo"]);
     }
 
     #[test]

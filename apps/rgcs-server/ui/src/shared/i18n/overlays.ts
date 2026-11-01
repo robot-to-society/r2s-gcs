@@ -60,6 +60,10 @@ export const overlaysJa = {
   plugErr_too_many: 'オーバーレイかリンクが多すぎます',
   plugErr_bad_value: '値が範囲外です(サイズ・透明度・色・文字数)',
   plugErr_no_en_text: '英語(en)のない文言があります',
+  bmMap: '地図',
+  bmGsiStd: '地理院 標準',
+  bmGsiPhoto: '地理院 写真',
+  bmSatellite: '衛星写真',
 } as const
 
 export const overlaysEn: Record<keyof typeof overlaysJa, string> = {
@@ -121,4 +125,8 @@ export const overlaysEn: Record<keyof typeof overlaysJa, string> = {
   plugErr_too_many: 'too many overlays or links',
   plugErr_bad_value: 'a value is out of range (size, opacity, colour or text length)',
   plugErr_no_en_text: 'a text has no English (en) version',
+  bmMap: 'Map',
+  bmGsiStd: 'GSI standard',
+  bmGsiPhoto: 'GSI photo',
+  bmSatellite: 'Satellite',
 }

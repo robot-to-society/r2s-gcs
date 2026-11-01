@@ -77,7 +77,7 @@ async fn due_rig() -> (Rig, Feed, GuardAlert) {
     assert_eq!(r.phase(), Some(GuardPhase::Due));
     assert!(r.queued().is_empty(), "nothing without a fresh Detected");
     let due = r.alerts().into_iter().last().unwrap();
-    assert_eq!(due.text, "兆候が続けば ALT_HOLD へ切り替えます");
+    assert_eq!(due.text, "Switching to ALT_HOLD if the signs persist");
     assert_eq!(
         (due.action_mode.as_deref(), due.deadline_ms),
         (Some("ALT_HOLD"), None)
@@ -138,7 +138,7 @@ async fn a_mode_change_the_guard_did_not_make_is_shown_as_such() {
         (a.taken_over_by.as_deref(), a.vehicle_mode.as_str()),
         (Some("mode_change"), "LAND")
     );
-    assert_eq!(a.text, "モードが LAND に変わりました — AI はこれ以上操作しません");
+    assert_eq!(a.text, "Mode changed to LAND: the AI takes no further action");
     let msgs = r.messages().await;
     let row = msgs.iter().find(|m| m.text == a.text).expect("a message row");
     assert_eq!(row.severity.as_str(), "warn");
@@ -160,7 +160,7 @@ async fn an_operator_command_is_shown_as_taken_over() {
         (a.phase, a.taken_over_by.as_deref()),
         (GuardPhase::TakenOver, Some("gcs_command"))
     );
-    assert_eq!(a.text, "引き継ぎ済み");
+    assert_eq!(a.text, "Taken over");
 }
 
 // ---- I4: the SetMode does not wait behind SQLite writes ----

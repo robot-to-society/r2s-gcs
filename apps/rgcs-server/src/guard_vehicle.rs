@@ -519,25 +519,28 @@ fn mode_changed(a: &GuardAlert) -> bool {
 }
 
 pub fn mode_changed_text(vehicle_mode: &str) -> String {
-    format!("モードが {vehicle_mode} に変わりました — AI はこれ以上操作しません")
+    format!("Mode changed to {vehicle_mode}: the AI takes no further action")
 }
 
 pub fn headline(name: &str) -> String {
-    format!("{name} 旋回が不安定です (トイレットボウル) — 手動で引き継いでください")
+    format!("{name} Unstable circling (toilet bowl). Take over manually")
 }
 
-/// Alert text per phase (fixed values: Alert text).
+/// Alert text per phase, in English: the message log and the AI tools read it; the UI banner
+/// builds its own text from the alert fields in the operator's language.
 pub fn text(phase: GuardPhase, name: &str, mode: &str, secs_left: u64) -> String {
     match phase {
         GuardPhase::Alerting | GuardPhase::Executing => headline(name),
-        GuardPhase::Countdown => format!("{secs_left} 秒後に {mode} へ切り替えます"),
-        GuardPhase::Due => format!("兆候が続けば {mode} へ切り替えます"),
-        GuardPhase::Executed => format!("{mode} に切り替えました — 風で流れます。手動で引き継いでください"),
-        GuardPhase::TakenOver => "引き継ぎ済み".into(),
-        GuardPhase::Unanswered => "引き継ぎが確認できません — AI はこれ以上操作しません".into(),
-        GuardPhase::Cancelled => "自動切り替えを取り消しました — 手動で引き継いでください".into(),
-        GuardPhase::Refused => format!("{mode} への切り替えに失敗しました — 手動で引き継いでください"),
-        GuardPhase::Cleared => "トイレットボウルの兆候は解消しました".into(),
+        GuardPhase::Countdown => format!("Switching to {mode} in {secs_left} s"),
+        GuardPhase::Due => format!("Switching to {mode} if the signs persist"),
+        GuardPhase::Executed => {
+            format!("Switched to {mode}: the vehicle drifts with the wind. Take over manually")
+        }
+        GuardPhase::TakenOver => "Taken over".into(),
+        GuardPhase::Unanswered => "No takeover confirmed: the AI takes no further action".into(),
+        GuardPhase::Cancelled => "Automatic switch cancelled. Take over manually".into(),
+        GuardPhase::Refused => format!("Switching to {mode} failed. Take over manually"),
+        GuardPhase::Cleared => "The toilet-bowl signs have cleared".into(),
     }
 }
 
