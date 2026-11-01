@@ -19,6 +19,33 @@ role = "standalone"
 # map_tile_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 # map_attribution = "© OpenStreetMap contributors"
 
+# 背景地図の選択肢。[[basemaps]] を 1 つでも書くと既定(map_tile_url の地図・地理院 標準・地理院 写真)を
+# すべて置き換えるので、使うものを全部並べる。TOML の配列表なので、トップレベルの項目より後、[ai] より前に置く。
+# 衛星写真の例(Esri World Imagery + CARTO の地名ラベル)。どちらも利用条件があり、業務利用には
+# 契約やアカウントが要る場合がある。使う前に提供元の規約を確認すること:
+#   https://www.esri.com/en-us/legal/terms/full-master-agreement / https://carto.com/basemaps
+# [[basemaps]]
+# id = "map"
+# label = "地図"
+# tiles = ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"]
+# attribution = "© OpenStreetMap contributors"
+# max_zoom = 19
+#
+# [[basemaps]]
+# id = "satellite"
+# label = "衛星写真"
+# tiles = ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"]
+# attribution = "Esri, Maxar, Earthstar Geographics | © CARTO © OpenStreetMap contributors"
+# max_zoom = 19
+# overlay = ["https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png", "https://b.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png"]
+#
+# [[basemaps]]
+# id = "gsi_photo"
+# label = "地理院 写真"
+# tiles = ["https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"]
+# attribution = "地理院タイル"
+# max_zoom = 18
+
 # 3D 地図の標高タイル (Terrarium 形式)。"" で 3D を無効化 (オフライン現場)
 # terrain_tiles = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 

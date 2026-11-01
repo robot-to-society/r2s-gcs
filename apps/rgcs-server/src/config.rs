@@ -66,11 +66,6 @@ fn basemap(
     }
 }
 
-const CARTO_LABELS: &[&str] = &[
-    "https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
-    "https://b.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
-];
-
 /// Terrarium-encoded DEM tiles for the 3D map (AWS Terrain Tiles).
 pub const DEFAULT_TERRAIN_TILES: &str =
     "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
@@ -209,24 +204,38 @@ impl Config {
         }
     }
 
-    /// The configured base maps, or: the `map_tile_url` map, Esri imagery with labels (the
-    /// prototype's sources), and the GSI standard / photo tiles.
+    /// The configured base maps, or: the `map_tile_url` map and the GSI standard / photo tiles.
+    /// Commercial imagery (e.g. Esri with CARTO labels) is only an example in
+    /// `deploy/config.toml.example`: its terms are the operator's to accept.
     pub fn basemaps(&self) -> Vec<Basemap> {
         if !self.basemaps.is_empty() {
             return self.basemaps.clone();
         }
         vec![
-            basemap("map", "地図", &[self.map_tile_url.as_str()], &self.map_attribution, 19, None),
             basemap(
-                "satellite",
-                "衛星写真",
-                &["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
-                "Esri, Maxar, Earthstar Geographics | © CARTO © OpenStreetMap contributors",
+                "map",
+                "地図",
+                &[self.map_tile_url.as_str()],
+                &self.map_attribution,
                 19,
-                Some(CARTO_LABELS),
+                None,
             ),
-            basemap("gsi_std", "地理院 標準", &["https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png"], "地理院タイル", 18, None),
-            basemap("gsi_photo", "地理院 写真", &["https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"], "地理院タイル", 18, None),
+            basemap(
+                "gsi_std",
+                "地理院 標準",
+                &["https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png"],
+                "地理院タイル",
+                18,
+                None,
+            ),
+            basemap(
+                "gsi_photo",
+                "地理院 写真",
+                &["https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"],
+                "地理院タイル",
+                18,
+                None,
+            ),
         ]
     }
 
@@ -395,15 +404,35 @@ mod tests {
     fn default_basemaps_start_with_the_configured_map() {
         let c = Config::parse(r#"map_tile_url = "https://tiles.local/{z}/{x}/{y}.png""#).unwrap();
         let ids: Vec<_> = c.basemaps().iter().map(|b| b.id.clone()).collect();
-        assert_eq!(ids, vec!["map", "satellite", "gsi_std", "gsi_photo"]);
+        assert_eq!(ids, vec!["map", "gsi_std", "gsi_photo"]);
         assert_eq!(
             c.basemaps()[0].tiles,
             vec!["https://tiles.local/{z}/{x}/{y}.png".to_string()]
         );
+        // no commercial imagery by default: it needs the operator's own terms (config example)
+        let all: String = c.basemaps().iter().flat_map(|b| b.tiles.clone()).collect();
         assert!(
-            c.basemaps()[1].overlay.is_some(),
-            "satellite carries a label overlay"
+            !all.contains("arcgisonline") && !all.contains("cartocdn"),
+            "{all}"
         );
+        assert!(c.basemaps().iter().all(|b| b.overlay.is_none()));
+    }
+
+    #[test]
+    fn the_example_file_parses_and_its_basemaps_example_too() {
+        let text = include_str!("../../../deploy/config.toml.example");
+        Config::parse(text).expect("the example as shipped");
+        // the commented [[basemaps]] block, uncommented
+        let block: String = text
+            .lines()
+            .skip_while(|l| !l.starts_with("# [[basemaps]]"))
+            .take_while(|l| l.starts_with('#'))
+            .map(|l| format!("{}\n", l.trim_start_matches('#').trim_start()))
+            .collect();
+        let c = Config::parse(&block).expect("the uncommented basemaps example");
+        let ids: Vec<_> = c.basemaps().iter().map(|b| b.id.clone()).collect();
+        assert_eq!(ids, vec!["map", "satellite", "gsi_photo"]);
+        assert_eq!(c.basemaps()[1].overlay.as_ref().map(Vec::len), Some(2));
     }
 
     #[test]

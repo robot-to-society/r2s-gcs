@@ -59,9 +59,13 @@ done
 
 # 3. the denylist scan
 findings=0
-while IFS=$'\t' read -r pattern reason; do
+while IFS=$'\t' read -r pattern reason allowed; do
   case "$pattern" in ''|'#'*) continue ;; esac
   hits="$(cd "$DEST" && grep -rnIE --exclude-dir=.git -e "$pattern" . 2>/dev/null | sed 's#^\./##' | cut -c1-200 || true)"
+  # third column: comma-separated paths where the pattern is expected (e.g. a commented example)
+  for path in ${allowed//,/ }; do
+    hits="$(grep -v -F "$path:" <<<"$hits" || true)"
+  done
   if [ -n "$hits" ]; then
     echo "== $reason  [/$pattern/]" >&2
     sed 's/^/   /' <<<"$hits" >&2

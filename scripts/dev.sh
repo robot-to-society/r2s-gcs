@@ -194,6 +194,8 @@ CONFIG="$DEV_DIR/config.toml"
   echo "telemetry_interval_ms = 100"
   if [ "$VIDEO" = 1 ]; then echo "whep_upstream = \"http://127.0.0.1:8889/video1/whep\""; fi
   if [ "$MODE" = "built" ]; then echo "ui_dir = \"$UI_DIR/dist\""; fi
+  # Machine-local additions (git-ignored, e.g. [[basemaps]] with imagery under your own terms).
+  if [ -f "$DEV_DIR/config.local.toml" ]; then echo ''; cat "$DEV_DIR/config.local.toml"; fi
   # AI chat stays off in dev (no LLM calls). Keep [ai] last: TOML keys after it belong to it.
   echo ''
   echo '[ai]'

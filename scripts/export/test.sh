@@ -47,6 +47,19 @@ done
 [ "$(git -C "$TMP/out3" branch --show-current)" = main ] || fail "branch"
 git -C "$TMP/out3" log -1 --format=%B | grep -q internal && fail "the internal history leaked into the message"
 
+# 3b. a pattern allowed in one file is found everywhere else
+mkdir -p "$SRC/deploy" && echo 'tiles = "https://server.arcgisonline.com/x"' > "$SRC/deploy/config.toml.example"
+git -C "$SRC" -c user.name=t -c user.email=t@example.com add -A ':!auto.key'
+git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qm example
+"$EXPORT" "$TMP/out3b" --report-only >/dev/null 2>&1 || fail "the allowed file was reported"
+echo '// https://server.arcgisonline.com/y' >> "$SRC/app/main.rs"
+git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qam leak
+out="$("$EXPORT" "$TMP/out3c" --report-only 2>&1 || true)"
+grep -q 'app/main.rs:3' <<<"$out" || fail "a hit outside the allowed file: $out"
+grep -q 'config.toml.example' <<<"$out" && fail "the allowed file was listed: $out"
+sed -i.bak '3d' "$SRC/app/main.rs" && rm "$SRC/app/main.rs.bak"
+git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qam unleak
+
 # 4. a non-empty destination is refused
 "$EXPORT" "$TMP/out3" --author 'a <a@example.com>' >/dev/null 2>&1 && fail "overwrote a non-empty destination"
 
