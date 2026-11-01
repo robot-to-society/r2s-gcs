@@ -41,11 +41,11 @@ async fn main() -> anyhow::Result<()> {
     if dev_mode {
         tracing::warn!("development login admin/admin is active");
     }
-    // LTE overlay: a fetch cut off by the last shutdown is not running any more.
-    match store.reset_interrupted_lte_fetches().await {
+    // Plugin overlays: a fetch cut off by the last shutdown is not running any more.
+    match store.reset_interrupted_area_fetches().await {
         Ok(0) => {}
-        Ok(n) => info!(areas = n, "reset interrupted LTE fetches"),
-        Err(e) => tracing::warn!(error = %e, "LTE fetch reset failed"),
+        Ok(n) => info!(areas = n, "reset interrupted overlay fetches"),
+        Err(e) => tracing::warn!(error = %e, "overlay fetch reset failed"),
     }
     // Plugins: read once; a broken one is listed with its error and never stops the start.
     let plugins_dir = config.plugins_dir();
@@ -71,7 +71,6 @@ async fn main() -> anyhow::Result<()> {
         .with_map(config.map_tile_url.clone(), config.map_attribution.clone())
         .with_basemaps(config.basemaps())
         .with_terrain(config.terrain())
-        .with_lte(rgcs_server::lte_fetch::LteFetcher::new(&config.lte_tile_url))
         .with_plugins(plugins)
         .with_whep_upstream(&config.whep_upstream)
         .with_data_dir(config.data_dir.clone())

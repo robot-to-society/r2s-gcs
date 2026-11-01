@@ -75,6 +75,10 @@ const CARTO_LABELS: &[&str] = &[
 pub const DEFAULT_TERRAIN_TILES: &str =
     "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 
+/// The start error for a config that still sets the removed docomo key.
+const REMOVED_LTE_TILE_URL: &str = "`lte_tile_url` was removed: tile overlays are plugins now. \
+     Delete the key and put the overlay in <plugins_dir>/<id>/plugin.toml (see PLUGINS.md)";
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -100,8 +104,6 @@ pub struct Config {
     pub terrain_tiles: String,
     /// Plugin directories (`<id>/plugin.toml`), read at start; `None` → `<data_dir>/plugins`.
     pub plugins_dir: Option<PathBuf>,
-    /// Docomo LTE service-area tile template (`{z}`, `{x}`, `{y}`); tests point it at a fake.
-    pub lte_tile_url: String,
     /// AI chat provider (spec 70 §4); absent → disabled.
     pub ai: rgcs_ai::AiConfig,
     /// External-factor sources (外的要因): key env-var names and base-URL overrides.
@@ -171,7 +173,6 @@ impl Default for Config {
             basemaps: Vec::new(),
             terrain_tiles: DEFAULT_TERRAIN_TILES.into(),
             plugins_dir: None,
-            lte_tile_url: crate::lte_tiles::DEFAULT_LTE_TILE_URL.into(),
             ai: rgcs_ai::AiConfig::default(),
             env: EnvConfig::default(),
         }
@@ -180,7 +181,13 @@ impl Default for Config {
 
 impl Config {
     pub fn parse(text: &str) -> Result<Self, toml::de::Error> {
-        toml::from_str(text)
+        toml::from_str(text).map_err(|e: toml::de::Error| {
+            if e.message().contains("`lte_tile_url`") {
+                <toml::de::Error as serde::de::Error>::custom(REMOVED_LTE_TILE_URL)
+            } else {
+                e
+            }
+        })
     }
 
     /// Where plugins are read from: `plugins_dir`, else `<data_dir>/plugins`.
@@ -255,13 +262,13 @@ mod tests {
     }
 
     #[test]
-    fn lte_tile_url_defaults_to_docomo_and_can_be_overridden() {
-        assert_eq!(
-            Config::default().lte_tile_url,
-            crate::lte_tiles::DEFAULT_LTE_TILE_URL
+    fn the_old_lte_tile_url_key_names_its_replacement() {
+        let e = Config::parse("lte_tile_url = 'http://127.0.0.1:18112/{z}/{x}/{y}.gif'").unwrap_err();
+        let msg = e.to_string();
+        assert!(
+            msg.contains("lte_tile_url") && msg.contains("PLUGINS.md"),
+            "{msg}"
         );
-        let c = Config::parse("lte_tile_url = 'http://127.0.0.1:18112/{z}/{x}/{y}.gif'").unwrap();
-        assert_eq!(c.lte_tile_url, "http://127.0.0.1:18112/{z}/{x}/{y}.gif");
     }
 
     #[test]

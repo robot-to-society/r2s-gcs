@@ -44,13 +44,6 @@ pub mod inspector_api;
 pub mod logbook_api;
 pub mod logs;
 pub mod logs_api;
-pub mod lte_api;
-#[cfg(any(test, feature = "sim"))]
-pub mod lte_fake;
-pub mod lte_fetch;
-#[cfg(test)]
-mod lte_fetch_tests;
-pub mod lte_tiles;
 pub mod media_probe;
 pub mod message_log;
 pub mod messages_api;
@@ -59,6 +52,13 @@ pub mod missions;
 pub mod network;
 pub mod network_api;
 pub mod other_guard;
+pub mod overlay_api;
+#[cfg(any(test, feature = "sim"))]
+pub mod overlay_fake;
+pub mod overlay_fetch;
+#[cfg(test)]
+mod overlay_fetch_tests;
+pub mod overlay_tiles;
 pub mod param_api;
 pub mod param_pick;
 pub mod params;

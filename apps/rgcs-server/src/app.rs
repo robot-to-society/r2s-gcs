@@ -23,8 +23,8 @@ use crate::settings;
 use crate::video::VideoHub;
 use crate::{
     api, assignment_api, auth, branding, calib_api, camera_api, commands, export_api, flight_api,
-    geofence_api, guided, input_api, inspector_api, logbook_api, logs_api, lte_api, messages_api,
-    mission_api, network_api, param_api, param_pick, plugin_api, present_api, roi_api, survey_camera_api,
+    geofence_api, guided, input_api, inspector_api, logbook_api, logs_api, messages_api, mission_api,
+    network_api, overlay_api, param_api, param_pick, plugin_api, present_api, roi_api, survey_camera_api,
     video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
@@ -90,8 +90,8 @@ pub struct AppState {
     pub basemaps: Vec<crate::config::Basemap>,
     /// Terrarium DEM tiles for the 3D map; `None` turns 3D off.
     pub terrain_tiles: Option<String>,
-    /// Docomo LTE tile fetcher (config `lte_tile_url`); offline until `with_lte`.
-    pub lte: crate::lte_fetch::LteFetcher,
+    /// Fetches the tiles of plugin `area` overlays (shared limits across every plugin).
+    pub overlay_fetcher: crate::overlay_fetch::OverlayFetcher,
     /// Plugins read from `plugins_dir` at start; none until `with_plugins`.
     pub plugins: crate::plugins::PluginRegistry,
     started: Instant,
@@ -172,7 +172,7 @@ impl AppState {
             map_attribution: crate::config::Config::default().map_attribution,
             basemaps: crate::config::Config::default().basemaps(),
             terrain_tiles: crate::config::Config::default().terrain(),
-            lte: crate::lte_fetch::LteFetcher::offline(),
+            overlay_fetcher: crate::overlay_fetch::OverlayFetcher::default(),
             plugins: crate::plugins::PluginRegistry::default(),
             started: Instant::now(),
             started_unix_ms: unix_ms(),
@@ -297,9 +297,12 @@ impl AppState {
         }
     }
 
-    /// Installs the LTE tile fetcher (main: `lte_tile_url`; tests: the local fake).
-    pub fn with_lte(self, lte: crate::lte_fetch::LteFetcher) -> Self {
-        Self { lte, ..self }
+    /// Tests: a fetcher with short timings.
+    pub fn with_overlay_fetcher(self, overlay_fetcher: crate::overlay_fetch::OverlayFetcher) -> Self {
+        Self {
+            overlay_fetcher,
+            ..self
+        }
     }
 
     /// Installs the plugins (main: scanned from `plugins_dir`; tests: a temp directory).
@@ -542,11 +545,26 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         .route("/vehicles/{sysid}/messages/{id}/ack", post(messages_api::ack))
         .route("/plugins", get(plugin_api::list))
         .route("/plugins/{id}", put(plugin_api::set_enabled))
-        .route("/lte/areas", get(lte_api::list).post(lte_api::create))
-        .route("/lte/areas/estimate", post(lte_api::estimate))
-        .route("/lte/areas/{id}/refresh", post(lte_api::refresh))
-        .route("/lte/areas/{id}", delete(lte_api::delete))
-        .route("/lte/tiles/{z}/{x}/{y}", get(lte_api::tile))
+        .route(
+            "/plugins/{p}/overlays/{o}/areas",
+            get(overlay_api::list).post(overlay_api::create),
+        )
+        .route(
+            "/plugins/{p}/overlays/{o}/areas/estimate",
+            post(overlay_api::estimate),
+        )
+        .route(
+            "/plugins/{p}/overlays/{o}/areas/{id}/refresh",
+            post(overlay_api::refresh),
+        )
+        .route(
+            "/plugins/{p}/overlays/{o}/areas/{id}",
+            delete(overlay_api::delete),
+        )
+        .route(
+            "/plugins/{p}/overlays/{o}/tiles/{z}/{x}/{y}",
+            get(overlay_api::tile),
+        )
         .route("/assignments", get(assignment_api::list_assignments))
         .route("/assignments/{sysid}", put(assignment_api::put_assignment))
         .route(

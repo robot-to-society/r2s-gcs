@@ -1,5 +1,5 @@
-//! Docomo LTE area overlay (design 2026-10-31-docomo-lte-overlay): the rectangles whose
-//! service-area tiles the server fetched. Times are unix milliseconds.
+//! Plugin overlay areas (design 2026-11-01-plugin-overlays): the rectangles whose tiles the
+//! server fetched for an `area` overlay. Times are unix milliseconds.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -8,7 +8,7 @@ use ts_rs::TS;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export)]
-pub enum LteStatus {
+pub enum AreaStatus {
     /// Never fetched, or a fetch was interrupted before any tile arrived.
     Idle,
     Fetching,
@@ -20,7 +20,7 @@ pub enum LteStatus {
     Failed,
 }
 
-impl LteStatus {
+impl AreaStatus {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Idle => "idle",
@@ -46,15 +46,17 @@ impl LteStatus {
 /// One named rectangle and its fetch counters (polled by the UI while fetching).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
-pub struct LteArea {
+pub struct OverlayArea {
     #[ts(type = "number")]
     pub id: i64,
+    pub plugin_id: String,
+    pub overlay_id: String,
     pub name: String,
     pub south: f64,
     pub west: f64,
     pub north: f64,
     pub east: f64,
-    pub status: LteStatus,
+    pub status: AreaStatus,
     #[ts(type = "number")]
     pub tiles_total: u64,
     #[ts(type = "number")]
@@ -64,7 +66,7 @@ pub struct LteArea {
     /// When the last fetch completed.
     #[ts(type = "number | null")]
     pub fetched_at: Option<u64>,
-    /// The newest `Last-Modified` the tiles carried (docomo's data date).
+    /// The newest `Last-Modified` the tiles carried (the source's data date).
     #[ts(type = "number | null")]
     pub data_modified: Option<u64>,
     /// Short error code of the last failed tile (`http_404`, `timeout`, …).
@@ -73,10 +75,10 @@ pub struct LteArea {
     pub created_at: u64,
 }
 
-/// `POST /api/lte/areas/estimate` answer: the tiles a rectangle needs (zoom 8–14).
+/// `POST …/areas/estimate` answer: the tiles a rectangle needs over the overlay's zooms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
-pub struct LteEstimate {
+pub struct TileEstimate {
     #[ts(type = "number")]
     pub tiles: u64,
 }
@@ -87,15 +89,20 @@ mod tests {
 
     #[test]
     fn status_is_lowercase_and_area_round_trips() {
-        assert_eq!(serde_json::to_string(&LteStatus::Partial).unwrap(), "\"partial\"");
-        let area = LteArea {
+        assert_eq!(
+            serde_json::to_string(&AreaStatus::Partial).unwrap(),
+            "\"partial\""
+        );
+        let area = OverlayArea {
             id: 3,
+            plugin_id: "docomo-lte".into(),
+            overlay_id: "lte".into(),
             name: "那智勝浦".into(),
             south: 33.6,
             west: 135.85,
             north: 33.7,
             east: 135.95,
-            status: LteStatus::Fetching,
+            status: AreaStatus::Fetching,
             tiles_total: 120,
             tiles_ok: 10,
             tiles_failed: 1,
@@ -107,9 +114,9 @@ mod tests {
         let v = serde_json::to_value(&area).unwrap();
         assert_eq!(v["status"], "fetching");
         assert!(v["fetched_at"].is_null());
-        let back: LteArea = serde_json::from_value(v).unwrap();
+        let back: OverlayArea = serde_json::from_value(v).unwrap();
         assert_eq!(back, area);
-        let est = serde_json::to_value(LteEstimate { tiles: 42 }).unwrap();
+        let est = serde_json::to_value(TileEstimate { tiles: 42 }).unwrap();
         assert_eq!(est, serde_json::json!({ "tiles": 42 }));
     }
 }

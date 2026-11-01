@@ -17,11 +17,11 @@ pub mod inspector;
 pub mod jst;
 pub mod log;
 pub mod logbook;
-pub mod lte;
 pub mod mission;
 pub mod mission_stored;
 pub mod network;
 pub mod operator;
+pub mod overlay_area;
 pub mod params;
 pub mod plugin;
 pub mod plugin_info;
@@ -67,7 +67,6 @@ pub use logbook::{
     InspectionRunInput, InspectionTemplate, InspectionTemplateInput, LogFetchProgress, LogSource,
     MaintenanceInput, MaintenanceRecord, PilotInfo, PilotInput, VehicleRegistry, VehicleRegistryInput,
 };
-pub use lte::{LteArea, LteEstimate, LteStatus};
 pub use mission::{
     demo20, haversine_m, FenceInfo, Finding, FindingLevel, Home, Mission, MissionFrame, MissionItem,
     MissionProgress, MissionStats, MissionSummaryRow, MissionTransfer, StoredParam, SurveyBlock,
@@ -81,6 +80,7 @@ pub use network::{
     UNCONFIGURED_STANDALONE,
 };
 pub use operator::Operator;
+pub use overlay_area::{AreaStatus, OverlayArea, TileEstimate};
 pub use params::{ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult};
 pub use plugin::{
     parse_manifest, valid_id, validate, LegendEntry, LocalText, Manifest, OverlayCache, OverlayInfo,
