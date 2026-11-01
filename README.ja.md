@@ -100,7 +100,7 @@ tar xzf rgcs-pi-<version>.tar.gz && cd rgcs-pi-<version> && sudo ./install.sh
 
 手順の詳細、MediaMTX、観客用画面は [deploy/README.md](deploy/README.md) にあります。設定は `/etc/rgcs/config.toml` で、主な項目は [deploy/config.toml.example](deploy/config.toml.example) で説明しています。
 
-**セキュリティ**: アカウントを作るまでは、開発用ログイン `admin` / `admin` が有効です。ポート 8000 は機体の LAN か VPN の中だけに公開してください。
+**セキュリティ**: アカウントを作るまでは、開発用ログイン `admin` / `admin` が有効です。ポート 8000 は機体の LAN か VPN の中だけに公開してください。脆弱性は公開の Issue には書かず、[SECURITY.md](SECURITY.md) の方法で非公開で報告してください。
 
 ## 地図とデータの取得元
 

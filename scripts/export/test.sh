@@ -10,7 +10,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 SRC="$TMP/src"
 mkdir -p "$SRC/scripts/export" "$SRC/docs" "$SRC/design_base" "$SRC/deploy/plugins/x" "$SRC/app"
 cp "$HERE/export-public.sh" "$HERE/exclude.txt" "$HERE/denylist.txt" "$SRC/scripts/export/"
-for f in README.md README.ja.md LICENSE PLUGINS.md; do echo "$f" > "$SRC/$f"; done
+for f in README.md README.ja.md LICENSE PLUGINS.md SECURITY.md; do echo "$f" > "$SRC/$f"; done
 echo internal > "$SRC/docs/spec.md"
 echo internal > "$SRC/design_base/a.html"
 echo internal > "$SRC/CLAUDE.md"
@@ -39,7 +39,7 @@ git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qam clean
 for p in docs design_base CLAUDE.md deploy/plugins scripts/export auto.key; do
   [ ! -e "$TMP/out3/$p" ] || fail "$p was exported"
 done
-for p in README.md README.ja.md LICENSE PLUGINS.md app/main.rs; do
+for p in README.md README.ja.md LICENSE PLUGINS.md SECURITY.md app/main.rs; do
   [ -f "$TMP/out3/$p" ] || fail "$p is missing"
 done
 [ "$(git -C "$TMP/out3" rev-list --count HEAD)" = 1 ] || fail "not a single commit"
@@ -64,7 +64,10 @@ git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qam unleak
 "$EXPORT" "$TMP/out3" --author 'a <a@example.com>' >/dev/null 2>&1 && fail "overwrote a non-empty destination"
 
 # 5. a required public file missing stops the export
-git -C "$SRC" rm -q PLUGINS.md && git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qm drop
-"$EXPORT" "$TMP/out5" --author 'a <a@example.com>' >/dev/null 2>&1 && fail "exported without PLUGINS.md"
+for f in SECURITY.md PLUGINS.md; do
+  git -C "$SRC" rm -q "$f" && git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qm "drop $f"
+  "$EXPORT" "$TMP/out5-$f" --author 'a <a@example.com>' >/dev/null 2>&1 && fail "exported without $f"
+  echo "$f" > "$SRC/$f" && git -C "$SRC" add "$f" && git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qm "restore $f"
+done
 
 echo "export tests: ok"

@@ -114,7 +114,8 @@ Settings live in `/etc/rgcs/config.toml`; the common keys are explained in
 [deploy/config.toml.example](deploy/config.toml.example).
 
 **Security**: the development login `admin` / `admin` stays active until you create accounts.
-Expose port 8000 only on the vehicle LAN or a VPN.
+Expose port 8000 only on the vehicle LAN or a VPN. Report vulnerabilities privately, as described
+in [SECURITY.md](SECURITY.md), never in a public issue.
 
 ## Map and data sources
 
