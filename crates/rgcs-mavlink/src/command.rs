@@ -242,8 +242,8 @@ mod tests {
             PositionTargetTypemask::from_bits_truncate(GUIDED_POSITION_ONLY_MASK)
         );
         assert_eq!(GUIDED_POSITION_ONLY_MASK, 0x0DF8);
-        assert_eq!(d.lat_int, 361_620_000);
-        assert_eq!(d.lon_int, 1_393_720_000);
+        assert_eq!(d.lat_int, 354_818_830);
+        assert_eq!(d.lon_int, 1_384_802_900);
         assert_eq!(d.alt, 50.0);
         assert_eq!((d.target_system, d.target_component), (1, 1));
     }

@@ -217,7 +217,7 @@ mod tests {
         };
         let s = apply(
             &base(),
-            &pt(361_620_000, 1_393_720_000, PositionTargetTypemask::empty()),
+            &pt(354_818_830, 1_384_802_900, PositionTargetTypemask::empty()),
         )
         .unwrap();
         assert_eq!(
@@ -231,8 +231,8 @@ mod tests {
         let masked = apply(
             &s,
             &pt(
-                361_620_000,
-                1_393_720_000,
+                354_818_830,
+                1_384_802_900,
                 PositionTargetTypemask::POSITION_TARGET_TYPEMASK_X_IGNORE,
             ),
         )
@@ -249,8 +249,8 @@ mod tests {
     #[test]
     fn home_position_sets_home() {
         let msg = MavMessage::HOME_POSITION(HOME_POSITION_DATA {
-            latitude: 361_620_000,
-            longitude: 1_393_720_000,
+            latitude: 354_818_830,
+            longitude: 1_384_802_900,
             altitude: 400_500,
             ..HOME_POSITION_DATA::DEFAULT
         });

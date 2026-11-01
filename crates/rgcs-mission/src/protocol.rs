@@ -600,8 +600,8 @@ mod tests {
             assert_eq!(item_seq(&out[0]), seq);
             if seq == 0 {
                 if let MavMessage::MISSION_ITEM_INT(d) = &out[0] {
-                    assert_eq!(d.x, 361_620_000);
-                    assert_eq!(d.y, 1_393_720_000);
+                    assert_eq!(d.x, 354_818_830);
+                    assert_eq!(d.y, 1_384_802_900);
                     assert_eq!(d.current, 1);
                 }
             }
