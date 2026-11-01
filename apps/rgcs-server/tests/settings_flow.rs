@@ -150,8 +150,8 @@ async fn app_settings_list_default_basemaps() {
         .iter()
         .map(|b| b["id"].as_str().unwrap())
         .collect();
-    assert_eq!(ids, vec!["map", "satellite", "gsi_std", "gsi_photo"]);
-    assert_eq!(body["data"]["basemaps"][2]["attribution"], "地理院タイル");
+    assert_eq!(ids, vec!["map", "gsi_std", "gsi_photo"]);
+    assert_eq!(body["data"]["basemaps"][1]["attribution"], "地理院タイル");
 }
 
 #[tokio::test]
