@@ -1,6 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import 'maplibre-gl/dist/maplibre-gl.css'
+// UI fonts ship with RGCS (no CDN): the weights the styles use. Glyph ranges load on demand.
+import '@fontsource/ibm-plex-sans-jp/300.css'
+import '@fontsource/ibm-plex-sans-jp/400.css'
+import '@fontsource/ibm-plex-sans-jp/500.css'
+import '@fontsource/ibm-plex-sans-jp/600.css'
+import '@fontsource/ibm-plex-mono/400.css'
+import '@fontsource/ibm-plex-mono/500.css'
 import './styles/prototype.css'
 import './styles/app.css'
 import './styles/present.css'

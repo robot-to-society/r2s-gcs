@@ -152,6 +152,7 @@ If you run a modified RGCS for users over a network, the AGPL requires that you 
 source code.
 
 Third-party components keep their own licenses:
-- the Noto Sans JP font (`assets/fonts`, SIL OFL);
+- the IBM Plex Sans JP and IBM Plex Mono UI fonts (bundled from Fontsource, SIL OFL 1.1) and the
+  Noto Sans JP font for PDF forms (`assets/fonts`, SIL OFL 1.1);
 - ArduPilot parameter metadata (`apps/rgcs-server/ui/public/params`, GPL-3.0);
 - the Rust and npm dependencies listed in `Cargo.lock` and `package-lock.json`.

@@ -1,12 +1,13 @@
 /// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import { woff2Only } from './src/build/woff2Only.js'
 
 // Dev: the UI runs on :5173 and talks to a local rgcs-server on :8000.
 const SERVER = process.env.RGCS_SERVER ?? 'http://127.0.0.1:8000'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), woff2Only()],
   server: {
     // Tailscale MagicDNS names (`tailscale serve` forwards the tailnet's :5173 to this server).
     allowedHosts: ['.ts.net'],

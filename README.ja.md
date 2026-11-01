@@ -129,6 +129,6 @@ RGCS の著作権は RtoS Co., Ltd.(© 2026)にあります。ライセンスは
 RGCS を改変してネットワーク越しに利用者へ提供する場合、AGPL により、その利用者にソースコードを提供する義務があります。
 
 第三者のものは、それぞれのライセンスに従います。
-- Noto Sans JP フォント(`assets/fonts`、SIL OFL)
+- UI フォントの IBM Plex Sans JP と IBM Plex Mono(Fontsource から同梱、SIL OFL 1.1)、PDF 帳票用の Noto Sans JP(`assets/fonts`、SIL OFL 1.1)
 - ArduPilot のパラメータ説明(`apps/rgcs-server/ui/public/params`、GPL-3.0)
 - `Cargo.lock` と `package-lock.json` にある Rust / npm の依存パッケージ
