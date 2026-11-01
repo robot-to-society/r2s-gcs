@@ -29,7 +29,7 @@ import { guardAlertKo } from './guardAlert'
 import { uxKo } from './ux'
 import { inputFnsKo } from './inputFns'
 import { assignKo } from './assign'
-import { lteKo } from './lte'
+import { overlaysKo } from './overlays'
 
 export const koStrings: Partial<Dict> = {
   ...baseKo,
@@ -60,5 +60,5 @@ export const koStrings: Partial<Dict> = {
   ...uxKo,
   ...inputFnsKo,
   ...assignKo,
-  ...lteKo,
+  ...overlaysKo,
 }

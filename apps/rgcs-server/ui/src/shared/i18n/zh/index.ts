@@ -29,7 +29,7 @@ import { guardAlertZh } from './guardAlert'
 import { uxZh } from './ux'
 import { inputFnsZh } from './inputFns'
 import { assignZh } from './assign'
-import { lteZh } from './lte'
+import { overlaysZh } from './overlays'
 
 // Typed as the full Dict so a key added to any module without a zh string fails the type check.
 const all: Dict = {
@@ -61,7 +61,7 @@ const all: Dict = {
   ...uxZh,
   ...inputFnsZh,
   ...assignZh,
-  ...lteZh,
+  ...overlaysZh,
 }
 
 export const zhStrings: Partial<Dict> = all

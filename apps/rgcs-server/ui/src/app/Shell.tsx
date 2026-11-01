@@ -15,7 +15,7 @@ import { useOpsArrival } from './opsArrival'
 import { MaintView } from '../features/params'
 import { NetworkView } from '../features/network'
 import { BasemapPicker, ShowAllButton, FollowChip, MapContextMenu, MapModeToggle, MapView, type MapPoint, saveMapMode, useMapMode, basemapStyle, cancelPick, chooseBasemap, saveBasemapChoice, useBasemapChoice, vehicleHomes, clearFollow, mapUiStore, padding, rasterStyle, requestFocus, setFollow, setTarget, startPick, toggleAside, tracksStore, useMapUi, useTracks, NO_PADDING, WpGoPopover, type WaypointPick } from '../features/map'
-import { LteNotice } from '../features/lte'
+import { OverlayNotice } from '../features/overlays'
 import { useVehicles, vehicleStore } from '../features/vehicles/store'
 import { VehicleList } from '../features/vehicles/VehicleList'
 import { useAppSettings } from '../shared/api/settings'
@@ -295,8 +295,8 @@ export function Shell({ me, lang }: Props) {
           )}
           {view === 'ops' && settings && <MapModeToggle mode={mapMode} available={settings.terrain_tiles !== null} dict={dict} onChange={saveMapMode} />}
           {view === 'ops' && settings && guardOn && <EnvSummaryChip summary={envSummary} dict={dict} now={Date.now()} />}
-          {view === 'ops' && settings && basemap && <BasemapPicker basemaps={settings.basemaps} current={basemap.id} dict={dict} onPick={saveBasemapChoice} className="float map-r top2" lte="ops" />}
-          {view === 'ops' && settings && <LteNotice dict={dict} />}
+          {view === 'ops' && settings && basemap && <BasemapPicker basemaps={settings.basemaps} current={basemap.id} dict={dict} onPick={saveBasemapChoice} className="float map-r top2" overlays="ops" />}
+          {view === 'ops' && settings && <OverlayNotice dict={dict} />}
           {view === 'ops' && settings && (
             <ShowAllButton
               dict={dict}

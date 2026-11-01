@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import type { Basemap } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconCheck, IconLayers } from '../../shared/ui/icons'
-import { CarrierLinks, LteAreasSheet, LteMenuSection, type LteMapKey } from '../lte'
+import { AreasSheet, CarrierLinks, OverlayMenuSection, type ActiveOverlay, type MapKey } from '../overlays'
 import { useDismiss } from './useDismiss'
 
 interface Props {
@@ -12,14 +12,14 @@ interface Props {
   readonly onPick: (id: string) => void
   /** Placement classes (prototype `float map-r top1|top2`). */
   readonly className?: string
-  /** The map this menu sits on: adds the 「オーバーレイ」 section (docomo LTE area). */
-  readonly lte?: LteMapKey
+  /** The map this menu sits on: adds the plugin overlays, their links and the carrier links. */
+  readonly overlays?: MapKey
 }
 
 /** Map type button + menu (top right of the visible map, under the 2D / 3D control). */
-export function BasemapPicker({ basemaps, current, dict, onPick, className = 'float map-r top1', lte }: Props) {
+export function BasemapPicker({ basemaps, current, dict, onPick, className = 'float map-r top1', overlays }: Props) {
   const [open, setOpen] = useState(false)
-  const [sheet, setSheet] = useState(false)
+  const [sheet, setSheet] = useState<ActiveOverlay | null>(null)
   const box = useRef<HTMLDivElement>(null)
   useDismiss(open, box, () => setOpen(false))
   return (
@@ -46,19 +46,19 @@ export function BasemapPicker({ basemaps, current, dict, onPick, className = 'fl
                 {b.id === current && <IconCheck size={16} />}
               </button>
             ))}
-          {lte && (
-            <LteMenuSection
+          {overlays && (
+            <OverlayMenuSection
               dict={dict}
-              onManage={() => {
+              onManage={(target) => {
                 setOpen(false)
-                setSheet(true)
+                setSheet(target)
               }}
             />
           )}
-          {lte && <CarrierLinks dict={dict} mapKey={lte} />}
+          {overlays && <CarrierLinks dict={dict} mapKey={overlays} />}
         </div>
       )}
-      {lte && sheet && <LteAreasSheet dict={dict} mapKey={lte} onClose={() => setSheet(false)} />}
+      {overlays && sheet && <AreasSheet dict={dict} target={sheet} mapKey={overlays} onClose={() => setSheet(null)} />}
     </div>
   )
 }

@@ -11,7 +11,7 @@ import { addPredictedLayer, setPredicted } from './predictedLayer'
 import { cmdKeyOf } from '../mission/cmds'
 import { follow3dCamera, followTarget, needsRecenter, type Padding } from './follow'
 import { useBasemapSwap } from './basemaps'
-import { useLteOverlay } from '../lte/useLteOverlay'
+import { useOverlays } from '../overlays/useOverlays'
 import { KEEP_ELEVATION, MAX_PITCH, type MapMode } from './mapMode'
 import { useVehicleAir } from './vehicleAir'
 import { useArrival } from './useArrival'
@@ -291,7 +291,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
   }, [top, right, bottom, left])
 
   useBasemapSwap(map, loaded, basemap)
-  useLteOverlay(map, loaded, interactive ? 'ops' : null)
+  useOverlays(map, loaded, interactive ? 'ops' : null)
   // Mission overlay: route line + small numbered badges, the current one highlighted (addendum §5.2).
   useEffect(() => {
     const m = map.current

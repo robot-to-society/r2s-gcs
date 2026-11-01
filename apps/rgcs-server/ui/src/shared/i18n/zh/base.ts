@@ -27,7 +27,7 @@ import type { guardAlertJa } from '../guardAlert'
 import type { uxJa } from '../ux'
 import type { inputFnsJa } from '../inputFns'
 import type { assignJa } from '../assign'
-import type { lteJa } from '../lte'
+import type { overlaysJa } from '../overlays'
 
 type ModuleKey =
   | keyof typeof logbookJa
@@ -57,7 +57,7 @@ type ModuleKey =
   | keyof typeof uxJa
   | keyof typeof inputFnsJa
   | keyof typeof assignJa
-  | keyof typeof lteJa
+  | keyof typeof overlaysJa
 
 /** Keys that live in baseJa only (every Dict key no module file defines). */
 export type BaseKey = Exclude<keyof Dict, ModuleKey>

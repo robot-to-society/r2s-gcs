@@ -35,10 +35,10 @@ describe('map layer order', () => {
     expect(m.stack).toEqual(['osm', 'tracks-others'])
   })
 
-  it('never_restacks_the_lte_overlay_above_the_app_layers', () => {
-    expect(LAYER_ORDER as readonly string[]).not.toContain('lte-area')
-    const m = fakeMap(['osm', 'lte-area', 'tracks-others', 'mission-path-line'])
+  it('never_restacks_a_plugin_overlay_above_the_app_layers', () => {
+    expect(LAYER_ORDER as readonly string[]).not.toContain('ov/carrier/lte')
+    const m = fakeMap(['osm', 'ov/carrier/lte', 'tracks-others', 'mission-path-line'])
     orderLayers(m)
-    expect(m.stack.indexOf('lte-area')).toBe(1)
+    expect(m.stack.indexOf('ov/carrier/lte')).toBe(1)
   })
 })

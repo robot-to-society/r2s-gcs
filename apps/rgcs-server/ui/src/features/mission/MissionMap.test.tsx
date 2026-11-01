@@ -13,8 +13,9 @@ const { missionAirData } = await import('./missionAir')
 const { planSetMapOf } = await import('../plans/usePlanSetMap')
 const { activeRow, addRow, emptyWorkspace } = await import('../plans/model')
 const { INITIAL_MISSION_UI } = await import('./store')
-const { lteOverlayStore } = await import('../lte/prefs')
-const { area: lteArea } = await import('../lte/testArea')
+const { overlayPrefsStore } = await import('../overlays/prefs')
+const { pluginsStore } = await import('../overlays/plugins')
+const { overlayFetch } = await import('../overlays/testData')
 
 const style = rasterStyle('https://t/{z}/{x}/{y}.png', 'x')
 const draft3 = () => appendWaypoint(appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.1), 36.2, 139.2), 36.3, 139.3)
@@ -719,16 +720,18 @@ describe('MissionMap survey preview', () => {
     expect(predict).toHaveBeenCalledTimes(calls + 1)
   })
 
-  it('draws the docomo LTE overlay right above the base map and below the mission path', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true, data: [lteArea()] }))))
-    lteOverlayStore().toggle()
+  it('draws a plugin overlay right above the base map and below the mission path', async () => {
+    vi.stubGlobal('fetch', vi.fn(overlayFetch()))
+    // the shared plugin list may have been read (empty) by an earlier test
+    await pluginsStore().reload()
+    overlayPrefsStore().toggle('carrier/lte', 60)
     try {
       renderMap()
       const m = created.maps.at(-1)!
-      await waitFor(() => expect(m.layers).toContain('lte-area'))
-      expect(m.before.get('lte-area')).toBe('mission-path-casing')
+      await waitFor(() => expect(m.layers).toContain('ov/carrier/lte'))
+      expect(m.before.get('ov/carrier/lte')).toBe('mission-path-casing')
     } finally {
-      lteOverlayStore().toggle()
+      overlayPrefsStore().toggle('carrier/lte', 60)
       vi.unstubAllGlobals()
     }
   })
