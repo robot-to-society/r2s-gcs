@@ -1,4 +1,4 @@
-/* 日常点検 / 飛行日誌 / アプリ設定 tabs (spec 10 §7, addendum §5.7): app-only layout over the
+/* 日常点検 / 飛行日誌 / アプリ設定 tabs: app-only layout over the
  * prototype's .surface / .form / .tbl / .seg / .in / .btn / .badge / .warnbox classes. */
 .lb-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.75fr); gap: 12px; flex: 1; min-height: 0; }
 .lb-grid > .surface { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
@@ -55,10 +55,10 @@
 .lb-template-items li { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 6px; align-items: center; }
 .lb-template-items .btn.sm { padding: 0 8px; }
 .lb-inline-actions { display: inline-flex; gap: 6px; }
-/* the record table scrolls inside the maintenance panel instead of running under the footer (UX-51) */
+/* the record table scrolls inside the maintenance panel instead of running under the footer */
 .maint-body > .surface:has(> .lb-table), .maint-body > .surface:has(> * > .lb-table) { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 .lb-table { padding-bottom: 8px; }
-/* export links are buttons: no anchor underline (UX-51) */
+/* export links are buttons: no anchor underline */
 a.btn { text-decoration: none; }
 .lb-cards .seg.lang.lang4 { width: 400px; max-width: 100%; }
 .lb-cards .seg.lang.lang4 .lens { width: calc((100% - 6px) / 4); }

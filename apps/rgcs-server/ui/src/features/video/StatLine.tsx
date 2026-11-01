@@ -2,7 +2,7 @@ import type { VehicleState } from '../../shared/api/types'
 import { IconAltitude, IconBattery, IconHouse, IconSpeed } from '../../shared/ui/icons'
 import { altText, battText, homeDistText, speedText } from '../vehicles/format'
 
-/** Altitude (a rover: distance from home) · speed · battery over the video, each behind its Lucide icon (spec 20 §9). */
+/** Altitude (a rover: distance from home) · speed · battery over the video, each behind its Lucide icon. */
 export function StatLine({ v }: { readonly v: VehicleState }) {
   return (
     <>

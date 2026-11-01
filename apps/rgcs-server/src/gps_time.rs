@@ -1,4 +1,4 @@
-//! The clock-sync GPS source (ruling 5): the router's newest FC `SYSTEM_TIME` for a vehicle,
+//! The clock-sync GPS source: the router's newest FC `SYSTEM_TIME` for a vehicle,
 //! aged against the link's wall clock.
 
 use std::sync::Arc;

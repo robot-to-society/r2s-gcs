@@ -40,7 +40,7 @@ function Filters({ log, names, dict, onFilter }: Omit<Props, 'onClose'>) {
 
 /** メッセージ履歴 (prototype `.logsheet`): filters, newest 500 rows, the note about older entries. */
 export function LogSheet({ log, names, dict, onFilter, onClose, onFocusVehicle }: Props) {
-  // when the sheet opened: dates entries not from that day (UX-21), pure during render
+  // when the sheet opened: dates entries not from that day, pure during render
   const [now] = useState(() => Date.now())
   const rows = shown(log)
   return (

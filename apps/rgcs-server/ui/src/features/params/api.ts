@@ -1,4 +1,4 @@
-// REST calls for parameters (spec 50 §2.2 `/params`, `/history/params`).
+// REST calls for parameters (`/params`, `/history/params`).
 import { apiFetch } from '../../shared/api/client'
 import type { ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult } from '../../shared/api/types'
 

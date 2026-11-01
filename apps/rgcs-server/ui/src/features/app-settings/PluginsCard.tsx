@@ -1,4 +1,4 @@
-// プラグイン (design 2026-11-01-plugin-overlays § Settings): the plugins the server found at start,
+// プラグイン: the plugins the server found at start,
 // with why a broken one did not load, and an admin-only switch per plugin.
 import { useState } from 'react'
 import type { PluginInfo } from '../../shared/api/types'

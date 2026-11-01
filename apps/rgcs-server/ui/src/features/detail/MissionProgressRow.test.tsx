@@ -42,7 +42,7 @@ describe('MissionProgressRow', () => {
     expect(screen.getByTestId('mission-progress')).toHaveTextContent('WP 3 / 20')
   })
 
-  it('an_unknown_total_reads_a_dash_with_a_reason (UX-19)', () => {
+  it('an_unknown_total_reads_a_dash_with_a_reason', () => {
     render(<MissionProgressRow progress={{ seq: 0, total: null }} mission={null} vehicle={v(true)} dict={t('ja')} onWrite={() => {}} onStart={() => {}} />)
     const row = screen.getByTestId('mission-progress')
     expect(row).toHaveTextContent('ミッション')
@@ -50,7 +50,7 @@ describe('MissionProgressRow', () => {
     expect(screen.getByTitle('機体のミッション件数を未取得')).toBeInTheDocument()
   })
 
-  it('a_finished_mission_offers_restart_and_says_so (UX-20)', () => {
+  it('a_finished_mission_offers_restart_and_says_so', () => {
     const onStart = vi.fn()
     render(<MissionProgressRow progress={{ seq: 4, total: 4 }} mission={mission} vehicle={v(true)} dict={t('ja')} onWrite={() => {}} onStart={onStart} />)
     expect(screen.queryByRole('button', { name: '開始' })).toBeNull()

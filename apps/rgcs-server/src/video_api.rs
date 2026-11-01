@@ -1,4 +1,4 @@
-//! `/api/vehicles/{sysid}/video/*` (spec 50 §2.3): WHEP relay and source selection.
+//! `/api/vehicles/{sysid}/video/*`: WHEP relay and source selection.
 
 use axum::body::Bytes;
 use axum::extract::{Path, State};

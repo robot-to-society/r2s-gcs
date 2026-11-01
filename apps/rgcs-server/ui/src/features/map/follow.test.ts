@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { VehicleState } from '../../shared/api/types'
 import { FOLLOW_DEADBAND_PX, arrivalTarget, firstView, follow3dCamera, followTarget, needsRecenter, padding } from './follow'
 
-describe('map padding (spec 20 §4)', () => {
+describe('map padding', () => {
   it('matches the panel widths', () => {
     expect(padding('full', true)).toEqual({ top: 72, left: 320, right: 396, bottom: 60 })
     expect(padding('full', false)).toEqual({ top: 72, left: 320, right: 0, bottom: 60 })

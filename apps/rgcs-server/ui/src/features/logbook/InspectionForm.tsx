@@ -95,7 +95,7 @@ interface Props {
   readonly dict: Dict
   readonly onSaved: (run: InspectionRun) => void
   readonly onMaintenanceDraft: (draft: MaintenanceInput) => void
-  /** A saved run being corrected: the new run supersedes it (addendum §5.5). */
+  /** A saved run being corrected: the new run supersedes it. */
   readonly correcting?: InspectionRun | null
   readonly onCancelCorrection?: () => void
 }

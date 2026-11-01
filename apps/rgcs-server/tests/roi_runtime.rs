@@ -1,4 +1,4 @@
-//! `RoiHub`: one ROI task per vehicle driving the MT11 simulator (GPS ROI plan, Task 6).
+//! `RoiHub`: one ROI task per vehicle driving the MT11 simulator.
 mod common;
 
 use std::time::Duration;

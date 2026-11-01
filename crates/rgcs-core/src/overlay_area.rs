@@ -1,4 +1,4 @@
-//! Plugin overlay areas (design 2026-11-01-plugin-overlays): the rectangles whose tiles the
+//! Plugin overlay areas: the rectangles whose tiles the
 //! server fetched for an `area` overlay. Times are unix milliseconds.
 
 use serde::{Deserialize, Serialize};

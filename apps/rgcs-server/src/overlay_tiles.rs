@@ -1,4 +1,4 @@
-//! Plugin overlay tiles (design 2026-11-01-plugin-overlays): tile math over an overlay's zoom
+//! Plugin overlay tiles: tile math over an overlay's zoom
 //! range, GIF / PNG validation, cache paths and the transparent fallback tiles. Pure.
 
 use std::ops::RangeInclusive;

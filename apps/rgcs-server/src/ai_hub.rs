@@ -1,4 +1,4 @@
-//! In-memory state of the AI chat (plan rulings 2, 5, 7): conversations per user, the per-user
+//! In-memory state of the AI chat: conversations per user, the per-user
 //! rate limit and in-flight flag, the rolling 24 h token budget and the proposal store. Nothing
 //! here talks to a vehicle; proposals are only executed through `commands::command`.
 

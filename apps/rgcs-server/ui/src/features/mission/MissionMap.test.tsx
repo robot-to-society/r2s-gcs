@@ -591,7 +591,7 @@ describe('MissionMap', () => {
     })
 
     it('no_crossing_labels_are_drawn', () => {
-      // two missions crossing at the same altitude: only their colours tell them apart (spec §9)
+      // two missions crossing at the same altitude: only their colours tell them apart
       const ew = appendWaypoint(appendWaypoint(emptyDraft(), 36.2, 139.1), 36.2, 139.3)
       const ns = appendWaypoint(appendWaypoint(emptyDraft(), 36.1, 139.2), 36.3, 139.2)
       const ui = (d: typeof ew, id: number) => ({ ...INITIAL_MISSION_UI, savedId: id, history: { ...INITIAL_MISSION_UI.history, present: d } })

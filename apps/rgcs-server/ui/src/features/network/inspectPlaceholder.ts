@@ -1,4 +1,4 @@
-// Inspector content for the dim 未構成 placeholders (plan ruling 9): what M5 would put there.
+// Inspector content for the dim 未構成 placeholders: what M5 would put there.
 import type { Dict } from '../../shared/i18n'
 import type { NetworkTopology } from '../../shared/api/types'
 import type { Inspection } from './inspect'

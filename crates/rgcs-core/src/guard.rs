@@ -11,7 +11,7 @@ pub const GUARD_COUNTDOWN_S: std::ops::RangeInclusive<u32> = 3..=15;
 /// How long to wait for a takeover after an action, seconds (default 20).
 pub const GUARD_TAKEOVER_WAIT_S: std::ops::RangeInclusive<u32> = 10..=120;
 
-/// L0 off, L1 warn only, L2 act after a cancellable countdown, L3 act at once (spec §4).
+/// L0 off, L1 warn only, L2 act after a cancellable countdown, L3 act at once.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export, rename_all = "snake_case")]
@@ -48,7 +48,7 @@ pub struct GuardSettings {
     pub params: serde_json::Value,
 }
 
-/// Off, no consent, warn-only level, 5 s countdown, 20 s takeover wait (ruling 1, fixed values).
+/// Off, no consent, warn-only level, 5 s countdown, 20 s takeover wait (fixed values).
 impl Default for GuardSettings {
     fn default() -> Self {
         Self {

@@ -38,7 +38,7 @@ describe('CommandsSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Guided 移動' }))
     expect(onOpen).toHaveBeenCalledWith('guided')
   })
-  it('カメラ・ジンバル opens the camera settings (UX-26)', () => {
+  it('カメラ・ジンバル opens the camera settings', () => {
     const onOpen = vi.fn()
     render(<CommandsSheet vehicle={v(true)} onPick={() => {}} onOpen={onOpen} onClose={() => {}} dict={t('ja')} />)
     fireEvent.click(screen.getByRole('button', { name: 'カメラ・ジンバル' }))
@@ -88,7 +88,7 @@ describe('CommandsSheet', () => {
     const { rerender } = render(<CommandsSheet vehicle={v(false)} onPick={onPick} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
     const btn = screen.getByRole('button', { name: '離陸' })
     expect(btn).toBeDisabled()
-    // the reason is on screen, not only in a hover title (UX-27)
+    // the reason is on screen, not only in a hover title
     expect(screen.getByText('アーム後に使用できます')).toBeInTheDocument()
     rerender(<CommandsSheet vehicle={{ ...v(true), alt_rel: 12 }} onPick={onPick} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
     fireEvent.click(screen.getByRole('button', { name: '離陸' }))
@@ -112,7 +112,7 @@ describe('CommandsSheet', () => {
     expect(screen.queryByRole('button', { name: '離陸' })).toBeNull()
   })
 
-  it('a rover gets no land or altitude change, and its first group is 走行 (UX-18)', () => {
+  it('a rover gets no land or altitude change, and its first group is 走行', () => {
     render(<CommandsSheet vehicle={{ ...v(true), kind: 'rover', mode: 'AUTO' }} onPick={() => {}} onOpen={() => {}} onClose={() => {}} dict={t('ja')} />)
     expect(screen.queryByRole('button', { name: '着陸' })).toBeNull()
     expect(screen.queryByRole('button', { name: '高度変更' })).toBeNull()

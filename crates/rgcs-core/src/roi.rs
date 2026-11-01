@@ -1,4 +1,4 @@
-//! GPS ROI (Computed) presets, control parameters and live status (spec 40 §4, spec 60 §3.4).
+//! GPS ROI (Computed) presets, control parameters and live status.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -14,7 +14,7 @@ pub fn roi_slot_id(index_1based: usize) -> String {
     format!("roi_{index_1based}")
 }
 
-/// How a camera can point at a ground target (spec 40 §1.1).
+/// How a camera can point at a ground target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export, rename_all = "snake_case")]
@@ -167,7 +167,7 @@ impl RoiControl {
     }
 }
 
-/// Live state of the ROI loop; only travels in the WS `roi_status` frame (ruling 2).
+/// Live state of the ROI loop; only travels in the WS `roi_status` frame.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct RoiStatus {

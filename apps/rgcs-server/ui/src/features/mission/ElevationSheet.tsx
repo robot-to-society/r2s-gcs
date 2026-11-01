@@ -39,7 +39,7 @@ interface Props {
   readonly onSelect: (uid: number, additive: boolean, range: boolean) => void
 }
 
-/** Elevation profile (spec 10 §6, prototype elevation sheet): toggled by a map button, floats over the map bottom. */
+/** Elevation profile (prototype elevation sheet): toggled by a map button, floats over the map bottom. */
 export function ElevationSheet({ draft, selected, terrainTiles, ceiling = null, dict, onSelect }: Props) {
   const [open, setOpen] = useState(readOpen)
   const [tick, setTick] = useState(0)

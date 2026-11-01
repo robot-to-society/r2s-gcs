@@ -1,4 +1,4 @@
-//! External factors, server side (plan 2026-10-25-ai-guard, Task 7): source defaults, labels and
+//! External factors, server side: source defaults, labels and
 //! terms, settings validation, the vehicle / local readings (wind, GNSS, WMM declination,
 //! daylight), and the mapping of `rgcs_env` fusion onto the `rgcs_core` wire types (by variant
 //! name, never by order: the two `Class` enums sort the opposite way).
@@ -12,7 +12,7 @@ use time::OffsetDateTime;
 
 pub const INTERVAL_S: std::ops::RangeInclusive<u32> = 60..=86_400;
 pub const TIMEOUT_MS: std::ops::RangeInclusive<u32> = 1000..=30_000;
-/// At most this many distinct rounded cells are fetched (ruling 11 / fixed values: Location).
+/// At most this many distinct rounded cells are fetched (fixed values: Location).
 pub const MAX_CELLS: usize = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -196,7 +196,7 @@ pub fn thresholds_for(settings: &EnvSettings, vehicles: &[VehicleState]) -> Thre
     env_thresholds(t)
 }
 
-/// Positions that choose cells: vehicles with a 3D fix, else their homes (ruling 11).
+/// Positions that choose cells: vehicles with a 3D fix, else their homes.
 pub fn positions(vehicles: &[VehicleState]) -> Vec<(f64, f64)> {
     let fixed: Vec<(f64, f64)> = vehicles
         .iter()

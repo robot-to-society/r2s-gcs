@@ -1,4 +1,4 @@
-//! `param_history` (spec 60 §3.2): append-only record of every parameter write and whether
+//! `param_history`: append-only record of every parameter write and whether
 //! the read-back matched.
 
 use rgcs_core::{ParamHistoryEntry, SysId};

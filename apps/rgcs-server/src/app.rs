@@ -48,7 +48,7 @@ pub struct AppState {
     /// The FC link's camera / gimbal port (payload tap, outgoing frames, ACKs); detached
     /// until `with_mav_port`.
     pub mav: rgcs_mavlink::MavPort,
-    /// GPS ROI tasks (spec 40 §4); always built on `cameras`.
+    /// GPS ROI tasks; always built on `cameras`.
     pub roi: crate::roi::RoiHub,
     pub video: VideoHub,
     pub whep: WhepRelay,
@@ -57,11 +57,11 @@ pub struct AppState {
     pub gcs: rgcs_core::GcsId,
     /// Every MAVLink frame received and sent (maintenance › MAVLink インスペクター).
     pub inspector: rgcs_mavlink::Inspector,
-    /// ARM → DISARM flight drafts (addendum §5.6).
+    /// ARM → DISARM flight drafts.
     pub flights: crate::flights::FlightTracker,
-    /// DataFlash retrieval over LOG_REQUEST_* (addendum §9).
+    /// DataFlash retrieval over LOG_REQUEST_*.
     pub logs: crate::logs::LogHub,
-    /// 点検・校正 sessions (spec 10 §7).
+    /// 点検・校正 sessions.
     pub calib: crate::calibration::CalibHub,
     /// Persistent message log (footer, history sheet, acknowledgements).
     pub messages: crate::message_log::MessageLog,
@@ -100,7 +100,7 @@ pub struct AppState {
     /// One async mutex per username so check-lockout → verify → record is serialized
     /// (otherwise concurrent attempts slip past the 5-failure limit).
     login_guards: Arc<StdMutex<HashMap<String, Arc<Mutex<()>>>>>,
-    /// Vehicles whose first Guided target was confirmed in this process (spec 70 §1 "初回").
+    /// Vehicles whose first Guided target was confirmed in this process.
     guided_confirmed: Arc<StdMutex<HashSet<SysId>>>,
     confirm: Arc<StdMutex<ConfirmTokens>>,
     next_command: Arc<AtomicU64>,

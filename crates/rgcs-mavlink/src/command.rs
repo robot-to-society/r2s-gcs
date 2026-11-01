@@ -127,7 +127,7 @@ pub fn encode(cmd: &VehicleCommand, kind: VehicleKind, target: u8) -> Result<Enc
 /// Ignore velocity, acceleration, yaw and yaw rate: position-only setpoint (not FORCE_SET).
 pub const GUIDED_POSITION_ONLY_MASK: u16 = 0x0DF8;
 
-/// Guided target as `SET_POSITION_TARGET_GLOBAL_INT` in the relative-altitude frame (spec 10 §3.5).
+/// Guided target as `SET_POSITION_TARGET_GLOBAL_INT` in the relative-altitude frame.
 pub fn encode_guided_target(target: u8, lat: f64, lon: f64, alt_rel: f32) -> MavMessage {
     MavMessage::SET_POSITION_TARGET_GLOBAL_INT(SET_POSITION_TARGET_GLOBAL_INT_DATA {
         time_boot_ms: 0,

@@ -22,7 +22,7 @@ const CONFIG_RETRY_MS = [1000, 2000, 4000, 5000] as const
 const isRevoked = (e: unknown): boolean => e instanceof PresentError && e.status === 401
 
 /**
- * The audience page (addendum §5.1): video, mini-map, logo. Read-only, no session, never a
+ * The audience page: video, mini-map, logo. Read-only, no session, never a
  * dialog. Video loss keeps the last frame; a small badge appears after 1 s.
  */
 export function PresentApp({ token }: Props) {

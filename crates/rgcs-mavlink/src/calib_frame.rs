@@ -1,4 +1,4 @@
-//! Calibration traffic from the flight controller (spec 10 §7): accelerometer position
+//! Calibration traffic from the flight controller: accelerometer position
 //! requests, compass calibration progress / reports and raw RC input.
 
 use mavlink::dialects::ardupilotmega::{MavCmd, MavMessage, RC_CHANNELS_DATA};

@@ -12,7 +12,7 @@ interface Props {
   readonly dict: Dict
 }
 
-/** Spec 10 §3.3 item 3 / prototype `.cam-strip`: record, photo, zoom stepper, gear — one row (the video type sits on the thumbnail). */
+/** The camera strip (prototype `.cam-strip`): record, photo, zoom stepper, gear — one row (the video type sits on the thumbnail). */
 export function CameraStrip({ caps, state, pending, onCommand, onSettings, dict }: Props) {
   if (caps.kind === 'none') return null
   const recording = state.recording === 'recording'

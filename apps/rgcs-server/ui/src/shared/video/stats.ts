@@ -12,7 +12,7 @@ export interface StatLike {
   readonly nominated?: boolean
 }
 
-/** Receiver-side latency figures from `RTCPeerConnection.getStats()` (spec 10 §4.2 遅延). */
+/** Receiver-side latency figures from `RTCPeerConnection.getStats()`. */
 export function latencyMs(report: ReadonlyArray<StatLike>): Latency {
   const video = report.find((s) => s.type === 'inbound-rtp' && s.kind === 'video')
   const pair = report.find((s) => s.type === 'candidate-pair' && s.nominated === true)

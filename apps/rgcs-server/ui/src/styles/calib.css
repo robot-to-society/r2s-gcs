@@ -1,4 +1,4 @@
-/* メンテナンス › 点検・校正 (spec 10 §7): the prototype's card grid (auto-fit 260 px, gap 12,
+/* メンテナンス › 点検・校正: the prototype's card grid (auto-fit 260 px, gap 12,
    .surface padding 18) plus the open card's live session. */
 .calib-body { flex-direction: column; gap: 10px; overflow-y: auto; }
 .calib-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); grid-auto-flow: row dense; gap: 12px; align-content: start; }

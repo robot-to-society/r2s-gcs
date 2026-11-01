@@ -1,4 +1,4 @@
-// Copy for plugin overlays (design 2026-11-01-plugin-overlays, UI) and the built-in carrier links.
+// Copy for plugin overlays (UI) and the built-in carrier links.
 // `langCode` names the dictionary's language: plugin text (LocalText) is picked with it.
 
 export const overlaysJa = {

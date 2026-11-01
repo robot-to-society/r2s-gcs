@@ -42,7 +42,7 @@ interface Props {
   readonly onOpen: () => void
   readonly onSave: () => void
   readonly onUpload: () => void
-  /** 機体から読込: next to 機体に書き込む (UX-34). */
+  /** 機体から読込: next to 機体に書き込む. */
   readonly onRead: () => void
   readonly canRead: boolean
   /** 「UAV-02 から読込」 when the ops selection stands in for a missing target. */
@@ -199,7 +199,7 @@ export function MissionSidebar(p: Props) {
   )
 }
 
-/** 既定高度 (frame + altitude): absent for a rover target (UX-35). */
+/** 既定高度 (frame + altitude): absent for a rover target. */
 function DefaultAlt({ mission: m, dict, onMeta }: { readonly mission: Draft['mission']; readonly dict: Dict; readonly onMeta: Props['onMeta'] }) {
   return (
     <>

@@ -1,4 +1,4 @@
-// Copy for 点検・校正 (spec 10 §7, prototype `calibItems` / `t.startCalib`).
+// Copy for 点検・校正 (prototype `calibItems`, `t.startCalib`).
 
 export const calibJa = {
   calStart: '校正を開始',

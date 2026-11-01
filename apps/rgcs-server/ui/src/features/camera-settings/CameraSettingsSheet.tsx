@@ -13,7 +13,7 @@ import { startVideoDraft, videoSchema, type VideoDraft } from './videoSchema'
 
 export type Tab = 'connection' | 'input' | 'roi' | 'video'
 
-/** Everything the sheet edits; it survives the 地図で指定 round trip (ruling 14). */
+/** Everything the sheet edits; it survives the 地図で指定 round trip. */
 export interface SheetDraft {
   readonly tab: Tab
   readonly camera: CameraProfileDraft
@@ -31,7 +31,7 @@ interface Props {
   /** The live camera's caps; the 映像 rows are gated on them (undefined: none known). */
   readonly caps: CameraCaps | undefined
   readonly gamepadIds: readonly string[]
-  /** `caps.roi !== 'none'` (ruling 16). */
+  /** `caps.roi !== 'none'`. */
   readonly roiSupported: boolean
   /** The saved presets and control; null when they could not be loaded (the ROI tab stays off). */
   readonly roi: { readonly targets: readonly RoiTarget[]; readonly control: RoiControl } | null
@@ -64,7 +64,7 @@ function startDraft(profile: CameraProfile, inputProfile: GimbalInputProfile, ro
   }
 }
 
-/** Spec 10 §5 / prototype camera settings: 接続 / 操作 / ROI / 映像. zod blocks invalid saves. */
+/** The camera settings sheet (prototype camera settings): 接続 / 操作 / ROI / 映像. zod blocks invalid saves. */
 export function CameraSettingsSheet(props: Props) {
   const { profile, inputProfile, cameraState, caps, gamepadIds, roiSupported, roi, activeRoi, initial, notice, onPickRoi, onSave, onCancel, onCenter, clockSync, onSyncClock, dict } = props
   const [draft, setDraft] = useState<SheetDraft>(() => initial ?? startDraft(profile, inputProfile, roi, cameraState))

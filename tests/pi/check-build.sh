@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P6 Task 2: the Pi binary is an aarch64 ELF, runs on plain Debian bookworm (glibc <= 2.36)
+# The Pi binary is an aarch64 ELF, runs on plain Debian bookworm (glibc <= 2.36)
 # and answers --version without a config file. Prints "CHECK build: OK" or FAIL.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

@@ -1,4 +1,4 @@
-// Whether 実験機能 › AI 緊急介入 is on (read-only GET). Off means off (ruling 1): the ops map shows
+// Whether 実験機能 › AI 緊急介入 is on (read-only GET). Off means off: the ops map shows
 // no 外的要因 chip then. `refreshKey` re-reads it, e.g. when the settings sheet closes.
 import { useEffect, useRef, useState } from 'react'
 import type { GuardSettings } from '../../shared/api/types'

@@ -1,4 +1,4 @@
-// The AI chat right panel (spec 10 §3.4, prototype lines 655–689, glass_ops_ai.png).
+// The AI chat right panel (prototype lines 655–689, glass_ops_ai.png).
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { AiProposal, AiStatus, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'

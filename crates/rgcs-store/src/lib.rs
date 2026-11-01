@@ -1,4 +1,4 @@
-//! SQLite persistence (spec 60): users / sessions / audit log / settings. `Store` is cheap to
+//! SQLite persistence: users / sessions / audit log / settings. `Store` is cheap to
 //! clone (it wraps a connection pool) and every method takes `&self`.
 
 pub mod app_settings;

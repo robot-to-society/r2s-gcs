@@ -1,4 +1,4 @@
-//! ARM / DISARM auto record (spec 70 §3, ruling 12): a 2 Hz task watches `armed` per vehicle
+//! ARM / DISARM auto record: a 2 Hz task watches `armed` per vehicle
 //! and starts / stops the camera recording on the edges when the profile's `auto_record` is on.
 
 use std::collections::HashMap;
@@ -20,7 +20,7 @@ pub const POLL_EVERY: Duration = Duration::from_millis(500);
 pub const OPERATOR: &str = "auto_record";
 /// Message code the UI translates (like `comms_delay`).
 pub const SD_WARNING_TEXT: &str = "sd_card_problem";
-/// Message code for an ARM start the camera did not take (final review I4).
+/// Message code for an ARM start the camera did not take.
 pub const AUTO_RECORD_FAILED_TEXT: &str = "auto_record_failed";
 /// MAV_SEVERITY warning.
 const WARNING_SEVERITY: u8 = 4;
@@ -49,7 +49,7 @@ pub fn sd_warning(storage: Option<&StorageInfo>, rec: RecordingState) -> bool {
     card_bad || matches!(rec, RecordingState::NoCard | RecordingState::CardError)
 }
 
-/// A failed ARM start waiting for its one retry (final review I4).
+/// A failed ARM start waiting for its one retry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Retry {
     /// Nothing to retry.

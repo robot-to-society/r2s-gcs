@@ -1,4 +1,4 @@
-//! Location rounding (ruling 11): only rounded cells ever leave the server.
+//! Location rounding: only rounded cells ever leave the server.
 
 /// The allowed rounding steps in degrees, with the decimals each is printed with.
 pub const ROUNDING_STEPS: [(f64, usize); 3] = [(0.01, 2), (0.05, 2), (0.1, 1)];

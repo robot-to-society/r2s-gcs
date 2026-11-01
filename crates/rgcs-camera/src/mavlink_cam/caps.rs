@@ -1,4 +1,4 @@
-//! Bound camera / gimbal manager → `CameraCaps` (spec 40 §2 `mavlink_cam`, plan rulings 3, 6, 8).
+//! Bound camera / gimbal manager → `CameraCaps` (the `mavlink` camera kind).
 
 use rgcs_core::{CameraCaps, CameraKind, GimbalCaps, RoiMode, VideoMode, ZoomCaps, ZoomUnit};
 
@@ -13,10 +13,10 @@ const GIMBAL_HAS_YAW_AXIS: u32 = 256;
 const GIMBAL_PITCH_OR_YAW_AXIS: u32 = 32 | GIMBAL_HAS_YAW_AXIS;
 const GIMBAL_POINT_LOCATION_GLOBAL: u32 = 131_072;
 /// Native ROI needs a yaw axis: firmware that ignores the gimbal-id selector (Copter ≤ 4.6)
-/// yaws the whole vehicle at the target when the mount has no pan (final review I2).
+/// yaws the whole vehicle at the target when the mount has no pan.
 const GIMBAL_NATIVE_ROI: u32 = GIMBAL_POINT_LOCATION_GLOBAL | GIMBAL_HAS_YAW_AXIS;
 
-/// MAVLink zoom is a percentage of the lens range (ruling 3).
+/// MAVLink zoom is a percentage of the lens range.
 pub const PERCENT_ZOOM: ZoomCaps = ZoomCaps {
     max: 100.0,
     absolute: true,
@@ -126,7 +126,7 @@ mod tests {
         assert!(!caps.gimbal.expect("gimbal").center);
     }
 
-    /// Final review I2: on Copter ≤ 4.6 a pitch-only mount turns ROI into vehicle yaw.
+    /// On Copter ≤ 4.6 a pitch-only mount turns ROI into vehicle yaw.
     #[test]
     fn pitch_only_manager_has_no_native_roi() {
         let (cam, gimbal) = bound(0xC3, Some(32 | 2 | 131072));

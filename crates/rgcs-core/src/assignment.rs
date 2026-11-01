@@ -1,4 +1,4 @@
-//! Plan assignment per vehicle (plan assignment board, spec §5 / §6). Timestamps and plan
+//! Plan assignment per vehicle (plan assignment board). Timestamps and plan
 //! versions (`missions.updated_at`) are unix milliseconds.
 
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,4 @@
-//! ROI controller state machine (spec 40 §4): pure, no I/O.
+//! ROI controller state machine: pure, no I/O.
 //!
 //! `(state, inputs, now) → (state, camera commands, status)`. The server task
 //! (`RoiHub`) owns one controller per vehicle, feeds it vehicle / gimbal samples
@@ -17,7 +17,7 @@ pub const ZERO_RESENDS: u8 = 2;
 pub const DT_MAX_PERIODS: f64 = 2.0;
 pub const YAW_HYSTERESIS_LIMIT_DEG: f64 = 190.0;
 
-/// Fixed `RoiStatus.error` codes (plan ruling 10), translated by the UI.
+/// Fixed `RoiStatus.error` codes, translated by the UI.
 pub mod codes {
     pub const NO_POSITION: &str = "no_position";
     pub const POSITION_STALE: &str = "position_stale";
@@ -144,7 +144,7 @@ impl RoiController {
 
     /// Activates `target`. The gimbal is always zeroed first (with resends): the operator's
     /// stick may have left it turning, and its release zero is dropped once ROI is active
-    /// (ruling 7). Follow mode goes out on the first step.
+    ///. Follow mode goes out on the first step.
     pub fn start(&self, target: RoiTarget) -> Result<(Self, StepOut), RoiStartError> {
         if !target.is_set() {
             return Err(RoiStartError::Unset);

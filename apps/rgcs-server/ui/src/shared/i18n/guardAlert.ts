@@ -1,4 +1,4 @@
-// Copy for the AI 緊急介入 alert banner and the 外的要因 summary chip (plan 2026-10-25-ai-guard Task 10).
+// Copy for the AI 緊急介入 alert banner and the 外的要因 summary chip.
 // The Japanese alert lines are fixed by the plan (Fixed values: Alert text); tests assert them.
 
 export const guardAlertJa = {

@@ -1,4 +1,4 @@
-//! `GET/PUT /api/settings/app` (spec 50 §2.4): what the UI needs that is not per-vehicle —
+//! `GET/PUT /api/settings/app`: what the UI needs that is not per-vehicle —
 //! the language default, the map tile source (config.toml) and the persisted 地図表示 switch.
 
 use axum::extract::State;
@@ -13,7 +13,7 @@ use crate::api::{err, ok};
 use crate::app::AppState;
 use crate::auth::AuthUser;
 
-/// 地図表示 (spec 10 §7).
+/// 地図表示.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ts_rs::TS)]
 #[ts(export)]
 pub struct MapSettings {
@@ -27,7 +27,7 @@ pub struct MapSettings {
 pub const DEFAULT_TRACK_MINUTES: u32 = 10;
 pub const MAX_TRACK_MINUTES: i64 = 120;
 
-/// MAVLink identity (spec 30; user request 2026-10-19).
+/// MAVLink identity (user request 2026-10-19).
 #[derive(Debug, Clone, Serialize, ts_rs::TS)]
 #[ts(export)]
 pub struct MavlinkSettings {

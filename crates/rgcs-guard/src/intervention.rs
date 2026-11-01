@@ -1,4 +1,4 @@
-//! Per-vehicle intervention state machine (spec §5.2, plan rulings 4–6).
+//! Per-vehicle intervention state machine.
 //!
 //! Pure: every input carries its own time, and [`Intervention::step`] returns the next state
 //! plus the effects the host must carry out (alert, send a mode, write a record, clear). The
@@ -9,11 +9,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::toilet_bowl::{TbState, Verdict};
 
-/// The verdict must have been `Detected` this recently when the countdown ends (ruling 4).
+/// The verdict must have been `Detected` this recently when the countdown ends.
 pub const RECHECK_MS: u64 = 1_000;
 /// `by` for phase changes the guard makes itself.
 pub const BY_GUARD: &str = "ai-guard";
-/// `by` for a countdown cancelled because the feature was turned off (ruling 1).
+/// `by` for a countdown cancelled because the feature was turned off.
 pub const BY_DISABLED: &str = "disabled";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -50,7 +50,7 @@ pub enum Phase {
     Idle,
     Alerting,
     Countdown,
-    /// The L2 countdown ran out without a fresh `Detected` (review I2): still cancellable, acts on
+    /// The L2 countdown ran out without a fresh `Detected`: still cancellable, acts on
     /// the first fresh `Detected` until the detector clears.
     Due,
     Executing,
@@ -244,7 +244,7 @@ impl Intervention {
     }
 
     /// Ruling 4, re-checked when the countdown ends. Without a fresh `Detected` the machine
-    /// becomes due (review I2) instead of restarting a full countdown on the next detection.
+    /// becomes due instead of restarting a full countdown on the next detection.
     fn recheck(&self, policy: &Policy, now_ms: u64) -> Step {
         let fresh = self
             .last_detected_ms
@@ -322,7 +322,7 @@ impl Intervention {
     }
 
     /// Turning the feature off cancels a countdown (or a due action) and drops any other
-    /// alert (ruling 1). A lower level is applied by the countdown re-check, and ends a due
+    /// alert. A lower level is applied by the countdown re-check, and ends a due
     /// action at once.
     fn on_policy(&self, p: &Policy) -> Step {
         match (p.effective_level(), self.phase) {

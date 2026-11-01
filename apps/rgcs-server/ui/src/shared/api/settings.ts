@@ -30,7 +30,7 @@ export function loadAppSettings(): Promise<AppSettings> {
   return cached
 }
 
-/** `PUT /api/settings/app` (spec 50 §2.4) with only the changed map values; every component using the settings sees the result. */
+/** `PUT /api/settings/app` with only the changed map values; every component using the settings sees the result. */
 export async function saveMapSettings(map: Partial<MapSettings>): Promise<AppSettings> {
   const saved = await apiFetch<AppSettings>('/api/settings/app', { method: 'PUT', body: { map } })
   cached = Promise.resolve(saved)

@@ -1,4 +1,4 @@
-//! One telemetry point fed to the detectors, and the monitored-mode gate (plan ruling 3).
+//! One telemetry point fed to the detectors, and the monitored-mode gate.
 
 use serde::{Deserialize, Serialize};
 

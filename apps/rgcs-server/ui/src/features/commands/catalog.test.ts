@@ -23,7 +23,7 @@ describe('command catalog', () => {
     expect(catalogGroups().map((g) => g.group)).toEqual(['flight', 'move', 'mode', 'payload'])
   })
 
-  it('ARM is disabled when armed, DISARM when disarmed; camera opens its settings and nothing is dead (UX-26)', () => {
+  it('ARM is disabled when armed, DISARM when disarmed; camera opens its settings and nothing is dead', () => {
     const by = (n: string) => CATALOG.find((i) => i.name === n)!
     expect(by('arm').enabled(v(true))).toBe(false)
     expect(by('arm').enabled(v(false))).toBe(true)
@@ -41,7 +41,7 @@ describe('command catalog', () => {
     expect(commandName({ cmd: 'change_speed', args: { mps: 3 } })).toBe('change_speed')
   })
 
-  it('arm / disarm lead the flight group before takeoff (UX-27); takeoff needs an armed vehicle and builds the serde shape', () => {
+  it('arm / disarm lead the flight group before takeoff; takeoff needs an armed vehicle and builds the serde shape', () => {
     const by = (n: string) => CATALOG.find((i) => i.name === n)!
     expect(catalogGroups()[0]!.items.slice(0, 3).map((i) => i.name)).toEqual(['arm', 'disarm', 'takeoff'])
     expect(by('takeoff').enabled(v(false))).toBe(false)

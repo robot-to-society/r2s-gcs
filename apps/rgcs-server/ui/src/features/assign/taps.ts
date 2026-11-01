@@ -1,4 +1,4 @@
-// Tap-to-place and double-tap on the assignment board (spec §4.2, §4.3).
+// Tap-to-place and double-tap on the assignment board.
 // A pure reducer: the UI feeds it taps and acts on the returned action.
 
 export const DOUBLE_TAP_MS = 320

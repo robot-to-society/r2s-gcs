@@ -1,5 +1,5 @@
-// Copy for the MT11 thermal / AI tracking / SD / clock status (spec 10 §3.3, §4.2, §5; prototype `t.cam`).
-// Refusal codes follow camera-rest ruling 4; AI ACK codes are the driver's 0x55 / 0x56 names.
+// Copy for the MT11 thermal / AI tracking / SD / clock status (prototype `t.cam`).
+// Refusal codes are the server's; AI ACK codes are the driver's 0x55 / 0x56 names.
 
 export const cameraMediaJa = {
   camConnected: '接続中',

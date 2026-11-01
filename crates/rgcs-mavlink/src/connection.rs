@@ -85,7 +85,7 @@ impl Drop for AbortOnDrop {
 }
 
 /// Ticks the router once a second whether or not the transport is up, so heartbeat ages keep
-/// growing and link health reaches delay / lost while reconnects fail (spec 30 §4).
+/// growing and link health reaches delay / lost while reconnects fail.
 async fn tick_router(router: Arc<Mutex<Router>>, events: mpsc::Sender<RouterEvent>, clock: TaskClock) {
     let mut ticker = tokio::time::interval(Duration::from_secs(1));
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);

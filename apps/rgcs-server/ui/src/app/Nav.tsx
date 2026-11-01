@@ -28,7 +28,7 @@ const ICON: Record<(typeof NAV_VIEWS)[number], () => React.ReactElement> = {
   present: () => <IconMap />,
 }
 
-/** Six icon buttons with a sliding lens (`.seg.n6`, 344 px, spec 10 §1 / 20 §9); labels live in `title` / `aria-label`. */
+/** Six icon buttons with a sliding lens (`.seg.n6`, 344 px); labels live in `title` / `aria-label`. */
 export function Nav({ view, onView, dict }: Props) {
   const index = Math.max(0, NAV_VIEWS.indexOf(view))
   return (

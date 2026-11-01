@@ -1,4 +1,4 @@
-// 実験機能 › AI 緊急介入 settings API (plan 2026-10-25-ai-guard Task 5). Called only from user actions,
+// 実験機能 › AI 緊急介入 settings API. Called only from user actions,
 // never from an effect except the initial GET.
 import { apiFetch } from '../../shared/api/client'
 import type { GuardAlert, GuardLevel, GuardSettings } from '../../shared/api/types'

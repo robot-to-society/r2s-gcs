@@ -42,12 +42,12 @@ describe('vehicle formatting', () => {
     expect(battText({ ...v, battery: { pct: null, volt: 0, current: null } })).toBe('—')
   })
 
-  it('an unknown percentage draws an empty bar, never a full one (UX-11)', () => {
+  it('an unknown percentage draws an empty bar, never a full one', () => {
     expect(battWidth({ ...v, battery: { pct: null, volt: 12.6, current: null } })).toBe('0%')
     expect(battWidth({ ...v, battery: { pct: 64, volt: 22, current: null } })).toBe('64%')
   })
 
-  it('the status dot means link / health only, never the airframe (UX-14)', () => {
+  it('the status dot means link / health only, never the airframe', () => {
     expect(dotClass({ ...v, kind: 'copter' })).toBe('dot ok')
     expect(dotClass({ ...v, kind: 'rover' })).toBe('dot ok')
     expect(dotClass({ ...v, link: 'delay' })).toBe('dot warn')

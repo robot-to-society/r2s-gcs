@@ -1,4 +1,4 @@
-//! Logbook wire types (addendum §5.5 / §5.6): vehicle registry, pilot info, inspection
+//! Logbook wire types: vehicle registry, pilot info, inspection
 //! templates and runs (様式 2), flights with squawks (様式 1), maintenance records (様式 3)
 //! and stored DataFlash logs. Timestamps are unix milliseconds; dates are `YYYY-MM-DD`.
 

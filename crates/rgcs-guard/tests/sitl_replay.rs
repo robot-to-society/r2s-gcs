@@ -1,5 +1,5 @@
 //! Replay of telemetry recorded on a scratch ArduCopter SITL by `tests/sitl/guard_toilet_bowl.py`
-//! with `RGCS_GUARD_DUMP` (plan 2026-10-25-ai-guard, Task 11). One `Sample` per line, LOITER only.
+//! with `RGCS_GUARD_DUMP`. One `Sample` per line, LOITER only.
 //!
 //! - `sitl_copter_toilet_bowl.jsonl`: mis-oriented compass (COMPASS_ORIENT 2 plus a hard-iron
 //!   offset), LOITER entered at index 0. The vehicle circles with a radius that grows to ~1.55 m

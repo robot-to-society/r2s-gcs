@@ -1,4 +1,4 @@
-//! Stored DataFlash logs (spec 50 §2.7): list, list on the flight controller, fetch over
+//! Stored DataFlash logs: list, list on the flight controller, fetch over
 //! MAVLink (202 + `log_fetch_progress`), download, upload from the browser, attach to a flight.
 
 use std::path::{Path, PathBuf};

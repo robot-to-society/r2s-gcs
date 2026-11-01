@@ -1,4 +1,4 @@
-//! Plugins, stage 1 (design 2026-11-01-plugin-overlays): a `plugin.toml` manifest that declares
+//! Plugins, stage 1: a `plugin.toml` manifest that declares
 //! map overlays and links. No code runs: the manifest is parsed, validated and served as data.
 
 use serde::{Deserialize, Serialize};

@@ -10,7 +10,7 @@ interface Props {
   readonly onClose: () => void
 }
 
-/** Right-click menu on a waypoint badge: 挿入 / 削除 / 高度一括 (spec 10 §6). */
+/** Right-click menu on a waypoint badge: 挿入 / 削除 / 高度一括. */
 export function ContextMenu({ menu, dict, onInsert, onDelete, onBulkAlt, onClose }: Props) {
   const run = (fn: () => void) => () => {
     fn()

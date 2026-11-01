@@ -178,7 +178,7 @@ describe('useCameraSettingsFlow', () => {
       expect(results).toEqual([expect.objectContaining({ ok: false, reason: 'stream_unknown' })])
     })
 
-    it('an encoding the camera rejects is a translated failure, not saved (final review M4)', async () => {
+    it('an encoding the camera rejects is a translated failure, not saved', async () => {
       api.getCameraProfile.mockResolvedValueOnce(full)
       api.sendCameraCommand.mockRejectedValueOnce(new ApiError(409, 'encoding_rejected', 'refused: encoding_rejected'))
       const { result } = setup()

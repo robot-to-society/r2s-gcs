@@ -1,4 +1,4 @@
-//! DataFlash retrieval over LOG_REQUEST_* with progress, plus upload / attachment (addendum §5.6, §9).
+//! DataFlash retrieval over LOG_REQUEST_* with progress, plus upload / attachment.
 
 mod common;
 

@@ -1,4 +1,4 @@
-// Undo / redo over immutable snapshots (spec 10 §6: 60 steps).
+// Undo / redo over immutable snapshots (60 steps).
 export const HISTORY_DEPTH = 60
 
 export interface History<T> {

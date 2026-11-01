@@ -1,5 +1,5 @@
 // Thin fetch wrapper for `/api/*`: CSRF header, same-origin cookies, envelope unwrapping
-// (spec 50 §1, 70 §5). A 401 also notifies the auth layer so the UI drops to the login screen.
+//. A 401 also notifies the auth layer so the UI drops to the login screen.
 
 export type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 

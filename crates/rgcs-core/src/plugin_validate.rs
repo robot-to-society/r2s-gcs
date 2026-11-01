@@ -1,4 +1,4 @@
-//! Manifest checks (design 2026-11-01-plugin-overlays): every rule maps to one [`PluginError`].
+//! Manifest checks: every rule maps to one [`PluginError`].
 
 use crate::plugin::{
     valid_id, LocalText, Manifest, OverlayCache, OverlaySpec, PluginError, MAX_AREA_ZOOM_SPAN, MAX_LINKS,

@@ -9,7 +9,7 @@ interface Props {
   readonly rect: Rect | null
   /** The profile's `thermal_overlay` (IR markers on / off). */
   readonly thermalOverlay: boolean
-  /** The box a click just asked for, shown until the first 0x50 arrives (ruling 10). */
+  /** The box a click just asked for, shown until the first 0x50 arrives. */
   readonly preview: Rect | null
   readonly dict: Dict
   /** The layer is the click target and the element the cockpit measures. */

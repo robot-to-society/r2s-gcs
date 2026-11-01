@@ -1,4 +1,4 @@
-//! When the driver asks for info and streams (plan rulings 11, 12): `REQUEST_MESSAGE` 259 / 280
+//! When the driver asks for info and streams: `REQUEST_MESSAGE` 259 / 280
 //! to every component every 2 s while unbound and once more on each reconnect edge;
 //! `SET_MESSAGE_INTERVAL` for 260 / 262 / 285 to the bound components when the message is more
 //! than 3 s stale, at most every 5 s per message. This also runs while bound but disconnected:

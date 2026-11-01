@@ -1,4 +1,4 @@
-//! Tool calls the LLM may make: names, input parsing and limits (ruling 9).
+//! Tool calls the LLM may make: names, input parsing and limits.
 //!
 //! Inputs are parsed as JSON values, never string-matched. Every tool only reads or proposes;
 //! none sends anything to a vehicle or a camera, and none can trigger, cancel or change the

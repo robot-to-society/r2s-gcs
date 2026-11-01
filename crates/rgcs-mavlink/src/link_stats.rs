@@ -27,7 +27,7 @@ const RESYNC_GAP: u8 = 128;
 /// baseline instead of counting the sequence gap (the silence shows as stale rx instead).
 pub const RESYNC_SILENCE_MS: u64 = 2_000;
 /// A connected link with no frame for longer than this is stale (no data), like the router's
-/// heartbeat `delay` threshold (spec 80 §3).
+/// heartbeat `delay` threshold.
 pub const STALE_RX_MS: u64 = 3_000;
 
 const MAV_TYPE_GCS: u8 = 6;

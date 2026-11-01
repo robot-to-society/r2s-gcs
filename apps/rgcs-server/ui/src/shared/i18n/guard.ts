@@ -1,5 +1,5 @@
 // Copy for 実験機能 › AI 緊急介入 and 外的要因データ (spec 2026-10-24-ai-intervention-design §3–§5.5,
-// plan 2026-10-25-ai-guard Task 9). The three consent texts are fixed by the plan; tests assert them.
+// experimental features). The three consent texts are fixed; tests assert them.
 
 export const guardJa = {
   guardCardTitle: '実験機能',

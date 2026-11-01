@@ -27,13 +27,13 @@ export function sdText(s: StorageInfo | null | undefined, dict?: Dict): string |
   return [`${s.free_gb.toFixed(1)} / ${total} GB`, pct].filter(Boolean).join('  ')
 }
 
-/** Spec 40 §5: red when the card is not ok or under 10 % free. */
+/** red when the card is not ok or under 10 % free. */
 export function sdDanger(s: StorageInfo | null | undefined): boolean {
   if (!s) return false
   return s.status !== 'ok' || (s.free_pct !== null && s.free_pct < 10)
 }
 
-/** 'GPS 同期 +0.3 s' (camera − GPS, ruling 6), the translated error, or '—'. */
+/** 'GPS 同期 +0.3 s' (camera − GPS), the translated error, or '—'. */
 export function clockText(c: CameraClock | null | undefined, dict: Dict): string {
   if (!c) return dict.unknown
   if (c.error !== null) return codeText(dict, 'clockErr_', c.error) ?? c.error
@@ -61,7 +61,7 @@ export function encodingLabel(e: EncodingInfo | null | undefined): string | null
 
 const TRACK: Record<TrackState['status'], keyof Dict> = { tracking: 'trackTracking', searching: 'trackSearching', lost: 'trackLost' }
 
-/** 追跡中 / 再捕捉中 / 見失い (ruling 10); null without a track. */
+/** 追跡中 / 再捕捉中 / 見失い; null without a track. */
 export function trackLabel(t: TrackState | null | undefined, dict: Dict): string | null {
   return t ? dict[TRACK[t.status]] : null
 }

@@ -1,4 +1,4 @@
-//! `gimbal_input_profile`: a single JSON row (spec 60 §3, 40 §6).
+//! `gimbal_input_profile`: a single JSON row.
 
 use rgcs_core::GimbalInputProfile;
 use sqlx::Row;

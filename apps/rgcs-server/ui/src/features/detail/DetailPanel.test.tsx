@@ -27,7 +27,7 @@ describe('DetailPanel', () => {
     expect(screen.getByTestId('alt')).toHaveTextContent('82')
     expect(screen.getByTestId('speed')).toHaveTextContent('7.3')
     expect(screen.getByTestId('batt')).toHaveTextContent('64')
-    // every telemetry value has its caption, the battery too (UX-24)
+    // every telemetry value has its caption, the battery too
     expect(screen.getByTestId('batt').parentElement).toHaveTextContent('バッテリー')
     const rows = screen.getAllByTestId('msg')
     expect(rows).toHaveLength(1)
@@ -37,7 +37,7 @@ describe('DetailPanel', () => {
     expect(screen.queryByText('other vehicle')).toBeNull()
   })
 
-  it('the header shows the flight mode and the arm state in words (UX-12)', () => {
+  it('the header shows the flight mode and the arm state in words', () => {
     const { unmount } = render(<DetailPanel {...base} />)
     const head = screen.getByTestId('detail-state')
     expect(head).toHaveTextContent('LOITER')
@@ -47,7 +47,7 @@ describe('DetailPanel', () => {
     expect(screen.getByTestId('detail-state')).toHaveTextContent('ディスアーム')
   })
 
-  it('a rover shows its distance from home, not altitude, and its attitude for slopes (UX-16; user 2026-11-01)', () => {
+  it('a rover shows its distance from home, not altitude, and its attitude for slopes (user 2026-11-01)', () => {
     render(<DetailPanel {...base} vehicle={{ ...v, kind: 'rover', lat: 36.001, lon: 139, home: { lat: 36, lon: 139, alt: 0 }, attitude: { roll: 1, pitch: 2 }, hdg: 87 }} />)
     expect(screen.queryByTestId('alt')).toBeNull()
     expect(screen.getByTestId('dist')).toHaveTextContent('111 m')
@@ -121,7 +121,7 @@ describe('DetailPanel', () => {
     const onOpenLog = vi.fn()
     const onOpenCommands = vi.fn()
     render(<DetailPanel {...base} onOpenLog={onOpenLog} onOpenCommands={onOpenCommands} />)
-    // the tile and the メッセージ chevron both open the vehicle's message history (UX-22)
+    // the tile and the メッセージ chevron both open the vehicle's message history
     fireEvent.click(screen.getAllByRole('button', { name: 'メッセージ履歴' }).at(-1)!)
     expect(onOpenLog).toHaveBeenCalledWith(1)
     fireEvent.click(screen.getByRole('button', { name: /全コマンド/ }))
@@ -140,7 +140,7 @@ describe('DetailPanel', () => {
     expect(onOpenMaint).toHaveBeenCalledWith(1)
     fireEvent.click(history)
     expect(onOpenLog).toHaveBeenCalledWith(1)
-    // the pending count shows once, on メッセージ, not again on the tile (UX-22)
+    // the pending count shows once, on メッセージ, not again on the tile
     expect(within(history).queryByText('2')).toBeNull()
     expect(within(tiles).getByRole('button', { name: /全コマンド/ })).toHaveAttribute('aria-pressed', 'true')
     expect(within(maint).queryByTitle('校正の要確認があります')).toBeNull()
@@ -189,7 +189,7 @@ describe('DetailPanel', () => {
     expect(onCommand).toHaveBeenLastCalledWith({ cmd: 'land' })
     expect(screen.getByRole('button', { name: '帰還' }).className).toContain('sending')
   })
-  it('a rover has no 着陸 in the emergency row (UX-18)', () => {
+  it('a rover has no 着陸 in the emergency row', () => {
     render(<DetailPanel {...base} vehicle={{ ...v, kind: 'rover', mode: 'AUTO' }} onCommand={() => {}} />)
     const row = screen.getByRole('group', { name: '緊急操作' })
     expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['一時停止', '帰還'])

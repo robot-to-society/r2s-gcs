@@ -10,7 +10,7 @@ interface Props {
   readonly vehicle: VehicleState
   readonly dict: Dict
   readonly onWrite: () => void
-  /** `restart`: the mission had finished; it runs again from WP 1 (UX-20). */
+  /** `restart`: the mission had finished; it runs again from WP 1. */
   readonly onStart: (restart: boolean) => void
   /** A mission write in progress for this vehicle. */
   readonly transfer?: MissionTransfer | null

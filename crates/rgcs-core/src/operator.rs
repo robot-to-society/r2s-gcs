@@ -1,4 +1,4 @@
-//! The signed-in user. Every command is audited under this name (spec 70 §6).
+//! The signed-in user. Every command is audited under this name.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -16,7 +16,7 @@ pub enum Role {
 pub struct Operator {
     pub username: String,
     pub role: Role,
-    /// True while the seeded `admin` / `admin` account still works (spec 60 §3.1).
+    /// True while the seeded `admin` / `admin` account still works.
     pub dev_mode: bool,
 }
 

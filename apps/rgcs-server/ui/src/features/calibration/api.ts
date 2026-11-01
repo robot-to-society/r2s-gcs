@@ -1,4 +1,4 @@
-// REST calls for 点検・校正 (spec 50 §2.2): sessions, motor test, reboot.
+// REST calls for 点検・校正: sessions, motor test, reboot.
 import { apiFetch } from '../../shared/api/client'
 import type { CalibKind, CalibRecord, CalibStatus } from '../../shared/api/types'
 import { requestConfirm, sendCommand } from '../commands/api'

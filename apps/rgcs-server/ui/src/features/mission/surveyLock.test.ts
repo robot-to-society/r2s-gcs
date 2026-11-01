@@ -1,4 +1,4 @@
-// Survey items are read-only in every generic edit path (final review C2): only the survey ops change them.
+// Survey items are read-only in every generic edit path: only the survey ops change them.
 import { describe, expect, it } from 'vitest'
 import type { Mission, MissionItem } from '../../shared/api/types'
 import { removeSurvey, removeWithSurveys } from '../survey/draftOps'

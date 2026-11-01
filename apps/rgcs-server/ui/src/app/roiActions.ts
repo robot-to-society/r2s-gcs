@@ -1,4 +1,4 @@
-// GPS ROI start / stop from the cockpit chips and the joystick buttons (spec 40 §4, §6).
+// GPS ROI start / stop from the cockpit chips and the joystick buttons.
 // Failures go to the footer results like other commands; there is no dialog.
 import type { CameraCommand, RoiStatus } from '../shared/api/types'
 import type { ButtonAction } from '../features/gimbal-joystick'

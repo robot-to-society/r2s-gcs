@@ -1,4 +1,4 @@
-// Copy for the AI chat right panel (spec 10 §3.4, AI chat plan Task 7).
+// Copy for the AI chat right panel.
 
 export const aiJa = {
   aiTitle: 'AI',

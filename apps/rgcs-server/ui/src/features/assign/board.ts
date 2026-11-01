@@ -1,4 +1,4 @@
-// Shapes shared by the assignment board's panels (plan 2026-10-31 Tasks 9-12).
+// Shapes shared by the assignment board's panels.
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { AssignOverlayInput } from './assignOverlay'
 

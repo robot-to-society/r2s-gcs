@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P6 Task 3: the Docker Pi equivalent is up (after scripts/pi-sim.sh up, before any install).
+# The Docker Pi equivalent is up (after scripts/pi-sim.sh up, before any install).
 # Prints "CHECK env: OK" or FAIL.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

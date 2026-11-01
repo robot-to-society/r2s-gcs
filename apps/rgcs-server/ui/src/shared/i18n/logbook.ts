@@ -1,4 +1,4 @@
-// Copy for the 日常点検 / 飛行日誌 / アプリ設定 tabs (addendum §5.5–§5.7). Japanese wording follows the
+// Copy for the 日常点検 / 飛行日誌 / アプリ設定 tabs. Japanese wording follows the
 // MLIT 飛行日誌 forms; list-valued entries are `|`-separated (see `splitList`).
 
 export const logbookJa = {

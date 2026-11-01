@@ -18,7 +18,7 @@ export function homeDistance(v: VehicleState): number | null {
   return Math.round(haversineM(v.lat, v.lon, v.home.lat, v.home.lon))
 }
 
-/** A rover shows its distance from home where an aircraft shows its altitude (UX-16). */
+/** A rover shows its distance from home where an aircraft shows its altitude. */
 export function homeDistText(v: VehicleState): string {
   const d = homeDistance(v)
   return d === null ? '—' : `${d} m`
@@ -38,7 +38,7 @@ export function battLow(v: VehicleState): boolean {
   return v.battery.pct !== null && v.battery.pct < 50
 }
 
-/** Bar fill; 0 % when unknown: an unknown battery must never look full (UX-11). */
+/** Bar fill; 0 % when unknown: an unknown battery must never look full. */
 export function battWidth(v: VehicleState): string {
   return `${v.battery.pct ?? 0}%`
 }
@@ -49,7 +49,7 @@ export function matches(v: VehicleState, query: string, dict: Dict): boolean {
   return q === '' || v.name.toLowerCase().includes(q) || modeLabel(v, dict).toLowerCase().includes(q)
 }
 
-/** Status dot: link / health only (UX-14): green OK, amber warn / delay, red lost. The kind icon shows the airframe. */
+/** Status dot: link / health only: green OK, amber warn / delay, red lost. The kind icon shows the airframe. */
 export function dotClass(v: VehicleState): string {
   if (v.link === 'lost') return 'dot lost'
   if (v.warn || v.link === 'delay') return 'dot warn'

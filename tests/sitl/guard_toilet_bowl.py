@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""AI 緊急介入 (plan 2026-10-25-ai-guard, Task 11): toilet-bowl scenarios on a SCRATCH SITL.
+"""AI 緊急介入: toilet-bowl scenarios on a SCRATCH SITL.
 
 python3 stdlib only. Drives a scratch rgcs-server (login, guard level, modes, arm / takeoff,
 alerts, audit) and the scratch SITL directly:
   * RC input: 16 x uint16 UDP packets at 50 Hz to SITL's RC port (ch1-4 centred; throttle low
     on the ground). A stick move is a ch1 change for 1 s.
   * Fault set-up: PARAM_SET / reboot over the SITL's second MAVLink port (SERIAL1, tcp:<sitl>+2).
-    The server refuses parameter writes while armed (spec 70 interlock) and has no reboot, so the
+    The server refuses parameter writes while armed and has no reboot, so the
     fault goes straight to the scratch SITL, never through any server.
 
 Refuses to run against the dev stack: server port 8000, SITL / MAVLink ports 5760-5793, RC

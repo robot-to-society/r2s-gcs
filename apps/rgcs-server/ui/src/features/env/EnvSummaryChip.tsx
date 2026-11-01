@@ -1,5 +1,5 @@
 // The 外的要因 summary chip beside the 2D / 3D switch, with a popover of every factor (plan
-// 2026-10-25-ai-guard Task 10, spec §5.4). Values always show source + local time; stale readings
+// Values always show source + local time; stale readings
 // are greyed; SWPC notes and station names are untrusted and rendered as plain text only.
 import { useEffect, useRef, useState } from 'react'
 import type { EnvFactor, EnvSummary } from '../../shared/api/types'

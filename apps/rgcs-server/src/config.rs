@@ -1,4 +1,4 @@
-//! `config.toml`: only what is needed to start (spec 30 §1). Everything else lives in SQLite.
+//! `config.toml`: only what is needed to start. Everything else lives in SQLite.
 
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ pub enum Role {
     Hub,
 }
 
-/// MAVLink log retrieval (addendum §9): `auto` = on for tcp/udp links and serial links at
+/// MAVLink log retrieval: `auto` = on for tcp/udp links and serial links at
 /// 921600 baud or more, off for slower serial links.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -27,7 +27,7 @@ pub enum LogFetch {
 
 pub const LOG_FETCH_MIN_BAUD: u32 = 921_600;
 
-/// A base map the operator can pick (`[[basemaps]]` in config.toml; spec 10 §3.1).
+/// A base map the operator can pick (`[[basemaps]]` in config.toml).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ts_rs::TS)]
 #[serde(deny_unknown_fields)]
 #[ts(export)]
@@ -88,7 +88,7 @@ pub struct Config {
     /// Raster tile template for the operations map (`{z}/{x}/{y}`); swap for imagery on site.
     pub map_tile_url: String,
     pub map_attribution: String,
-    /// MediaMTX WHEP endpoint the browser offers are relayed to (spec 30 §5).
+    /// MediaMTX WHEP endpoint the browser offers are relayed to.
     pub whep_upstream: String,
     /// RTSP DESCRIBE probe timeout for the video source monitor.
     pub video_probe_timeout_ms: u64,
@@ -99,7 +99,7 @@ pub struct Config {
     pub terrain_tiles: String,
     /// Plugin directories (`<id>/plugin.toml`), read at start; `None` → `<data_dir>/plugins`.
     pub plugins_dir: Option<PathBuf>,
-    /// AI chat provider (spec 70 §4); absent → disabled.
+    /// AI chat provider; absent → disabled.
     pub ai: rgcs_ai::AiConfig,
     /// External-factor sources (外的要因): key env-var names and base-URL overrides.
     pub env: EnvConfig,

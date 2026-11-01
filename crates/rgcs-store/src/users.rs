@@ -1,4 +1,4 @@
-//! Users table. The seeded `admin` / `admin` pair is the mock login (spec 60 §3.1); while it
+//! Users table. The seeded `admin` / `admin` pair is the mock login; while it
 //! still works the server reports `dev_mode = true` and the UI shows a badge.
 
 use rgcs_core::operator::Role;

@@ -1,4 +1,4 @@
-//! Per-vehicle parameter cache and the download / verified-write service (addendum §5.4).
+//! Per-vehicle parameter cache and the download / verified-write service.
 //!
 //! The cache is fed by every PARAM_VALUE (guided fence checks, mission validation and the
 //! params tab all read it). A full download is PARAM_REQUEST_LIST followed by gap completion

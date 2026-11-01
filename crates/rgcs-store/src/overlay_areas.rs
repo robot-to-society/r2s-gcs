@@ -1,5 +1,5 @@
 //! `overlay_areas`: the rectangles whose tiles the server fetched for a plugin's `area` overlay
-//! (design 2026-11-01-plugin-overlays). Rows are scoped by `(plugin_id, overlay_id)`.
+//!. Rows are scoped by `(plugin_id, overlay_id)`.
 
 use rgcs_core::{AreaStatus, OverlayArea};
 use sqlx::Row;

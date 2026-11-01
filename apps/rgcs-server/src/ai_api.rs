@@ -1,5 +1,5 @@
 //! `GET /api/ai/status`, `POST /api/ai/chat`, `POST /api/ai/proposals/{id}/dismiss`
-//! (spec 50 §2.5, plan rulings 2, 4-7, 11, 12). The chat only reads and proposes; a proposal is
+//!. The chat only reads and proposes; a proposal is
 //! executed by the operator through `POST /api/vehicles/{sysid}/command` with `ai_proposal_id`.
 
 use std::sync::Arc;
@@ -277,7 +277,7 @@ fn tool_run(r: &ToolRunRecord) -> AiToolRun {
     }
 }
 
-/// The tool card from the last successful `get_vehicle_status` of the reply (ruling 10).
+/// The tool card from the last successful `get_vehicle_status` of the reply.
 fn status_card(runs: &[ToolRunRecord]) -> Option<AiStatusCard> {
     let v = runs
         .iter()

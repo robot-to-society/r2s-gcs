@@ -1,4 +1,4 @@
-// REST calls for missions (spec 50 §2.2.1). JSON goes through `apiFetch`; the `.waypoints`
+// REST calls for missions. JSON goes through `apiFetch`; the `.waypoints`
 // text endpoints use fetch directly because they are not JSON envelopes.
 import { ApiError, CSRF_HEADER, CSRF_VALUE, apiFetch } from '../../shared/api/client'
 import { requestConfirm } from '../commands/api'

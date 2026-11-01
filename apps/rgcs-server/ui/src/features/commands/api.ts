@@ -13,14 +13,14 @@ export interface Queued {
   readonly id: number
 }
 
-/** `POST /api/vehicles/{sysid}/confirm {cmd}` → token valid for 30 s (spec 70 §1). */
+/** `POST /api/vehicles/{sysid}/confirm {cmd}` → token valid for 30 s. */
 export function requestConfirm(sysid: number, cmd: string): Promise<ConfirmReply> {
   return apiFetch<ConfirmReply>(`/api/vehicles/${sysid}/confirm`, { method: 'POST', body: { cmd }, timeoutMs: COMMAND_TIMEOUT_MS })
 }
 
 /**
  * `POST /api/vehicles/{sysid}/command` with the flat `{cmd, args?, confirm_token?, ai_proposal_id?}` body
- * (spec 50 §2.2). `aiProposalId` links the send to the AI proposal the operator pressed 実行 on.
+ *. `aiProposalId` links the send to the AI proposal the operator pressed 実行 on.
  */
 export function sendCommand(sysid: number, command: VehicleCommand, confirmToken?: string, aiProposalId?: string): Promise<Queued> {
   const body = {

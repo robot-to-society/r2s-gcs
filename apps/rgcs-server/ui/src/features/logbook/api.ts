@@ -1,4 +1,4 @@
-// REST calls for the logbook (spec 50 §2.7): registry, pilot, templates, inspections, flights,
+// REST calls for the logbook: registry, pilot, templates, inspections, flights,
 // squawks, maintenance, logs and the form export URL.
 import { apiFetch, ApiError, CSRF_HEADER, CSRF_VALUE } from '../../shared/api/client'
 import type {

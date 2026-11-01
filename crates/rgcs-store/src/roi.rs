@@ -1,4 +1,4 @@
-//! `roi_targets` / `roi_control` (spec 60 §3.4): ten ROI presets and the control parameters per
+//! `roi_targets` / `roi_control`: ten ROI presets and the control parameters per
 //! vehicle. Absent rows read as the defaults.
 
 use rgcs_core::{default_roi_targets, RoiControl, RoiControlMode, RoiTarget, SysId, ROI_SLOT_COUNT};

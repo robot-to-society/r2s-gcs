@@ -1,4 +1,4 @@
-// 日常点検 tab (spec 10 §7, addendum §5.5): the vehicle's template on the left, saved runs on
+// 日常点検 tab: the vehicle's template on the left, saved runs on
 // the right. Loads per vehicle; the parent keys it by sysid.
 import { useEffect, useState } from 'react'
 import type { InspectionRun, InspectionTemplate, MaintenanceInput, Operator, VehicleState } from '../../shared/api/types'

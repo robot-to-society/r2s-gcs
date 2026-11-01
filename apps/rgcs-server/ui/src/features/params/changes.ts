@@ -1,4 +1,4 @@
-// The change set (addendum §5.4): pending edits by name, kept immutable; helpers to format
+// The change set: pending edits by name, kept immutable; helpers to format
 // values through the metadata and to parse what the operator typed.
 import type { ParamChange, ParamEntry } from '../../shared/api/types'
 import type { MetaMap, ParamMeta } from './meta'

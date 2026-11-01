@@ -1,4 +1,4 @@
-// 実験機能 sheet (spec §3–§4, plan Task 9): the AI 緊急介入 switch with the 3-part consent dialog, the
+// 実験機能 sheet: the AI 緊急介入 switch with the 3-part consent dialog, the
 // per-event level, and the countdown / takeover wait. Admin only; operators see the state read-only.
 // Every request comes from a click (Review Focus 1), except the initial GET.
 import { useEffect, useState } from 'react'

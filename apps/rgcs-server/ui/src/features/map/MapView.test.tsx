@@ -540,7 +540,7 @@ describe('MapView', () => {
     expect(m2.fits).toEqual([{ b: [[137.63, 36.2], [137.7, 36.25]], o: { padding: pad, maxZoom: 16, duration: 0 } }])
   })
 
-  it('frames the fleet on the live map under StrictMode, not only on the thrown-away first map (UX-10)', () => {
+  it('frames the fleet on the live map under StrictMode, not only on the thrown-away first map', () => {
     const props = { tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
     render(
       <StrictMode>
@@ -551,7 +551,7 @@ describe('MapView', () => {
     expect(live.fits).toEqual([{ b: [[137.63, 36.2], [137.7, 36.25]], o: { padding: pad, maxZoom: 16, duration: 0 } }])
   })
 
-  it('a show-all request frames every vehicle with a position, once per request (UX-10)', () => {
+  it('a show-all request frames every vehicle with a position, once per request', () => {
     const vehicles = new Map([[1, v(1, 3, 137.63, 36.25)], [2, v(2, 3, 137.7, 36.2)], [3, v(3, 0)]])
     const props = { vehicles, tracks: new Map(), follow: null, selected: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
     const { rerender } = render(<MapView {...props} showAll={0} />)
@@ -564,7 +564,7 @@ describe('MapView', () => {
     expect(m.fits.length).toBe(before + 1)
   })
 
-  it('selecting a vehicle that is off screen eases the map to it; one on screen leaves the map alone (UX-10)', () => {
+  it('selecting a vehicle that is off screen eases the map to it; one on screen leaves the map alone', () => {
     const vehicles = new Map([[1, v(1, 3, 130, 30)], [2, v(2, 3, 138.48129, 35.481883)]])
     const props = { vehicles, tracks: new Map(), follow: null, padding: pad, style, target: null, onDragStart: () => {}, onClick: () => {} }
     const { rerender } = render(<MapView {...props} selected={null} />)

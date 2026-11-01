@@ -8,7 +8,7 @@
 //! on a tool-use response, each call gets an error result and a fixed assistant text closes
 //! the turn. Tool output reaches the model only as tool-result JSON text. At most
 //! `MAX_TOOL_CALLS_PER_RESPONSE` calls of one response and `MAX_TOOL_CALLS_PER_TURN` calls of
-//! one turn are run (review I3).
+//! one turn are run.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

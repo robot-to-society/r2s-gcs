@@ -1,4 +1,4 @@
-// ログ sub-tab (addendum §5.6 / §9): stored DataFlash logs with download and flight
+// ログ sub-tab: stored DataFlash logs with download and flight
 // attachment, the flight controller's log list with MAVLink fetch (progress over WS),
 // and a browser upload for logs taken off the SD card.
 import { useEffect, useState } from 'react'

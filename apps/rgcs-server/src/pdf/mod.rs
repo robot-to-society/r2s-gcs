@@ -1,4 +1,4 @@
-//! Server-side PDF generation for the MLIT logbook forms (addendum §5.6): a thin document
+//! Server-side PDF generation for the MLIT logbook forms: a thin document
 //! builder over `printpdf` with Noto Sans JP embedded, plus a wrap/table engine.
 
 pub mod forms;

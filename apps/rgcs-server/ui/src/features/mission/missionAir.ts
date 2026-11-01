@@ -46,7 +46,7 @@ interface Stop {
   readonly item: DraftItem | null
 }
 
-/** "80 m REL" (3D badge chip): the frame spelled like the list and the selects (UX-40). */
+/** "80 m REL" (3D badge chip): the frame spelled like the list and the selects. */
 export const altChip = (it: DraftItem): string => `${Math.round(it.alt)} m ${FRAME_LABEL[it.frame]}`
 
 function legPoints(a: Stop, b: Stop, elevAt: ElevAt): Pt[] {

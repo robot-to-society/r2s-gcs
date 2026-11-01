@@ -14,7 +14,7 @@ interface Props {
   readonly deadmanLost?: boolean
 }
 
-/** Bottom-centre footer (spec 10 §1, prototype footer): the log pill, then the clock. */
+/** Bottom-centre footer (prototype footer): the log pill, then the clock. */
 export function Footer({ log, names, dict, clock, lead, onToggle, deadmanLost = false }: Props) {
   return (
     <footer className="g-ctl float map-c footer-log">

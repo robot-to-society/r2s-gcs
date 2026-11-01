@@ -4,7 +4,7 @@ import { progressPct, progressText } from './format'
 
 const dict = t('ja')
 
-describe('parameter progress (UX-49)', () => {
+describe('parameter progress', () => {
   it('a cached list reads as the last download, not 0 / n', () => {
     const idle = { received: 0, total: 1431, complete: false, downloading: false }
     expect(progressText(idle, 1431, dict)).toBe('1431 件 (前回取得)')

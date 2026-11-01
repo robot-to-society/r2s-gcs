@@ -6,7 +6,7 @@ import { formatNumber } from './changes'
 /** Rows rendered at once; the rest is reached by narrowing the search. */
 export const MAX_ROWS = 300
 
-/** Parameters already listed but nothing received this session: the list is the last download (UX-49). */
+/** Parameters already listed but nothing received this session: the list is the last download. */
 const cached = (p: ParamProgress | null, listed: number): boolean => listed > 0 && (p === null || (p.received === 0 && !p.downloading))
 
 export function progressText(p: ParamProgress | null, listed: number, dict: Dict): string {
@@ -20,14 +20,14 @@ export function progressPct(p: ParamProgress | null, listed: number): number | n
   return Math.min(100, Math.round((p.received / p.total) * 100))
 }
 
-/** Why a write is not verified; empty when it is (the caller shows a Lucide check, UX-52). */
+/** Why a write is not verified; empty when it is (the caller shows a Lucide check). */
 export function resultText(r: ParamWriteResult, dict: Dict): string {
   if (r.verified) return ''
   const why = r.reason === 'vehicle_armed' ? dict.paramArmedAbort : r.reason === 'mismatch' ? dict.paramMismatch : dict.paramNoEcho
   return `${dict.paramUnverified} (${why})`
 }
 
-/** `NAME: old → new`; whether it was verified is its own column (UX-52). */
+/** `NAME: old → new`; whether it was verified is its own column. */
 export function historyText(e: ParamHistoryEntry): string {
   const old = e.old_value === null ? '?' : formatNumber(e.old_value)
   return `${e.name}: ${old} → ${formatNumber(e.new_value)}`

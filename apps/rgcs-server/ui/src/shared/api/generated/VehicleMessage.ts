@@ -15,10 +15,10 @@ severity: number, text: string,
  */
 ts: number, 
 /**
- * 重要度 (spec 10 §1): from `severity` for STATUSTEXT, fixed per code for link events.
+ * 重要度: from `severity` for STATUSTEXT, fixed per code for link events.
  */
 level: Severity, source: MessageSource, 
 /**
- * Warnings and errors from the vehicle need a 確認 (spec 10 §3.3).
+ * Warnings and errors from the vehicle need a 確認.
  */
 ackable: boolean, acked_by: string | null, acked_at: number | null, };

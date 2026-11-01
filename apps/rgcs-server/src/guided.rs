@@ -1,4 +1,4 @@
-//! `POST /api/vehicles/{sysid}/guided` (spec 10 §3.5, 70 §1): a position-only Guided target.
+//! `POST /api/vehicles/{sysid}/guided`: a position-only Guided target.
 //!
 //! Order of checks: vehicle known → link alive → mode is GUIDED → first-use confirm token →
 //! altitude valid → geofence (when both fence params are cached) → send → audit → broadcast.
@@ -134,7 +134,7 @@ pub async fn guided(
         );
     }
     app.mark_guided_confirmed(sysid);
-    // A guided target sent by the operator is a takeover for the AI guard (plan ruling 5).
+    // A guided target sent by the operator is a takeover for the AI guard.
     app.guard.note_operator_command(sysid);
     let id = app.next_command_id();
     audit(&app, &op.username, sysid, &body, "ok", None).await;

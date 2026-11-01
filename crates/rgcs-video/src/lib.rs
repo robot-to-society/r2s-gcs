@@ -1,4 +1,4 @@
-//! Video plumbing (spec 30 §5): no transcoding here, only reachability, source choice and
+//! Video plumbing: no transcoding here, only reachability, source choice and
 //! WHEP signalling relayed to MediaMTX.
 
 pub mod probe;

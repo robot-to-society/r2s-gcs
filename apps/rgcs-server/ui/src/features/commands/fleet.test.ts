@@ -14,7 +14,7 @@ describe('fleetTargets', () => {
   })
 })
 
-describe('fleetSkipped (UX-29)', () => {
+describe('fleetSkipped', () => {
   it('names every vehicle left out and why: lost link first, else disarmed', () => {
     expect(fleetSkipped([v(3, 'ok', false), v(1), v(2, 'lost', true)]).map((s) => [s.vehicle.sysid, s.reason])).toEqual([
       [2, 'lost'],

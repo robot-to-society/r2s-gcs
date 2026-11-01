@@ -10,7 +10,7 @@ interface Props {
   readonly dict: Dict
 }
 
-/** Presentation links and the logo (addendum §5.1). Operators only see the list. */
+/** Presentation links and the logo. Operators only see the list. */
 export function PresentSettings({ isAdmin, logo, onClose, dict }: Props) {
   const [tokens, setTokens] = useState<readonly PresentationToken[]>([])
   const [label, setLabel] = useState('')
@@ -105,7 +105,7 @@ export function PresentSettings({ isAdmin, logo, onClose, dict }: Props) {
         {isAdmin && (
           <div className="form wide">
             <span>{dict.presentLogo}</span>
-            {/* an app button over a hidden input: no browser-language "Choose File" (UX-60) */}
+            {/* an app button over a hidden input: no browser-language "Choose File" */}
             <label className="btn btn-sm present-logo-pick">
               <IconImageUp size={14} />
               {dict.psPickLogo}

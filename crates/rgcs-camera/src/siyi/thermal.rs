@@ -1,4 +1,4 @@
-//! MT11 thermal replies (spec 40 §3): 0x12 point, 0x14 full frame, 0x37 / 0x38 gain.
+//! MT11 thermal replies: 0x12 point, 0x14 full frame, 0x37 / 0x38 gain.
 
 use std::time::Duration;
 

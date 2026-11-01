@@ -1,4 +1,4 @@
-//! 点検・校正 (spec 10 §7, 50 §2.5): `…/calibration` starts / steps / ends a session,
+//! 点検・校正: `…/calibration` starts / steps / ends a session,
 //! `…/motor-test` spins one motor (or all in turn). Every command goes through the queue and
 //! the audit log; ESC calibration and motor tests spin propellers and need a confirm token.
 

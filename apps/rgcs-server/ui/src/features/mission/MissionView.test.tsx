@@ -40,7 +40,7 @@ function setup(fetchImpl?: (url: string, init?: RequestInit) => Response, transf
   return { ...utils, fetchMock, store, plans }
 }
 
-/** The write target is never implied (UX-32): the operator picks it in the right panel. */
+/** The write target is never implied: the operator picks it in the right panel. */
 const target = (sysid = '1') => {
   fireEvent.change(within(screen.getByRole('complementary', { name: 'editor' })).getByLabelText('対象機体'), { target: { value: sysid } })
 }
@@ -497,7 +497,7 @@ describe('MissionView', () => {
     expect(lats()).toContain(36.001)
   })
 
-  it('a rover target hides the altitude settings and the maximum altitude (UX-35)', () => {
+  it('a rover target hides the altitude settings and the maximum altitude', () => {
     setup(undefined, new Map(), new Map([[4, { ...copter, sysid: 4, name: 'UAV-04', kind: 'rover' as const }]]))
     target('4')
     const right = within(screen.getByRole('complementary', { name: 'editor' }))
@@ -508,7 +508,7 @@ describe('MissionView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'パネルを開く' }))
   })
 
-  it('one summary at a time: the map HUD hides while the right summary shows (UX-39)', () => {
+  it('one summary at a time: the map HUD hides while the right summary shows', () => {
     setup()
     const summary = screen.getByTestId('mission-summary')
     expect(summary).toHaveTextContent('項目数')
@@ -519,7 +519,7 @@ describe('MissionView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'パネルを開く' }))
   })
 
-  it('the vehicle I/O sits together in the right footer (UX-34)', () => {
+  it('the vehicle I/O sits together in the right footer', () => {
     setup()
     target()
     const right = within(screen.getByRole('complementary', { name: 'editor' }))

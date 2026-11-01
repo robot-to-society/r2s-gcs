@@ -9,19 +9,19 @@ interface Props {
   readonly state: CameraState
   readonly onSetup: () => void
   readonly dict: Dict
-  /** The active GPS ROI preset's name (spec 10 §3.3 item 4); absent when ROI is off. */
+  /** The active GPS ROI preset's name; absent when ROI is off. */
   readonly roiName?: string | null
 }
 
 const MODE: Record<GimbalMode, keyof Dict> = { lock: 'gimbalLock', follow: 'gimbalFollow', fpv: 'gimbalFpv' }
 
-/** A MAVLink camera has no gimbal mode: its name takes the cell (spec 10 §3.3 「MAVLink カメラ | 角度」). */
+/** A MAVLink camera has no gimbal mode: its name takes the cell (「MAVLink カメラ | 角度」). */
 function modeText(caps: CameraCaps, state: CameraState, dict: Dict): string {
   if (caps.kind === 'mavlink') return dict.mavlinkCamera
   return state.gimbal_mode ? dict[MODE[state.gimbal_mode]] : '—'
 }
 
-/** Spec 10 §3.3 item 4: "ロック | pan yaw, tilt pitch" (Lucide icons, UX-23), or the setup prompt when no camera. */
+/** "ロック | pan yaw, tilt pitch" (Lucide icons), or the setup prompt when no camera. */
 export function CameraStatusRow({ caps, state, onSetup, dict, roiName }: Props) {
   if (caps.kind === 'none') {
     return (

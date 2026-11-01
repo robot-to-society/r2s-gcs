@@ -1,4 +1,4 @@
-//! Survey camera endpoints (spec 50 §2.2.3): the shared camera list for survey planning.
+//! Survey camera endpoints: the shared camera list for survey planning.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;

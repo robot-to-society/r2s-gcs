@@ -1,4 +1,4 @@
-//! The three toilet-bowl signs over one window (spec §5.1, plan fixed values).
+//! The three toilet-bowl signs over one window (plan fixed values).
 
 use crate::geo::{enu, kasa_fit, wrap_deg};
 use crate::sample::Sample;
@@ -61,7 +61,7 @@ fn mid_s(w: &[Sample]) -> f64 {
 /// (mean radius over the last second, radius growth m/s), zeros without a fit.
 ///
 /// A Kåsa circle is fitted to each half of the window ("the radius of the circle fitted to the
-/// track is increasing", spec §5.1); growth = Δr / Δt between the halves' mid-times. One fit
+/// track is increasing"); growth = Δr / Δt between the halves' mid-times. One fit
 /// over the whole window would absorb the growth whenever the window covers less than a full
 /// turn (a 0.3 m/s spiral over 225° reads 0.01 m/s that way).
 fn spiral(w: &[Sample]) -> (f32, f32) {

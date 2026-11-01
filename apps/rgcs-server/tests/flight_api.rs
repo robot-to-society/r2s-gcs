@@ -1,4 +1,4 @@
-//! Flight records, squawks and maintenance API (様式 1 / 3, addendum §5.6).
+//! Flight records, squawks and maintenance API (様式 1, 3).
 
 mod common;
 

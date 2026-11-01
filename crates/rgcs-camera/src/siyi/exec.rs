@@ -1,4 +1,4 @@
-//! One `CameraCommand` → wire frames, with the refusals of spec 70 §3 (plan rulings 2, 4, 9).
+//! One `CameraCommand` → wire frames, with the capability refusals.
 
 use std::time::{Duration, Instant};
 
@@ -165,7 +165,7 @@ fn point_payload(snap: &CameraState, media: &Media, x: f32, y: f32) -> Result<[u
     Ok(ai::encode_ai_select_point(px, py))
 }
 
-/// The refusal `exec` would return for `cmd`, without sending anything (final review I1:
+/// The refusal `exec` would return for `cmd`, without sending anything (so
 /// the server stops ROI for an AI select only once the select can go out).
 pub(crate) fn check(snap: &CameraState, media: &Media, cmd: &CameraCommand) -> Result<(), CameraError> {
     match *cmd {
@@ -202,7 +202,7 @@ fn click_error(e: ClickError) -> CameraError {
 }
 
 /// 0x21 for a preset; returns the requested size. The resolution is unknown until 0x20
-/// reports that size (Review Focus 4, final review I3).
+/// reports that size (Review Focus 4).
 async fn set_encoding(
     link: &mut Link<'_>,
     state: &watch::Sender<CameraState>,
@@ -260,7 +260,7 @@ mod tests {
         assert_eq!(check(&rgb(None), &media, &CameraCommand::ZoomReset), Ok(()));
     }
 
-    /// Final review I2: a degenerate size never maps a click onto pixel (0, 0).
+    /// A degenerate size never maps a click onto pixel (0, 0).
     #[test]
     fn degenerate_stream_is_unknown() {
         let media = Media::default();

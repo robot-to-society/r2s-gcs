@@ -1,4 +1,4 @@
-// Words for the joystick axis / button functions instead of their raw ids (UX-57).
+// Words for the joystick axis / button functions instead of their raw ids.
 import type { Dict } from '../../shared/i18n'
 import type { AXIS_FUNCTIONS, BUTTON_FUNCTIONS } from '../gimbal-joystick/profile'
 

@@ -92,7 +92,7 @@ export function updateMarkerEl(el: HTMLDivElement, v: VehicleState, selected: bo
   return el
 }
 
-/** The prototype's `.rg-home`: a white tile with a house, its own marker at the vehicle's home; `title` says whose (UX-17). */
+/** The prototype's `.rg-home`: a white tile with a house, its own marker at the vehicle's home; `title` says whose. */
 export function homeEl(title: string): HTMLDivElement {
   const el = document.createElement('div')
   el.className = 'rg-home'

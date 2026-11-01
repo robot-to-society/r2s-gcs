@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Downloads the Noto Sans JP font embedded in the server-side PDF forms (addendum §5.6) and
+# Downloads the Noto Sans JP font embedded in the server-side PDF forms and
 # its SIL Open Font License into assets/fonts/. Refuses to overwrite unless --force.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

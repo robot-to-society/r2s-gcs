@@ -1,4 +1,4 @@
-// 機体台帳 (無人航空機の概要, addendum §5.6) for the selected vehicle. Admins save; operators
+// 機体台帳 (無人航空機の概要) for the selected vehicle. Admins save; operators
 // see the values read-only.
 import { useEffect, useState } from 'react'
 import type { InspectionTemplate, VehicleRegistry, VehicleRegistryInput, VehicleState } from '../../shared/api/types'

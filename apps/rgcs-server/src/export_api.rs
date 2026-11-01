@@ -1,5 +1,5 @@
 //! `GET /api/vehicles/{sysid}/logbook/export?form=1|2|3&from=&to=&format=pdf|csv`
-//! (addendum §5.6, spec 50 §2.7): the three MLIT forms for one vehicle and period.
+//!: the three MLIT forms for one vehicle and period.
 
 use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};

@@ -25,7 +25,7 @@ export interface VehiclesState {
   readonly logFetch: ReadonlyMap<SysId, LogFetchProgress>
   /** Last `calibration` session state per vehicle (点検・校正). */
   readonly calibration: ReadonlyMap<SysId, CalibStatus>
-  /** Last `roi_status` per vehicle (ruling 2: inactive = no entry or `active_target` null). */
+  /** Last `roi_status` per vehicle (inactive = no entry or `active_target` null). */
   readonly roi: ReadonlyMap<SysId, RoiStatus>
   /** Last `network_status` topology (1 Hz, full frame); null until the first one. */
   readonly network: NetworkTopology | null
@@ -103,7 +103,7 @@ export function reduce(state: VehiclesState, msg: ServerMessage): VehiclesState 
         vehicles: new Map(msg.vehicles.map((v) => [v.sysid, v])),
         cameras: new Map(msg.cameras.map((c) => [c.sysid, c])),
         videoSources: new Map(msg.video_sources.map((v) => [v.sysid, v.status])),
-        // An active ROI re-announces itself within 0.5 s (ruling 2); anything older may be stale.
+        // An active ROI re-announces itself within 0.5 s; anything older may be stale.
         roi: new Map(),
       }
     case 'camera_state': {

@@ -109,7 +109,7 @@ describe('CalibTab', () => {
   it('motors spin only after the propellers-off switch, with a confirm token', async () => {
     const { posts } = setup()
     const card = screen.getByTestId('calib-motor')
-    // the motor test is not a calibration (UX-50)
+    // the motor test is not a calibration
     fireEvent.click(within(card).getByRole('button', { name: 'テストを開始' }))
     const m2 = await within(card).findByRole('button', { name: 'B' })
     expect(m2).toBeDisabled()

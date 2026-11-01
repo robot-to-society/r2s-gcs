@@ -1,4 +1,4 @@
-/* Mission planning view (spec 10 §6, 2D subset): app-only additions over the prototype's
+/* Mission planning view (2D subset): app-only additions over the prototype's
  * .wrow / .wbadge / .rg-wp / .rg-mid / .form / .warnbox classes. */
 .mission-map.tool-add .maplibregl-canvas { cursor: crosshair; }
 .mission-left, .mission-right { z-index: 2; }
@@ -52,7 +52,7 @@
 .wp-mk.current { background: var(--caution); color: var(--on-caution); box-shadow: 0 0 0 4px rgba(242, 181, 68, 0.3), 0 2px 8px rgba(0, 0, 0, 0.45); }
 .mission-progress { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line-soft); font-size: 12px; }
 .mission-progress .num { font-family: var(--mono); }
-/* label and value never wrap mid-word (UX-19) */
+/* label and value never wrap mid-word */
 .mission-progress .nowrap { white-space: nowrap; }
 .mission-progress .btn { gap: 6px; }
 /* the buttons stay together and drop to their own line when 最初から再実行 does not fit */
@@ -129,22 +129,22 @@
 .wp-go-title { font-weight: 600; color: var(--text); }
 .wp-go-hint { font-size: 11px; line-height: 1.4; }
 .wp-go-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
-/* 「ミッション書込」 sheet (UX-30): a click selects; the footer button writes after a confirm */
+/* 「ミッション書込」 sheet: a click selects; the footer button writes after a confirm */
 .mission-picker li.on { background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent); }
 .mission-write-foot { padding: 12px; display: grid; }
 .mission-write-foot .btn { gap: 8px; }
-/* the vehicle I/O pair and the export pair (UX-34) */
+/* the vehicle I/O pair and the export pair */
 .mission-io { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .mission-io .btn-lg { padding: 0 8px; }
-/* the palette covers the list completely (UX-36) */
+/* the palette covers the list completely */
 .cmd-palette { background: var(--base); -webkit-backdrop-filter: none; backdrop-filter: none; }
-/* a caution line, not a filled pill (UX-42) */
+/* a caution line, not a filled pill */
 .plan-notice { gap: 6px; align-items: flex-start; margin-top: 6px; color: var(--caution); font-size: 12px; }
 .plan-notice .ic { flex: none; margin-top: 1px; }
-/* the panel title keeps one line beside 新規 / 開く / ライブラリに保存 (UX-34) */
+/* the panel title keeps one line beside 新規 / 開く / ライブラリに保存 */
 .mission-right .sec > .row .h1 { white-space: nowrap; flex: none; }
 .mission-right .sec > .row .btn-sm { white-space: nowrap; }
-/* the header wraps its buttons below the title instead of clipping ライブラリに保存 (UX-34) */
+/* the header wraps its buttons below the title instead of clipping ライブラリに保存 */
 .mission-right .sec > .row:first-child { flex-wrap: wrap; row-gap: 6px; }
 .mission-head-btns { gap: 6px; margin-left: auto; }
 /* Map labels switched off in the planner (LabelToggle): a numberless dot keeps its hit area small but grabbable. */

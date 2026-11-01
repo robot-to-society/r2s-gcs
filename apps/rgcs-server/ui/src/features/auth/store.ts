@@ -16,7 +16,7 @@ export type ApiFn = <T>(path: string, init?: ApiInit) => Promise<T>
 const INITIAL: AuthState = { status: 'unknown', me: null, error: null }
 const ANON: AuthState = { status: 'anon', me: null, error: null }
 
-/** Maps a failed login to the message the screen shows (spec 10 §2). */
+/** Maps a failed login to the message the screen shows. */
 export function loginError(e: unknown): AuthError {
   if (e instanceof ApiError) {
     if (e.status === 401) return 'invalid'

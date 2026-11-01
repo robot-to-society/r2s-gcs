@@ -202,7 +202,7 @@ mod tests {
         assert_eq!(task.await.unwrap(), Outcome::Refused("denied".into()));
     }
 
-    /// Final review I3: fire-and-forget requests never wait for room on the link.
+    /// Fire-and-forget requests never wait for room on the link.
     #[tokio::test(start_paused = true)]
     async fn try_send_drops_when_the_link_queue_is_full() {
         let (out_tx, mut out_rx) = mpsc::channel(1);

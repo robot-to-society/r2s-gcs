@@ -1,4 +1,4 @@
-// World layout, a port of the prototype's `netLayout` for the one standalone site (plan Task 6, ruling 9).
+// World layout, a port of the prototype's `netLayout` for the one standalone site.
 import type { NetGraph } from './graph'
 
 export interface Rect {

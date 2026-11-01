@@ -1,4 +1,4 @@
-//! MediaMTX liveness for the network view (ruling 13): a TCP connect to the WHEP upstream's
+//! MediaMTX liveness for the network view: a TCP connect to the WHEP upstream's
 //! host:port every 5 s.
 
 use std::sync::{Arc, Mutex as StdMutex};

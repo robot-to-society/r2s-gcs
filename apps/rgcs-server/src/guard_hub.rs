@@ -1,4 +1,4 @@
-//! AI 緊急介入 hub (plan 2026-10-25-ai-guard, Task 5): one toilet-bowl detector and one
+//! AI 緊急介入 hub: one toilet-bowl detector and one
 //! intervention machine per vehicle, fed from the lossy guard tap (`LinkChannels.guard`) and the
 //! router's `watch` state. It raises `guard_alert` frames, message rows and decision records, and
 //! — only at L2 / L3 with consent 3 — sends `SetMode {ALT_HOLD | QHOVER}`, at most once per
@@ -29,7 +29,7 @@ use crate::guard_worker::{ActionAudit, GuardIo, Job};
 
 /// Deadline / takeover-wait resolution and the 1 Hz countdown re-send.
 const TICK: Duration = Duration::from_millis(250);
-/// The only modes the guard may ever send (spec §2, ruling 4).
+/// The only modes the guard may ever send.
 pub const ALLOWED_MODES: [&str; 2] = ["ALT_HOLD", "QHOVER"];
 const RCMAP: [&str; 4] = ["RCMAP_ROLL", "RCMAP_PITCH", "RCMAP_THROTTLE", "RCMAP_YAW"];
 
@@ -269,7 +269,7 @@ impl GuardHub {
     }
 
     /// One guard-tap frame. Off means off: nothing is detected (a disarm still resets). A
-    /// vehicle is adopted on its first frame even while off, so "first seen armed" (review I1)
+    /// vehicle is adopted on its first frame even while off, so "first seen armed"
     /// means first seen by this server process.
     pub async fn on_frame(&self, f: GuardFrame) {
         let Some(io) = self.io.get() else {
@@ -370,7 +370,7 @@ impl GuardHub {
         self.lock().ext
     }
 
-    /// An accepted operator command / guided target for `sysid` counts as takeover (ruling 5).
+    /// An accepted operator command / guided target for `sysid` counts as takeover.
     pub fn note_operator_command(&self, sysid: SysId) {
         let now = self.now_ms();
         let mut st = self.lock();
@@ -384,7 +384,7 @@ impl GuardHub {
         self.dispatch(outs);
     }
 
-    /// 取り消し: only a running countdown or a due action; the warning stays (ruling 6).
+    /// 取り消し: only a running countdown or a due action; the warning stays.
     pub fn cancel(&self, alert_id: &str, by: &str) -> Result<GuardAlert, CancelError> {
         let now = self.now_ms();
         let mut st = self.lock();
@@ -466,7 +466,7 @@ impl GuardHub {
         let _ = self.jobs.send(Job::Audit(a));
     }
 
-    /// The single guard enqueue site. Re-reads the vehicle, re-checks ruling 4 under the hub
+    /// The single guard enqueue site. Re-reads the vehicle, re-checks the stand-down rules under the hub
     /// lock (so a takeover / cancel / disable that won the race stops it) and hands
     /// `SetMode {ALT_HOLD | QHOVER}` to the queue; the outcome becomes `Executed` / `Refused`.
     async fn execute(&self, io: &GuardIo, sysid: SysId, alert_id: String, mode: &'static str) {
@@ -524,7 +524,7 @@ fn enqueue(
         .map_err(|_| "queue_unavailable".to_string())
 }
 
-/// Why the guard must not send now (ruling 4 at execution time), or `None`.
+/// Why the guard must not send now, or `None`.
 fn refusal(
     st: &HubState,
     sysid: SysId,

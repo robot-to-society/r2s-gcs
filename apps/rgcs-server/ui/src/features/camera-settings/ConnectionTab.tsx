@@ -24,7 +24,7 @@ export function withKind(draft: CameraProfileDraft, kind: CameraProfileDraft['ki
   return { ...draft, kind }
 }
 
-/** The RTSP URL's IPv4 host becomes the profile host (ruling 13: the RTSP host is the camera's address). */
+/** The RTSP URL's IPv4 host becomes the profile host (the RTSP host is the camera's address). */
 const withRtsp = (draft: CameraProfileDraft, rtsp_url: string): CameraProfileDraft => ({ ...draft, rtsp_url, host: hostFromRtsp(rtsp_url) ?? draft.host })
 
 /** Prototype 接続 tab: `.form` rows, then an `.inset .kv` status box. */
@@ -82,7 +82,7 @@ export function ConnectionTab({ draft, issue, cameraState, onChange, clockSync, 
   )
 }
 
-/** The MAVLink `.inset .kv` box: connection and the camera firmware (no SD / clock: ruling 17). */
+/** The MAVLink `.inset .kv` box: connection and the camera firmware (no SD / clock). */
 function MavlinkStatusBox({ cameraState, dict }: { readonly cameraState: CameraState | undefined; readonly dict: Dict }) {
   const fw = cameraState?.firmware
   return (

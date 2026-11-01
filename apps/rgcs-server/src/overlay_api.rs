@@ -1,5 +1,5 @@
 //! `/api/plugins/{p}/overlays/{o}/…`: the areas of a plugin's `area` overlay and its cached
-//! tiles (design 2026-11-01-plugin-overlays § API). An unknown, disabled or `direct` overlay is
+//! tiles. An unknown, disabled or `direct` overlay is
 //! 404 on every route here.
 
 use axum::extract::{Path, State};

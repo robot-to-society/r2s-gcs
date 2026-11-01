@@ -10,7 +10,7 @@ interface Props {
   readonly dict: Dict
 }
 
-/** Cockpit ROI chips (spec 10 §4.2, prototype line 788): one per set preset, the active one lit, then 停止. */
+/** Cockpit ROI chips (prototype line 788): one per set preset, the active one lit, then 停止. */
 export function RoiChips({ targets, activeId, onStart, onStop, dict }: Props) {
   return (
     <div className="g-ctl chips">

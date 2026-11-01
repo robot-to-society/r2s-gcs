@@ -16,7 +16,7 @@ describe('mission command table', () => {
     expect(Object.keys(CMDS)).toHaveLength(32) // + ARC_WAYPOINT (2026-10-19), plane / QuadPlane commands (2026-10-20)
   })
 
-  it('the palette offers only what the target airframe flies (UX-35, UX-36)', () => {
+  it('the palette offers only what the target airframe flies', () => {
     const rover = paletteFor('rover', false).pos
     for (const k of ['TAKEOFF', 'LAND', 'LOITER_TO_ALT', 'VTOL_TAKEOFF', 'VTOL_LAND']) expect(rover).not.toContain(k)
     expect(rover).toContain('WAYPOINT')

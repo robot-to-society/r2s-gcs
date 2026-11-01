@@ -121,7 +121,7 @@ describe('GimbalLoop', () => {
     expect(h.onRelease).toHaveBeenCalledWith('focus_far', 1)
   })
 
-  it('a release goes to the vehicle the press went to, not the new selection (final review M11)', () => {
+  it('a release goes to the vehicle the press went to, not the new selection', () => {
     const h = h0()
     h.loop.start({ ...DEFAULT_PROFILE, buttons: [{ button: 0, fn: 'focus_near' }, { button: 1, fn: 'focus_far' }] }, 1)
     h.setPad({ axes: [0, 0], buttons: [true, false] })

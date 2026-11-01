@@ -1,5 +1,5 @@
 //! MT11 client: one actor task owning the TCP control link (heartbeat, polls, replies) and
-//! the UDP socket for gimbal motion; `Camera` on top (spec 40 §2, §3).
+//! the UDP socket for gimbal motion; `Camera` on top.
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
@@ -64,7 +64,7 @@ impl SiyiMt11 {
         }
     }
 
-    /// GPS time for clock sync (spec 40 §5); without one, sync is off and `SyncClock` is refused.
+    /// GPS time for clock sync; without one, sync is off and `SyncClock` is refused.
     pub fn with_gps_time(self, src: Arc<dyn GpsTime>) -> Self {
         Self {
             gps: Some(src),
@@ -138,7 +138,7 @@ impl Camera for SiyiMt11 {
 }
 
 /// TCP connect with [`CONNECT_TIMEOUT`] and Nagle off: a 0x0D attitude request must not wait
-/// behind an un-ACKed heartbeat (ROI rate-mode latency, final review I7).
+/// behind an un-ACKed heartbeat (ROI rate-mode latency).
 pub(crate) async fn open_tcp(addr: SocketAddr) -> std::io::Result<TcpStream> {
     let stream = tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect(addr))
         .await
@@ -148,7 +148,7 @@ pub(crate) async fn open_tcp(addr: SocketAddr) -> std::io::Result<TcpStream> {
 }
 
 /// Connect → serve → (on loss) wait 1 s → connect again, until the op channel is dropped.
-/// `Media` outlives a session so the clock state machine sees the reconnect (spec 40 §5).
+/// `Media` outlives a session so the clock state machine sees the reconnect.
 async fn run(
     addr: SocketAddr,
     state: watch::Sender<CameraState>,

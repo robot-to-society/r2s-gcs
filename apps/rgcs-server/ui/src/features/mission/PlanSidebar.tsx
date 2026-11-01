@@ -43,7 +43,7 @@ function IoFooter({ sysid, targetName, busy, status, dict, onWrite, onRead, note
 }
 
 
-/** A caution line, not a button-like pill (UX-42). */
+/** A caution line, not a button-like pill. */
 function Notice({ text }: { readonly text: string }) {
   return (
     <div className="plan-notice row">

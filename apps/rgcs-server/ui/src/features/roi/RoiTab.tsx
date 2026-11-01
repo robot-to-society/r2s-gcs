@@ -26,7 +26,7 @@ export function csvErrorMessage(e: CsvError, dict: Dict): string {
   return e.code === 'empty' ? reason : dict.roiCsvError.replace('{line}', String(e.line)).replace('{reason}', reason)
 }
 
-/** Spec 10 §5 ROI tab (prototype lines 1256–1274): 10 presets, 地図で指定 / CSV, then the control block (or the native ROI note). */
+/** The camera settings ROI tab: 10 presets, 地図で指定 / CSV, then the control block (or the native ROI note). */
 export function RoiTab({ targets, control, activeId, targetsIssue, controlIssue, onTargets, onControl, onPickOnMap, onCsvError, roiMode = 'computed', dict }: RoiTabProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const setName = (i: number, name: string) => onTargets(targets.map((t, j) => (j === i ? { ...t, name } : t)))

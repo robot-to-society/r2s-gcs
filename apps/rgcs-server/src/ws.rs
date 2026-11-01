@@ -18,7 +18,7 @@ use crate::auth::AuthUser;
 use crate::roi::ManualVerdict;
 
 /// Client frames are small control messages; anything bigger is not ours.
-/// Deadman check cadence: 250 ms keeps the worst case under 1.75 s (spec 70 §2: 1.5 s).
+/// Deadman check cadence: 250 ms keeps the worst case under 1.75 s (1.5 s).
 const DEADMAN_TICK: std::time::Duration = std::time::Duration::from_millis(250);
 const MAX_MESSAGE_SIZE: usize = 16 * 1024;
 /// Keepalive: a Ping this often; a session with no frame from the client (Pong or any other)
@@ -49,7 +49,7 @@ pub async fn handler(
 }
 
 /// Same-origin only: the UI is served by this server, so a browser `Origin` must match the
-/// `Host` it connected to. Non-browser clients send no `Origin` and are allowed (spec 70 §5).
+/// `Host` it connected to. Non-browser clients send no `Origin` and are allowed.
 pub fn origin_allowed(origin: Option<&str>, host: Option<&str>) -> bool {
     match (origin, host) {
         (None, _) => true,
@@ -142,7 +142,7 @@ pub async fn deadman_tick(
     (next, perform(app, operator, actions).await)
 }
 
-/// The session ended: zero the gimbal it was turning (none when it was not, final review I1).
+/// The session ended: zero the gimbal it was turning (none when it was not).
 pub async fn close_session(gate: &Gate, app: &AppState, operator: &str) {
     perform(app, operator, gate.close()).await;
 }
@@ -324,7 +324,7 @@ mod tests {
         assert!(replies.is_empty());
         let mut seen = false;
         for _ in 0..20 {
-            // The driver's boot zero (ROI ruling 18) may arrive first; look for our frame.
+            // The driver's boot zero  may arrive first; look for our frame.
             if let Ok((Transport::Udp, 0x07, p)) = sim.received.try_recv() {
                 if p == [12, 0xFD] {
                     seen = true;
@@ -350,7 +350,7 @@ mod tests {
         handle_client(gate, app, "pilot", text, now_ms).await.0
     }
 
-    /// Final review I1: the MT11 still gets its deadman and close zeros.
+    /// The MT11 still gets its deadman and close zeros.
     #[tokio::test]
     async fn mt11_deadman_and_close_zeros_still_go_out() {
         let (app, mut sim) = sim_app().await;

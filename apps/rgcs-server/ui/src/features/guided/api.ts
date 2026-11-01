@@ -15,7 +15,7 @@ export interface GuidedReply {
   readonly warning: string | null
 }
 
-/** `POST /api/vehicles/{sysid}/guided` (spec 50 §2.2). */
+/** `POST /api/vehicles/{sysid}/guided`. */
 export function sendGuided(sysid: number, body: GuidedBody): Promise<GuidedReply> {
   return apiFetch<GuidedReply>(`/api/vehicles/${sysid}/guided`, { method: 'POST', body })
 }

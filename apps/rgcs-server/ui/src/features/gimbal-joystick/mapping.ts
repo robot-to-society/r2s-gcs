@@ -15,7 +15,7 @@ export function applyDeadzone(value: number, deadzone: number): number {
 
 const clamp = (v: number) => Math.max(-100, Math.min(100, Math.round(v)))
 
-/** Pan / tilt axes → integer rates in −100..100 (spec 40 §6: yaw = pan × max_pan_speed). */
+/** Pan / tilt axes → integer rates in −100..100 (yaw = pan × max_pan_speed). */
 export function axesToRates(axes: readonly number[], p: GimbalInputProfile): Rates {
   let pan = 0
   let tilt = 0

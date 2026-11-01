@@ -12,7 +12,7 @@ interface Props {
   readonly version: number
 }
 
-/** `param_history` for the selected vehicle: 時刻 / オペレータ / 変更内容 / 検証 (no 機体 column: the list is that vehicle's, UX-52). */
+/** `param_history` for the selected vehicle: 時刻 / オペレータ / 変更内容 / 検証 (no 機体 column: the list is that vehicle's). */
 export function HistoryTab({ sysid, dict, version }: Props) {
   const [rows, setRows] = useState<readonly ParamHistoryEntry[] | null>(null)
   const [error, setError] = useState<string | null>(null)

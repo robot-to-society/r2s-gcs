@@ -1,4 +1,4 @@
-// Survey items in the mission screen's generic edit paths (final review C1 / C2): the detach notice,
+// Survey items in the mission screen's generic edit paths: the detach notice,
 // Delete / context-menu delete taking the whole survey, nudges ignoring it, and keys inside the panel.
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'

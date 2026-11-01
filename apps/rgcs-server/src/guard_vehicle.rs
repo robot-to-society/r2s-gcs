@@ -104,7 +104,7 @@ pub struct VehicleGuard {
     pub alert: Option<GuardAlert>,
     countdown_left: Option<u64>,
     /// First seen already armed (e.g. the server restarted mid-flight, so this flight's latches
-    /// are unknown): alerts only, at L1 at most, until the vehicle disarms once (review I1).
+    /// are unknown): alerts only, at L1 at most, until the vehicle disarms once.
     alert_only: bool,
 }
 
@@ -183,7 +183,7 @@ impl VehicleGuard {
         }
     }
 
-    /// Armed and in a monitored mode right now (ruling 4, checked again at execution).
+    /// Armed and in a monitored mode right now (checked again at execution).
     pub fn monitored_now(&self, v: &VehicleState, now: u64) -> bool {
         let p = Pos {
             lat: v.lat,
@@ -241,7 +241,7 @@ impl VehicleGuard {
         out
     }
 
-    /// The host side of ruling 4 / 5: a disarm ends the flight, and a mode change the guard
+    /// The host side of the stand-down rules: a disarm ends the flight, and a mode change the guard
     /// did not command is a takeover.
     fn host_inputs(&mut self, v: &VehicleState, cx: &Ctx) -> Vec<Out> {
         let mut out = Vec::new();
@@ -277,7 +277,7 @@ impl VehicleGuard {
         self.last_mode = Some(v.mode);
     }
 
-    /// A settings change; turning the guard off cancels / drops the alert (ruling 1).
+    /// A settings change; turning the guard off cancels / drops the alert.
     pub fn on_policy(&mut self, cx: &Ctx) -> Vec<Out> {
         let mut out = self.step(Input::PolicyChanged(cx.policy), cx);
         if cx.policy.effective_level() == rgcs_guard::Level::L0 {
@@ -513,7 +513,7 @@ fn message_severity(phase: GuardPhase, detection: bool) -> Option<Severity> {
 const MODE_CHANGE: &str = "mode_change";
 
 /// A mode change the guard did not make (a pilot's mode switch or a vehicle failsafe): the guard
-/// stands down, but it is not shown as a confirmed takeover (review I3).
+/// stands down, but it is not shown as a confirmed takeover.
 fn mode_changed(a: &GuardAlert) -> bool {
     a.phase == GuardPhase::TakenOver && a.taken_over_by.as_deref() == Some(MODE_CHANGE)
 }

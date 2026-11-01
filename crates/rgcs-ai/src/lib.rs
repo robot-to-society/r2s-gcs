@@ -1,4 +1,4 @@
-//! RGCS AI assistant (spec 30 §2): config, LLM adapters, tool definitions and the system prompt.
+//! RGCS AI assistant: config, LLM adapters, tool definitions and the system prompt.
 //! Knows nothing about the server state (axum only backs the `fake` test server); the server
 //! implements the tool host.
 

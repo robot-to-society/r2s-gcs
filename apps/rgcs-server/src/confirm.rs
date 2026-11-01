@@ -1,4 +1,4 @@
-//! Confirm tokens for dangerous commands (spec 70 §1): issued by `POST …/confirm`, valid for
+//! Confirm tokens for dangerous commands: issued by `POST …/confirm`, valid for
 //! 30 s, bound to one vehicle and one command name, single use. Pure and immutable.
 
 use std::collections::HashMap;

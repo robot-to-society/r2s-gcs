@@ -1,4 +1,4 @@
-// Survey panel numbers (spec §5.2): photos, shot distance / interval, blur, footprint, area, lanes,
+// Survey panel numbers: photos, shot distance / interval, blur, footprint, area, lanes,
 // turn radius, distance and time, and the terrain range with the worst GSD / overlaps beside the set ones.
 import type { Dict } from '../../shared/i18n'
 import { km, mmss } from '../mission/labels'

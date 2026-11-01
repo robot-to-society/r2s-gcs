@@ -3,7 +3,7 @@ import type { AxisMapping } from "./AxisMapping";
 import type { ButtonMapping } from "./ButtonMapping";
 
 /**
- * Browser-side gamepad → gimbal profile (spec 40 §6, 60 §3).
+ * Browser-side gamepad → gimbal profile.
  */
 export type GimbalInputProfile = { device_id: string | null, axes: Array<AxisMapping>, buttons: Array<ButtonMapping>, 
 /**

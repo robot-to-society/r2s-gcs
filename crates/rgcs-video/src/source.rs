@@ -1,6 +1,6 @@
-//! Which source the UI should play (spec 30 §5, 40 §5): MT11 while its RTSP answers.
+//! Which source the UI should play: MT11 while its RTSP answers.
 
-//! Which source the UI should play (spec 30 §5, 40 §5): MT11 while its RTSP answers.
+//! Which source the UI should play: MT11 while its RTSP answers.
 
 use std::future::Future;
 use std::pin::Pin;

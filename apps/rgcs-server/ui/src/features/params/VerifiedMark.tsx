@@ -1,7 +1,7 @@
 import type { Dict } from '../../shared/i18n'
 import { IconTick, IconWarn } from '../../shared/ui/icons'
 
-/** A read-back result as a Lucide icon with its words, not a text glyph (UX-52). */
+/** A read-back result as a Lucide icon with its words, not a text glyph. */
 export function VerifiedMark({ ok, dict }: { readonly ok: boolean; readonly dict: Dict }) {
   const label = ok ? dict.verifiedOk : dict.paramUnverified
   return (

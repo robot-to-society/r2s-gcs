@@ -1,4 +1,4 @@
-//! L2 "due" state (final review I2): a countdown that ends without a `Detected` in the last
+//! L2 "due" state: a countdown that ends without a `Detected` in the last
 //! `RECHECK_MS` stays cancellable and acts on the first fresh `Detected` until the detector
 //! clears. Pure machine flows, then the detector + machine pipeline on synthetic and SITL data.
 

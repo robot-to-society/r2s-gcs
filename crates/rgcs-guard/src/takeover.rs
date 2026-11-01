@@ -1,4 +1,4 @@
-//! Pilot takeover from RC sticks (plan ruling 5, fixed values: Takeover).
+//! Pilot takeover from RC sticks (fixed values: Takeover).
 //!
 //! The caller maps `RC_CHANNELS` into `[roll, pitch, throttle, yaw]` (ch 1–4, or the
 //! `RCMAP_*` channels when cached) and pushes one frame per message. At alert time it freezes

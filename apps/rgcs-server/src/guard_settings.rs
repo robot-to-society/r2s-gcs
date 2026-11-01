@@ -1,5 +1,5 @@
 //! 実験機能 › AI 緊急介入 settings: load / validate / store, and the mapping to the pure
-//! `rgcs_guard::Policy` (plan 2026-10-25-ai-guard, ruling 1 and Task 5 validation).
+//! `rgcs_guard::Policy`.
 
 use rgcs_core::{GuardConsent, GuardLevel, GuardSettings, GUARD_COUNTDOWN_S, GUARD_TAKEOVER_WAIT_S};
 use rgcs_guard::{Level, Policy, ToiletBowlConfig};
@@ -55,7 +55,7 @@ pub struct Change {
     pub args: Value,
 }
 
-/// The settings after `put` by admin `by`, plus the audit rows; ruling 1: a disable clears
+/// The settings after `put` by admin `by`, plus the audit rows; a disable clears
 /// the consent (and caps the level at L1, so a re-enable asks for consent 3 again).
 pub fn apply_put(
     cur: &GuardSettings,

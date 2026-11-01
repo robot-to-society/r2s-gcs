@@ -1,4 +1,4 @@
-//! The `mavlink` camera kind runs the MAVLink camera driver on the FC link (plan Task 5).
+//! The `mavlink` camera kind runs the MAVLink camera driver on the FC link.
 mod common;
 
 use std::time::Duration;
@@ -221,7 +221,7 @@ async fn ws_gimbal_rate_reaches_the_manager() {
     );
 }
 
-/// Final review I1: a page load / tab close / deadman with no stick never cancels FC pointing.
+/// A page load / tab close / deadman with no stick never cancels FC pointing.
 #[tokio::test]
 async fn ws_zeros_without_movement_send_nothing() {
     use rgcs_server::ws::{close_session, deadman_tick, handle_client};

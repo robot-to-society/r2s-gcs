@@ -1,7 +1,7 @@
-//! External-factor hub (plan 2026-10-25-ai-guard, Task 7; spec §5.3–§5.5).
+//! External-factor hub.
 //!
 //! - A 1 s scheduler starts each due source on its own task; nothing external is fetched
-//!   unless the guard is enabled with consent 1 and consent 2 (`external_data`, ruling 1).
+//!   unless the guard is enabled with consent 1 and consent 2 (`external_data`).
 //! - Readings are kept per (source, rounded cell). Fusion runs after every fetch and every
 //!   10 s, together with the vehicle's own wind / GNSS and the local sun / WMM readings.
 //! - The guard only ever reads the latest Kp level through `GuardHub::set_context`; a hanging
@@ -229,7 +229,7 @@ impl EnvHub {
         }
     }
 
-    /// Whether anything may be fetched from outside (ruling 1): `guard_disabled` /
+    /// Whether anything may be fetched from outside: `guard_disabled` /
     /// `consent_required`.
     pub fn gate(&self) -> Result<(), &'static str> {
         let g = self.guard.settings();

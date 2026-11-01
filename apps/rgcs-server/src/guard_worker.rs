@@ -1,4 +1,4 @@
-//! The guard hub's SQLite side (final review I4): decision records, message rows and the audit
+//! The guard hub's SQLite side: decision records, message rows and the audit
 //! rows of the guard's own `SetMode`, written in step order by one task. The `SetMode` itself
 //! never waits here — `GuardHub` sends it on its own execution task — so L3 latency is not disk
 //! latency. An action's audit row is queued after its `Executing` record, so it still carries the
@@ -19,7 +19,7 @@ use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 
 use crate::guard_vehicle::{level_str, Out, EVENT};
 
-/// `guard_decisions` keeps this many rows (ruling 8), pruned every `PRUNE_EVERY` inserts.
+/// `guard_decisions` keeps this many rows, pruned every `PRUNE_EVERY` inserts.
 pub const KEEP_DECISIONS: u32 = 5_000;
 const PRUNE_EVERY: u64 = 100;
 pub const AUDIT_TARGET: &str = "ai_intervention";

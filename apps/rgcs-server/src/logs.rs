@@ -1,4 +1,4 @@
-//! DataFlash retrieval over MAVLink (addendum §5.6 / §9): LOG_REQUEST_LIST → LOG_ENTRY list,
+//! DataFlash retrieval over MAVLink: LOG_REQUEST_LIST → LOG_ENTRY list,
 //! LOG_REQUEST_DATA → 90-byte LOG_DATA frames collected into `data_dir/logs/<sysid>/`.
 //! Gaps are re-requested from the first missing offset; progress is broadcast over WS.
 

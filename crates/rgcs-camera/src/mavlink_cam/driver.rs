@@ -1,4 +1,4 @@
-//! `MavlinkCamera`: the MAVLink camera / gimbal driver over the FC link (plan rulings 1–17).
+//! `MavlinkCamera`: the MAVLink camera / gimbal driver over the FC link.
 //! An actor folds the payload frames into a `watch<Model>`, keeps liveness and sends the info /
 //! stream requests; commands read the model and go out from the caller's task.
 
@@ -37,7 +37,7 @@ struct Shared {
 
 impl Shared {
     /// Replaces the model with `f(model)` and publishes the state when it, or the caps, changed
-    /// (a caps change alone still notifies, ruling 9).
+    /// (a caps change alone still notifies).
     fn update(&self, f: impl FnOnce(&Model) -> Model) {
         self.model.send_if_modified(|m| {
             let next = f(m);
@@ -103,7 +103,7 @@ pub struct MavlinkCamera {
 }
 
 impl MavlinkCamera {
-    /// `comp_id` is the profile's component id (a native MAVLink camera, ruling 2).
+    /// `comp_id` is the profile's component id (a native MAVLink camera).
     pub fn new(sysid: SysId, comp_id: u8, port: MavPort) -> Self {
         let model = Model::new();
         let state = model.state.clone();
@@ -121,7 +121,7 @@ impl MavlinkCamera {
         }
     }
 
-    /// Whether `cmd` goes out; a rate-0 with nothing moving is dropped (final review I1).
+    /// Whether `cmd` goes out; a rate-0 with nothing moving is dropped.
     fn admit(&self, cmd: &CameraCommand) -> bool {
         let Ok(mut motion) = self.motion.lock() else {
             return true;
@@ -258,7 +258,7 @@ async fn run(shared: Arc<Shared>, mut frames: broadcast::Receiver<PayloadFrame>)
 /// Liveness, then the due info / stream requests (fire and forget). While the vehicle sends
 /// no HEARTBEAT nothing is asked and the schedule counts as disconnected, so the first tick
 /// with the link back is a (re)connect edge; a full link queue drops the request (the next
-/// tick repeats it) instead of waiting (final review I3).
+/// tick repeats it) instead of waiting.
 fn on_tick(shared: &Shared, requests: &Requests, now: u64, link_up: bool) -> Requests {
     shared.update(|m| liveness(m, now));
     if !link_up {

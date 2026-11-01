@@ -3,7 +3,7 @@ import { AI_CENTRE_BOX_PX } from '../video/cockpitView'
 
 const VIDEO_CYCLE: readonly VideoMode[] = ['rgb', 'thermal', 'side_by_side']
 
-/** The camera command a button function means given the current camera state (spec 40 §6). */
+/** The camera command a button function means given the current camera state. */
 export function buttonCommand(fn: ButtonFunction, state: CameraState | null): CameraCommand | null {
   switch (fn) {
     case 'shutter':
@@ -58,7 +58,7 @@ export function buttonCommand(fn: ButtonFunction, state: CameraState | null): Ca
   }
 }
 
-/** What releasing a held button sends: focus runs while the button is down (spec 40 §6). */
+/** What releasing a held button sends: focus runs while the button is down. */
 export function releaseCommand(fn: ButtonFunction): CameraCommand | null {
   return fn === 'focus_near' || fn === 'focus_far' ? { cmd: 'focus', args: { dir: 0 } } : null
 }
@@ -69,7 +69,7 @@ export type ButtonAction = { kind: 'camera'; cmd: CameraCommand } | { kind: 'roi
 const ROI_PRESET = /^roi_(10|[1-9])$/
 
 /**
- * Spec 40 §6: `roi_N` toggles that preset (押すたびに開始 / 停止; another active preset is
+ * `roi_N` toggles that preset (押すたびに開始 / 停止; another active preset is
  * replaced), `roi_stop` stops (nothing while inactive), everything else is a camera command.
  */
 export function buttonAction(fn: ButtonFunction, state: CameraState | null, roiActive: string | null): ButtonAction | null {

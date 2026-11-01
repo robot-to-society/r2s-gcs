@@ -1,4 +1,4 @@
-// The map leaves survey items to the survey (final review C2 / I2): no drags, no "+" inside a survey,
+// The map leaves survey items to the survey: no drags, no "+" inside a survey,
 // and badges only for the selected survey.
 import { render } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'

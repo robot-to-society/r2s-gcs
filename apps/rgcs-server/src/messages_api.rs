@@ -1,4 +1,4 @@
-//! Message log endpoints (spec 50 §2.2): per-vehicle and global lists, acknowledgement of
+//! Message log endpoints: per-vehicle and global lists, acknowledgement of
 //! warnings / errors (audited, broadcast as `message_ack`).
 
 use axum::extract::{Path, Query, State};

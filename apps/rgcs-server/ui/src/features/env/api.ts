@@ -1,4 +1,4 @@
-// 外的要因データ API (plan 2026-10-25-ai-guard Task 7). Keys never reach the UI: only `key_configured` / `key_hint`.
+// 外的要因データ API. Keys never reach the UI: only `key_configured` / `key_hint`.
 import { apiFetch } from '../../shared/api/client'
 import type { EnvSettings, EnvSourceStatus, EnvSummary } from '../../shared/api/types'
 

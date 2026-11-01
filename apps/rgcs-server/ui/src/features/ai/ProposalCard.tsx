@@ -1,4 +1,4 @@
-// A command the AI proposed (plan ruling 2): labelled 「AI の提案」, sent only by the operator's 実行.
+// A command the AI proposed: labelled 「AI の提案」, sent only by the operator's 実行.
 import type { AiProposal } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconSparkles } from '../../shared/ui/icons'

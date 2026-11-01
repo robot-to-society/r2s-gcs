@@ -12,7 +12,7 @@ export function lastForVehicle(entries: readonly LogEntry[], sysid: SysId): read
   return (pending.length > 0 ? pending : own).slice(0, DETAIL_MESSAGES)
 }
 
-/** Warnings / errors of the vehicle still waiting for a 確認 (spec 10 §3.3). */
+/** Warnings / errors of the vehicle still waiting for a 確認. */
 export function pendingAlerts(entries: readonly LogEntry[], sysid: SysId): number {
   return entries.filter((e) => e.sysid === sysid && isPending(e)).length
 }

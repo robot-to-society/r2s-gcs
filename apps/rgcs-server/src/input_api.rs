@@ -1,4 +1,4 @@
-//! `GET/PUT /api/settings/input/gimbal` (spec 50 §2.4): the browser-side joystick profile.
+//! `GET/PUT /api/settings/input/gimbal`: the browser-side joystick profile.
 
 use axum::extract::State;
 use axum::http::StatusCode;

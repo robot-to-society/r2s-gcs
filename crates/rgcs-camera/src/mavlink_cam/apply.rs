@@ -1,4 +1,4 @@
-//! Received camera / gimbal frames → the next `Model` (plan rulings 2, 3, 11, 14, 17). Frames
+//! Received camera / gimbal frames → the next `Model`. Frames
 //! must already be filtered to the vehicle's system id; components that are not bound are
 //! ignored (they neither change the state nor keep the link alive).
 
@@ -155,7 +155,7 @@ fn state(m: &Model, state: CameraState) -> Model {
     Model { state, ..m.clone() }
 }
 
-/// A new camera binding also sets the firmware text (ruling 17).
+/// A new camera binding also sets the firmware text.
 fn with_camera(m: &Model, camera: Option<CameraBinding>) -> Model {
     // A bound camera's own firmware wins, including "unknown" (a swapped camera reports 0).
     let firmware = match camera.as_ref() {

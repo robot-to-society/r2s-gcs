@@ -3,7 +3,7 @@ import type { CameraKind } from "./CameraKind";
 import type { VideoSourceMode } from "./VideoSourceMode";
 
 /**
- * Per-vehicle camera configuration (spec 60 §3.3). Stored as one row per sysid.
+ * Per-vehicle camera configuration. Stored as one row per sysid.
  */
 export type CameraProfile = { sysid: number, kind: CameraKind, 
 /**

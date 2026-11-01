@@ -1,4 +1,4 @@
-//! Network view (spec 80, plan 2026-10-23): assemble the standalone server's real topology
+//! Network view: assemble the standalone server's real topology
 //! from plain snapshots and broadcast it at 1 Hz.
 
 use std::collections::BTreeMap;
@@ -18,7 +18,7 @@ use tokio::time::MissedTickBehavior;
 use crate::app::AppState;
 use crate::config::{Config, Role};
 
-/// The only MAVLink link today (ruling 14).
+/// The only MAVLink link today.
 pub const LINK_ID: &str = "link0";
 /// HEARTBEAT message id (its age is the vehicle's heartbeat age).
 const HEARTBEAT_ID: u32 = 0;

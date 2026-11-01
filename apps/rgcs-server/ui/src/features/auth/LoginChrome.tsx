@@ -17,7 +17,7 @@ export function LoginChrome({ theme, dev, host, up, dict }: Props) {
         <span className="ls-logo">RGCS</span>
         {dev && <span className="ls-dev">{dict.devBadge}</span>}
       </div>
-      {/* the server pill in both themes; no inert 2D / 3D chip (UX-08) */}
+      {/* the server pill in both themes; no inert 2D / 3D chip */}
       <div className="ls-host ls-pill" title={`${dict.loginServer}: ${host} · ${up ? dict.loginServerUp : dict.loginServerUnknown}`}>
         <span className={`ls-dot${up ? ' up' : ''}`} aria-hidden="true" />
         <span className="ls-hostname">{host}</span>

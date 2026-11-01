@@ -1,4 +1,4 @@
-// The alert tone (plan 2026-10-25-ai-guard ruling 7): a Web Audio two-tone, 880 Hz then 660 Hz,
+// The alert tone: a Web Audio two-tone, 880 Hz then 660 Hz,
 // 150 ms each, no audio assets. Browsers block audio until a user gesture, so the AudioContext is
 // created on the first pointer / key press (`audioUnlock`); until then `ready()` is false and the
 // banner asks for a click. The per-browser mute lives in localStorage behind try/catch.

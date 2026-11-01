@@ -1,4 +1,4 @@
-// Client-side checks for the ROI tab (spec 60 §3.4 ranges); the server validates again.
+// Client-side checks for the ROI tab; the server validates again.
 import { z } from 'zod'
 import type { RoiControl, RoiTarget } from '../../shared/api/types'
 import { ROI_SLOT_COUNT } from './csv'

@@ -1,4 +1,4 @@
-// The 実行 press of an AI proposal card (plan ruling 2): the same runner as every other command
+// The 実行 press of an AI proposal card: the same runner as every other command
 // button, with the proposal id (single use on the server) and the AI's reason for the confirm dialog.
 import type { AiChat, ProposalState } from '../features/ai'
 import { errorText, type PickOpts, type RunResult } from '../features/commands'

@@ -67,7 +67,7 @@ async fn connect_client(
     socket
 }
 
-/// Review M4: a half-open socket (the client never answers a ping) is dropped after the
+/// A half-open socket (the client never answers a ping) is dropped after the
 /// 45 s idle timeout; a client that keeps reading (and so answers pings) stays listed.
 #[tokio::test]
 async fn half_open_ws_session_is_dropped_after_the_idle_timeout() {

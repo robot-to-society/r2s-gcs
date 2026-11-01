@@ -1,4 +1,4 @@
-// The tool card under a bot reply (spec 10 §3.4, plan ruling 10): the last vehicle status the AI
+// The tool card under a bot reply: the last vehicle status the AI
 // read (最終受信 / 映像) and every tool it ran for the reply.
 import type { AiStatusCard, AiToolRun, AiVideoState } from '../../shared/api/types'
 import { hhmm } from '../../shared/format/time'

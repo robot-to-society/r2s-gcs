@@ -1,6 +1,6 @@
 import type { LogEntry, SysId, VehicleMessage } from '../../shared/api/types'
 
-/** The history sheet shows the newest 500; older rows live in maintenance › log (spec 10 §1). */
+/** The history sheet shows the newest 500; older rows live in maintenance › log. */
 export const LOG_MAX = 500
 
 export type LogFilter = 'all' | 'alerts' | SysId

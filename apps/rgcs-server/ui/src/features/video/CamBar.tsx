@@ -14,7 +14,7 @@ interface Props {
   readonly dict: Dict
   readonly onCommand: (cmd: CameraCommand) => void
   readonly onSettings: () => void
-  /** GPS ROI chips under the bar (spec 10 §4.2): the vehicle's presets and the active one. */
+  /** GPS ROI chips under the bar: the vehicle's presets and the active one. */
   readonly roi?: RoiChipsProps
 }
 
@@ -27,7 +27,7 @@ export interface RoiChipsProps {
 
 const GIMBAL_LABEL: Record<GimbalMode, keyof Dict> = { lock: 'gimbalLock', follow: 'gimbalFollow', fpv: 'gimbalFpv' }
 
-/** Prototype `.cam-bar .bar`: everything is gated by the camera's caps (spec 40 §1.1). */
+/** Prototype `.cam-bar .bar`: everything is gated by the camera's caps. */
 export function CamBar({ caps, state, pending, dict, onCommand, onSettings, roi }: Props) {
   const recording = state.recording === 'recording'
   const modeLabel: Record<VideoMode, string> = { rgb: 'RGB', thermal: 'IR', side_by_side: dict.sbs }

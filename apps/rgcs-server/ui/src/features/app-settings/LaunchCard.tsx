@@ -10,7 +10,7 @@ interface Props {
   readonly onOpen: () => void
 }
 
-/** A card that opens a settings sheet (実験機能, 外的要因データ; plan 2026-10-25-ai-guard ruling 14). */
+/** A card that opens a settings sheet (実験機能, 外的要因データ). */
 export function LaunchCard({ testId, icon, title, note, dict, onOpen }: Props) {
   return (
     <div className="surface launch-card" data-testid={testId}>

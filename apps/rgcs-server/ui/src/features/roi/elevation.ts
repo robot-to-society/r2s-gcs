@@ -1,4 +1,4 @@
-// Ground elevation for 「地図で指定」 (ruling 14): one Terrarium sample, waiting for the tile.
+// Ground elevation for 「地図で指定」: one Terrarium sample, waiting for the tile.
 import { TerrainSampler, loadTile, type TileLoader } from '../map/terrain'
 
 const DEFAULT_TIMEOUT_MS = 3000

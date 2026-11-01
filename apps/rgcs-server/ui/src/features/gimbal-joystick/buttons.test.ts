@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CameraState } from '../../shared/api/types'
 import { buttonAction, buttonCommand, releaseCommand } from './buttons'
 
-describe('buttonAction (spec 40 §6)', () => {
+describe('buttonAction', () => {
   it('roi_N starts that preset, or stops it when it is the active one', () => {
     expect(buttonAction('roi_3', null, null)).toEqual({ kind: 'roi_start', id: 'roi_3' })
     expect(buttonAction('roi_3', null, 'roi_3')).toEqual({ kind: 'roi_stop' })
@@ -27,7 +27,7 @@ const cam: CameraState = {
   stream: [1920, 1080], encoding: null, thermal: null, track: null, candidates: [], ai_ack: null, storage: null, clock: null,
 }
 
-describe('media button functions (spec 40 §6)', () => {
+describe('media button functions', () => {
   it('thermal_gain_toggle flips the gain; unknown → high', () => {
     const high = { ...cam, thermal: { gain: 'high' as const, range_c: null, frame: null, point: null } }
     expect(buttonCommand('thermal_gain_toggle', high)).toEqual({ cmd: 'thermal_gain', args: { gain: 'low' } })

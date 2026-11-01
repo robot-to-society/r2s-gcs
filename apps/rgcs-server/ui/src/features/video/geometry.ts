@@ -1,8 +1,8 @@
 // Overlay geometry for the cockpit video (port of the Python app's video_geometry.js).
-// The cockpit is full-bleed, so the picture is `object-fit: cover`, not letterboxed (camera-rest ruling 13).
+// The cockpit is full-bleed, so the picture is `object-fit: cover`, not letterboxed.
 import type { Detection, NormRect } from '../../shared/api/types'
 
-/** The 0x20 main-stream size, or null while unknown or degenerate (a 0 / 1-pixel reply, final review I2). */
+/** The 0x20 main-stream size, or null while unknown or degenerate (a 0, 1-pixel reply). */
 export function knownStream(stream: readonly [number, number] | null): [number, number] | null {
   return stream && stream[0] > 1 && stream[1] > 1 ? [stream[0], stream[1]] : null
 }

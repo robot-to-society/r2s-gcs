@@ -1,4 +1,4 @@
-// Icons (spec 20 §9, 2026-10-18): Lucide everywhere, with the prototype's names; only the
+// Icons (2026-10-18): Lucide everywhere, with the prototype's names; only the
 // multicopter is custom. This file is the single import point so components keep `Icon*` names.
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -108,7 +108,7 @@ export const IconVideo = ({ size = 20, className }: IconProps) => <Lucide icon={
 export const IconMission = ({ size = 20, className }: IconProps) => <Lucide icon={Route} size={size} className={className} />
 export const IconNetwork = ({ size = 20, className }: IconProps) => <Lucide icon={Network} size={size} className={className} />
 export const IconChat = ({ size = 20, className }: IconProps) => <Lucide icon={BotMessageSquare} size={size} className={className} />
-// AI chat panel (spec 10 §3.4): bot avatar, send, the thinking spinner, the proposal label.
+// AI chat panel: bot avatar, send, the thinking spinner, the proposal label.
 export const IconShieldAlert = ({ size = 16, className }: IconProps) => <Lucide icon={ShieldAlert} size={size} className={className} />
 export const IconBot = ({ size = 16, className }: IconProps) => <Lucide icon={Bot} size={size} className={className} />
 export const IconSend = ({ size = 20, className }: IconProps) => <Lucide icon={Send} size={size} className={className} />
@@ -152,12 +152,12 @@ export const IconBits = ({ size = 16, className }: IconProps) => <Lucide icon={L
 export const IconSurvey = ({ size = 16, className }: IconProps) => <Lucide icon={Grid3x3} size={size} className={className} />
 export const IconFileUp = ({ size = 16, className }: IconProps) => <Lucide icon={FileUp} size={size} className={className} />
 
-// Severity (spec 10 §1): info / ok / warn / error.
+// Severity: info / ok / warn / error.
 export const IconInfo = ({ size = 16, className }: IconProps) => <Lucide icon={Info} size={size} className={className} />
 export const IconOk = ({ size = 16, className }: IconProps) => <Lucide icon={CircleCheck} size={size} className={className} />
 export const IconError = ({ size = 16, className }: IconProps) => <Lucide icon={OctagonX} size={size} className={className} />
 
-// Commands (spec 20 §9).
+// Commands.
 export const IconPause = ({ size = 18, className }: IconProps) => <Lucide icon={Pause} size={size} className={className} />
 export const IconPlay = ({ size = 18, className }: IconProps) => <Lucide icon={Play} size={size} className={className} />
 export const IconStepForward = ({ size = 18, className }: IconProps) => <Lucide icon={StepForward} size={size} className={className} />
@@ -209,7 +209,7 @@ export const IconSignal = ({ size = 18, top = 'var(--text-3)' }: IconProps & { r
 )
 export const IconElevation = ({ size = 20, className }: IconProps) => <Lucide icon={ChartArea} size={size} className={className} />
 export const IconSortAlerts = ({ size = 18, className }: IconProps) => <Lucide icon={ArrowDownWideNarrow} size={size} className={className} />
-// Network view (plan 2026-10-23): server, gateway, client, internet, component, radio, camera scan, link.
+// Network view: server, gateway, client, internet, component, radio, camera scan, link.
 export const IconServer = ({ size = 16, className }: IconProps) => <Lucide icon={Server} size={size} className={className} />
 export const IconRouter = ({ size = 16, className }: IconProps) => <Lucide icon={Router} size={size} className={className} />
 export const IconLaptop = ({ size = 16, className }: IconProps) => <Lucide icon={Laptop} size={size} className={className} />
@@ -218,7 +218,7 @@ export const IconCpu = ({ size = 16, className }: IconProps) => <Lucide icon={Cp
 export const IconRadioTower = ({ size = 16, className }: IconProps) => <Lucide icon={RadioTower} size={size} className={className} />
 export const IconScan = ({ size = 16, className }: IconProps) => <Lucide icon={Scan} size={size} className={className} />
 export const IconCable = ({ size = 16, className }: IconProps) => <Lucide icon={Cable} size={size} className={className} />
-// 実験機能 / 外的要因データ (plan 2026-10-25-ai-guard Task 9): the cards, 今すぐ取得, the banner's mute, links out.
+// 実験機能 / 外的要因データ: the cards, 今すぐ取得, the banner's mute, links out.
 export const IconFlask = ({ size = 18, className }: IconProps) => <Lucide icon={FlaskConical} size={size} className={className} />
 export const IconCloudSun = ({ size = 18, className }: IconProps) => <Lucide icon={CloudSun} size={size} className={className} />
 export const IconRefresh = ({ size = 14, className }: IconProps) => <Lucide icon={RefreshCw} size={size} className={className} />
@@ -234,7 +234,7 @@ export const IconPan = ({ size = 13, className }: IconProps) => <Lucide icon={Mo
 export const IconTilt = ({ size = 13, className }: IconProps) => <Lucide icon={MoveVertical} size={size} className={className} />
 export const IconNav = ({ size = 14, className }: IconProps) => <Lucide icon={Navigation2} size={size} className={className} />
 export const IconTick = ({ size = 14, className }: IconProps) => <Lucide icon={Check} size={size} className={className} />
-// Plan assignment board (plan 2026-10-31): a locked (unsaved) plan, the drag grip, 不明, 書込待ち.
+// Plan assignment board: a locked (unsaved) plan, the drag grip, 不明, 書込待ち.
 export const IconLock = ({ size = 16, className }: IconProps) => <Lucide icon={Lock} size={size} className={className} />
 export const IconGripVertical = ({ size = 16, className }: IconProps) => <Lucide icon={GripVertical} size={size} className={className} />
 export const IconHelp = ({ size = 12, className }: IconProps) => <Lucide icon={CircleHelp} size={size} className={className} />

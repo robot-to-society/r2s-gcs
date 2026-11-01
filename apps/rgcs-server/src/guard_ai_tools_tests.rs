@@ -1,4 +1,4 @@
-//! The AI's read-only `list_guard_alerts` tool against a live guard (plan Task 8): the alert is
+//! The AI's read-only `list_guard_alerts` tool against a live guard: the alert is
 //! read with the vehicle name as untrusted data, audited with target `ai`, and the tool can
 //! never cancel, trigger or change anything.
 

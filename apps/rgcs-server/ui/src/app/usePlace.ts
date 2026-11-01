@@ -1,4 +1,4 @@
-// The Shell's view plus its right panel (AI chat plan ruling 1): nav presses go through `navigate`.
+// The Shell's view plus its right panel: nav presses go through `navigate`.
 import { useCallback, useState } from 'react'
 import { navigate, navViewOf, type Place, type RightPanel } from './rightPanel'
 import type { View } from './view'

@@ -1,4 +1,4 @@
-//! Calibration / motor-test runs (spec 10 §7): ArduPilot keeps no dates, RGCS does.
+//! Calibration / motor-test runs: ArduPilot keeps no dates, RGCS does.
 
 use rgcs_core::{CalibKind, CalibRecord, SysId};
 use sqlx::Row;

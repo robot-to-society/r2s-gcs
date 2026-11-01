@@ -1,4 +1,4 @@
-//! Received MT11 frames → the next `CameraState` plus the actor-local `Media` data (spec 40 §1, §3).
+//! Received MT11 frames → the next `CameraState` plus the actor-local `Media` data.
 
 use std::time::{Duration, Instant};
 
@@ -22,7 +22,7 @@ pub struct Media {
     pub clock: ClockSync,
     pub clock_read_at: Option<Instant>,
     /// The size a 0x21 asked for; until a 0x20 reports it (or [`ENCODING_SETTLE`] passes) the
-    /// stream stays unknown and clicks are refused (final review I3).
+    /// stream stays unknown and clicks are refused.
     pub pending_encoding: Option<PendingEncoding>,
 }
 
@@ -106,9 +106,9 @@ fn apply_basic(state: &CameraState, cmd: u8, p: &[u8]) -> Option<CameraState> {
 }
 
 /// 0x20: only the main stream (`stream_type == 1`) with a real size sets the resolution; a
-/// 0 / 1-pixel reply (encoder restarting) is ignored, as in Python (final review I2).
+/// 0 / 1-pixel reply (encoder restarting) is ignored, as in Python.
 /// While a 0x21 change is pending, only the requested size (or any size after
-/// [`ENCODING_SETTLE`]) is taken; an older reply is dropped (final review I3).
+/// [`ENCODING_SETTLE`]) is taken; an older reply is dropped.
 fn apply_encoding(state: &CameraState, media: &Media, p: &[u8], now: Instant) -> Applied {
     let unchanged = (None, media.clone());
     let Some((1, info)) = ai::parse_encoding(p) else {
@@ -142,7 +142,7 @@ fn apply_encoding(state: &CameraState, media: &Media, p: &[u8], now: Instant) ->
 }
 
 /// 0x21: a refused change ends the wait for its size, so the next 0x20 (the old size the
-/// camera kept) is taken at once (final review M4). The command reply is resolved by the session.
+/// camera kept) is taken at once. The command reply is resolved by the session.
 fn apply_encoding_ack(media: &Media, p: &[u8]) -> Media {
     match ai::encoding_ack(p) {
         Some(false) => Media {
@@ -303,7 +303,7 @@ fn apply_camera_time(state: &CameraState, media: &Media, p: &[u8], now: Instant,
     )
 }
 
-/// 0x30: a rejected time fails the sync (final review M3); an accepted one changes nothing.
+/// 0x30: a rejected time fails the sync; an accepted one changes nothing.
 fn apply_utc_ack(state: &CameraState, media: &Media, p: &[u8]) -> Applied {
     let clock = match parse::utc_ack(p) {
         Some(accepted) => media.clock.on_utc_ack(accepted),

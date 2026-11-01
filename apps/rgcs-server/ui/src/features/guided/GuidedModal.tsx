@@ -31,7 +31,7 @@ interface Props {
 }
 
 /**
- * Guided move (spec 10 §3.5): pick a target on the map, keep or set altitude, then one press of
+ * Guided move: pick a target on the map, keep or set altitude, then one press of
  * 移動開始 switches to GUIDED (if needed), waits for the vehicle to report it and sends the target.
  */
 export function GuidedModal({ vehicle, target, onPickTarget, onClose, onDone, dict, deps }: Props) {

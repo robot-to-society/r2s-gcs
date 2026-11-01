@@ -1,4 +1,4 @@
-// Nav ↔ right-panel state (AI chat plan ruling 1, prototype `toggleAi` / `goOps`): the AI
+// Nav ↔ right-panel state (prototype `toggleAi` / `goOps`): the AI
 // chat is a right panel on the ops map, not a view of its own.
 import type { View } from './view'
 

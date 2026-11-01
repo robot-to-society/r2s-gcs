@@ -17,7 +17,7 @@ const BUTTONS: readonly { cmd: 'pause' | 'rtl' | 'land'; icon: () => ReactElemen
   { cmd: 'land', icon: () => <IconLand /> },
 ]
 
-/** Always-visible 一時停止 / 帰還 / 着陸 (operator proposal 1); a rover has no 着陸 (UX-18). A lost link only marks them: a frame may still get through. */
+/** Always-visible 一時停止 / 帰還 / 着陸 (operator proposal 1); a rover has no 着陸. A lost link only marks them: a frame may still get through. */
 export function EmergencyRow({ vehicle, dict, onCommand, feedback }: Props) {
   const stale = vehicle.link === 'lost'
   const buttons = vehicle.kind === 'rover' ? BUTTONS.filter((b) => b.cmd !== 'land') : BUTTONS

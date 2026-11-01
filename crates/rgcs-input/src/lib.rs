@@ -1,4 +1,4 @@
-//! Browser joystick frames → safe gimbal rates (spec 70 §2). Pure state machine; the server
+//! Browser joystick frames → safe gimbal rates. Pure state machine; the server
 //! owns the clock and performs the actions.
 
 pub mod gate;

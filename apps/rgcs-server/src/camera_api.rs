@@ -1,4 +1,4 @@
-//! `/api/vehicles/{sysid}/camera*` (spec 50 §2.3): caps + state, commands, profile.
+//! `/api/vehicles/{sysid}/camera*`: caps + state, commands, profile.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -70,7 +70,7 @@ pub async fn command(
     }
 }
 
-/// The error code of a failed send; refusals carry their own code (ruling 4).
+/// The error code of a failed send; refusals carry their own code.
 enum Code {
     Fixed(&'static str),
     Refused(&'static str),
@@ -110,7 +110,7 @@ fn error_reply(e: &CameraError) -> (StatusCode, Code, String) {
     }
 }
 
-/// `AiSelectBox { box_px: None }` takes the profile's `ai_box_px` (ruling 2).
+/// `AiSelectBox { box_px: None }` takes the profile's `ai_box_px`.
 async fn with_default_box(app: &AppState, sysid: SysId, cmd: CameraCommand) -> CameraCommand {
     match cmd {
         CameraCommand::AiSelectBox { x, y, box_px: None } => {
@@ -207,7 +207,7 @@ pub async fn put_profile(
     if let Err(e) = app.store.record_audit(entry).await {
         tracing::error!(error = %e, "audit write failed");
     }
-    // Only a connection field change rebuilds the driver (ruling 7): an unchanged profile or
+    // Only a connection field change rebuilds the driver: an unchanged profile or
     // a 映像 tab save (encoding, palette, overlay, box size, auto record) keeps the driver,
     // the video and an active ROI running.
     if base.needs_reload(&profile) {
@@ -225,8 +225,8 @@ async fn reload_driver(app: &AppState, operator: &str, sysid: SysId) {
     app.video.reload(sysid).await;
 }
 
-/// Why `cmd` takes the gimbal from an active ROI: manual pointing (spec 40 §4) or an AI
-/// tracking start (ruling 9). Other commands keep ROI.
+/// Why `cmd` takes the gimbal from an active ROI: manual pointing or an AI
+/// tracking start. Other commands keep ROI.
 fn roi_cancel_reason(cmd: &CameraCommand) -> Option<&'static str> {
     match cmd {
         CameraCommand::GimbalCenter { .. }
@@ -238,7 +238,7 @@ fn roi_cancel_reason(cmd: &CameraCommand) -> Option<&'static str> {
 }
 
 /// Sends `cmd`; a command that takes the gimbal from ROI is checked first, and ROI stops only
-/// when the driver would accept it (final review I1: a refused click keeps ROI pointing).
+/// when the driver would accept it (a refused click keeps ROI pointing).
 async fn take_gimbal_and_send(
     app: &AppState,
     operator: &str,

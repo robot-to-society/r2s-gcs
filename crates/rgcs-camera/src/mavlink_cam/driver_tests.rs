@@ -300,7 +300,7 @@ fn pitchyaw_count(fake: &FakeMav) -> usize {
 
 const STOP: CameraCommand = CameraCommand::GimbalRate { yaw: 0, pitch: 0 };
 
-/// Final review I1: a zero with nothing moving would end mission / RC pointing on ArduPilot.
+/// A zero with nothing moving would end mission / RC pointing on ArduPilot.
 #[tokio::test(start_paused = true)]
 async fn zero_without_a_prior_non_zero_sends_nothing() {
     let (fake, cam) = bound(FakeConfig::default()).await;

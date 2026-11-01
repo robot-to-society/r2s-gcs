@@ -21,7 +21,7 @@ export function ymdHm(ts: number): string {
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 
 /**
- * A message's time (UX-21): `HH:MM:SS` today, `<yesterday> HH:MM` for yesterday, `MM/DD HH:MM`
+ * A message's time: `HH:MM:SS` today, `<yesterday> HH:MM` for yesterday, `MM/DD HH:MM`
  * before that, so an old alert never reads as current.
  */
 export function msgStamp(ts: number, now: number, yesterday: string): string {

@@ -1,4 +1,4 @@
-// Copy for the camera settings 映像 tab (spec 10 §5; prototype `t.cam`).
+// Copy for the camera settings 映像 tab (prototype `t.cam`).
 
 export const cameraVideoJa = {
   camEncoding: 'エンコード',

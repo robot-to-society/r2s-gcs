@@ -1,4 +1,4 @@
-//! The AI's tools on the live server (plan rulings 2, 8, 9, 10; guard ruling 15): read the
+//! The AI's tools on the live server: read the
 //! router, the message log, the video status, the AI 緊急介入 alerts and the external factors,
 //! and validate proposals. Nothing here can send: there is no path to the vehicle command
 //! channel, the link, the cameras or ROI, and nothing here can cancel, trigger or change a
@@ -226,7 +226,7 @@ fn audit_result(code: &str) -> &'static str {
     }
 }
 
-/// `live` / `checking` / `down` from the video source monitor (plan ruling 10).
+/// `live` / `checking` / `down` from the video source monitor.
 pub fn video_state(s: &VideoSourceStatus) -> AiVideoState {
     if s.probe_ok {
         AiVideoState::Live
@@ -327,7 +327,7 @@ fn capped_args(args: &Value) -> String {
     args.to_string().chars().take(MAX_AUDIT_ARGS_CHARS).collect()
 }
 
-/// One `target = "ai"` audit row (spec 70 §4); `command` is the tool name or `dismiss_proposal`.
+/// One `target = "ai"` audit row; `command` is the tool name or `dismiss_proposal`.
 pub async fn audit_ai(
     app: &AppState,
     user: &str,

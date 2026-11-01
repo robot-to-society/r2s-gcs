@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract the Glass prototype's <style> block into the UI's prototype.css (spec 20 §5: the app
+"""Extract the Glass prototype's <style> block into the UI's prototype.css (the app
 uses the prototype's class names verbatim). Run after editing design_base/project/RGCS Prototype Glass.dc.html.
 
     python3 scripts/sync-css.py

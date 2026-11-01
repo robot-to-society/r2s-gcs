@@ -1,4 +1,4 @@
-// What a click on the cockpit video means (spec 10 §4.2, camera-rest rulings 2 / 13 / 14).
+// What a click on the cockpit video means.
 import type { CameraCaps, CameraCommand, CameraState } from '../../shared/api/types'
 import { knownStream } from './geometry'
 

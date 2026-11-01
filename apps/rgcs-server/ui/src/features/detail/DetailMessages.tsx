@@ -17,7 +17,7 @@ interface Props {
 }
 
 function Row({ e, dict, onAck }: { readonly e: LogEntry; readonly dict: Dict; readonly onAck: () => void }) {
-  // the day the row was first drawn: enough to date an old alert (UX-21), and pure during render
+  // the day the row was first drawn: enough to date an old alert, and pure during render
   const [now] = useState(() => Date.now())
   const acked = isAlert(e) && e.acked_by !== null
   const body = e.source === 'link' && e.text === 'comms_delay' ? dict.commDelayBody : ''

@@ -39,7 +39,7 @@ pub enum VehicleCommand {
 }
 
 impl VehicleCommand {
-    /// Commands that need a confirm token (spec 70 §1). Mode change, RTL and land do not.
+    /// Commands that need a confirm token. Mode change, RTL and land do not.
     pub fn requires_confirm(&self) -> bool {
         matches!(
             self,

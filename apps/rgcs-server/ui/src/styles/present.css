@@ -1,4 +1,4 @@
-/* Audience view (addendum §5.1): video full-bleed, logo top-left, mini-map bottom-right. */
+/* Audience view: video full-bleed, logo top-left, mini-map bottom-right. */
 .present {
   position: fixed;
   inset: 0;
@@ -55,6 +55,6 @@
   color: var(--text-2);
   font-size: 12px;
 }
-/* the logo picker (UX-60): a button over a visually hidden file input */
+/* the logo picker: a button over a visually hidden file input */
 .present-logo-pick { gap: 6px; justify-self: start; cursor: pointer; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

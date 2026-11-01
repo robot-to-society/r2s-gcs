@@ -9,7 +9,7 @@ interface Props {
   readonly attribution: string
 }
 
-/** The audience view's small follow-only map (addendum §5.1): no controls, no interaction. */
+/** The audience view's small follow-only map: no controls, no interaction. */
 export function MiniMap({ vehicle, tileUrl, attribution }: Props) {
   const vehicles = new Map<number, VehicleState>()
   if (vehicle) {

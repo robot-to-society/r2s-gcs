@@ -1,4 +1,4 @@
-//! Intervention state machine, RC takeover watch and decision records (plan Task 2).
+//! Intervention state machine, RC takeover watch and decision records.
 
 mod common;
 

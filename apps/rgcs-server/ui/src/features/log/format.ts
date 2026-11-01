@@ -25,7 +25,7 @@ function commandText(e: LogEntry, dict: Dict): string {
   return [cmdLabel(cmd, dict), outcome, reasonText(rest.join(' '), dict)].filter(Boolean).join(' ')
 }
 
-/** Link codes and command names are translated; vehicle text stays verbatim (spec 00 §5). */
+/** Link codes and command names are translated; vehicle text stays verbatim. */
 export function entryText(e: LogEntry, dict: Dict): string {
   if (e.source === 'command') return commandText(e, dict)
   return messageText(e.text, dict)

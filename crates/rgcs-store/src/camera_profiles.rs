@@ -1,4 +1,4 @@
-//! `camera_profiles` (spec 60 §3.3): one row per sysid; absent rows read as the default.
+//! `camera_profiles`: one row per sysid; absent rows read as the default.
 
 use rgcs_core::{CameraKind, CameraProfile, SysId, VideoSourceMode};
 use sqlx::Row;

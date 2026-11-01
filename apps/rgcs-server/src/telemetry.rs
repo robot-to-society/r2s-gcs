@@ -1,5 +1,5 @@
 //! Turns router events into WebSocket frames: immediate frames for discoveries and
-//! messages, and a 10 Hz diff of every vehicle state (spec 30 §3, 50 §3.1).
+//! messages, and a 10 Hz diff of every vehicle state.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -41,7 +41,7 @@ pub fn diff_frames(
 pub const LINK_MESSAGE_ID_BASE: u64 = 1 << 40;
 static NEXT_LINK_MESSAGE_ID: AtomicU64 = AtomicU64::new(LINK_MESSAGE_ID_BASE);
 
-/// Text codes the UI translates (spec 50 §3.1 `vehicle_message`); vehicle text stays verbatim.
+/// Text codes the UI translates (`vehicle_message`); vehicle text stays verbatim.
 fn link_code(to: LinkStatus) -> (&'static str, u8, Severity) {
     match to {
         LinkStatus::Delay => ("comms_delay", 4, Severity::Warn),

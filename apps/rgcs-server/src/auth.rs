@@ -1,5 +1,4 @@
-//! Login / logout / me, the session cookie, the `AuthUser` extractor and the CSRF guard
-//! (spec 50 §2.1, 70 §5).
+//! Login / logout / me, the session cookie, the `AuthUser` extractor and the CSRF guard.
 
 use axum::extract::{FromRequestParts, Request, State};
 use axum::http::{request::Parts, HeaderMap, Method, StatusCode};

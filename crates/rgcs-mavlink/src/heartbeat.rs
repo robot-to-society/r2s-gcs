@@ -1,4 +1,4 @@
-//! Link health from the age of the last HEARTBEAT (spec 30 §4): 3 s → delay, 10 s → lost.
+//! Link health from the age of the last HEARTBEAT: 3 s → delay, 10 s → lost.
 
 use mavlink::dialects::ardupilotmega::MavAutopilot;
 use rgcs_core::LinkStatus;

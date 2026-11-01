@@ -10,7 +10,7 @@ interface Plan {
   readonly mission: { readonly home: Home | null }
 }
 
-/** Which flight model predicts the path, with its parameters (spec 10 §6.2). */
+/** Which flight model predicts the path, with its parameters. */
 export type PathModel = { readonly kind: 'plane'; readonly params: PlaneParams } | { readonly kind: 'copter'; readonly params: CopterParams }
 
 /** The parameter names to read from a vehicle of this kind (none: no prediction). */

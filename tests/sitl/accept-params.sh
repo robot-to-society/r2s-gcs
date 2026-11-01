@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P4 acceptance (addendum §7-3) against a running rgcs-server + SITL (scripts/dev.sh):
+# P4 acceptance against a running rgcs-server + SITL (scripts/dev.sh):
 # refresh → all parameters (>1,000) downloaded with progress → write FENCE_ALT_MAX with a
 # confirm token → read-back verified → row in param_history → restore. Prints "ACCEPT params: OK" or FAIL.
 set -euo pipefail

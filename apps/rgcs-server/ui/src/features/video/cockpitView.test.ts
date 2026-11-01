@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ZOOM_SLIDER_MAX, dialOffset, gimbalText, latencyText, posToZoom, zoomToPos } from './cockpitView'
 
-describe('camera cockpit helpers (spec 10 §4.2)', () => {
+describe('camera cockpit helpers', () => {
   it('maps zoom to a logarithmic 0..1000 slider and back', () => {
     expect(zoomToPos(1, 165)).toBe(0)
     expect(zoomToPos(165, 165)).toBe(1000)

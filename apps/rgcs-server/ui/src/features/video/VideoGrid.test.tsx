@@ -22,7 +22,7 @@ const vehicle = (sysid: number, over: Partial<VehicleState> = {}): VehicleState 
 })
 const live: VideoSourceStatus = { mode: 'auto', source: 'mt11', scanning: false, probe_ok: true, whep_path: 'mt11' }
 
-describe('VideoGrid (spec 10 §4.1)', () => {
+describe('VideoGrid', () => {
   beforeEach(() => {
     players.length = 0
   })

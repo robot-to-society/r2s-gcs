@@ -1,4 +1,4 @@
-//! Network view (plan 2026-10-23 Task 4): `GET /api/network` and the 1 Hz `network_status` frame.
+//! Network view: `GET /api/network` and the 1 Hz `network_status` frame.
 
 mod common;
 

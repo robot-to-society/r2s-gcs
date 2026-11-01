@@ -1,4 +1,4 @@
-//! Replayable decision records (spec §8, plan ruling 8).
+//! Replayable decision records.
 
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +8,7 @@ use crate::sensitivity::{effective, ExternalContext};
 use crate::toilet_bowl::{apply_hold, evaluate, ToiletBowlConfig, Verdict};
 
 pub const RECORD_VERSION: u32 = 1;
-/// Who owns the decision (spec §7.2); always the GCS in v1.
+/// Who owns the decision; always the GCS in v1.
 pub const OWNER_GCS: &str = "gcs";
 /// The most samples a record keeps (the 10 s window at 10 Hz is ~101).
 pub const MAX_RECORD_SAMPLES: usize = 120;

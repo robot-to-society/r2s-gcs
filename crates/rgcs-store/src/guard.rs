@@ -1,5 +1,5 @@
 //! `guard_decisions` (migration 0013): one row per AI 緊急介入 phase change, holding the
-//! replayable decision record (plan 2026-10-25-ai-guard, ruling 8).
+//! replayable decision record.
 
 use rgcs_core::SysId;
 use sqlx::Row;

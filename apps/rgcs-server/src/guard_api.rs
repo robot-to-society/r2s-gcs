@@ -1,4 +1,4 @@
-//! `/api/guard/*` (plan 2026-10-25-ai-guard, Task 5): settings with the consent rules, the
+//! `/api/guard/*`: settings with the consent rules, the
 //! active alerts, 取り消し, and the decision records.
 
 use axum::extract::rejection::JsonRejection;

@@ -31,7 +31,7 @@ test('a Mission Planner file imports with 20 rows and exports byte-identical', a
 test('plan three points, edit, undo, save, write to the vehicle and see the progress row', async ({ page }) => {
   test.skip(!process.env.RGCS_E2E_SITL, 'needs SITL')
   await openMission(page)
-  // the write target is never implied (UX-32): pick the vehicle first
+  // the write target is never implied: pick the vehicle first
   await page.getByLabel('対象機体').selectOption({ index: 1 })
   const canvas = page.locator('.mission-map canvas')
   // with a vehicle the first click adds the TAKEOFF at the vehicle and a WAYPOINT at the click

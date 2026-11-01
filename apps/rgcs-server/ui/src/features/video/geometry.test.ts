@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { coverRect, detectionToDisplay, pointToDisplay, previewBox, rectToDisplay, toNormalized } from './geometry'
 
-describe('cover geometry (camera-rest ruling 13)', () => {
+describe('cover geometry', () => {
   it('coverRect crops the long side and centres the picture', () => {
     expect(coverRect(1000, 400, 1920, 1080)).toEqual({ x: 0, y: -81.25, w: 1000, h: 562.5 })
     const r = coverRect(640, 480, 1280, 720)!

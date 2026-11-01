@@ -3,11 +3,11 @@ import type { Latency } from '../../shared/video'
 import { angleText } from '../camera'
 
 /**
- * The zoom slider runs 0..1000 on a log scale so 1×–2× gets as much travel as 80×–165× (spec 10 §4.2).
+ * The zoom slider runs 0..1000 on a log scale so 1×–2× gets as much travel as 80×–165×.
  * A percent zoom (MAVLink, 0–100 % of the range) is linear.
  */
 export const ZOOM_SLIDER_MAX = 1000
-/** Box size for a centre start (AI追跡 button, joystick `ai_tracking_toggle`; spec 40 §6). */
+/** Box size for a centre start (AI追跡 button, joystick `ai_tracking_toggle`). */
 export const AI_CENTRE_BOX_PX = 200
 /** The dial's rim: ±90° of yaw / pitch lands this many pixels from the centre (prototype `.cam-dial`). */
 const DIAL_RIM_PX = 36

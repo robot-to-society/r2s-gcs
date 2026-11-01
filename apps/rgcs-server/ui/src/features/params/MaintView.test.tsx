@@ -47,7 +47,7 @@ function setup(opts: { progress?: typeof done; armed?: boolean } = {}) {
 describe('MaintView', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('the vehicle header is hidden on the app-wide アプリ設定 tab (UX-48)', () => {
+  it('the vehicle header is hidden on the app-wide アプリ設定 tab', () => {
     setup()
     expect(screen.getByTestId('maint-head')).toHaveTextContent('ディスアーム')
     fireEvent.click(screen.getByRole('button', { name: 'アプリ設定' }))
@@ -64,7 +64,7 @@ describe('MaintView', () => {
   it('maint_view_shows_progress_then_rows_and_writes_a_change_set', async () => {
     const { calls } = setup()
     // header + tabs
-    // one vehicle selector: the list on the left; the header names the vehicle the tabs act on (UX-48)
+    // one vehicle selector: the list on the left; the header names the vehicle the tabs act on
     expect(screen.queryByRole('combobox', { name: '対象機体' })).toBeNull()
     expect(screen.getByTestId('maint-head')).toHaveTextContent('対象機体UAV-01')
     expect(screen.getByRole('button', { name: 'パラメータ' }).className).toContain('on')
@@ -97,7 +97,7 @@ describe('MaintView', () => {
     const results = screen.getByTestId('param-results')
     expect(within(results).getByText('FENCE_ALT_MAX').closest('li')!.textContent).toContain('未検証')
     const baudRow = within(results).getByText('SERIAL1_BAUD').closest('li')!
-    // a Lucide check, not a ✓ glyph (UX-52)
+    // a Lucide check, not a ✓ glyph
     expect(baudRow.querySelector('[aria-label="検証済み"]')).not.toBeNull()
     expect(baudRow.textContent).toContain('再起動が必要')
     expect(within(results).getByText('再起動が必要な項目は再起動後に反映されます')).toBeInTheDocument()
@@ -133,7 +133,7 @@ describe('MaintView', () => {
     await waitFor(() => expect(screen.getByText('FENCE_ALT_MAX: 100 → 150')).toBeInTheDocument())
     const row = screen.getByText('FENCE_ALT_MAX: 100 → 150').closest('tr')!
     expect(within(row).getByText('admin')).toBeInTheDocument()
-    // a 検証 column with an icon; no 機体 column, the list is already this vehicle's (UX-52)
+    // a 検証 column with an icon; no 機体 column, the list is already this vehicle's
     expect(within(row).getByLabelText('検証済み')).toBeInTheDocument()
     expect(within(row).queryByText('UAV-01')).toBeNull()
     expect(screen.getByRole('columnheader', { name: '検証' })).toBeInTheDocument()

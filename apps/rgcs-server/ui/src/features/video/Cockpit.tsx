@@ -35,16 +35,16 @@ interface Props {
 }
 
 const NO_TARGETS: readonly RoiTarget[] = []
-/** Spec 60 §3.3 defaults while the profile is loading. */
+/** Camera profile defaults while the profile is loading. */
 const DEFAULT_BOX_PX = 100
 
-/** Clicks do something only with AI tracking / point temperature, and never in 2画面 (ruling 13). */
+/** Clicks do something only with AI tracking / point temperature, and never in 2画面. */
 function isClickable(camera: CameraSnapshot | undefined): boolean {
   if (!camera || camera.state.video_mode === 'side_by_side') return false
   return camera.caps.ai_tracking !== null || camera.caps.thermal?.point_temp === true
 }
 
-/** Spec 10 §4.2 / prototype `isVideoMax`: video 2.6fr, mini map + camera card 1fr. */
+/** The maximised video (prototype `isVideoMax`): video 2.6fr, mini map + camera card 1fr. */
 export function Cockpit({ vehicle: v, camera, status, pending, dict, onCommand, onSettings, onRestore, map, roiTargets = NO_TARGETS, roiStatus, onRoiStart, onRoiStop }: Props) {
   const live = isLive(status)
   const { ref, latency } = useWhepFeed(v.sysid, live)

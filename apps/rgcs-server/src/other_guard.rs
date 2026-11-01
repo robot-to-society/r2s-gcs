@@ -1,4 +1,4 @@
-//! What `{cmd: "other"}` may send (spec 70 §1). Only the MAV_CMDs the UI uses pass: a raw
+//! What `{cmd: "other"}` may send. Only the MAV_CMDs the UI uses pass: a raw
 //! ARM_DISARM (400) or MISSION_START (300) would skip the confirm token their named commands
 //! need, and SET_MESSAGE_INTERVAL could silence the HEARTBEAT the link check depends on.
 

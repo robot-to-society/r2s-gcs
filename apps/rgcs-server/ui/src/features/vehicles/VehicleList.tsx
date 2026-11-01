@@ -16,7 +16,7 @@ interface Props {
   readonly onSelect: (sysid: number) => void
   readonly onFollow?: (sysid: number) => void
   readonly following?: number | null
-  /** `rail` collapses the panel to a 60 px column of icons (spec 20 §4). */
+  /** `rail` collapses the panel to a 60 px column of icons. */
   readonly aside?: 'full' | 'rail'
   readonly onToggleAside?: () => void
   /** Fleet pause / RTL (shown with two or more vehicles that have a link). */

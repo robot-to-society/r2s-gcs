@@ -1,5 +1,5 @@
-//! Flight records (様式 1), squawks (記事) and maintenance records (様式 3) — addendum §5.6,
-//! spec 50 §2.7. Drafts are edited in place; a confirmed flight is corrected by a superseding row.
+//! Flight records (様式 1), squawks (記事) and maintenance records (様式 3).
+//! Drafts are edited in place; a confirmed flight is corrected by a superseding row.
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;

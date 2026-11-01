@@ -13,7 +13,7 @@ use super::pid::{deadband_with_hysteresis, pid_step, smooth_angle, stable_yaw_er
 type Cycle = (RoiController, Vec<CameraCommand>, Option<&'static str>);
 
 impl RoiController {
-    /// One control period (algorithm in the GPS ROI plan, Task 3).
+    /// One control period of the GPS ROI loop.
     pub fn step(&self, inp: &RoiInputs) -> (Self, StepOut) {
         if self.active.is_none() {
             let (base, resend) = self.flush_resend();

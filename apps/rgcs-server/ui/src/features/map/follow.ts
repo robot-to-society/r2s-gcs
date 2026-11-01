@@ -18,7 +18,7 @@ const ASIDE_W = 296
 const RAIL_W = 60
 const RIGHT_W = 372
 
-/** Keeps follow / fly-to centred in the visible map (spec 20 §4 `setPadding`). */
+/** Keeps follow / fly-to centred in the visible map (`setPadding`). */
 export function padding(aside: Aside, right: boolean): Padding {
   const left = aside === 'full' ? ASIDE_W + 2 * GAP : aside === 'rail' ? RAIL_W + 2 * GAP : 0
   return { top: 72, left, right: right ? RIGHT_W + 2 * GAP : 0, bottom: 60 }

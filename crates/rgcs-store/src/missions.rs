@@ -1,4 +1,4 @@
-//! `missions` (spec 60 §3.8): saved mission plans; items and home are JSON of the core types.
+//! `missions`: saved mission plans; items and home are JSON of the core types.
 
 use rgcs_core::{Home, Mission, MissionFrame, MissionItem, MissionSummaryRow, SysId};
 use sqlx::Row;

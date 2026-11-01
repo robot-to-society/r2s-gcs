@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # P6: the browser journeys against the installed Pi (after tests/pi/accept-deploy.sh, or
-# scripts/pi-sim.sh install on a fresh Pi): audience video (addendum §7-1), MT11 camera,
+# scripts/pi-sim.sh install on a fresh Pi): audience video, MT11 camera,
 # detail/commands and logbook — once plainly and once over emulated LTE (netem 80 ms ± 20 ms,
 # 1 % loss). Needs the host SITL with no other client. Prints "ACCEPT stack: OK (plain, lte)".
 set -euo pipefail

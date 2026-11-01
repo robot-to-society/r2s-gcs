@@ -21,7 +21,7 @@ const errText = (e: unknown): string => (e instanceof Error ? e.message : String
  * File / saved / vehicle missions and 新しいプラン open as plans (a new row, or the untouched one),
  * so nothing in the editor is lost and no discard question is asked.
  */
-/** `connected`: a mission saved for (or read from) a connected vehicle opens with it visibly assigned (UX-32 follow-up). */
+/** `connected`: a mission saved for (or read from) a connected vehicle opens with it visibly assigned. */
 export function useMissionIo(store: MissionStore, plans: PlanSetStore, sysid: number | null, dict: Dict, vehicles: VehicleStore, connected: (sysid: number) => boolean = () => false) {
   const [fitRequest, setFitRequest] = useState(0)
   const [picker, setPicker] = useState(false)

@@ -11,7 +11,7 @@ interface Props {
   readonly dict: Dict
 }
 
-/** `.pop` under the username (spec 10 §1): avatar, name, role, audit note, buttons. */
+/** `.pop` under the username: avatar, name, role, audit note, buttons. */
 export function UserPopover({ me, onLogout, onClose, onPresent, dict }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

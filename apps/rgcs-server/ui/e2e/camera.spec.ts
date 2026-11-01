@@ -32,7 +32,7 @@ test('camera strip appears, zoom changes, record toggles, settings save', async 
   await page.getByRole('button', { name: '保存' }).click()
   await waitForLogRow(page, SAVED, saves, 5_000)
 
-  // A runtime kind change must reach the strip without a reload (review C1): none → MT11.
+  // A runtime kind change must reach the strip without a reload: none → MT11.
   await page.getByRole('button', { name: 'カメラ設定' }).click()
   await page.getByRole('button', { name: '接続' }).click()
   await page.getByLabel('カメラ種別').selectOption('none')

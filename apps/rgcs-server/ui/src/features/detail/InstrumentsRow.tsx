@@ -11,7 +11,7 @@ interface Props {
 }
 
 /** 姿勢 + 方位 row of the detail panel with the numeric ロール / ピッチ / 方位 line. Rovers get it too:
- * on slopes and rough ground the tilt warns of a rollover (user 2026-11-01, reverting UX-25). */
+ * on slopes and rough ground the tilt warns of a rollover (user request 2026-11-01). */
 export function InstrumentsRow({ vehicle, dict }: Props) {
   const att = readAttitude(vehicle.attitude)
   const hdg = readHeading(vehicle.hdg)

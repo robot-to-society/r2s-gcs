@@ -8,7 +8,7 @@ const ja = dictFor('ja')
 const en = dictFor('en')
 const NOW = 1_000_000
 
-// The Task 4 topology shape: one link, two vehicles, two clients, a reachable MediaMTX.
+// The topology shape the server sends: one link, two vehicles, two clients, a reachable MediaMTX.
 const fixture = (o: Partial<NetworkTopology> = {}): NetworkTopology =>
   topology(NOW, {
     server: { hostname: 'gcs', version: '0.1.0', build: 'dev', listen: '127.0.0.1:8110', role: 'standalone', uptime_s: 42, started_unix_ms: 0 },
@@ -41,7 +41,7 @@ describe('inspect', () => {
   it('describes the server with its clients and media server', () => {
     const i = inspect('server', fixture(), ja, NOW)
     expect([i.title, i.sub, i.icon]).toEqual(['rgcs-server', 'スタンドアロン', 'server'])
-    // readable labels; the role row is gone, the subtitle already says スタンドアロン (UX-45)
+    // readable labels; the role row is gone, the subtitle already says スタンドアロン
     expect(kv(i, 'バージョン')?.v).toBe('0.1.0 (dev)')
     expect(kv(i, '待受アドレス')?.v).toBe('127.0.0.1:8110')
     expect(kv(i, '役割')).toBeUndefined()

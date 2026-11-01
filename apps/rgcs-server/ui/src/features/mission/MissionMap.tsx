@@ -94,7 +94,7 @@ const NO_OTHERS: readonly OtherMission[] = []
 /** What the editing layers draw while the board is open: nothing. */
 const BLANK = emptyDraft()
 const NO_SURVEY: SurveyMapProps = { metrics: () => null, onPolygon: () => {}, onAngle: () => {}, onCancel: () => {}, showFootprints: false, previewing: false }
-/** `--accent` → `--alt-hi` (spec 10 §6: the path is coloured by altitude). */
+/** `--accent` → `--alt-hi` (the path is coloured by altitude). */
 const ALT_COLOR: ExpressionSpecification = ['interpolate', ['linear'], ['get', 'alt_t'], 0, '#9cc9ff', 1, '#d8a8ff']
 
 interface Badge {
@@ -104,7 +104,7 @@ interface Badge {
 
 type Callbacks = Omit<Props, 'draft' | 'selected' | 'tool' | 'style' | 'basemap' | 'vehicle' | 'fitRequest' | 'mode' | 'terrainTiles' | 'tab' | 'ceiling' | 'predict' | 'focus' | 'fitTo' | 'others' | 'pathColor' | 'panelCollapsed' | 'survey'>
 
-/** Mission editing map (2D, and 3D with altitude / position drags) (spec 10 §6, addendum §5.2): path, draggable badges, mid-leg inserts. */
+/** Mission editing map (2D, and 3D with altitude / position drags): path, draggable badges, mid-leg inserts. */
 export function MissionMap(props: Props) {
   const { selected, tool, style, fitRequest } = props
   const assign = props.assign ?? null

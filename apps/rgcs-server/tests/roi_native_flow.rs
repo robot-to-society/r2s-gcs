@@ -1,5 +1,5 @@
 //! GPS ROI, Native: a MAVLink gimbal manager is pointed with DO_SET_ROI_LOCATION and released
-//! with DO_SET_ROI_NONE (MAVLink camera plan, Task 6).
+//! with DO_SET_ROI_NONE.
 mod common;
 
 use std::time::Duration;

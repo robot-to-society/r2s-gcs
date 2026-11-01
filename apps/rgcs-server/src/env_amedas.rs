@@ -1,4 +1,4 @@
-//! JMA AMeDAS fetch (ruling 10): `latest_time.txt`, the station table (cached 24 h) and the
+//! JMA AMeDAS fetch: `latest_time.txt`, the station table (cached 24 h) and the
 //! latest map file. No coordinate is ever sent: the nearest station within 30 km of each cell
 //! is picked here.
 

@@ -1,4 +1,4 @@
-//! External-factor fetchers (plan 2026-10-25-ai-guard, Task 7; ruling 10 / 11): one HTTP client
+//! External-factor fetchers: one HTTP client
 //! with no redirects, a per-source timeout and a 2 MiB body cap. Only rounded cells ever go into
 //! a URL, and URLs are never logged whole (an API key may be a query parameter): a fetch logs
 //! the source id, the host and the rounded cell only. Errors are short codes, never the URL,
@@ -215,7 +215,7 @@ fn host_of(url: &str) -> String {
         .unwrap_or_default()
 }
 
-/// The only log line a fetch writes (ruling 11 / review focus 4).
+/// The only log line a fetch writes (review focus 4).
 fn log_fetch(id: SourceId, url: &str, cell: &str) {
     let host = host_of(url);
     tracing::info!(source = %id.as_str(), host = %host, cell = %cell, "env fetch");

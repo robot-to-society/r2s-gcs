@@ -19,7 +19,7 @@ interface Props {
   readonly onPresent?: () => void
 }
 
-/** Floating glass bar (spec 20 §4): brand, fleet counts, icon nav, operator, clock. The server
+/** Floating glass bar: brand, fleet counts, icon nav, operator, clock. The server
  * link is a dot only (the design has no text for it). */
 export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout, onPresent }: Props) {
   const [menu, setMenu] = useState(false)
@@ -42,7 +42,7 @@ export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout
         )}
       </div>
       <div className="row num counts">
-        {/* every zero count hides alike (UX-03) */}
+        {/* every zero count hides alike */}
         {copters > 0 && (
           <span className="row" title={dict.kindCopter}>
             <IconCopter size={18} />
@@ -61,7 +61,7 @@ export function Header({ vehicles, link, dict, clock, me, view, onView, onLogout
             <span>{planes}</span>
           </span>
         )}
-        {/* amber only while a vehicle has a warning (UX-02) */}
+        {/* amber only while a vehicle has a warning */}
         <span className={warns > 0 ? 'row warn on' : 'row warn'} title={dict.warnVehicles} aria-label={`${dict.warnVehicles} ${warns}`}>
           <IconWarn />
           <span>{warns}</span>

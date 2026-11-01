@@ -1,4 +1,4 @@
-//! Auto record failures reach the operator and are retried once (final review I4).
+//! Auto record failures reach the operator and are retried once.
 mod common;
 
 use std::time::Duration;

@@ -1,4 +1,4 @@
-// Topology → the drawable graph (plan 2026-10-23 Task 6). Element ids:
+// Topology → the drawable graph. Element ids:
 // 'server', 'link:<id>', 'v:<sysid>', 'r:<sysid>' (MAVLink dot), 'e:v:<sysid>' (vehicle → server edge),
 // 'ws' (WS pill), 'c:<id>' (client), 'e:c:<id>', 'media', and the placeholders 'ph:hub', 'ph:lte:<sysid>' |
 // 'ph:lte', 'e:ph:lte:<sysid>' | 'e:ph:lte', 'ph:gw', 'ph:uplink', 'e:ph:uplink', 'ph:users', 'e:ph:users',
@@ -56,7 +56,7 @@ export function compLine(v: NetVehicle): string {
 
 const KIND_KEY: Readonly<Record<ComponentKind, keyof Dict>> = { autopilot: 'netKindAutopilot', camera: 'netKindCamera', gimbal: 'netKindGimbal', companion: 'netKindCompanion', gcs: 'netKindGcs', other: 'netKindOther' }
 
-/** compLine spelled out for its hover title (UX-46): 「フライトコントローラー: オートパイロット (コンポーネント 1) · …」. */
+/** compLine spelled out for its hover title: 「フライトコントローラー: オートパイロット (コンポーネント 1) · …」. */
 export function compTitle(v: NetVehicle, dict: Dict): string {
   const parts = [...v.components].sort((a, b) => a.compid - b.compid).map((c) => dict.netCompTitle.replace('{kind}', dict[KIND_KEY[c.kind]]).replace('{id}', String(c.compid)))
   return `${dict.netFc}: ${parts.join(' · ') || '—'}`

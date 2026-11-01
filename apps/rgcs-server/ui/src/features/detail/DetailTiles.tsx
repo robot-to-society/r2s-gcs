@@ -1,5 +1,5 @@
-// The three tiles of the right panel (prototype `.tile-btn` ×3, spec 10 §3.3): icon + label,
-// with calibration attention on the tile itself (the pending-alert count stays on メッセージ, UX-22).
+// The three tiles of the right panel (prototype `.tile-btn` ×3): icon + label,
+// with calibration attention on the tile itself (the pending-alert count stays on メッセージ).
 import type { SysId } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { IconGrid, IconHistory, IconWrench } from '../../shared/ui/icons'

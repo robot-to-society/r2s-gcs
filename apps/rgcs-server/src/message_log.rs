@@ -1,4 +1,4 @@
-//! The message log service (spec 10 §1, 2026-10-18): persists every vehicle message, link
+//! The message log service (2026-10-18): persists every vehicle message, link
 //! event and command result, broadcasts it with its row id, and prunes the table.
 
 use std::sync::atomic::{AtomicU64, Ordering};

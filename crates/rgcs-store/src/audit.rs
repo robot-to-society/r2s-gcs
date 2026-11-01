@@ -1,4 +1,4 @@
-//! Append-only audit log (spec 70 §6). There is deliberately no update or delete.
+//! Append-only audit log. There is deliberately no update or delete.
 
 use rgcs_core::SysId;
 use serde::Serialize;

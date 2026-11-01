@@ -166,7 +166,7 @@ export const PALETTE = {
 type Palette = { readonly [G in keyof typeof PALETTE]: readonly string[] }
 
 const VTOL_ONLY = ['VTOL_TAKEOFF', 'VTOL_LAND', 'DO_VTOL_TRANSITION']
-/** Palette keys an airframe does not fly (UX-35 / UX-36): a rover never leaves the ground. */
+/** Palette keys an airframe does not fly: a rover never leaves the ground. */
 function hiddenFor(kind: VehicleKind, vtol: boolean): readonly string[] {
   if (kind === 'rover') return ['TAKEOFF', 'LAND', 'LOITER_TO_ALT', 'ARC_WAYPOINT', 'DO_LAND_START', ...VTOL_ONLY]
   if (kind === 'plane') return vtol ? ['ARC_WAYPOINT'] : ['ARC_WAYPOINT', ...VTOL_ONLY]

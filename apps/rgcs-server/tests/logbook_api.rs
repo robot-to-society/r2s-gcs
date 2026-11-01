@@ -1,4 +1,4 @@
-//! Registry / pilot / inspection template / inspection run API (addendum §5.5, §5.6).
+//! Registry / pilot / inspection template / inspection run API.
 
 mod common;
 

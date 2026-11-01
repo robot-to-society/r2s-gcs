@@ -1,4 +1,4 @@
-// Copy for the MAVLink camera driver (spec 10 §3.3 / §5, spec 40 §2 `mavlink_cam`, spec 50 §1).
+// Copy for the MAVLink camera driver (the `mavlink` camera kind).
 
 export const mavlinkCameraJa = {
   mavlinkCamera: 'MAVLink カメラ',

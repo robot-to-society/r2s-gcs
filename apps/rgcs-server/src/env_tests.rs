@@ -826,7 +826,7 @@ fn the_app_state_default_hub_is_offline() {
         &ep.owm,
     ];
     assert!(all.iter().all(|u| u.starts_with("http://127.0.0.1:0")), "{ep:?}");
-    // Only the shape of the real endpoints: no test names a real host (plan Task 11 grep).
+    // Only the shape of the real endpoints: no test names a real host.
     let real = EnvEndpoints::real();
     assert!(
         real.swpc.starts_with("https://") && !real.swpc.contains("127.0.0.1"),

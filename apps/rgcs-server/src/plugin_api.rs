@@ -1,5 +1,4 @@
-//! `/api/plugins`: the plugins found at start and the admin's on/off switch
-//! (design 2026-11-01-plugin-overlays § API).
+//! `/api/plugins`: the plugins found at start and the admin's on/off switch.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;

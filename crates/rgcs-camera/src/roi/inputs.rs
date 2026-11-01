@@ -1,5 +1,5 @@
 //! Pure helpers turning the router's `VehicleState` and the camera's `CameraState` into
-//! ROI controller inputs (plan ruling 12 / 13).
+//! ROI controller inputs.
 
 use rgcs_core::{CameraState, VehicleState};
 

@@ -1,4 +1,4 @@
-//! Shared synthetic 10 Hz trajectories (Task 1 detector tests and Task 2 records).
+//! Shared synthetic 10 Hz trajectories (detector tests and decision records).
 #![allow(dead_code)]
 
 use rgcs_guard::{Airframe, Sample, ToiletBowlConfig, ToiletBowlDetector, Verdict};

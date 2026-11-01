@@ -1,5 +1,5 @@
 //! While the MAVLink transport is down (reconnects keep failing), the router must still be
-//! ticked so heartbeat ages grow and the vehicle goes delay → lost (spec 30 §4: 3 s / 10 s).
+//! ticked so heartbeat ages grow and the vehicle goes delay → lost (3 s, 10 s).
 
 use std::sync::Arc;
 use std::time::Duration;

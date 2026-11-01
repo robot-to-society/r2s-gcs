@@ -1,4 +1,4 @@
-// The 3-part in-app consent dialog for 実験機能 › AI 緊急介入 (spec §3, plan ruling 1). Each permission
+// The 3-part in-app consent dialog for 実験機能 › AI 緊急介入. Each permission
 // is its own unticked checkbox; 1 is required, 2 and 3 are granted separately. Never `window.confirm`.
 import { useState } from 'react'
 import type { Dict } from '../../shared/i18n'

@@ -1,4 +1,4 @@
-// 「ミッション書込」 from the ops detail panel (UX-30): a click only selects a saved mission; the
+// 「ミッション書込」 from the ops detail panel: a click only selects a saved mission; the
 // footer button asks in-app, naming the mission and the vehicle, before anything is written.
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'

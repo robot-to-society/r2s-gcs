@@ -6,7 +6,7 @@ import { clickAction } from './clickAction'
 import { knownStream, previewBox, toNormalized, type Rect } from './geometry'
 import { measureRect, pictureSize } from './useCoverRect'
 
-/** How long the dashed preview box waits for the first 0x50 (ruling 10). */
+/** How long the dashed preview box waits for the first 0x50. */
 export const PREVIEW_MS = 1500
 
 function logFailure(sysid: number, cmd: 'ai_track' | 'measure_point', reason: string): void {
@@ -23,7 +23,7 @@ interface Deps {
 }
 
 /**
- * Cockpit video clicks (spec 10 §4.2): maps the click through the cover rect measured at that
+ * Cockpit video clicks: maps the click through the cover rect measured at that
  * moment, sends the command or logs the refusal, and keeps the preview box for a box select.
  */
 export function useOverlayClicks({ sysid, camera, boxPx, dict, onCommand, videoRef }: Deps) {

@@ -1,4 +1,4 @@
-//! The MT11 poll schedule (spec 40 §3, Python `main.py` background loop): one tick per second.
+//! The MT11 poll schedule (Python `main.py` background loop): one tick per second.
 
 use rgcs_core::VideoMode;
 

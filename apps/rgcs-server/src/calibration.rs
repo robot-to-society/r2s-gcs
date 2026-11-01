@@ -1,4 +1,4 @@
-//! One calibration session per vehicle (spec 10 §7): the API starts it, flight-controller
+//! One calibration session per vehicle: the API starts it, flight-controller
 //! frames move it on, every change is broadcast and a finished run is recorded with its date.
 
 use std::collections::HashMap;

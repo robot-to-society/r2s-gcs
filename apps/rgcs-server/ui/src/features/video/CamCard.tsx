@@ -12,7 +12,7 @@ interface Props {
   readonly roiText?: string | null
 }
 
-/** Prototype `.cam-card`: gimbal dial + rows; rows the camera cannot report are left out (spec 10 §4.2). */
+/** Prototype `.cam-card`: gimbal dial + rows; rows the camera cannot report are left out. */
 export function CamCard({ caps, state, videoText, dict, roiText = null }: Props) {
   const att = caps.gimbal?.attitude && state.gimbal ? state.gimbal : null
   const dial = dialOffset(att)

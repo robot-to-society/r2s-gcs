@@ -59,11 +59,11 @@ async fn main() -> anyhow::Result<()> {
     let (outgoing_tx, outgoing_rx) = mpsc::channel(64);
     let (acks_tx, _) = broadcast::channel(64);
     let (payload_tx, _) = broadcast::channel(rgcs_mavlink::port::PAYLOAD_CAPACITY);
-    // AI guard telemetry tap (lossy; GuardHub subscribes, ruling 9).
+    // AI guard telemetry tap (lossy, GuardHub subscribes).
     let (guard_tx, _) = broadcast::channel(rgcs_mavlink::GUARD_CAPACITY);
     let (queue_tx, queue_rx) = mpsc::channel(32);
     let gcs_sysid = rgcs_server::settings::load_gcs_sysid(&store).await;
-    // The camera driver rides the FC link (MAVLink camera ruling 1): clone before the moves below.
+    // The camera driver rides the FC link : clone before the moves below.
     let mav_port = rgcs_mavlink::MavPort::new(outgoing_tx.clone(), acks_tx.clone(), payload_tx.clone());
     let state = AppState::new(router.clone(), tx.clone(), store, queue_tx, dev_mode)
         .with_outgoing(outgoing_tx.clone())
@@ -99,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
         .guard
         .apply_settings(rgcs_server::guard_settings::load(&state.store).await);
     state.guard.spawn(state.clone(), guard_tx.subscribe());
-    // Fetches nothing external until the guard is enabled with consent 2 (ruling 1).
+    // Fetches nothing external until the guard is enabled with consent 2.
     state.env.load(&state.store).await;
     state.env.spawn(state.clone(), guard_tx.subscribe());
     let channels = LinkChannels {

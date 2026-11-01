@@ -1,4 +1,4 @@
-// Survey panel settings after the camera (spec §5.2 items 2–8): GSD ⇄ altitude, overlaps, lane
+// Survey panel settings after the camera: GSD ⇄ altitude, overlaps, lane
 // bearing (slider previews while dragging, commits on release), start, speed / wind, and the
 // plane-only turn fields with their 自動 toggles.
 import type { Dict } from '../../shared/i18n'

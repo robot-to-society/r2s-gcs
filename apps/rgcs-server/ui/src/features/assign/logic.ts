@@ -28,7 +28,7 @@ export type CompatKey = 'asRoverNoTakeoff' | 'asAirNeedsTakeoff'
 const NAV_TAKEOFF = 22
 const NAV_VTOL_TAKEOFF = 84
 
-/** Spec §5. `plan` is the assigned plan as loaded now (undefined while unknown to the board). */
+/** A vehicle's row status. `plan` is the assigned plan as loaded now (undefined while unknown to the board). */
 export function cardStatus(a: Assignment | undefined, plan: PlanVersion | undefined, online: boolean): CardStatus {
   if (a === undefined || a.plan_id === null) return 'none'
   const w = a.written

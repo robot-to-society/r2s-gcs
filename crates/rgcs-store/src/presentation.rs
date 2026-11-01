@@ -1,4 +1,4 @@
-//! Presentation tokens for the audience page (addendum §5.1): revocable, never shown twice.
+//! Presentation tokens for the audience page: revocable, never shown twice.
 
 use sqlx::Row;
 

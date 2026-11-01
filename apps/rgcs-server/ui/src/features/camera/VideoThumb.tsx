@@ -13,7 +13,7 @@ interface Props {
   readonly modes?: readonly VideoMode[]
   readonly mode?: VideoMode | null
   readonly onMode?: (mode: VideoMode) => void
-  /** Opens the camera cockpit (spec 10 §4.2); the button is disabled without it. */
+  /** Opens the camera cockpit; the button is disabled without it. */
   readonly onMaximize?: () => void
 }
 
@@ -34,7 +34,7 @@ function VideoTypeSeg({ modes, mode, onMode, label }: { readonly modes: readonly
   )
 }
 
-/** 16:9 thumbnail in the detail panel (spec 10 §3.3 item 2), fed by WHEP when a source is live. */
+/** 16:9 thumbnail in the detail panel, fed by WHEP when a source is live. */
 export function VideoThumb({ sysid, status, recording, dict, modes = [], mode = null, onMode, onMaximize }: Props) {
   const live = isLive(status)
   const { ref: videoRef, phase } = useWhepFeed(sysid, live)

@@ -1,4 +1,4 @@
-//! Login lockout: 5 failures within the window lock a username for 60 s (spec 70 §5).
+//! Login lockout: 5 failures within the window lock a username for 60 s.
 //! Pure and immutable; the caller supplies the clock (monotonic seconds).
 
 use std::collections::HashMap;

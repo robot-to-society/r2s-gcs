@@ -1,4 +1,4 @@
-// Camera settings sheet flow (spec 10 §5): load profile + ROI on open, save in order, 地図で指定.
+// Camera settings sheet flow: load profile + ROI on open, save in order, 地図で指定.
 import { useEffect, useRef, useState } from 'react'
 import type { CameraProfile, CameraState, GimbalInputProfile, RoiControl, RoiTarget, VehicleState } from '../shared/api/types'
 import { getCameraProfile, putCameraProfile, sendCameraCommand } from '../features/camera/api'
@@ -37,7 +37,7 @@ export interface CameraSettingsFlow {
   readonly draft: SheetDraft | null
   /** The last pick had no terrain elevation (home altitude or 0 was used). */
   readonly elevationFallback: boolean
-  /** `cameraState` is the live state the gain draft is compared with (ruling 7). */
+  /** `cameraState` is the live state the gain draft is compared with. */
   readonly save: (sysid: number, d: SheetDraft, cameraState?: CameraState) => Promise<void>
   readonly startPick: (sysid: number, d: SheetDraft, slot: number) => void
   readonly onMapPick: (p: LatLon) => Promise<void>
@@ -78,7 +78,7 @@ const putAndStore = async (sysid: number, patch: Partial<CameraProfile>) => came
 
 /**
  * The connection PUT (only when those fields changed: the server would rebuild the driver and stop ROI),
- * then the 映像 patch, then the live commands (skipped after a reload, ruling 7).
+ * then the 映像 patch, then the live commands (skipped after a reload).
  */
 function profileSteps(sysid: number, profile: CameraProfile | null, d: SheetDraft, cameraState: CameraState | undefined): (() => Promise<unknown>)[] {
   const connectionChanged = cameraChanged(profile, d.camera)

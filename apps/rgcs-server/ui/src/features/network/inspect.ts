@@ -1,4 +1,4 @@
-// Selection → inspector content (plan 2026-10-23 Task 7, prototype `netInspector`), from real data only.
+// Selection → inspector content (prototype `netInspector`), from real data only.
 // Unknown or vanished ids fall back to the server; placeholders explain that M5 configures them.
 import type { Dict } from '../../shared/i18n'
 import type { ClientSession, MavLinkInfo, NetSystem, NetVehicle, NetworkTopology, VehicleKind } from '../../shared/api/types'

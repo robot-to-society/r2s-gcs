@@ -1,4 +1,4 @@
-// Gimbal view on the 2D map (spec 10 §3.1, prototype poseMarkers / camRays): a direction fan on
+// Gimbal view on the 2D map (prototype poseMarkers, camRays): a direction fan on
 // the vehicle marker, or — with the app setting — the image footprint on a flat ground plane.
 
 const RAD = Math.PI / 180

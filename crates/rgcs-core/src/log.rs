@@ -1,4 +1,4 @@
-//! The message log (spec 10 §1, 50 §2.2, 2026-10-18): one entry per STATUSTEXT, link event,
+//! The message log (2026-10-18): one entry per STATUSTEXT, link event,
 //! command result or system notice, with a severity and an acknowledgement for alerts.
 
 use serde::{Deserialize, Serialize};
@@ -6,7 +6,7 @@ use ts_rs::TS;
 
 use crate::vehicle::SysId;
 
-/// 重要度 (spec 10 §1): icon and colour in the UI.
+/// 重要度: icon and colour in the UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export, rename_all = "snake_case")]

@@ -1,4 +1,4 @@
-//! Opaque session tokens (256 bits of randomness) with a 12 h lifetime (spec 70 §5).
+//! Opaque session tokens (256 bits of randomness) with a 12 h lifetime.
 
 use sqlx::Row;
 use time::{Duration, OffsetDateTime};

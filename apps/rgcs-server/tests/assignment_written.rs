@@ -1,5 +1,5 @@
 //! The written-plan record: a verified saved-plan upload remembers the plan id and version, a
-//! content upload clears it, and every change is broadcast (plan assignment plan, Task 3).
+//! content upload clears it, and every change is broadcast.
 
 mod common;
 

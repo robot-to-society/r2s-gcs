@@ -40,7 +40,7 @@ fn apply_0x20_main_only() {
     assert!(next.is_none(), "sub stream ignored");
 }
 
-/// Final review I2: a 0x0 (or 1-pixel) main-stream reply is not a resolution.
+/// A 0x0 (or 1-pixel) main-stream reply is not a resolution.
 #[test]
 fn apply_0x20_zero_size_keeps_the_stream_unknown() {
     let now = Instant::now();
@@ -54,7 +54,7 @@ fn apply_0x20_zero_size_keeps_the_stream_unknown() {
     assert_eq!(s.stream, Some((1920, 1080)), "a bogus reply keeps the known size");
 }
 
-/// Final review I3: after a 0x21 the old size is not taken for the new one.
+/// After a 0x21 the old size is not taken for the new one.
 #[test]
 fn apply_0x20_waits_for_the_requested_size() {
     let t0 = Instant::now();
@@ -81,7 +81,7 @@ fn apply_0x20_waits_for_the_requested_size() {
     assert_eq!(m.pending_encoding, None);
 }
 
-/// Final review M4: a refused 0x21 ends the wait; the camera keeps its old size.
+/// A refused 0x21 ends the wait; the camera keeps its old size.
 #[test]
 fn apply_0x21_rejection_ends_the_encoding_wait() {
     let t0 = Instant::now();

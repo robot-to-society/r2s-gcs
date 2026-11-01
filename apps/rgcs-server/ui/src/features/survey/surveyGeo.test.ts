@@ -18,7 +18,7 @@ function fixture(o: Parameters<typeof fixtureSpec>[0] = {}) {
 const metres = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => Math.hypot(toLocal(a, b).x, toLocal(a, b).y)
 
 describe('surveyGeoJson', () => {
-  it('builds one area, a shoot line per lane, the links, a photo and a footprint per photo, one handle (Task 6 rectangle)', () => {
+  it('builds one area, a shoot line per lane, the links, a photo and a footprint per photo, one handle (rectangle)', () => {
     const { gen, of, fc, id } = fixture()
     const lanes = gen.geometry.lanes.length
     expect(lanes).toBe(14)

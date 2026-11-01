@@ -1,4 +1,4 @@
-//! Final review I1: ArduPilot treats any `GIMBAL_MANAGER_SET_PITCHYAW` rate frame, zeros
+//! ArduPilot treats any `GIMBAL_MANAGER_SET_PITCHYAW` rate frame, zeros
 //! included, as "MAVLink targeting" and drops mission / RC / ROI pointing. So a rate-0 frame
 //! goes out only when it actually stops something: while a non-zero rate is in effect, or
 //! within `ZERO_REPEAT_MS` of the last one (so a lost stop can be repeated).

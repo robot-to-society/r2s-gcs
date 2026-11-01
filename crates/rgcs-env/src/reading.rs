@@ -187,7 +187,7 @@ impl Reading {
         self.kind == FactorKind::Gnss && self.note.as_deref() == Some(GNSS_HDOP_NOTE)
     }
 
-    /// How long the reading counts (spec §5.4): Measured 60 s, Observed 30 min (Kp 4 h),
+    /// How long the reading counts: Measured 60 s, Observed 30 min (Kp 4 h),
     /// Nowcast 30 min, Forecast 3 h.
     pub fn fresh_for_ms(&self) -> u64 {
         match (self.class, self.kind) {

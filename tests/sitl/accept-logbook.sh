@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P5 acceptance (addendum §7-4 / §7-5) against a running rgcs-server + SITL (scripts/dev.sh):
+# P5 acceptance against a running rgcs-server + SITL (scripts/dev.sh):
 # registry → inspection run (9 seeded items) → ARM / DISARM → flight draft with times, position
 # and total → confirm → DataFlash list + fetch → file served → forms 1/2/3 as PDF and CSV.
 # Prints "ACCEPT logbook: OK" or FAIL.

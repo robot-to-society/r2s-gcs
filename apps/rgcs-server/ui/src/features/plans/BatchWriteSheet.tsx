@@ -76,7 +76,7 @@ function toJobs(lines: readonly SheetLine[], leftovers: ReadonlyMap<number, Left
     })
 }
 
-/** Waiting / writing as text; done and failed with a Lucide mark (spec 20 §9: no text glyphs). */
+/** Waiting / writing as text; done and failed with a Lucide mark (no text glyphs). */
 function phaseText(s: BatchState, dict: Dict): ReactNode {
   if (s.phase === 'waiting') return dict.plWaiting
   if (s.phase === 'writing') return dict.plWriting

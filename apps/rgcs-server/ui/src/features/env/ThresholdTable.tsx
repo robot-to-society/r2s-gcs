@@ -1,4 +1,4 @@
-// 判定の閾値 (spec §5.5, fixed values: Thresholds): warn / strong per factor for コプター / クワッドプレーン / 固定翼.
+// 判定の閾値 (fixed values: Thresholds): warn / strong per factor for コプター / クワッドプレーン / 固定翼.
 // Admins edit and save the three tables in one PUT; operators read them.
 import { useState } from 'react'
 import { z } from 'zod'

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { saveMapSettings, useAppSettings } from '../../shared/api/settings'
 import type { Dict } from '../../shared/i18n'
 
-/** 地図表示 (spec 10 §7, prototype app tab): the ジンバルを地面に投影 switch and the track length, saved on the server. */
+/** 地図表示 (prototype app tab): the ジンバルを地面に投影 switch and the track length, saved on the server. */
 export function MapDisplayCard({ dict }: { readonly dict: Dict }) {
   const settings = useAppSettings()
   const [busy, setBusy] = useState(false)

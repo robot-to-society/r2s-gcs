@@ -1,4 +1,4 @@
-//! Inspection templates and runs (様式 2, addendum §5.5). A run snapshots the template's
+//! Inspection templates and runs (様式 2). A run snapshots the template's
 //! items so later template edits never change a saved record.
 
 use rgcs_core::{

@@ -1,4 +1,4 @@
-//! Full parameter download with gap completion, verified writes and history (addendum §5.4, 7-3).
+//! Full parameter download with gap completion, verified writes and history.
 
 mod common;
 

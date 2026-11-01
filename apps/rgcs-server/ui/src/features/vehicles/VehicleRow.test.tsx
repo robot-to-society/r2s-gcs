@@ -16,20 +16,20 @@ const row = (over: Partial<VehicleState> = {}) => {
 }
 
 describe('VehicleRow', () => {
-  it('an_armed_vehicle_shows_a_power_mark_and_a_filled_badge (UX-12)', () => {
+  it('an_armed_vehicle_shows_a_power_mark_and_a_filled_badge', () => {
     const r = row()
     expect(within(r).getByRole('img', { name: 'アーム中' })).toBeInTheDocument()
     expect(within(r).getByText('AUTO').className).toContain('armed')
   })
 
-  it('a_disarmed_vehicle_has_no_power_mark (UX-12)', () => {
+  it('a_disarmed_vehicle_has_no_power_mark', () => {
     const r = row({ armed: false, mode: 'HOLD' })
     expect(within(r).queryByRole('img', { name: 'アーム中' })).not.toBeInTheDocument()
     expect(within(r).getByText('HOLD').className).not.toContain('armed')
     expect(within(r).getByText('HOLD').getAttribute('title')).toBe('HOLD · ディスアーム')
   })
 
-  it('an_unknown_battery_is_an_empty_dashed_bar_with_a_dash (UX-11)', () => {
+  it('an_unknown_battery_is_an_empty_dashed_bar_with_a_dash', () => {
     const r = row({ kind: 'copter', battery: { pct: null, volt: 0, current: null } })
     const bar = r.querySelector('.batt')!
     expect(bar.className).toContain('unknown')
@@ -38,18 +38,18 @@ describe('VehicleRow', () => {
     expect(within(r).getByText('—')).toBeInTheDocument()
   })
 
-  it('the lead heading arrow turns with the heading; none without one (UX-15)', () => {
+  it('the lead heading arrow turns with the heading; none without one', () => {
     const r = row({ hdg: 90 })
     const nav = within(r).getByRole('img', { name: '方位 90°' })
     expect((nav.firstElementChild as SVGElement).style.transform).toBe('rotate(90deg)')
   })
 
-  it('no heading arrow when the heading is unknown (UX-15)', () => {
+  it('no heading arrow when the heading is unknown', () => {
     const r = row({ hdg: null })
     expect(within(r).queryByRole('img', { name: /方位/ })).not.toBeInTheDocument()
   })
 
-  it('a rover lists its distance from home instead of altitude (UX-16)', () => {
+  it('a rover lists its distance from home instead of altitude', () => {
     const r = row({ lat: 36.001, lon: 139, home: { lat: 36, lon: 139, alt: 0 } })
     expect(within(r).getByTitle('ホームから')).toHaveTextContent('111 m')
   })

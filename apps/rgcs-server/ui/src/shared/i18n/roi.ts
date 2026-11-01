@@ -1,4 +1,4 @@
-// Copy for GPS ROI (spec 10 §5 ROI tab, §4.2 chips; prototype `t.cam`). Error codes follow ruling 10.
+// Copy for GPS ROI (prototype `t.cam`). Error codes are the server's.
 
 export const roiJa = {
   roiPresets: 'ROI プリセット',

@@ -1,5 +1,5 @@
 //! GPS ROI runtime (Computed and Native): one task per active vehicle aims the gimbal at a preset
-//! (spec 40 §4). Every start / stop / config / target change and every control tick go
+//!. Every start / stop / config / target change and every control tick go
 //! through that single task, so a stop can never be followed by a stale command.
 
 use std::collections::HashMap;
@@ -18,7 +18,7 @@ pub use rgcs_camera::roi::controller::StopReason;
 
 /// `roi_status` cadence while active (2 Hz).
 pub const STATUS_EVERY: Duration = Duration::from_millis(500);
-/// A camera send slower than this counts as failed (ruling 9: no watchdog thread).
+/// A camera send slower than this counts as failed (no watchdog thread).
 pub const SEND_TIMEOUT: Duration = Duration::from_millis(200);
 /// Stick speeds below this are ignored while ROI is active; at or above it cancel ROI.
 pub const MANUAL_THRESHOLD: i8 = 5;

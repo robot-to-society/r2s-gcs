@@ -1,4 +1,4 @@
-// ROI on the operations map (spec 10 §3.1, prototype buildRoiMarkers / updateSight): preset
+// ROI on the operations map (prototype buildRoiMarkers, updateSight): preset
 // markers and the camera's sight line. Pure builders; `useRoiLayer` puts them on the map.
 import type { FeatureCollection } from 'geojson'
 import type { CameraSnapshot, RoiTarget, VehicleState } from '../../shared/api/types'

@@ -1,4 +1,4 @@
-// 点検テンプレート editor (addendum §5.5): pick or create a template, edit its items
+// 点検テンプレート editor: pick or create a template, edit its items
 // (label / detail, reorder, remove), save (PUT bumps the version) or delete.
 import { useEffect, useState } from 'react'
 import type { InspectionItem, InspectionTemplate, InspectionTemplateInput } from '../../shared/api/types'

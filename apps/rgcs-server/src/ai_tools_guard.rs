@@ -1,5 +1,5 @@
 //! JSON views of AI 緊急介入 alerts and external factors for the AI's read-only tools
-//! (plan Task 8, ruling 15). Pure functions over snapshots: they read, they never act.
+//!. Pure functions over snapshots: they read, they never act.
 //!
 //! Text that comes from a vehicle or an outside source (vehicle names, SWPC notices, AMeDAS
 //! station names, reading notes) is only ever placed under `untrusted_text`, cut to

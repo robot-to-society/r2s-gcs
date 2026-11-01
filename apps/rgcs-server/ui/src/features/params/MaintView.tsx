@@ -16,7 +16,7 @@ interface Props {
   readonly vehicles: ReadonlyMap<SysId, VehicleState>
   readonly paramProgress: ReadonlyMap<SysId, ParamProgress>
   readonly dict: Dict
-  /** The vehicle picked in the shell's vehicle list (the only selector, UX-48); the first one when omitted. */
+  /** The vehicle picked in the shell's vehicle list (the only selector); the first one when omitted. */
   readonly selected?: SysId | null
   readonly me: Operator
   /** Opens the 観客用画面 links and logo sheet (アプリ設定 tab). */
@@ -29,7 +29,7 @@ interface Props {
   readonly calibration?: ReadonlyMap<SysId, CalibStatus>
 }
 
-/** メンテナンス・設定 (spec 10 §7) after the prototype's maint screen: header row, tab strip, body. */
+/** メンテナンス・設定 after the prototype's maint screen: header row, tab strip, body. */
 export function MaintView({ vehicles, paramProgress, dict, selected, me, onOpenPresent, onOpenGuard, onOpenEnv, flightDrafts, logFetch, calibration }: Props) {
   const list = [...vehicles.values()].sort((a, b) => a.sysid - b.sysid)
   const sysid = selected != null && vehicles.has(selected) ? selected : (list[0]?.sysid ?? null)
@@ -104,7 +104,7 @@ export function MaintView({ vehicles, paramProgress, dict, selected, me, onOpenP
 }
 
 /**
- * The vehicle the tabs act on (UX-48): picked in the vehicle list on the left (the only selector),
+ * The vehicle the tabs act on: picked in the vehicle list on the left (the only selector),
  * with its mode and arm state in words. The app-wide アプリ設定 tab has no vehicle header.
  */
 function MaintHead({ vehicle, dict }: { readonly vehicle: VehicleState | undefined; readonly dict: Dict }) {

@@ -1,4 +1,4 @@
-//! Vehicle registry (無人航空機の概要, addendum §5.6) on the `vehicles` table and pilot
+//! Vehicle registry (無人航空機の概要) on the `vehicles` table and pilot
 //! info on `users` (migration `0004_logbook.sql`).
 
 use rgcs_core::{PilotInfo, PilotInput, SysId, VehicleRegistry, VehicleRegistryInput};

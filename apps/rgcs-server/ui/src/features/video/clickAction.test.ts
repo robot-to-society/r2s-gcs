@@ -15,7 +15,7 @@ const rgb: CameraState = {
 const ir: CameraState = { ...rgb, video_mode: 'thermal' }
 const none = { ctrl: false, meta: false, alt: false }
 
-describe('clickAction (spec 10 §4.2, rulings 13 / 14)', () => {
+describe('clickAction', () => {
   it('plain click in RGB selects a box of the profile size', () => {
     expect(clickAction(none, 0.5, 0.25, rgb, caps, 150)).toEqual({ kind: 'command', cmd: { cmd: 'ai_select_box', args: { x: 0.5, y: 0.25, box_px: 150 } } })
   })

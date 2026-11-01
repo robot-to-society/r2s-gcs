@@ -1,4 +1,4 @@
-//! Parameter endpoints (spec 50 §2.2 `/params`, addendum §5.4): list, refresh, progress,
+//! Parameter endpoints (`/params`): list, refresh, progress,
 //! verified write (confirm token `param_write`, refused while armed) and history.
 
 use axum::extract::{Path, Query, State};

@@ -1,4 +1,4 @@
-//! Camera clock sync state machine (spec 40 §5), a port of the Python `time_sync.py`.
+//! Camera clock sync state machine, a port of the Python `time_sync.py`.
 //! A pure value: `tick` returns the next state plus the wire actions for the driver to run.
 //! Times are the driver's monotonic microseconds.
 
@@ -141,7 +141,7 @@ impl ClockSync {
     }
 
     /// A 0x30 reply. A rejected time fails the sync in flight (or just completed): no offset
-    /// is shown as a success, and a later read-back does not clear the error (final review M3).
+    /// is shown as a success, and a later read-back does not clear the error.
     pub fn on_utc_ack(&self, accepted: bool) -> Self {
         if accepted || self.status.last_sync_at_us.is_none() {
             return self.clone();

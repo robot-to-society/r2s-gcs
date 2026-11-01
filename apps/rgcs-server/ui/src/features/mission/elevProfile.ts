@@ -1,4 +1,4 @@
-// Elevation profile (spec 10 §6, prototype elevProfile): the ground under the route and the flight
+// Elevation profile (prototype elevProfile): the ground under the route and the flight
 // altitude along it, in a 1000 × 100 SVG box, with one point per positioned item. Ground comes from
 // the terrain tiles; while a tile is missing the home ground stands in (`hasDem` false).
 import type { ElevAt } from '../map/air'

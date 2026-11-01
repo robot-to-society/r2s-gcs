@@ -103,7 +103,7 @@ function ValueCell({ row, pendingValue, dict, onChange }: { row: ParamRow; pendi
   )
 }
 
-/** Toolbar (search, progress, refresh) and the table (spec 10 §7.1, addendum §5.4). */
+/** Toolbar (search, progress, refresh) and the table. */
 export function ParamsTab({ rows, total, progress, query, changes, busy, dict, onQuery, onRefresh, onChange }: Props) {
   const pct = progressPct(progress, total)
   const shown = rows.slice(0, MAX_ROWS)

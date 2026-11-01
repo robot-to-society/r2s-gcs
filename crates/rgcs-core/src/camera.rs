@@ -1,4 +1,4 @@
-//! Camera / gimbal abstraction shared by the drivers, the server and the UI (spec 40 §1).
+//! Camera / gimbal abstraction shared by the drivers, the server and the UI.
 //! P2 carries the MT11 subset (gimbal, zoom, photo, record, video type); thermal, AI, ROI
 //! and encoding caps arrive with their drivers.
 
@@ -81,7 +81,7 @@ pub struct ZoomCaps {
     pub unit: ZoomUnit,
 }
 
-/// What a camera can do; the UI hides (not disables) everything absent (spec 40 §1.1).
+/// What a camera can do; the UI hides (not disables) everything absent.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct CameraCaps {
@@ -95,7 +95,7 @@ pub struct CameraCaps {
     /// Horizontal field of view at 1× zoom (degrees), for the map's gimbal fan / footprint.
     #[ts(type = "number | null")]
     pub hfov_deg: Option<f32>,
-    /// GPS ROI support: `Computed` = the server aims the gimbal itself (spec 40 §4).
+    /// GPS ROI support: `Computed` = the server aims the gimbal itself.
     pub roi: crate::roi::RoiMode,
     pub thermal: Option<ThermalCaps>,
     pub ai_tracking: Option<AiTrackingCaps>,
@@ -124,7 +124,7 @@ impl CameraCaps {
         }
     }
 
-    /// SIYI MT11 (spec 40 §2): zoom to 165×, pitch −90..30, Lock / Follow / FPV.
+    /// SIYI MT11: zoom to 165×, pitch −90..30, Lock / Follow / FPV.
     pub fn siyi_mt11() -> Self {
         Self {
             kind: CameraKind::SiyiMt11,
@@ -167,7 +167,7 @@ impl CameraCaps {
         }
     }
 
-    /// The server refuses commands the caps do not cover (spec 70 §3).
+    /// The server refuses commands the caps do not cover.
     pub fn supports(&self, cmd: &CameraCommand) -> bool {
         use CameraCommand::*;
         let gimbal = self.gimbal.as_ref();
@@ -199,7 +199,7 @@ impl CameraCaps {
     }
 }
 
-/// Commands to a camera (spec 40 §1.2, P2 subset). JSON: `{"cmd": "...", "args": {...}}`.
+/// Commands to a camera (P2 subset). JSON: `{"cmd": "...", "args": {...}}`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "cmd", content = "args", rename_all = "snake_case")]
 #[ts(export, rename_all = "snake_case")]
@@ -451,7 +451,7 @@ pub enum Deadman {
     Lost,
 }
 
-/// Per-vehicle camera configuration (spec 60 §3.3). Stored as one row per sysid.
+/// Per-vehicle camera configuration. Stored as one row per sysid.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct CameraProfile {
@@ -514,7 +514,7 @@ impl CameraProfile {
         }
     }
 
-    /// True when a connection field differs: only those need the driver rebuilt (ruling 7).
+    /// True when a connection field differs: only those need the driver rebuilt.
     pub fn needs_reload(&self, other: &Self) -> bool {
         self.kind != other.kind
             || self.host != other.host
@@ -530,7 +530,7 @@ impl CameraProfile {
         self.rtsp_url.replace("{host}", &self.host)
     }
 
-    /// Range / format checks from spec 60 §3.3; the first failing field is reported.
+    /// Range / format checks; the first failing field is reported.
     pub fn validate(&self) -> Result<(), ProfileError> {
         let err = |field: &str, message: &str| {
             Err(ProfileError {
@@ -563,7 +563,7 @@ impl CameraProfile {
     }
 }
 
-/// Joystick axis functions for the gimbal profile (spec 40 §6; zoom functions arrive with P3).
+/// Joystick axis functions for the gimbal profile (zoom functions arrive with P3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export, rename_all = "snake_case")]
@@ -652,7 +652,7 @@ pub struct ButtonMapping {
     pub func: ButtonFunction,
 }
 
-/// Browser-side gamepad → gimbal profile (spec 40 §6, 60 §3).
+/// Browser-side gamepad → gimbal profile.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct GimbalInputProfile {

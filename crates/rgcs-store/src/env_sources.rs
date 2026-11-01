@@ -1,5 +1,5 @@
 //! `env_sources` (migration 0013): per-source enable / interval / timeout overrides of the
-//! external-data sources (plan 2026-10-25-ai-guard, Task 7). Absent rows read as the defaults.
+//! external-data sources. Absent rows read as the defaults.
 
 use sqlx::Row;
 

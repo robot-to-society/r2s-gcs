@@ -1,4 +1,4 @@
-// Active AI 緊急介入 alerts as the UI keeps them (plan 2026-10-25-ai-guard Task 10, ruling 7).
+// Active AI 緊急介入 alerts as the UI keeps them.
 // Entries are stored on the LOCAL clock: `ts` is when this browser received the latest frame and
 // `deadline_ms` is the server's remaining time added to it, so a Pi whose clock is off by minutes
 // still shows an accurate countdown. Map insertion order = first arrival (newest first = reverse).

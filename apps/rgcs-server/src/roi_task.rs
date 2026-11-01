@@ -1,5 +1,5 @@
 //! The per-vehicle ROI task: owns the `RoiController`, feeds it router / camera samples each
-//! control period and sends its commands (GPS ROI plan, Task 6).
+//! control period and sends its commands.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -21,7 +21,7 @@ struct Runner {
     ctl: RoiController,
     camera: Option<Arc<dyn Camera>>,
     watch: Option<watch::Receiver<CameraState>>,
-    /// Monotonic ms the current gimbal attitude was measured (ruling 13).
+    /// Monotonic ms the current gimbal attitude was measured.
     stamp: Option<u64>,
     offline: bool,
 }

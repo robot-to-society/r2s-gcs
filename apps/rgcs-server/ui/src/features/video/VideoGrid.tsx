@@ -17,7 +17,7 @@ interface Props {
   readonly onMaximize: (sysid: number) => void
 }
 
-/** Spec 10 §4.1 / prototype `isVideoGrid`: every vehicle's feed, auto-wrapping at 360 px. */
+/** The video grid (prototype `isVideoGrid`): every vehicle's feed, auto-wrapping at 360 px. */
 export function VideoGrid({ vehicles, videoSources, recording, selected, dict, onSelect, onMaximize }: Props) {
   return (
     <section className="float top1 video-grid">
@@ -74,7 +74,7 @@ function VideoTile({ vehicle: v, status, recording, selected, dict, onSelect, on
             <IconMaximize />
           </button>
         </div>
-        {/* the cockpit's glass pill: readable over bright video (UX-43) */}
+        {/* the cockpit's glass pill: readable over bright video */}
         <div className="g-ctl row num vtile-stat">
           <StatLine v={v} />
         </div>

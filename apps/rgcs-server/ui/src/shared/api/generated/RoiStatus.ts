@@ -2,6 +2,6 @@
 import type { RoiControlMode } from "./RoiControlMode";
 
 /**
- * Live state of the ROI loop; only travels in the WS `roi_status` frame (ruling 2).
+ * Live state of the ROI loop; only travels in the WS `roi_status` frame.
  */
 export type RoiStatus = { active_target: string | null, mode: RoiControlMode | null, bearing_deg: number | null, elevation_deg: number | null, distance_m: number | null, yaw_cmd_deg: number | null, pitch_cmd_deg: number | null, gimbal_yaw_deg: number | null, gimbal_pitch_deg: number | null, speed_yaw: number | null, speed_pitch: number | null, error: string | null, };

@@ -1,4 +1,4 @@
-// Gimbal joystick axis / button function names for the camera settings input tab (UX-57).
+// Gimbal joystick axis / button function names for the camera settings input tab.
 
 export const inputFnsJa = {
   fn_none: 'なし',

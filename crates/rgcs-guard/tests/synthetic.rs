@@ -1,4 +1,4 @@
-//! Synthetic 10 Hz trajectories against the toilet-bowl detector (plan Task 1).
+//! Synthetic 10 Hz trajectories against the toilet-bowl detector.
 
 use std::f64::consts::PI;
 

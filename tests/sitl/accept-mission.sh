@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P3 acceptance (addendum §7-2) against a running rgcs-server + SITL (scripts/dev.sh):
+# P3 acceptance against a running rgcs-server + SITL (scripts/dev.sh):
 # import the 20-WP fixture → write to the vehicle → read back equal → export == fixture →
 # ARM + mission_start (confirmed) → MISSION_CURRENT advances. Prints "ACCEPT mission: OK" or FAIL.
 set -euo pipefail

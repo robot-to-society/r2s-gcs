@@ -1,4 +1,4 @@
-//! Which camera and gimbal manager are "ours" (plan ruling 2): a native MAVLink camera at the
+//! Which camera and gimbal manager are "ours": a native MAVLink camera at the
 //! profile's component id beats a camera attached to the autopilot (device 1); the gimbal
 //! manager follows the camera's `gimbal_device_id`, else the first one seen.
 
@@ -13,7 +13,7 @@ use crate::mavlink_cam::caps::hfov_deg;
 pub const AUTOPILOT_CAMERA_DEVICE: u8 = 1;
 /// `camera_device_id` of a MAVLink camera with its own component id.
 const NATIVE_CAMERA_DEVICE: u8 = 0;
-/// Used when a manager reports a non-finite pitch limit (the MT11 range, spec 40 §2).
+/// Used when a manager reports a non-finite pitch limit (the MT11 range).
 const FALLBACK_PITCH_RANGE: (f32, f32) = (-90.0, 30.0);
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,4 +1,4 @@
-// Number formatting for the network inspector (plan 2026-10-23 Task 7).
+// Number formatting for the network inspector.
 import { t, type Dict } from '../../shared/i18n'
 
 const JA = t('ja')

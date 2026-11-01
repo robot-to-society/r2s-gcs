@@ -1,4 +1,4 @@
-// Right-side panel for one survey (spec §5.2): camera, settings, numbers, warnings and
+// Right-side panel for one survey: camera, settings, numbers, warnings and
 // 「ウェイポイントに展開」. Every change regenerates the survey's items as one undo step.
 import type { Dict } from '../../shared/i18n'
 import { CameraFields } from './CameraFields'

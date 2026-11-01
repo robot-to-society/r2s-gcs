@@ -1,4 +1,4 @@
-//! 点検・校正 (spec 10 §7, 50 §2.5): one calibration session per vehicle at a time, driven by
+//! 点検・校正: one calibration session per vehicle at a time, driven by
 //! the flight controller's replies. The session is a plain value; the server feeds it frames
 //! and broadcasts every new state.
 

@@ -1,4 +1,4 @@
-// L0–L3 per event (spec §4) as the prototype's segmented control. L2 / L3 need consent 3 (ruling 1).
+// L0–L3 per event as the prototype's segmented control. L2 / L3 need consent 3.
 import type { GuardLevel } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 

@@ -1,6 +1,6 @@
 export type View = 'ops' | 'video' | 'mission' | 'network' | 'ai' | 'maint' | 'present'
 
-/** Order of the six header buttons (spec 10 §1, 2026-10-18). `present` is a separate route, not a tab. */
+/** Order of the six header buttons (2026-10-18). `present` is a separate route, not a tab. */
 export const NAV_VIEWS: readonly View[] = ['ops', 'video', 'mission', 'network', 'ai', 'maint']
 
 /**

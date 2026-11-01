@@ -51,7 +51,7 @@ export const needsHold = (command: VehicleCommand, v: VehicleState | undefined):
 /** What the operator needs to judge the command: mode, altitude, battery, distance from home. */
 function ContextRow({ v, dict }: { v: VehicleState; dict: Dict }) {
   const home = v.home && !(v.home.lat === 0 && v.home.lon === 0) ? Math.round(haversineM(v.lat, v.lon, v.home.lat, v.home.lon)) : null
-  // a rover has no altitude to judge (UX-16)
+  // a rover has no altitude to judge
   const parts = [v.mode, v.kind === 'rover' ? null : `${dict.ctxAlt} ${Math.round(v.alt_rel)} m`, `${dict.ctxBattery} ${v.battery.pct === null ? '—' : `${v.battery.pct}%`}`, home === null ? null : `${dict.fromHome} ${home} m`]
   return (
     <div className="confirm-ctx num t2" data-testid="confirm-ctx">
@@ -86,7 +86,7 @@ function HoldButton({ busy, dict, onFire }: { busy: boolean; dict: Dict; onFire:
   )
 }
 
-/** Confirm step for spec 70 §1 commands: fetch a token, then send with it. */
+/** Confirm step for the commands that need a token (arm, disarm, takeoff, mission start): fetch a token, then send with it. */
 function AiNote({ note, dict }: { note: string; dict: Dict }) {
   return (
     <div className="t3 row confirm-ai" data-testid="confirm-ai-note">

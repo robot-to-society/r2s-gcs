@@ -1,4 +1,4 @@
-//! Survey cameras: the shared camera list for survey planning (spec 50 §2.2.3).
+//! Survey cameras: the shared camera list for survey planning.
 
 mod common;
 

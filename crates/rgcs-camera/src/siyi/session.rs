@@ -1,5 +1,5 @@
 //! One connected MT11 session: heartbeat, the 1 s poll schedule, received frames, the 250 ms
-//! overlay expiry, commands, and clock sync (spec 40 §3, §5).
+//! overlay expiry, commands, and clock sync.
 
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
@@ -117,7 +117,7 @@ struct Run {
     last_rx: tokio::time::Instant,
     last_attitude: Option<tokio::time::Instant>,
     reread: Option<tokio::time::Instant>,
-    /// An encoding command's reply, held until its 0x21 ACK (final review M4).
+    /// An encoding command's reply, held until its 0x21 ACK.
     encoding_wait: Option<(Reply, tokio::time::Instant)>,
 }
 

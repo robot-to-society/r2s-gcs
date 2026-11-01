@@ -33,7 +33,7 @@ export const BUTTON_FUNCTIONS = [
   'roi_stop',
 ] as const satisfies readonly ButtonFunction[]
 
-/** Mirrors `GimbalInputProfile::validate` on the server (spec 40 §6 ranges). */
+/** Mirrors `GimbalInputProfile::validate` on the server. */
 export const profileSchema = z.object({
   device_id: z.string().nullable(),
   axes: z.array(

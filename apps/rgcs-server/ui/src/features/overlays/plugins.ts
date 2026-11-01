@@ -1,5 +1,5 @@
 // The plugins the server found (GET /api/plugins), read once per page and shared by both maps,
-// the menus, the notices and the settings page (design 2026-11-01-plugin-overlays, UI).
+// the menus, the notices and the settings page (UI).
 import { useEffect, useSyncExternalStore } from 'react'
 import type { LocalText, OverlayInfo, PluginInfo } from '../../shared/api/types'
 import { listPlugins, type OverlayRef } from './api'

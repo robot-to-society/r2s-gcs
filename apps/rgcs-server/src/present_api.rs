@@ -1,4 +1,4 @@
-//! Audience page endpoints (addendum §5.1): `/present/*` guarded by a presentation token
+//! Audience page endpoints: `/present/*` guarded by a presentation token
 //! (`?t=`), never by a session; plus the admin token management under `/api/settings`.
 
 use axum::body::Bytes;
@@ -106,7 +106,7 @@ pub async fn logo(State(app): State<AppState>) -> Response {
     branding::logo_response(&app.data_dir)
 }
 
-/// A separate upstream WHEP session per audience page (addendum §5.1).
+/// A separate upstream WHEP session per audience page.
 pub async fn whep(State(app): State<AppState>, body: Bytes) -> Response {
     video_api::relay(&app, &body).await
 }

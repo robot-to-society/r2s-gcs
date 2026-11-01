@@ -1,4 +1,4 @@
-// 外的要因データ sheet (spec §5.5, plan Task 9): sources with status and 今すぐ取得, the consent state (§3 #2),
+// 外的要因データ sheet: sources with status and 今すぐ取得, the consent state (§3 #2),
 // location rounding, the threshold tables and the offline behaviour. Admin edits; operators read.
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../shared/api/client'

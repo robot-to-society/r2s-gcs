@@ -1,4 +1,4 @@
-//! REST handlers. Every response is `{success, data}` or `{success:false, error}` (spec 50 §1).
+//! REST handlers. Every response is `{success, data}` or `{success:false, error}`.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;

@@ -29,7 +29,7 @@ describe('app date-time', () => {
   })
 })
 
-describe('message stamps (UX-21)', () => {
+describe('message stamps', () => {
   it('today shows the time; yesterday says so; older shows the date', async () => {
     const { msgStamp } = await import('./time')
     const now = new Date(2026, 9, 26, 13, 47).getTime()

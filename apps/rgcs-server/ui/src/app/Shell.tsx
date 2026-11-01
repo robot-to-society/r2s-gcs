@@ -83,7 +83,7 @@ export function Shell({ me, lang }: Props) {
   // 全機体映像: the vehicle in the camera cockpit (null = the grid)
   const [maxVideo, setMaxVideo] = useState<number | null>(null)
   const [modal, setModal] = useState<Modal>(NO_MODAL)
-  // re-read after the 実験機能 sheet (any modal) closes; off means no 外的要因 chip (ruling 1)
+  // re-read after the 実験機能 sheet (any modal) closes; off means no 外的要因 chip
   const guardOn = useGuardEnabled(modal.kind)
   // The command panel is a tool, not a dialog: open until closed, across commands and selections.
   const [commandsOpen, setCommandsOpen] = useState(false)
@@ -92,7 +92,7 @@ export function Shell({ me, lang }: Props) {
   // 「このWPへ行く」: the mission badge clicked on the operations map
   const [wpGo, setWpGo] = useState<WaypointPick | null>(null)
   useEffect(() => setWpGo(null), [view])
-  // 「全機を表示」: each press frames the fleet once (UX-10)
+  // 「全機を表示」: each press frames the fleet once
   const [showAll, setShowAll] = useState(0)
   const [fleet, setFleet] = useState<{ command: VehicleCommand; targets: VehicleState[]; skipped: Skipped[] } | null>(null)
   const runner = useCommandRunner({
@@ -180,7 +180,7 @@ export function Shell({ me, lang }: Props) {
       if (current === null) return
       runButtonAction(current, buttonAction(fn, cameras.get(current)?.state ?? null, roi.get(current)?.active_target ?? null), cameraCommand)
     },
-    // The release goes where the press went, even if the selection changed meanwhile (final review M11).
+    // The release goes where the press went, even if the selection changed meanwhile.
     (fn, sysid) => {
       const cmd = releaseCommand(fn)
       if (cmd) cameraCommand(sysid, cmd)

@@ -21,7 +21,7 @@ describe('BasemapPicker', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it('closes on Escape and on a press outside (UX-06)', () => {
+  it('closes on Escape and on a press outside', () => {
     render(
       <div>
         <span>outside</span>

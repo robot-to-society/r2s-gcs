@@ -1,4 +1,4 @@
-//! ROI REST API, manual-input cancel and audit (GPS ROI plan, Task 7).
+//! ROI REST API, manual-input cancel and audit.
 mod common;
 
 use std::time::Duration;
@@ -449,7 +449,7 @@ async fn post_cmd(app: &axum::Router, cookie: &str, body: Value) -> (StatusCode,
     .await
 }
 
-/// Final review I1: a click the driver refuses must leave ROI pointing (refusal first).
+/// A click the driver refuses must leave ROI pointing (refusal first).
 #[tokio::test]
 async fn refused_ai_click_in_ir_keeps_roi() {
     let (app, state, _sim, cookie) = setup().await;

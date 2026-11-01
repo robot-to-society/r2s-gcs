@@ -29,10 +29,10 @@ pub struct VehicleMessage {
     /// Unix time in milliseconds.
     #[ts(type = "number")]
     pub ts: u64,
-    /// 重要度 (spec 10 §1): from `severity` for STATUSTEXT, fixed per code for link events.
+    /// 重要度: from `severity` for STATUSTEXT, fixed per code for link events.
     pub level: Severity,
     pub source: MessageSource,
-    /// Warnings and errors from the vehicle need a 確認 (spec 10 §3.3).
+    /// Warnings and errors from the vehicle need a 確認.
     pub ackable: bool,
     pub acked_by: Option<String>,
     #[ts(type = "number | null")]
@@ -127,12 +127,12 @@ pub enum ServerMessage {
         sysid: SysId,
         progress: ParamProgress,
     },
-    /// A flight draft was created or its landing time moved (every DISARM, addendum §5.6).
+    /// A flight draft was created or its landing time moved (every DISARM).
     FlightDraftCreated {
         sysid: SysId,
         flight: Flight,
     },
-    /// A calibration session changed (点検・校正, spec 10 §7).
+    /// A calibration session changed (点検・校正).
     Calibration {
         sysid: SysId,
         status: crate::calibration::CalibStatus,
@@ -142,7 +142,7 @@ pub enum ServerMessage {
         sysid: SysId,
         progress: LogFetchProgress,
     },
-    /// GPS ROI loop state: 2 Hz while active, plus one final frame on stop (spec 50 §3.1).
+    /// GPS ROI loop state: 2 Hz while active, plus one final frame on stop.
     RoiStatus {
         sysid: SysId,
         status: RoiStatus,
@@ -155,7 +155,7 @@ pub enum ServerMessage {
     CommandResult(CommandResult),
     /// A command result or system notice recorded in the message log (the footer's feed).
     LogEntry(LogEntry),
-    /// A warning / error was acknowledged (spec 50 §3.1).
+    /// A warning / error was acknowledged.
     MessageAck {
         sysid: SysId,
         #[ts(type = "number")]
@@ -192,7 +192,7 @@ pub enum ServerMessage {
 #[serde(tag = "t", rename_all = "snake_case")]
 #[ts(export, rename_all = "snake_case")]
 pub enum ClientMessage {
-    /// Gimbal speed from the browser-side joystick, ≤20 Hz, −100..100 (spec 50 §3.2).
+    /// Gimbal speed from the browser-side joystick, ≤20 Hz, −100..100.
     GimbalRate {
         sysid: SysId,
         yaw: i8,

@@ -66,9 +66,9 @@ interface Props {
   readonly onViewMove?: () => void
   /** Live GPS ROI status per vehicle: the active preset marker and the sight line's end. */
   readonly roi?: ReadonlyMap<number, RoiStatus>
-  /** 「全機を表示」: each new value frames every vehicle with a position (UX-10). */
+  /** 「全機を表示」: each new value frames every vehicle with a position. */
   readonly showAll?: number
-  /** The home tile's tooltip per vehicle, e.g. 「UAV-01 のホーム」 (UX-17). */
+  /** The home tile's tooltip per vehicle, e.g. 「UAV-01 のホーム」. */
   readonly homeTitle?: (sysid: number) => string
 }
 
@@ -95,7 +95,7 @@ const COURSE = 'course'
 const SEL: ExpressionSpecification = ['==', ['get', 'sel'], 1]
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
-/** MapLibre canvas behind the floating panels (spec 10 §3.1). Pure helpers do the data work. */
+/** MapLibre canvas behind the floating panels. Pure helpers do the data work. */
 export function MapView({ vehicles, tracks, follow, selected, padding, style, target, onDragStart, onClick, interactive = true, mission: written = null, missionCurrent = null, homes = NO_HOMES, cameras = NO_CAMERAS, groundProjection = false, basemap, mode = '2d', terrainTiles = null, onContext, focus = null, predicted = null, onWaypoint, onViewMove, arrival = 0, roi = NO_ROI, showAll = 0, homeTitle = defaultHomeTitle }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MlMap | null>(null)
@@ -292,7 +292,7 @@ export function MapView({ vehicles, tracks, follow, selected, padding, style, ta
 
   useBasemapSwap(map, loaded, basemap)
   useOverlays(map, loaded, interactive ? 'ops' : null)
-  // Mission overlay: route line + small numbered badges, the current one highlighted (addendum §5.2).
+  // Mission overlay: route line + small numbered badges, the current one highlighted.
   useEffect(() => {
     const m = map.current
     if (!m) return

@@ -29,7 +29,7 @@ export interface Skipped {
   readonly reason: SkipReason
 }
 
-/** The vehicles fleetTargets leaves out, by sysid, with why: the confirm names them (UX-29). */
+/** The vehicles fleetTargets leaves out, by sysid, with why: the confirm names them. */
 export function fleetSkipped(vehicles: readonly VehicleState[]): Skipped[] {
   return vehicles
     .filter((v) => v.link === 'lost' || !v.armed)

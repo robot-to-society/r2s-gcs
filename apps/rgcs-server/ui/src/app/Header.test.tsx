@@ -41,9 +41,9 @@ describe('Header', () => {
     )
     expect(screen.getByTitle('Multicopters')).toHaveTextContent('2')
     expect(screen.getByTitle('Rovers')).toHaveTextContent('1')
-    // a zero count hides, whatever the airframe (UX-03)
+    // a zero count hides, whatever the airframe
     expect(screen.queryByTitle('Fixed-wing & VTOL')).not.toBeInTheDocument()
-    // one vehicle with link trouble: the warning count is labelled and drawn as a warning (UX-02)
+    // one vehicle with link trouble: the warning count is labelled and drawn as a warning
     expect(screen.getByTitle('Vehicles with warnings')).toHaveTextContent('1')
     expect(screen.getByTitle('Vehicles with warnings').className).toContain('on')
     expect(screen.getByTestId('link')).toHaveAttribute('title', 'Server connected')
@@ -57,7 +57,7 @@ describe('Header', () => {
     expect(screen.getByTitle('Fixed-wing & VTOL')).toHaveTextContent('2')
     expect(screen.getByTitle('Multicopters')).toHaveTextContent('1')
     expect(screen.queryByTitle('Rovers')).not.toBeInTheDocument()
-    // no warnings: muted, not amber (UX-02)
+    // no warnings: muted, not amber
     expect(screen.getByTitle('Vehicles with warnings').className).not.toContain('on')
   })
 

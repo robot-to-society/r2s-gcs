@@ -1,4 +1,4 @@
-/* Maintenance view (spec 10 §7): app-only additions over the prototype's .surface / .tbl /
+/* Maintenance view: app-only additions over the prototype's .surface / .tbl /
  * .seg.lg / .in.lg / .badge classes. */
 .stage.maint-on .maplibregl-control-container { display: none; }
 .maint-backdrop { position: absolute; inset: 0; z-index: 1; background: var(--base); }

@@ -1,4 +1,4 @@
-//! Plugins, stage 1 (design 2026-11-01-plugin-overlays): `<plugins_dir>/<id>/plugin.toml`,
+//! Plugins, stage 1: `<plugins_dir>/<id>/plugin.toml`,
 //! read once at start. A broken plugin is listed with its error and never stops the server.
 
 use std::collections::HashMap;

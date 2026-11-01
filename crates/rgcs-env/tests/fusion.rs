@@ -1,4 +1,4 @@
-//! Safety-side fusion (ruling 12), copter thresholds, now = 2026-10-25T03:45Z.
+//! Safety-side fusion, copter thresholds, now = 2026-10-25T03:45Z.
 
 use rgcs_env::{fuse, Class, FactorKind, Fused, Level, Reading, SourceId, Thresholds};
 

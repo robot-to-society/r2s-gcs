@@ -1,4 +1,4 @@
-//! Flight detection (addendum §5.6): first ARM … last DISARM becomes one 様式 1 draft.
+//! Flight detection: first ARM … last DISARM becomes one 様式 1 draft.
 //! A re-ARM within [`REARM_WINDOW_MS`] continues the same flight; a link lost for
 //! [`LOST_LANDING_MS`] while armed lands the flight at the last heartbeat.
 
@@ -235,7 +235,7 @@ impl FlightTracker {
         }
     }
 
-    /// The open flight of an armed vehicle (guard decision records, ruling 8).
+    /// The open flight of an armed vehicle (guard decision records).
     pub fn open_flight(&self, sysid: SysId) -> Option<i64> {
         let tracks = self.tracks.lock().unwrap_or_else(|e| e.into_inner());
         tracks.get(&sysid).filter(|t| t.armed).and_then(|t| t.open)

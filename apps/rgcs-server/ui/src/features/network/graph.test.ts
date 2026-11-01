@@ -9,7 +9,7 @@ describe('graph', () => {
   it('compLine lists the real components after FC', () => {
     const v = netVehicle(1, { components: [netComponent(154, 'gimbal'), netComponent(1, 'autopilot'), netComponent(100, 'camera')] })
     expect(compLine(v)).toBe('FC · AP 1 · CAM 100 · GMB 154')
-    // the short codes are spelled out on hover (UX-46)
+    // the short codes are spelled out on hover
     expect(compTitle(v, ja)).toBe('フライトコントローラー: オートパイロット (コンポーネント 1) · カメラ (コンポーネント 100) · ジンバル (コンポーネント 154)')
     expect(compLine(netVehicle(2, { components: [] }))).toBe('FC · —')
   })

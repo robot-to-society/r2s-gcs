@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test'
 import { DEV_USER, login } from './helpers'
 
 // Needs scripts/e2e.sh --with-video (MediaMTX + ffmpeg test pattern). Acceptance 7-1 of the
-// addendum: while the operator does a full sweep, the audience video never stalls > 1 s.
+// While the operator does a full sweep, the audience video never stalls > 1 s.
 test.skip(!process.env.RGCS_E2E_VIDEO, 'needs MediaMTX and ffmpeg')
 
 async function adminToken(request: APIRequestContext): Promise<string> {

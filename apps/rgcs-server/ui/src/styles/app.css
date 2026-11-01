@@ -42,17 +42,17 @@
 .vrow .batt-text { font-size: 13px; min-width: 34px; text-align: right; flex: none; }
 /* long ArduPilot mode names (STABILIZE) shrink with an ellipsis instead of pushing the battery out */
 .vrow > .row { min-width: 0; }
-/* 4 px (prototype 8) in the name line: the full mode (UX-13) and the name fit beside "100%" at the 296 px list width */
+/* 4 px (prototype 8) in the name line: the full mode and the name fit beside "100%" at the 296 px list width */
 .vrow > .row:not(.stat) { gap: 4px; }
 .vrow .badge { display: inline-flex; align-items: center; gap: 3px; line-height: 18px; padding: 0 6px; font-size: 10px; flex: none; white-space: nowrap; }
-/* the mode is never cut (UX-13): the name shrinks instead */
+/* the mode is never cut: the name shrinks instead */
 .vrow .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
 .vrow .lead .hdg, .vrow .lead .hdg > span { display: grid; place-items: center; }
 .vrow .batt { flex: none; }
-/* unknown level (UX-11): empty, dashed outline, never drawn full */
+/* unknown level: empty, dashed outline, never drawn full */
 .batt.unknown { border-style: dashed; border-color: var(--line-hi); }
 .batt.unknown::after { background: var(--line-hi); }
-/* arm state without colour alone (UX-12): a Power mark and a filled mode badge while armed */
+/* arm state without colour alone: a Power mark and a filled mode badge while armed */
 .vrow .badge { color: var(--text-2); }
 .vrow .badge.armed, .badge.armed { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 .arm-mark { display: grid; place-items: center; flex: none; }
@@ -87,7 +87,7 @@
 .cmd-group-title { font-size: 12px; color: var(--text-3); padding: 2px 0 8px; }
 .cmd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .cmd-btn.full { grid-column: 1 / -1; }
-/* why a command is disabled, under it (UX-27) */
+/* why a command is disabled, under it */
 .cmd-why { grid-column: 1 / -1; font-size: 11px; margin-top: -4px; padding-left: 4px; }
 .cmd-btn .glyph { width: 20px; height: 20px; display: grid; place-items: center; font-size: 15px; color: var(--text-2); flex: none; }
 .cmd-param { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; }
@@ -137,7 +137,7 @@
 .guided-alt { width: 100%; margin-bottom: 8px; }
 .guided-actions { display: flex; flex-direction: column; gap: 8px; }
 
-/* ---- camera settings sheet (spec 10 §5) ---- */
+/* ---- camera settings sheet ---- */
 .sheet.settings { width: 440px; }
 .settings-tabs { padding: 0 14px 12px; }
 .settings-tabs .seg button { font-size: 12px; }
@@ -151,7 +151,7 @@
 /* ---- presentation settings ---- */
 .present-settings { width: 520px; }
 .present-link-box { display: flex; align-items: center; gap: 8px; word-break: break-all; }
-/* the vehicle marker stays above waypoint badges and the home tile it hovers over (UX-17):
+/* the vehicle marker stays above waypoint badges and the home tile it hovers over:
    `rg-mk` sits on the marker element itself, so `:has()` never matched */
 .maplibregl-marker.rg-mk { z-index: 3; }
 /* marker z-indices stay inside the map: the maintenance / video panels drawn over it remain on top */
@@ -184,7 +184,7 @@
 /* ---- base map picker (user request 2026-10-19) ---- */
 .basemap-picker { z-index: 3; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .basemap-picker > .btn-icon { width: 40px; height: 40px; border-radius: var(--r-ctl); color: var(--text); }
-/* 「全機を表示」 under the map type button (UX-10); the basemap menu opens over it */
+/* 「全機を表示」 under the map type button; the basemap menu opens over it */
 .top3 { top: calc(var(--top) + 108px); }
 .show-all { z-index: 2; width: 40px; height: 40px; border-radius: var(--r-ctl); color: var(--text); }
 .basemap-menu { min-width: 180px; padding: 6px; border-radius: 14px; display: flex; flex-direction: column; }
@@ -242,7 +242,7 @@
 /* 3D: the low-poly model stands for the vehicle; the marker keeps its name / altitude pill */
 .rg-mk.model3d .vmk { visibility: hidden; }
 
-/* 全機体映像 (spec 10 §4): the prototype's inline grid / cockpit styles */
+/* 全機体映像: the prototype's inline grid / cockpit styles */
 .video-backdrop { background: var(--base); z-index: 1; }
 .video-grid, .cockpit { left: 12px; right: 12px; bottom: 64px; display: grid; gap: 12px; z-index: 2; }
 .video-grid { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); grid-auto-rows: minmax(0, 1fr); }
@@ -269,9 +269,9 @@
 .roi-pick-hint { pointer-events: auto; gap: 10px; z-index: 4; }
 .settings-notice { border-radius: 10px; text-align: left; }
 
-/* Cockpit video overlay (spec 10 §4.2, prototype 757–762): track / detection boxes and temperature markers over the feed */
+/* Cockpit video overlay (prototype 757–762): track / detection boxes and temperature markers over the feed */
 .cockpit-overlay { position: absolute; inset: 0; overflow: hidden; }
 .cockpit-overlay.clickable { cursor: crosshair; }
 .cockpit-overlay .cand { position: absolute; border: 1px solid #9cdcff; border-radius: 3px; pointer-events: none; }
-/* gimbal pan / tilt behind Lucide icons, not ↔ ↕ glyphs (UX-23) */
+/* gimbal pan / tilt behind Lucide icons, not ↔ ↕ glyphs */
 .cam-status .cam-angle { gap: 3px; }

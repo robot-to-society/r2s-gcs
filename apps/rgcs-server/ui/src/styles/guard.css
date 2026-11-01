@@ -1,4 +1,4 @@
-/* 実験機能 sheet and the 3-part consent dialog (plan 2026-10-25-ai-guard Task 9). Prototype classes first
+/* 実験機能 sheet and the 3-part consent dialog. Prototype classes first
    (.modal-backdrop, .g-strong, .confirm, .inset, .setrow, .seg, .warnbox); only layout lives here. */
 .launch-card-head { gap: 8px; color: var(--text-2); }
 .launch-card-head .h1 { color: var(--text); }
@@ -49,7 +49,7 @@
 .consent-admin .ic { flex: none; margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) { .consent-item { transition: none; } }
 
-/* ---- AI 緊急介入 alert banner (Task 10): fixed to the viewport under the header, above every panel
+/* ---- AI 緊急介入 alert banner: fixed to the viewport under the header, above every panel
    and dialog, centred between the vehicle list and the right panel on a desktop ---- */
 .guard-stack { position: fixed; top: 72px; left: 50%; transform: translateX(-50%); z-index: 50; width: min(640px, max(480px, calc(100vw - 792px))); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .guard-banner { pointer-events: auto; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 14px 14px 14px 18px; border-radius: 16px; color: #fff; }

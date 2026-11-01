@@ -1,6 +1,6 @@
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum CameraError {
-    /// 0x48 (SD format) is never sent (spec 40 §3).
+    /// 0x48 (SD format) is never sent.
     #[error("command 0x{0:02X} is forbidden")]
     Forbidden(u8),
     #[error("{0} is not supported by this camera")]

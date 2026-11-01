@@ -49,7 +49,7 @@ const setup = (over: { caps?: CameraCaps; state?: CameraState; roi?: RoiStatus }
   return { ...p, rerender: r.rerender }
 }
 
-describe('Cockpit (spec 10 §4.2)', () => {
+describe('Cockpit', () => {
   it('shows the vehicle pills, the mini map and a restore button', () => {
     const p = setup()
     expect(screen.getByText('UAV-01')).toBeInTheDocument()
@@ -187,7 +187,7 @@ describe('Cockpit (spec 10 §4.2)', () => {
     expect(screen.queryByText('SDカード')).toBeNull()
   })
 
-  describe('overlay clicks and AI追跡 (spec 10 §4.2)', () => {
+  describe('overlay clicks and AI追跡', () => {
     const ai: CameraCaps = {
       ...mt11,
       thermal: { gains: ['low', 'high'], palettes: [0, 2], point_temp: true, frame_temp: true },

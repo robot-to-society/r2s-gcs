@@ -1,4 +1,4 @@
-//! Mission endpoints (spec 50 §2.4, addendum §5.9): vehicle upload / download / progress.
+//! Mission endpoints: vehicle upload / download / progress.
 
 use axum::extract::{Path, State};
 use axum::http::{header, HeaderMap, StatusCode};

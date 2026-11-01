@@ -1,4 +1,4 @@
-/** Bottom → top above the base map (spec 20 §9, prototype orderLayers): mission path, tracks, guided line / sight, gimbal footprint. DOM markers sit above the canvas. */
+/** Bottom → top above the base map (prototype orderLayers): mission path, tracks, guided line / sight, gimbal footprint. DOM markers sit above the canvas. */
 export const LAYER_ORDER = ['mission-path-line', 'mission-predicted-line', 'tracks-others', 'tracks-selected', 'guided-line', 'sight-casing', 'sight', 'course-nav', 'course-vector-casing', 'course-vector', 'course-target', 'gimbal-footprint', 'gimbal-footprint-line', 'veh-ground', 'veh-air3d', 'veh-air3d-models'] as const
 
 interface LayerStack {

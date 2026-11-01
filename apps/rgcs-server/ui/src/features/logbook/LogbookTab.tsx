@@ -1,4 +1,4 @@
-// 飛行日誌 tab (addendum §5.7): period, four sub-tabs (飛行記録 / 日常点検記録 / 点検整備記録 /
+// 飛行日誌 tab: period, four sub-tabs (飛行記録 / 日常点検記録 / 点検整備記録 /
 // ログ) and the PDF / CSV export links for the form behind the open sub-tab.
 import { useEffect, useState } from 'react'
 import type { Flight, InspectionRun, LogFetchProgress, MaintenanceInput, Operator, SysId, VehicleState } from '../../shared/api/types'

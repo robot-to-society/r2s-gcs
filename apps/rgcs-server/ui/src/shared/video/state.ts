@@ -4,7 +4,7 @@ export interface PlayerState {
   readonly phase: PlayerPhase
   /** Consecutive failures since the last successful picture. */
   readonly attempt: number
-  /** True once a frame was shown; failures never clear the last frame (addendum §5.1). */
+  /** True once a frame was shown; failures never clear the last frame. */
   readonly holdFrame: boolean
   readonly lastError: string | null
 }

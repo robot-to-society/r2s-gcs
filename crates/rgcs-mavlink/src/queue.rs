@@ -1,4 +1,4 @@
-//! Command queue (spec 30 §3, 70 §1): every outgoing vehicle command is serialised here,
+//! Command queue: every outgoing vehicle command is serialised here,
 //! sent through the link, and completed by the matching COMMAND_ACK. ACK-less commands are
 //! retried 3 times with a 1.5 s timeout.
 

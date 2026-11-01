@@ -1,4 +1,4 @@
-// The AI chat panel's state, lifted to the Shell so it survives view switches (plan ruling 5).
+// The AI chat panel's state, lifted to the Shell so it survives view switches.
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { ApiError } from '../../shared/api/client'
 import type { AiChatReply, AiStatus } from '../../shared/api/types'

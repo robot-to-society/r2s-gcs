@@ -35,7 +35,7 @@ pub fn expire(state: &CameraState, media: &Media, now: Instant) -> Option<Camera
     (next != *state).then_some(next)
 }
 
-/// The state after the link dropped or the driver stopped (plan ruling 15): media goes,
+/// The state after the link dropped or the driver stopped: media goes,
 /// `storage` and `clock` stay so the last known values remain visible.
 pub fn offline(state: &CameraState) -> CameraState {
     CameraState {

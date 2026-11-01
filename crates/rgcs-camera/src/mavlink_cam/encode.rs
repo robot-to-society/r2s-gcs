@@ -11,7 +11,7 @@ use crate::CameraError;
 
 /// Full-stick gimbal rate (°/s) for `GimbalRate` ±100.
 pub const MAVLINK_GIMBAL_MAX_RATE_DPS: f32 = 90.0;
-/// One `ZoomStep` moves the zoom by this many percent of the range (ruling 4).
+/// One `ZoomStep` moves the zoom by this many percent of the range.
 pub const ZOOM_STEP_PCT: f32 = 10.0;
 const ZOOM_TYPE_CONTINUOUS: f32 = 1.0;
 const ZOOM_TYPE_RANGE: f32 = 2.0;
@@ -31,7 +31,7 @@ pub struct Targets {
 pub enum Encoded {
     /// Fire and forget.
     Message(MavMessage),
-    /// Sent once; the caller waits for the COMMAND_ACK of `ack_for` (ruling 7).
+    /// Sent once; the caller waits for the COMMAND_ACK of `ack_for`.
     Command { message: MavMessage, ack_for: MavCmd },
 }
 
@@ -110,7 +110,7 @@ fn gimbal_rate(cmd: &CameraCommand, t: &Targets, yaw: i8, pitch: i8) -> Result<V
     )])
 }
 
-/// `yaw_deg` is SIYI +left; MAVLink yaw is +right (ruling 5).
+/// `yaw_deg` is SIYI +left; MAVLink yaw is +right.
 fn gimbal_angle(
     cmd: &CameraCommand,
     t: &Targets,
@@ -139,7 +139,7 @@ fn center(cmd: &CameraCommand, t: &Targets, mode: CenterMode) -> Result<Vec<Enco
     gimbal_angle(cmd, t, 0.0, pitch)
 }
 
-/// Native ROI location (ruling 8): COMMAND_INT, MSL, p1 = the gimbal device id (never 0, which
+/// Native ROI location: COMMAND_INT, MSL, p1 = the gimbal device id (never 0, which
 /// would turn the whole vehicle).
 pub fn roi_location(t: &Targets, lat: f64, lon: f64, alt_msl: f64) -> Result<Encoded, CameraError> {
     let (compid, dev) = roi_gimbal(t)?;

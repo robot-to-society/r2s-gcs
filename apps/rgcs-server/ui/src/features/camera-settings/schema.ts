@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/
 
-/** The MT11 default; a MAVLink camera needs a literal URL (spec 60 §3.3). */
+/** The MT11 default; a MAVLink camera needs a literal URL. */
 export const MT11_RTSP_URL = 'rtsp://{host}:8554/video1'
 
 /** The host of an `rtsp://` URL when it is an IPv4 literal (no userinfo), else null. */
@@ -17,8 +17,8 @@ export function hostFromRtsp(url: string): string | null {
 }
 
 /**
- * The 接続 tab's editable subset of `CameraProfile` (spec 60 §3.3 ranges). A MAVLink camera's
- * RTSP host must be the profile host (60 §5): the tab derives `host` from the URL (ruling 13).
+ * The 接続 tab's editable subset of `CameraProfile`. A MAVLink camera's
+ * RTSP host must be the profile host (60 §5): the tab derives `host` from the URL.
  */
 export const cameraProfileSchema = z
   .object({

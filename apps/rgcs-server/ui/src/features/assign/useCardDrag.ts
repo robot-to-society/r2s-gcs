@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 
-// Pointer drag for assignment-board cards, one code path for mouse, touch and pen (spec §4.1).
+// Pointer drag for assignment-board cards, one code path for mouse, touch and pen.
 // - Mouse starts after 4 px of movement. Touch / pen start after a 250 ms hold; moving more
 //   than 10 px before the hold ends is a scroll and abandons the press.
 // - Targets are any element (or ancestor) with `data-drop="<id>"`. `canDrop` returns null when

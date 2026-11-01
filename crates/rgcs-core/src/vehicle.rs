@@ -16,7 +16,7 @@ pub enum VehicleKind {
     Other,
 }
 
-/// Link health derived from the age of the last HEARTBEAT (3 s / 10 s, spec 30 §4).
+/// Link health derived from the age of the last HEARTBEAT (3 s, 10 s).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export, rename_all = "snake_case")]

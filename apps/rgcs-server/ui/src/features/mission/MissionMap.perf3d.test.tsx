@@ -1,4 +1,4 @@
-// 3D with a long plan and a moving vehicle (final review I2): a telemetry update floats only the
+// 3D with a long plan and a moving vehicle: a telemetry update floats only the
 // vehicle, a frame with an unchanged camera re-floats nothing of the plan, and no float asks MapLibre
 // to project (a terrain lookup per marker) — the ground comes from the DEM sampler instead.
 import { act, render } from '@testing-library/react'

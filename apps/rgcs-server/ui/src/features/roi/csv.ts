@@ -1,4 +1,4 @@
-// ROI preset CSV import (spec 10 §5): "名前,lat,lon,alt" (alt = MSL metres).
+// ROI preset CSV import: "名前,lat,lon,alt" (alt = MSL metres).
 // Port of siyi-mt11-cameracontrol app/static/roi_csv.js; errors are codes the UI translates.
 import type { RoiTarget } from '../../shared/api/types'
 
@@ -72,7 +72,7 @@ const isHeader = (fields: readonly string[]) => Number.isNaN(toNumber(fields[1] 
 
 /**
  * Parse ROI CSV text: the first `maxRows` data rows are validated, later ones are only counted.
- * A first non-blank line whose lat and lon are both non-numeric is a header (ruling 17).
+ * A first non-blank line whose lat and lon are both non-numeric is a header.
  */
 export function parseRoiCsv(text: string, maxRows: number = ROI_SLOT_COUNT): CsvResult {
   const lines = text.replace(/^﻿/, '').split(/\r?\n/)

@@ -1,4 +1,4 @@
-//! MT11 thermal, AI tracking, encoding, storage and clock types (spec 40 §1).
+//! MT11 thermal, AI tracking, encoding, storage and clock types.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -12,7 +12,7 @@ pub enum ThermalGain {
 }
 
 impl ThermalGain {
-    /// Measurable temperature span in °C (spec 40 §1.1).
+    /// Measurable temperature span in °C.
     pub fn range_c(self) -> (f32, f32) {
         match self {
             Self::High => (-20.0, 150.0),

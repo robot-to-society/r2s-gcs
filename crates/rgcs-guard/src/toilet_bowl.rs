@@ -1,4 +1,4 @@
-//! Toilet-bowl detector (spec §5.1, plan ruling 2): verdict = A && (B || C).
+//! Toilet-bowl detector: verdict = A && (B || C).
 //!
 //! [`evaluate`] is the single source of truth over a window; [`ToiletBowlDetector::push`] only
 //! maintains the window and the clear hold ([`apply_hold`]).

@@ -42,7 +42,7 @@ interface Props {
 const FB_ICON: Record<BtnState, () => ReactElement | null> = { sending: () => null, ok: () => <IconCheck size={12} />, fail: () => <IconClose size={12} /> }
 
 const GROUP_LABEL: Record<CommandGroup, keyof Dict> = { flight: 'groupFlight', move: 'groupMove', mode: 'groupMode', payload: 'groupPayload' }
-/** Lucide icon per command name (spec 20 §9). */
+/** Lucide icon per command name. */
 const ICON: Record<string, () => ReactElement> = {
   takeoff: () => <IconTakeoff />,
   pause: () => <IconPause />,
@@ -94,7 +94,7 @@ function StepInput({ label, placeholder, value, onChange }: { label: string; pla
   )
 }
 
-/** Right-aligned 380 px sheet listing every command by group in a 2-column grid (spec 10 §3.5). */
+/** Right-aligned 380 px sheet listing every command by group in a 2-column grid. */
 export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside = false, footer, feedback, prearm = [] }: Props) {
   const [query, setQuery] = useState('')
   const modes = modesFor(vehicle)
@@ -106,7 +106,7 @@ export function CommandsSheet({ vehicle, onPick, onOpen, onClose, dict, beside =
   const q = query.trim().toLowerCase()
   const shown = CATALOG.filter((i) => (i.available?.(vehicle) ?? true) && (q === '' || label(i, dict).toLowerCase().includes(q) || i.name.includes(q)))
 
-  // why a button is disabled, shown under it (UX-27)
+  // why a button is disabled, shown under it
   const why = (item: CatalogItem): string | null => (!item.enabled(vehicle) && item.disabledHint ? dict[item.disabledHint] : null)
   const pick = (item: CatalogItem) => {
     if (item.opens) return onOpen(item.opens)

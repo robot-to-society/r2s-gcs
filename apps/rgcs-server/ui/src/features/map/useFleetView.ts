@@ -1,4 +1,4 @@
-// The operations map's fleet framing (UX-10): it opens on the vehicles the first time any has a
+// The operations map's fleet framing: it opens on the vehicles the first time any has a
 // position, 「全機を表示」 frames them again on request, and a newly selected vehicle that is off
 // screen is brought into view.
 import type { Map as MlMap } from 'maplibre-gl'

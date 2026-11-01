@@ -245,7 +245,7 @@ describe('surveyNumbers', () => {
   })
 })
 
-describe('size caps (final review I4)', () => {
+describe('size caps', () => {
   const square = (m: number) => [at(0, 0), at(m, 0), at(m, m), at(0, m)]
   it('more than 1000 lanes is too_large, answered without building them', () => {
     // 40 km at 30.6 m spacing: about 1300 lanes

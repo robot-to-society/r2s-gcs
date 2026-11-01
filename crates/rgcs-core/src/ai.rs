@@ -1,4 +1,4 @@
-//! AI chat wire types (spec 10 §3.4, spec 50 §2.5). The agent only proposes commands;
+//! AI chat wire types. The agent only proposes commands;
 //! the operator's 実行 press sends them through the normal command path.
 
 use serde::{Deserialize, Serialize};

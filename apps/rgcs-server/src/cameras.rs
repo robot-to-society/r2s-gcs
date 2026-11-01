@@ -31,7 +31,7 @@ pub enum CameraFactory {
 /// True while something else (an active ROI) owns the gimbal of that vehicle.
 pub type GimbalOwned = Arc<dyn Fn(SysId) -> bool + Send + Sync>;
 
-/// Builds the clock-sync GPS source of a vehicle (ruling 5).
+/// Builds the clock-sync GPS source of a vehicle.
 pub type GpsTimeFactory = Arc<dyn Fn(SysId) -> Arc<dyn GpsTime> + Send + Sync>;
 
 struct Entry {
@@ -81,7 +81,7 @@ impl CameraManager {
             .and_then(|f| f.as_ref().map(|f| f(profile.sysid)))
     }
 
-    /// Installs the FC link port `mavlink` drivers send and listen on (ruling 1).
+    /// Installs the FC link port `mavlink` drivers send and listen on.
     pub fn set_mav_port(&self, port: MavPort) {
         if let Ok(mut slot) = self.mav.write() {
             *slot = Some(port);
@@ -215,7 +215,7 @@ impl CameraManager {
     }
 
     /// The refusal `send` would return now (capability, link, driver preconditions), with
-    /// nothing sent (final review I1).
+    /// nothing sent.
     pub async fn check(&self, sysid: SysId, cmd: &CameraCommand) -> Result<(), CameraError> {
         let camera = self.ensure(sysid).await;
         if !camera.caps().supports(cmd) {
@@ -224,7 +224,7 @@ impl CameraManager {
         camera.check(cmd).await
     }
 
-    /// Capability-checked send (spec 70 §3).
+    /// Capability-checked send.
     pub async fn send(&self, sysid: SysId, cmd: CameraCommand) -> Result<(), CameraError> {
         let camera = self.ensure(sysid).await;
         if !camera.caps().supports(&cmd) {
@@ -238,7 +238,7 @@ impl CameraManager {
 /// reconnect) the gimbal gets speed 0, unless an active ROI owns it. This covers a crash, a
 /// stop while the link was down (its zero failed) and a manual cancel while offline.
 /// Rate support is re-read on every edge (caps can change after connect). A `mavlink` camera
-/// rides the FC link: a rate 0 there would end FC-side targeting, so it gets none (ruling 10).
+/// rides the FC link: a rate 0 there would end FC-side targeting, so it gets none.
 async fn link_zero(manager: CameraManager, sysid: SysId, kind: CameraKind, camera: Arc<dyn Camera>) {
     if kind == CameraKind::Mavlink {
         return;
@@ -262,7 +262,7 @@ async fn link_zero(manager: CameraManager, sysid: SysId, kind: CameraKind, camer
 
 /// Broadcasts state changes at most every `STATE_MIN_GAP` (a burst collapses into its newest
 /// state) and re-sends the current state each second. The caps are read for every frame, so
-/// a driver that learns its caps after connecting reaches the UI (ruling 9).
+/// a driver that learns its caps after connecting reaches the UI.
 async fn forward(sysid: SysId, camera: Arc<dyn Camera>, tx: broadcast::Sender<ServerMessage>) {
     let mut rx = camera.state();
     loop {

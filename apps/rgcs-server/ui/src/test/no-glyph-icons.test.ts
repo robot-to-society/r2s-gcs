@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-// Spec 20 §9: Lucide icons only; text glyphs must not stand in for icons.
+// Lucide icons only; text glyphs must not stand in for icons.
 const GLYPHS = ['▶', '▲', '▼', '↔', '↕', '⌂', '◎', '✓', '✕', '⚠', '↗', '❚❚', '⤓', '⇅', '◔', '🔒', '🔓', '▣', '•••']
 
 const SOURCES = import.meta.glob<string>('../**/*.tsx', { query: '?raw', import: 'default', eager: true })

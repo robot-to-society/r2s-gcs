@@ -1,4 +1,4 @@
-//! The driver interface the server talks to (spec 40 §1).
+//! The driver interface the server talks to.
 
 use async_trait::async_trait;
 use rgcs_core::{CameraCaps, CameraCommand, CameraState};

@@ -29,7 +29,7 @@ interface Props {
   readonly onCameraSettings?: () => void
   /** The active GPS ROI preset's name for the camera status row. */
   readonly roiName?: string | null
-  /** Opens this vehicle's camera cockpit (全機体映像, spec 10 §4.2). */
+  /** Opens this vehicle's camera cockpit (全機体映像). */
   readonly onMaximize?: (sysid: SysId) => void
   readonly vehicleMission?: Mission
   readonly missionProgress?: MissionProgress
@@ -44,7 +44,7 @@ interface Props {
   readonly onOpenMaint?: (sysid: SysId) => void
   /** A calibration of this vehicle failed or is older than 30 days. */
   readonly maintAttention?: boolean
-  /** The panel stays on this vehicle while the selection moves (spec 10 §3.3). */
+  /** The panel stays on this vehicle while the selection moves. */
   readonly pinned?: boolean
   readonly onTogglePin?: (sysid: SysId) => void
 }
@@ -54,7 +54,7 @@ const OFFLINE: CameraSnapshot['state'] = {
   connected: false, last_error: null, firmware: null, recording: 'idle', zoom: 1, zoom_max: 1, video_mode: null, gimbal: null, gimbal_mode: null, stream: null, encoding: null, thermal: null, track: null, candidates: [], ai_ack: null, storage: null, clock: null,
 }
 
-/** Right panel, 372 px (spec 10 §3.3), markup after the Glass prototype's right panel. */
+/** Right panel, 372 px, markup after the Glass prototype's right panel. */
 export function DetailPanel(p: Props) {
   const { vehicle: v, onClose, onOpenCommands, dict, camera, videoSource, cameraPending = false, onCameraCommand, onCameraSettings } = p
   const caps = camera?.caps ?? NONE_CAPS

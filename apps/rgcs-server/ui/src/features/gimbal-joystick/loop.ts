@@ -24,7 +24,7 @@ export const TICK_MS = 50
 const HB_MS = 1000
 
 /**
- * 20 Hz sampler (spec 30 §6, 40 §6): non-zero rates are sent every tick, a single zero when the
+ * 20 Hz sampler: non-zero rates are sent every tick, a single zero when the
  * stick returns to centre or the pad disappears, `input_hb` once a second while a target exists.
  */
 export class GimbalLoop {
@@ -53,7 +53,7 @@ export class GimbalLoop {
   }
 
   /**
-   * Zeroes the previous target before switching (spec 70 §2) — only once a gamepad has been
+   * Zeroes the previous target before switching — only once a gamepad has been
    * seen: without one, nothing was ever commanded and a selection must not touch the camera.
    */
   setTarget(sysid: number | null): void {

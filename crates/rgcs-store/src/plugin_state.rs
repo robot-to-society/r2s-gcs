@@ -1,4 +1,4 @@
-//! `plugin_state`: plugins an admin switched off or on (design 2026-11-01-plugin-overlays).
+//! `plugin_state`: plugins an admin switched off or on.
 //! No row means enabled: placing the folder is the admin's decision.
 
 use std::collections::HashMap;

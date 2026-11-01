@@ -1,4 +1,4 @@
-//! `GET /api/network`: the network view's topology (spec 80 §4, plan 2026-10-23 ruling 8:
+//! `GET /api/network`: the network view's topology (
 //! any logged-in user).
 
 use axum::extract::State;

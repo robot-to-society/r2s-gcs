@@ -1,5 +1,5 @@
 //! Persistent message log, global log API and acknowledgement of warnings/errors only
-//! (spec 10 §1 / §3.3, 50 §2.2, 70 audit; 2026-10-18 design).
+//! (70 audit, 2026-10-18 design).
 
 mod common;
 

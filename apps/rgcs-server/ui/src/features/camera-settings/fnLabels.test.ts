@@ -3,7 +3,7 @@ import { t } from '../../shared/i18n'
 import { AXIS_FUNCTIONS, BUTTON_FUNCTIONS } from '../gimbal-joystick/profile'
 import { axisFnLabel, buttonFnLabel } from './fnLabels'
 
-describe('joystick function labels (UX-57)', () => {
+describe('joystick function labels', () => {
   it('every axis and button function reads as words in both languages, never the raw id', () => {
     for (const lang of ['ja', 'en'] as const) {
       const dict = t(lang)

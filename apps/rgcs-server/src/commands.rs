@@ -1,5 +1,5 @@
 //! `POST …/confirm` and `POST …/command`: validation, confirm tokens, pre-checks against the
-//! live state, audit, then hand-off to the command queue (spec 50 §2.2, 70 §1).
+//! live state, audit, then hand-off to the command queue.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -32,7 +32,7 @@ pub struct CommandBody {
     #[serde(flatten)]
     pub command: VehicleCommand,
     pub confirm_token: Option<String>,
-    /// Set when the operator executes an AI proposal (plan ruling 2): single use, checked
+    /// Set when the operator executes an AI proposal: single use, checked
     /// before the confirm token, written into the vehicle audit row.
     pub ai_proposal_id: Option<String>,
 }
@@ -82,7 +82,7 @@ pub fn precheck(cmd: &VehicleCommand, v: &VehicleState) -> Option<(StatusCode, &
     }
 }
 
-/// Takeoff needs something that flies (spec 50 §2.2), already armed.
+/// Takeoff needs something that flies, already armed.
 fn takeoff_refusal(v: &VehicleState) -> Option<(StatusCode, &'static str, String)> {
     if matches!(v.kind, VehicleKind::Rover | VehicleKind::Other) {
         return Some((
@@ -234,7 +234,7 @@ impl Attempt<'_> {
             .send(queued(v, self.cmd.clone(), done_tx))
             .await
             .ok()?;
-        // An accepted operator send is a takeover for the AI guard (plan ruling 5).
+        // An accepted operator send is a takeover for the AI guard.
         self.app.guard.note_operator_command(self.sysid);
         let job = Finish {
             app: self.app.clone(),

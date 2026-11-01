@@ -177,7 +177,7 @@ async fn encoding_change_refuses_clicks_until_reread() {
     cam.disconnect().await;
 }
 
-/// Final review M4: a refused 0x21 fails the command, and the old size comes back.
+/// A refused 0x21 fails the command, and the old size comes back.
 #[tokio::test]
 async fn rejected_encoding_fails_the_command() {
     let (cam, sim) = pair(false).await;
@@ -200,7 +200,7 @@ async fn rejected_encoding_fails_the_command() {
     cam.disconnect().await;
 }
 
-/// Final review I3: the old size a slow encoder still reports is not taken for the new one.
+/// The old size a slow encoder still reports is not taken for the new one.
 #[tokio::test]
 async fn encoding_change_waits_for_the_requested_size() {
     let (cam, sim) = pair(false).await;
@@ -357,6 +357,6 @@ async fn session_end_clears_media_but_keeps_storage() {
         (None, true, true)
     );
     assert!(s.candidates.is_empty());
-    assert!(s.storage.is_some(), "storage stays (ruling 15)");
+    assert!(s.storage.is_some(), "storage stays");
     cam.disconnect().await;
 }

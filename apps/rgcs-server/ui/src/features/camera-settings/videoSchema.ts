@@ -1,10 +1,10 @@
 import { z } from 'zod'
 import type { CameraCommand, CameraProfile, CameraState } from '../../shared/api/types'
 
-/** Encoding presets (spec 60 §3.3, prototype `ENC_PRESETS`). */
+/** Encoding presets (prototype `ENC_PRESETS`). */
 export const ENCODING_IDS = ['h264_720p', 'h264_1080p', 'h264_4k', 'h265_1080p', 'h265_4k'] as const
 
-/** Thermal palettes (spec 60 §3.3, prototype `PALETTES`); id 1 does not exist on the MT11. */
+/** Thermal palettes (prototype `PALETTES`); id 1 does not exist on the MT11. */
 export const PALETTES: readonly { readonly id: number; readonly label: string }[] = [
   { id: 0, label: 'White Hot' },
   { id: 2, label: 'Sepia' },
@@ -24,7 +24,7 @@ export const AI_BOX_MAX = 600
 
 const paletteIds = new Set(PALETTES.map((p) => p.id))
 
-/** The 映像 tab: stored profile fields plus the live gain (not stored, ruling 7). */
+/** The 映像 tab: stored profile fields plus the live gain (not stored). */
 export const videoSchema = z.object({
   encoding_preset: z.enum(ENCODING_IDS),
   thermal_palette: z.number().int().refine((n) => paletteIds.has(n), 'palette'),
@@ -51,7 +51,7 @@ export function startVideoDraft(p: CameraProfile, s: CameraState | undefined): V
 
 const STORED = ['encoding_preset', 'thermal_palette', 'thermal_overlay', 'ai_box_px', 'auto_record'] as const
 
-/** Profile patch (stored fields that changed) + camera commands for the live values (ruling 7). */
+/** Profile patch (stored fields that changed) + camera commands for the live values. */
 export function videoSteps(
   p: CameraProfile,
   s: CameraState | undefined,

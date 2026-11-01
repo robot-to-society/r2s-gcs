@@ -1,4 +1,4 @@
-// メンテナンス › 点検・校正 (spec 10 §7): a card per calibration with its last date, the live
+// メンテナンス › 点検・校正: a card per calibration with its last date, the live
 // session from the `calibration` frames, motor test and ESC calibration behind a props-off switch.
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../../shared/api/client'

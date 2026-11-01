@@ -1,4 +1,4 @@
-// One 外的要因 source (spec §5.5): enable switch, interval / timeout, last fetch (local time), 成功 / 失敗 + error,
+// One 外的要因 source: enable switch, interval / timeout, last fetch (local time), 成功 / 失敗 + error,
 // next due, 今すぐ取得, the terms line and, for keyed sources, only the key's hint. No key input exists.
 import { useState } from 'react'
 import { z } from 'zod'

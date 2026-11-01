@@ -9,7 +9,7 @@ import type { VideoMode } from "./VideoMode";
 import type { ZoomCaps } from "./ZoomCaps";
 
 /**
- * What a camera can do; the UI hides (not disables) everything absent (spec 40 §1.1).
+ * What a camera can do; the UI hides (not disables) everything absent.
  */
 export type CameraCaps = { kind: CameraKind, gimbal: GimbalCaps | null, zoom: ZoomCaps | null, focus: boolean, photo: boolean, record: boolean, video_modes: Array<VideoMode>, 
 /**
@@ -17,6 +17,6 @@ export type CameraCaps = { kind: CameraKind, gimbal: GimbalCaps | null, zoom: Zo
  */
 hfov_deg: number | null, 
 /**
- * GPS ROI support: `Computed` = the server aims the gimbal itself (spec 40 §4).
+ * GPS ROI support: `Computed` = the server aims the gimbal itself.
  */
 roi: RoiMode, thermal: ThermalCaps | null, ai_tracking: AiTrackingCaps | null, encoding_presets: Array<EncodingPreset>, storage_info: boolean, clock_sync: boolean, };

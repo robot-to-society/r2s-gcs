@@ -1,4 +1,4 @@
-//! MLIT forms 1–3 as PDF / CSV (addendum §5.6): render tests on fixtures and the export endpoint.
+//! MLIT forms 1–3 as PDF / CSV: render tests on fixtures and the export endpoint.
 
 mod common;
 

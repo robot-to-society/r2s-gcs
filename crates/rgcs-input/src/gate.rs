@@ -4,7 +4,7 @@ use rgcs_core::{Deadman, ServerMessage, SysId};
 
 /// 25 Hz ceiling: frames closer than this to the previous accepted one are dropped.
 pub const MIN_RATE_INTERVAL_MS: u64 = 40;
-/// Heartbeat silence after which the gimbal is stopped (spec 70 §2).
+/// Heartbeat silence after which the gimbal is stopped.
 pub const DEADMAN_MS: u64 = 1_500;
 const RATE_LIMIT: i16 = 100;
 

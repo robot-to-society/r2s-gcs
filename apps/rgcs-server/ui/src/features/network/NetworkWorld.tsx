@@ -1,5 +1,5 @@
 // The network canvas world, a port of the prototype's `netSvg` / `netSiteSvg` for one standalone site
-// (plan ruling 9). Real elements: vehicles, the MAVLink link, rgcs-server, media, WS clients.
+//. Real elements: vehicles, the MAVLink link, rgcs-server, media, WS clients.
 // Everything else the M5 design draws is a dim dashed 未構成 placeholder (`ph`).
 import type { ReactElement } from 'react'
 import type { Dict } from '../../shared/i18n'

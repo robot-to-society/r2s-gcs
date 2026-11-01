@@ -1,4 +1,4 @@
-/* AI chat right panel (spec 10 §3.4): the layout the prototype inlines (lines 655–689). */
+/* AI chat right panel: the layout the prototype inlines (lines 655–689). */
 .ai .panel-h .ai-target-l { font-size: 12px; margin-left: 6px; }
 .ai .panel-h .ai-target { height: 34px; min-width: 110px; }
 .ai-provider { font-size: 11px; padding: 0 18px 6px; margin-top: -6px; }
@@ -47,7 +47,7 @@
 .confirm-ai { gap: 6px; font-size: 12px; margin-top: 6px; color: var(--accent); }
 .confirm-ai span { color: var(--text-3); overflow-wrap: anywhere; }
 
-/* AI 緊急介入 alert as a local chat item (guard plan Task 8). */
+/* AI 緊急介入 alert as a local chat item. */
 .ai-guard { margin-left: 40px; padding: 10px 12px; font-size: 13px; border-left: 3px solid var(--danger); display: flex; flex-direction: column; gap: 4px; }
 .ai-guard-h { gap: 6px; color: var(--danger); font-size: 12px; font-weight: 500; }
 .ai-guard.taken_over, .ai-guard.cleared { border-left-color: var(--line-soft); }

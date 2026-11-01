@@ -1,4 +1,4 @@
-// The AI 緊急介入 alert banner (plan 2026-10-25-ai-guard Task 10, ruling 7): one row per vehicle,
+// The AI 緊急介入 alert banner: one row per vehicle,
 // newest first, centred under the header in the ops stage. 取り消し only calls `onCancel` (the
 // cancel API) and only on a click; nothing here sends anything from an effect.
 import { useEffect, useRef, useState, type ReactNode } from 'react'

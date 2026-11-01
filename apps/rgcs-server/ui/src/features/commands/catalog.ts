@@ -1,7 +1,7 @@
 import type { VehicleCommand, VehicleState } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 
-/** Mirror of `rgcs-core::VehicleCommand::requires_confirm` (spec 70 §1); pinned by catalog.test. */
+/** Mirror of `rgcs-core::VehicleCommand::requires_confirm`; pinned by catalog.test. */
 export const REQUIRES_CONFIRM: ReadonlySet<string> = new Set(['arm', 'disarm', 'mission_start', 'takeoff'])
 
 /** Commands whose confirm button is rendered as danger. */
@@ -87,7 +87,7 @@ const simple = (cmd: 'pause' | 'resume' | 'rtl' | 'land' | 'mission_start' | 'mi
 const numeric = (value: number | undefined): value is number => value !== undefined && !Number.isNaN(value)
 
 export const CATALOG: readonly CatalogItem[] = [
-  // arm / disarm first: takeoff waits for an arm (UX-27)
+  // arm / disarm first: takeoff waits for an arm
   { name: 'arm', group: 'flight', enabled: (v) => !v.armed, build: simple('arm') },
   { name: 'disarm', group: 'flight', enabled: (v) => v.armed, build: simple('disarm') },
   {
@@ -102,7 +102,7 @@ export const CATALOG: readonly CatalogItem[] = [
   { name: 'pause', group: 'flight', enabled: always, build: simple('pause') },
   { name: 'resume', group: 'flight', enabled: always, build: simple('resume') },
   { name: 'rtl', group: 'flight', enabled: always, build: simple('rtl') },
-  // a rover cannot land or change altitude (UX-18)
+  // a rover cannot land or change altitude
   { name: 'land', group: 'flight', enabled: always, available: flies, build: simple('land') },
   { name: 'guided', group: 'move', enabled: always, opens: 'guided' },
   {
@@ -123,7 +123,7 @@ export const CATALOG: readonly CatalogItem[] = [
   { name: 'set_mode', group: 'mode', enabled: always, param: 'mode', build: ({ mode }) => (mode ? { cmd: 'set_mode', args: { mode } } : null) },
   { name: 'mission_start', group: 'mode', enabled: always, build: simple('mission_start') },
   { name: 'mission_resume', group: 'mode', enabled: always, build: simple('mission_resume') },
-  // カメラ・ジンバル opens the camera settings; the dead 「その他の対応コマンド」 is gone (UX-26).
+  // カメラ・ジンバル opens the camera settings; the dead 「その他の対応コマンド」 is gone.
   { name: 'camera', group: 'payload', enabled: always, opens: 'camera' },
 ]
 

@@ -1,4 +1,4 @@
-//! Plugin overlay tile fetcher (design 2026-11-01-plugin-overlays): one client with no
+//! Plugin overlay tile fetcher: one client with no
 //! redirects, at most two requests in flight across the server and every plugin, 100 ms between
 //! requests, a 10 s timeout and a 512 KiB body cap. The URL template comes from each overlay's
 //! manifest. Errors are short codes; URLs and bodies are never logged.

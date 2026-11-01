@@ -1,4 +1,4 @@
-// What each 点検・校正 card shows (spec 10 §7): the last run's date, amber after 30 days.
+// What each 点検・校正 card shows: the last run's date, amber after 30 days.
 import type { CalibKind, CalibRecord, CalibStatus, VehicleKind } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
 import { jstDate } from '../logbook/format'

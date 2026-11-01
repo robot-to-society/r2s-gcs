@@ -1,4 +1,4 @@
-//! MT11 TF (microSD) card information, CMD 0x49 reply (spec 40 §3).
+//! MT11 TF (microSD) card information, CMD 0x49 reply.
 
 use rgcs_core::{StorageInfo, StorageStatus};
 

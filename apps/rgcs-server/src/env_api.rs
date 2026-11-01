@@ -1,4 +1,4 @@
-//! `/api/env/*` (plan 2026-10-25-ai-guard, Task 7): the fused factors, source status and
+//! `/api/env/*`: the fused factors, source status and
 //! settings. Every change is audited (`target = "ai_intervention"`). Bodies carry
 //! `key_configured` / `key_hint` only, never a key.
 

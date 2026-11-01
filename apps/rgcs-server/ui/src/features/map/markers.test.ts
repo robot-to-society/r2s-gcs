@@ -77,7 +77,7 @@ describe('vehicle markers', () => {
   it('home_marker_is_a_white_tile_with_a_house', () => {
     const el = homeEl('UAV-01 のホーム')
     expect(el.className).toBe('rg-home')
-    // whose home it is (UX-17): four stacked tiles were indistinguishable
+    // whose home it is: four stacked tiles were indistinguishable
     expect(el.title).toBe('UAV-01 のホーム')
     expect(el.querySelector('svg.ic path')).not.toBeNull()
   })

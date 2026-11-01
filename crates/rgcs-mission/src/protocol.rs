@@ -5,7 +5,7 @@
 //! `MISSION_ITEM_INT` (seq 0 is home) → `MISSION_ACK`. Download: `MISSION_REQUEST_LIST` →
 //! `MISSION_COUNT` → request items one by one → send `MISSION_ACK`. Each step is retried
 //! [`ATTEMPTS`] times with a [`STEP_TIMEOUT_MS`] deadline; the timeout / retry values are the
-//! builder's call (addendum §6).
+//! builder's call.
 
 use mavlink::dialects::ardupilotmega::{
     MavCmd, MavFrame, MavMessage, MavMissionResult, MavMissionType, MISSION_ACK_DATA, MISSION_COUNT_DATA,

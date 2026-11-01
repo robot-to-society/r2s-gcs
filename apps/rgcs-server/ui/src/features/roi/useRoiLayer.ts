@@ -1,4 +1,4 @@
-// GPS ROI on the operations map (spec 10 §3.1): the selected vehicle's preset markers (`.rg-roi`,
+// GPS ROI on the operations map: the selected vehicle's preset markers (`.rg-roi`,
 // the active one `.on`) and the camera sight line (2D only, prototype line 1712 / 1821–1823).
 import maplibregl, { type Map as MlMap, type Marker } from 'maplibre-gl'
 import { useEffect, useRef, useState, type RefObject } from 'react'

@@ -1,4 +1,4 @@
-//! SIYI SDK protocol (spec 40 §3): frame codec, command encoders, reply parsers.
+//! SIYI SDK protocol: frame codec, command encoders, reply parsers.
 
 pub mod ai;
 pub mod apply;

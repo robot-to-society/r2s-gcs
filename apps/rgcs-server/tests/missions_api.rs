@@ -1,4 +1,4 @@
-//! Saved missions, `.waypoints` export / import and validation (spec 50 §2.4, addendum §5.9).
+//! Saved missions, `.waypoints` export / import and validation.
 
 mod common;
 

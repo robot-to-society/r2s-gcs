@@ -1,5 +1,5 @@
-//! Mission upload / download against a fake vehicle on the `outgoing` channel (spec 50 §2.4,
-//! addendum §5.2, acceptance 7-2 minus SITL).
+//! Mission upload / download against a fake vehicle on the `outgoing` channel (the
+//! acceptance flow minus SITL).
 
 mod common;
 

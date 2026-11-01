@@ -1,5 +1,5 @@
-//! Registry, pilot, inspection template and inspection run endpoints (addendum §5.5 / §5.6,
-//! spec 50 §2.7). Runs are append-only: a correction is a new run with `supersedes`.
+//! Registry, pilot, inspection template and inspection run endpoints.
+//! Runs are append-only: a correction is a new run with `supersedes`.
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;

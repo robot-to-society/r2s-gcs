@@ -1,4 +1,4 @@
-//! GPS ROI, Native (plan ruling 8): the gimbal manager holds the target itself, so the state
+//! GPS ROI, Native: the gimbal manager holds the target itself, so the state
 //! machine only decides when to (re)send `DO_SET_ROI_LOCATION` and `DO_SET_ROI_NONE`.
 
 use rgcs_core::{GimbalAttitude, RoiStatus, RoiTarget};

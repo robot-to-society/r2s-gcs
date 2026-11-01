@@ -1,4 +1,4 @@
-// Copy for the network view (spec 10 §8, spec 80; plan 2026-10-23 network view).
+// Copy for the network view.
 // Elements that a standalone server does not have are labelled 未構成, never invented.
 
 export const networkJa = {

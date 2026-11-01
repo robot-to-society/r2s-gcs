@@ -1,4 +1,4 @@
-// 「ミッション書込」 from the ops panel (UX-30): a click selects a saved mission; writing needs the
+// 「ミッション書込」 from the ops panel: a click selects a saved mission; writing needs the
 // footer button and then an in-app confirm that names the mission and the vehicle.
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'

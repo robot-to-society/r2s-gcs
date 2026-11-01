@@ -1,4 +1,4 @@
-// REST calls for plugins and their area overlays (design 2026-11-01-plugin-overlays, API table).
+// REST calls for plugins and their area overlays (API table).
 import { apiFetch } from '../../shared/api/client'
 import type { OverlayArea, PluginInfo, TileEstimate, TileFormat } from '../../shared/api/types'
 

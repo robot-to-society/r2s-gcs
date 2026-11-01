@@ -1,4 +1,4 @@
-//! Gimbal quaternion → SIYI-convention angles (plan ruling 5: yaw +left, body frame).
+//! Gimbal quaternion → SIYI-convention angles (yaw +left, body frame).
 
 use mavlink::dialects::ardupilotmega::{GimbalDeviceFlags, GIMBAL_DEVICE_ATTITUDE_STATUS_DATA};
 

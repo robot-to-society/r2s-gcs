@@ -28,7 +28,7 @@ interface Props {
   readonly onRoiStop?: (sysid: number) => void
 }
 
-/** 全機体映像 (spec 10 §4): the grid of every feed, or one vehicle's camera cockpit. */
+/** 全機体映像: the grid of every feed, or one vehicle's camera cockpit. */
 export function VideoStage(p: Props) {
   const recording = useMemo(() => new Map<number, RecordingState>([...p.cameras].map(([sysid, c]) => [sysid, c.state.recording])), [p.cameras])
   const max = p.maximized === null ? undefined : p.vehicles.find((v) => v.sysid === p.maximized)

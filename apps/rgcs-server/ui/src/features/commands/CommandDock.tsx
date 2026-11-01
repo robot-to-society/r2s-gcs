@@ -17,7 +17,7 @@ interface Props {
   readonly beside?: boolean
   readonly onClose: () => void
   readonly onOpenGuided: (sysid: number) => void
-  /** カメラ・ジンバル: the camera settings sheet (UX-26). */
+  /** カメラ・ジンバル: the camera settings sheet. */
   readonly onOpenCamera?: (sysid: number) => void
   /** Sends, confirms and per-button feedback (shared with the detail panel). */
   readonly runner: Runner

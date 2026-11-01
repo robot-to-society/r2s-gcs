@@ -1,4 +1,4 @@
-//! Plan assignment board: which saved plan each vehicle should fly (plan assignment spec §6).
+//! Plan assignment board: which saved plan each vehicle should fly.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;

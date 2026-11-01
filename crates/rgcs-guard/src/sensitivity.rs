@@ -1,4 +1,4 @@
-//! External context (spec §5.4 last rule): external factors only raise the sensitivity of the
+//! External context: external factors only raise the sensitivity of the
 //! vehicle-side signs; they never trigger anything on their own.
 
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ pub enum ExtLevel {
     Strong,
 }
 
-/// The fused external factors the guard reads. Only Kp feeds it in v1 (plan ruling 12).
+/// The fused external factors the guard reads. Only Kp feeds it in v1.
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub struct ExternalContext {
     pub kp: Option<ExtLevel>,

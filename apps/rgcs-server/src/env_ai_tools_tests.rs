@@ -1,4 +1,4 @@
-//! The AI's read-only `get_external_factors` tool (plan Task 8): factors with source and time,
+//! The AI's read-only `get_external_factors` tool: factors with source and time,
 //! SWPC notices and station names only under `untrusted_text`, audited with target `ai`.
 
 use rgcs_ai::{ToolCall, ToolHost};

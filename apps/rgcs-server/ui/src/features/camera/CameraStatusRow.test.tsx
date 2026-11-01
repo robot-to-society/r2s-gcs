@@ -21,7 +21,7 @@ describe('CameraStatusRow', () => {
 
   it('shows mode and gimbal angles, or 切断 when offline', () => {
     const { rerender } = render(<CameraStatusRow caps={mt11} state={st({})} onSetup={() => {}} dict={t('ja')} />)
-    // mode in words, pan / tilt behind Lucide icons, no ↔ ↕ glyphs (UX-23)
+    // mode in words, pan / tilt behind Lucide icons, no ↔ ↕ glyphs
     expect(screen.getByTestId('cam-status')).toHaveTextContent('ロック')
     expect(screen.getByTitle('パン')).toHaveTextContent('12.3°')
     expect(screen.getByTitle('チルト')).toHaveTextContent('−30.0°')

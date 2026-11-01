@@ -1,4 +1,4 @@
-//! Mission planning types (spec 10 §6, addendum §5.2): the saved mission, its items, the
+//! Mission planning types: the saved mission, its items, the
 //! validation findings and the progress frame. Pure data + rules; no MAVLink here.
 
 use serde::{Deserialize, Serialize};
@@ -307,7 +307,7 @@ impl Mission {
         findings.iter().any(|f| f.level == FindingLevel::Fatal)
     }
 
-    /// Spec 10 §6 pre-upload checks; fatal findings refuse the upload.
+    /// Pre-upload checks; fatal findings refuse the upload.
     pub fn validate(&self, fence: &FenceInfo) -> Vec<Finding> {
         self.validate_for(fence, None)
     }

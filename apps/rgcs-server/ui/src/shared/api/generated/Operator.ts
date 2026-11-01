@@ -3,6 +3,6 @@ import type { Role } from "./Role";
 
 export type Operator = { username: string, role: Role, 
 /**
- * True while the seeded `admin` / `admin` account still works (spec 60 §3.1).
+ * True while the seeded `admin` / `admin` account still works.
  */
 dev_mode: boolean, };

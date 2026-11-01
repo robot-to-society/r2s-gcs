@@ -1,4 +1,4 @@
-//! `GET /api/plugins` rows: what the UI needs from each plugin (design 2026-11-01-plugin-overlays).
+//! `GET /api/plugins` rows: what the UI needs from each plugin.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

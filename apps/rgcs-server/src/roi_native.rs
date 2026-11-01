@@ -1,4 +1,4 @@
-//! The per-vehicle GPS ROI task for `caps.roi = native` (MAVLink camera plan, Task 6): the
+//! The per-vehicle GPS ROI task for `caps.roi = native`: the
 //! gimbal manager aims by itself, so this task only sends `DO_SET_ROI_LOCATION` /
 //! `DO_SET_ROI_NONE` through `NativeRoi` and reports a display-only `roi_status`.
 //!
@@ -22,7 +22,7 @@ use crate::roi::{Cmd, RoiHub, STATUS_EVERY};
 
 /// One native send waits for its COMMAND_ACK (1.5 s), so it gets more than `SEND_TIMEOUT`.
 pub const NATIVE_SEND_TIMEOUT: Duration = Duration::from_secs(2);
-/// A failed release is tried once more (ruling 8).
+/// A failed release is tried once more.
 const RELEASE_ATTEMPTS: usize = 2;
 
 struct Runner {

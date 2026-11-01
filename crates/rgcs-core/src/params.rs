@@ -1,4 +1,4 @@
-//! Parameter wire types (addendum §5.4): cache entries, download progress, change sets,
+//! Parameter wire types: cache entries, download progress, change sets,
 //! verified write results and the `param_history` rows.
 
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ pub struct ParamWriteResult {
     pub reason: Option<String>,
 }
 
-/// A `param_history` row (spec 60 §3.2).
+/// A `param_history` row.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct ParamHistoryEntry {

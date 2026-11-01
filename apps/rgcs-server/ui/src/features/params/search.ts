@@ -1,4 +1,4 @@
-// Name / description search over the cached list (addendum §5.4): prefix of the name first,
+// Name / description search over the cached list: prefix of the name first,
 // then name contains, then display name / description contains. Pure and allocation-light so
 // it can run on every keystroke over ~1,200 entries.
 import type { ParamEntry } from '../../shared/api/types'

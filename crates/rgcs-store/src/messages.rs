@@ -1,5 +1,5 @@
 //! `messages` (migration 0005): the persistent message log behind the footer and the history
-//! sheet (spec 10 §1). Ids are AUTOINCREMENT so they never repeat across restarts.
+//! sheet. Ids are AUTOINCREMENT so they never repeat across restarts.
 
 use rgcs_core::{ackable, LogEntry, MessageSource, Severity, SysId};
 use sqlx::Row;

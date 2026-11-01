@@ -51,7 +51,7 @@ function withProposal(items: readonly ChatItem[], a: Extract<ChatAction, { t: 'p
   })
 }
 
-/** One guard item per alert id (AI 緊急介入, guard ruling 15): a new id appends, a known id is replaced. */
+/** One guard item per alert id (AI 緊急介入): a new id appends, a known id is replaced. */
 export function withGuardAlert(items: readonly ChatItem[], a: GuardAlert): readonly ChatItem[] {
   const item: ChatItem = { kind: 'guard', id: `guard:${a.id}`, alert: a, ts: a.ts }
   const known = items.some((it) => it.kind === 'guard' && it.alert.id === a.id)

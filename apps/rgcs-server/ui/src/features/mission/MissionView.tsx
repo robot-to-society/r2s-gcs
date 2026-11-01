@@ -77,7 +77,7 @@ interface Props {
 const NUDGE = 0.0001
 const NO_TRANSFERS: ReadonlyMap<number, MissionTransfer> = new Map()
 
-/** The mission planning screen (spec 10 §6, 2D subset) built on the Glass prototype's layout. */
+/** The mission planning screen (2D subset) built on the Glass prototype's layout. */
 export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, basemap, basemaps = [], onPickBasemap, terrainTiles = null, store = missionStore, plans = planSetStore, labels, opsSelected = null }: Props) {
   const mapMode = useMapMode()
   const is3d = mapMode === '3d' && terrainTiles !== null
@@ -227,7 +227,7 @@ export function MissionView({ vehicles, transfers = NO_TRANSFERS, dict, style, b
       </button>
       {help && <HelpPanel dict={dict} onClose={() => setHelp(false)} />}
       {editing && <SurveyFootToggle {...sv.footButton} dict={dict} />}
-      {/* one summary at a time: the HUD only while the right summary is folded away (UX-39) */}
+      {/* one summary at a time: the HUD only while the right summary is folded away */}
       {editing && (panel.collapsed || plan.tab !== 'mission') && <MissionHud stats={st} kind={kind} dict={dict} />}
 
       {editing && plan.tab === 'fence' && (

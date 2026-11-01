@@ -1,5 +1,5 @@
-//! `/api/vehicles/{sysid}/roi/*` (spec 50 §2.3): GPS ROI presets, control parameters,
-//! start / stop. Start and stop exist only here (ROI is not a `CameraCommand`, ruling 1).
+//! `/api/vehicles/{sysid}/roi/*`: GPS ROI presets, control parameters,
+//! start / stop. Start and stop exist only here (ROI is not a `CameraCommand`).
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -14,7 +14,7 @@ use crate::app::AppState;
 use crate::auth::AuthUser;
 use crate::roi::{RoiError, StopReason};
 
-/// One ROI audit row (target `roi`, spec 70 §6).
+/// One ROI audit row (target `roi`).
 pub struct RoiAudit<'a> {
     pub operator: &'a str,
     pub sysid: SysId,

@@ -1,4 +1,4 @@
-// Copy for the 全機体映像 view and the camera cockpit (spec 10 §4, prototype `t.cam`).
+// Copy for the 全機体映像 view and the camera cockpit (prototype `t.cam`).
 
 export const videoJa = {
   restore: '元に戻す',

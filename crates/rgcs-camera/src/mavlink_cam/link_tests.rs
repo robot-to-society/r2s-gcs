@@ -1,4 +1,4 @@
-//! Final review I3: the driver's info / stream requests must never fill (or wait on) the
+//! The driver's info / stream requests must never fill (or wait on) the
 //! shared outgoing queue while the FC link is down.
 
 use std::time::Duration;

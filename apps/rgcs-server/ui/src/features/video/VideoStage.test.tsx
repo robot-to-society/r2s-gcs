@@ -42,7 +42,7 @@ const setup = (maximized: number | null) => {
   return p
 }
 
-describe('VideoStage (spec 10 §4)', () => {
+describe('VideoStage', () => {
   it('shows the grid over the aurora with each vehicle’s recording state', () => {
     const p = setup(null)
     expect(screen.getAllByTestId('vtile')).toHaveLength(2)

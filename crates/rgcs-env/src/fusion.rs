@@ -1,4 +1,4 @@
-//! Safety-side fusion (ruling 12): per factor, the level is the max over fresh readings and is
+//! Safety-side fusion: per factor, the level is the max over fresh readings and is
 //! never downgraded by a higher-priority reading; `primary` is only the display order.
 
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,7 @@ impl Fused {
     }
 }
 
-/// Spread among fresh readings at or above which sources disagree (spec §5.4).
+/// Spread among fresh readings at or above which sources disagree.
 fn disagree_spread(kind: FactorKind) -> Option<f64> {
     match kind {
         FactorKind::Wind | FactorKind::Gust => Some(3.0),

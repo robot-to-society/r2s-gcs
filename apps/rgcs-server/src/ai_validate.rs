@@ -1,4 +1,4 @@
-//! What the AI may propose (plan ruling 2). A proposal passes the same checks a direct command
+//! What the AI may propose. A proposal passes the same checks a direct command
 //! would (`invalid`, `precheck`, `vtol_unknown`) plus proposal-only rules: the mode must exist on
 //! this airframe, the speed must be sane, and `other` / `change_alt` are never proposed.
 

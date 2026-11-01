@@ -1,4 +1,4 @@
-// Labels and values for the 外的要因 chip (plan 2026-10-25-ai-guard Task 10). Every displayed value
+// Labels and values for the 外的要因 chip. Every displayed value
 // keeps its source and time (Review Focus 5).
 import type { EnvFactor, EnvLevel, EnvReading, EnvSummary } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
