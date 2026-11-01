@@ -23,6 +23,9 @@ pub mod mission_stored;
 pub mod network;
 pub mod operator;
 pub mod params;
+pub mod plugin;
+pub mod plugin_info;
+mod plugin_validate;
 pub mod roi;
 pub mod survey_camera;
 pub mod vehicle;
@@ -79,6 +82,10 @@ pub use network::{
 };
 pub use operator::Operator;
 pub use params::{ParamChange, ParamEntry, ParamHistoryEntry, ParamProgress, ParamWriteResult};
+pub use plugin::{
+    parse_manifest, valid_id, validate, LegendEntry, LocalText, Manifest, OverlayCache, OverlayInfo,
+    OverlaySpec, PluginError, PluginInfo, PluginLink, PluginStatus, TileFormat,
+};
 pub use roi::{
     default_roi_targets, roi_slot_id, validate_roi_targets, RoiControl, RoiControlMode, RoiMode, RoiStatus,
     RoiTarget, ROI_SLOT_COUNT,

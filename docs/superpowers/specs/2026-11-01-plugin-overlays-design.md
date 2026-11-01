@@ -36,7 +36,8 @@ What this design changes:
   - The `id` must equal the directory name and match `^[a-z0-9][a-z0-9-]{0,39}$`.
 - A plugin that fails to read or validate gets `status = "error"` and a short code: `parse`,
   `bad_id`, `id_mismatch`, `api_version`, `bad_url`, `bad_zoom`, `duplicate_overlay`,
-  `too_large`, `no_en_text`. It is logged once at warn level, without URLs, and stays in the
+  `too_large`, `too_many` (overlays / links over the limit), `bad_value` (tile size, opacity,
+    legend colour, empty or over-long text), `no_en_text`. It is logged once at warn level, without URLs, and stays in the
   list.
 - Loading only happens at start. Changing a plugin means restarting the server (no hot reload
   in stage 1).
