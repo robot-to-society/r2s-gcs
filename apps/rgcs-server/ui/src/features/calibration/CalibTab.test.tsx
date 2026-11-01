@@ -42,12 +42,30 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('CalibTab', () => {
   it('shows one card per calibration with its last date', async () => {
-    setup({ records: [{ kind: 'compass', ok: true, at: Date.UTC(2026, 9, 1, 16), operator: 'op', detail: null }] })
-    for (const label of ['加速度計', 'コンパス', '水平レベル', 'RC 校正', 'ESC 校正', 'モーターテスト']) {
-      expect(screen.getByText(label)).toBeInTheDocument()
+    // a fixed "now" 9 days after the record: inside the 30-day freshness window on any run date
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(Date.UTC(2026, 9, 10))
+    try {
+      setup({ records: [{ kind: 'compass', ok: true, at: Date.UTC(2026, 9, 1, 16), operator: 'op', detail: null }] })
+      for (const label of ['加速度計', 'コンパス', '水平レベル', 'RC 校正', 'ESC 校正', 'モーターテスト']) {
+        expect(screen.getByText(label)).toBeInTheDocument()
+      }
+      expect(await screen.findByText('校正済み · 2026/10/02')).toBeInTheDocument()
+      expect(within(screen.getByTestId('calib-rc')).getByText('未実施')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
     }
-    expect(await screen.findByText('校正済み · 2026/10/02')).toBeInTheDocument()
-    expect(within(screen.getByTestId('calib-rc')).getByText('未実施')).toBeInTheDocument()
+  })
+
+  it('a calibration older than 30 days reads as stale', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(Date.UTC(2026, 10, 15))
+    try {
+      setup({ records: [{ kind: 'compass', ok: true, at: Date.UTC(2026, 9, 1, 16), operator: 'op', detail: null }] })
+      expect(await within(screen.getByTestId('calib-compass')).findByText(dict.calStale)).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('a card opens with its instructions and starts only on 開始', async () => {
