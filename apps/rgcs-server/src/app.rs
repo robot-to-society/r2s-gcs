@@ -24,7 +24,8 @@ use crate::video::VideoHub;
 use crate::{
     api, assignment_api, auth, branding, calib_api, camera_api, commands, export_api, flight_api,
     geofence_api, guided, input_api, inspector_api, logbook_api, logs_api, lte_api, messages_api,
-    mission_api, network_api, param_api, param_pick, present_api, roi_api, survey_camera_api, video_api, ws,
+    mission_api, network_api, param_api, param_pick, plugin_api, present_api, roi_api, survey_camera_api,
+    video_api, ws,
 };
 use axum::extract::DefaultBodyLimit;
 use axum::routing::delete;
@@ -91,6 +92,8 @@ pub struct AppState {
     pub terrain_tiles: Option<String>,
     /// Docomo LTE tile fetcher (config `lte_tile_url`); offline until `with_lte`.
     pub lte: crate::lte_fetch::LteFetcher,
+    /// Plugins read from `plugins_dir` at start; none until `with_plugins`.
+    pub plugins: crate::plugins::PluginRegistry,
     started: Instant,
     started_unix_ms: u64,
     lockout: Arc<StdMutex<Lockout>>,
@@ -170,6 +173,7 @@ impl AppState {
             basemaps: crate::config::Config::default().basemaps(),
             terrain_tiles: crate::config::Config::default().terrain(),
             lte: crate::lte_fetch::LteFetcher::offline(),
+            plugins: crate::plugins::PluginRegistry::default(),
             started: Instant::now(),
             started_unix_ms: unix_ms(),
             lockout: Arc::new(StdMutex::new(Lockout::default())),
@@ -296,6 +300,11 @@ impl AppState {
     /// Installs the LTE tile fetcher (main: `lte_tile_url`; tests: the local fake).
     pub fn with_lte(self, lte: crate::lte_fetch::LteFetcher) -> Self {
         Self { lte, ..self }
+    }
+
+    /// Installs the plugins (main: scanned from `plugins_dir`; tests: a temp directory).
+    pub fn with_plugins(self, plugins: crate::plugins::PluginRegistry) -> Self {
+        Self { plugins, ..self }
     }
 
     pub fn with_map(self, tile_url: String, attribution: String) -> Self {
@@ -531,6 +540,8 @@ pub fn build_with_ui(state: AppState, ui: UiSource) -> AxumRouter {
         .route("/messages", get(messages_api::list_all))
         .route("/vehicles/{sysid}/messages", get(messages_api::list_vehicle))
         .route("/vehicles/{sysid}/messages/{id}/ack", post(messages_api::ack))
+        .route("/plugins", get(plugin_api::list))
+        .route("/plugins/{id}", put(plugin_api::set_enabled))
         .route("/lte/areas", get(lte_api::list).post(lte_api::create))
         .route("/lte/areas/estimate", post(lte_api::estimate))
         .route("/lte/areas/{id}/refresh", post(lte_api::refresh))

@@ -63,6 +63,8 @@ pub mod param_api;
 pub mod param_pick;
 pub mod params;
 pub mod pdf;
+pub mod plugin_api;
+pub mod plugins;
 pub mod present_api;
 pub mod roi;
 pub mod roi_api;

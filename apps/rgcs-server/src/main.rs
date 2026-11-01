@@ -47,6 +47,11 @@ async fn main() -> anyhow::Result<()> {
         Ok(n) => info!(areas = n, "reset interrupted LTE fetches"),
         Err(e) => tracing::warn!(error = %e, "LTE fetch reset failed"),
     }
+    // Plugins: read once; a broken one is listed with its error and never stops the start.
+    let plugins_dir = config.plugins_dir();
+    let plugins = rgcs_server::plugins::PluginRegistry::scan(&plugins_dir)
+        .with_enabled(store.plugin_enabled().await.unwrap_or_default());
+    info!(dir = %plugins_dir.display(), plugins = plugins.infos().len(), "plugins scanned");
 
     let router = Arc::new(Mutex::new(Router::default()));
     let (tx, _) = broadcast::channel(BROADCAST_CAPACITY);
@@ -67,6 +72,7 @@ async fn main() -> anyhow::Result<()> {
         .with_basemaps(config.basemaps())
         .with_terrain(config.terrain())
         .with_lte(rgcs_server::lte_fetch::LteFetcher::new(&config.lte_tile_url))
+        .with_plugins(plugins)
         .with_whep_upstream(&config.whep_upstream)
         .with_data_dir(config.data_dir.clone())
         .with_ai(rgcs_server::ai_api::build_ai(&config.ai))

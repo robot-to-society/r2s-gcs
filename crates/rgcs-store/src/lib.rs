@@ -19,6 +19,7 @@ pub mod messages;
 pub mod missions;
 pub mod param_history;
 pub mod password;
+pub mod plugin_state;
 pub mod presentation;
 pub mod registry;
 pub mod roi;
