@@ -98,7 +98,7 @@ scripts/e2e.sh            # :8010 の実サーバーに対する Playwright
 tar xzf rgcs-pi-<version>.tar.gz && cd rgcs-pi-<version> && sudo ./install.sh
 ```
 
-手順の詳細、MediaMTX、観客用画面は [deploy/README.md](deploy/README.md) にあります。設定は `/etc/rgcs/config.toml` で、使える項目は [deploy/config.toml.example](deploy/config.toml.example) にすべて載っています。
+手順の詳細、MediaMTX、観客用画面は [deploy/README.md](deploy/README.md) にあります。設定は `/etc/rgcs/config.toml` で、主な項目は [deploy/config.toml.example](deploy/config.toml.example) で説明しています。
 
 **セキュリティ**: アカウントを作るまでは、開発用ログイン `admin` / `admin` が有効です。ポート 8000 は機体の LAN か VPN の中だけに公開してください。
 

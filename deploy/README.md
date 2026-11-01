@@ -1,31 +1,87 @@
-# Deploying rgcs-server on the companion Pi
+# Deploying rgcs-server on a Raspberry Pi
 
-1. Build on the Mac: `scripts/build-pi.sh` → `dist/pi/rgcs-pi-<version>.tar.gz` (aarch64 binary with
-   the UI embedded, `install.sh`, `rgcs-server.service`, `config.toml.example`). Copy it to the Pi and
-   run `tar xzf rgcs-pi-<version>.tar.gz && cd rgcs-pi-<version> && sudo ./install.sh`. The same
-   command upgrades; `sudo ./install.sh --rollback` restores the previous release. Details, file
-   locations and what the installer does: `docs/spec/30-architecture.md` §8.
-   First install only: edit `/etc/rgcs/config.toml` (`mavlink_url`, `whep_upstream`) and
-   `sudo systemctl restart rgcs-server`. `data_dir` (`/var/lib/rgcs`) holds the SQLite database, the
-   audience logo and the fetched logs. The development login admin/admin is active until accounts
-   arrive (M5): reach port 8000 only over the vehicle LAN / VPN.
-   Try the whole deployment first on the Docker Pi equivalent: `scripts/pi-sim.sh up` then
-   `tests/pi/accept-deploy.sh` (§8.1).
-2. MediaMTX: copy `mediamtx.yml` to `/usr/local/etc/mediamtx.yml` and enable `mediamtx.service`.
-   It relays the MT11 RTSP stream (`rtsp://192.168.144.25:8554/video1`) as WebRTC; signalling
-   stays on `127.0.0.1:8889` because `rgcs-server` relays WHEP offers (`whep_upstream`), media goes
-   out on UDP/TCP 8189 — allow that port from the operator's LAN / VPN only.
-3. `rgcs-server.service` replaces the Python `mt11-camera-ui.service` (both open the MT11 TCP
-   control port, which accepts a single client: never run them together).
-4. Audience page: create a link in the UI (user menu → 観客用画面), open `/present?t=…` in a separate
-   browser window on the second monitor and press F11. Revoke the link afterwards.
+RGCS runs on the vehicle's companion computer: a Raspberry Pi 4 / 5 (64-bit Raspberry Pi OS or
+Debian) next to the flight controller, optionally with Rpanion-server and MediaMTX.
 
-Day before the flight (addendum §4): plan the mission in RGCS (ミッション tab), 保存, then
-`.waypoints 保存` and load the file in Mission Planner to simulate. If you edit it there, save it
-from Mission Planner and load it back with ファイル読込 (the `.waypoints` round trip is exact).
-On the day only RGCS talks to the vehicle (§9): 機体へ書込 verifies the read-back before you
-ARM / AUTO from the operations panel.
+## 1. Build
 
-Development on a Mac: `scripts/dev.sh --siyi-sim --video` runs SITL, the MT11 simulator, MediaMTX +
-an ffmpeg test pattern and the UI; `scripts/e2e.sh --with-sitl --with-sim --with-video` runs every
-Playwright journey (`brew install mediamtx ffmpeg` first).
+On a development machine with Docker:
+
+```sh
+scripts/build-pi.sh
+```
+
+This writes `dist/pi/rgcs-pi-<version>.tar.gz`, which contains:
+- `rgcs-server`: aarch64, release build, with the UI embedded;
+- `install.sh`, `rgcs-server.service` and `config.toml.example`.
+
+## 2. Install or upgrade
+
+Copy the archive to the Pi, then:
+
+```sh
+tar xzf rgcs-pi-<version>.tar.gz && cd rgcs-pi-<version> && sudo ./install.sh
+```
+
+The installer:
+- puts the binary in `/opt/rgcs/bin`;
+- creates the system user `rgcs` (in `dialout`, for serial links) and the data directory
+  `/var/lib/rgcs`;
+- writes `/etc/rgcs/config.toml` from the example **only if it does not exist**;
+- installs and starts `rgcs-server.service`.
+
+It then waits for `/api/health`. If the new binary does not answer in time, the previous one is
+restored automatically.
+
+Upgrades use the same command. `sudo ./install.sh --rollback` restores the previous release by
+hand.
+
+On the first install, edit `/etc/rgcs/config.toml` and run `sudo systemctl restart rgcs-server`.
+- `mavlink_url`: the flight controller link.
+- `whep_upstream`: only with video.
+- The common keys are explained in [config.toml.example](config.toml.example).
+
+`data_dir` (`/var/lib/rgcs`) holds:
+- the SQLite database;
+- the audience logo;
+- downloaded logs;
+- plugin overlay tiles.
+
+Plugins go in `/var/lib/rgcs/plugins`, see [PLUGINS.md](../PLUGINS.md).
+
+**Security**: the development login `admin` / `admin` stays active until accounts are created.
+Expose port 8000 only on the vehicle LAN or a VPN, never directly to the internet.
+
+## 3. Video (optional)
+
+Install [MediaMTX](https://github.com/bluenviron/mediamtx). Copy `mediamtx.yml` to
+`/usr/local/etc/mediamtx.yml` and enable its service.
+
+The example relays a SIYI MT11 RTSP stream (`rtsp://192.168.144.25:8554/video1`) as WebRTC:
+- Signalling stays on `127.0.0.1:8889`, because `rgcs-server` relays the browsers' WHEP offers
+  (`whep_upstream`).
+- Media leaves on UDP / TCP 8189. Allow that port only from the operators' LAN or VPN.
+
+`rgcs-server.service` conflicts with the older `mt11-camera-ui.service`. Both open the MT11's
+TCP control port, which accepts a single client, so never run them together.
+
+## 4. Audience view (optional)
+
+1. Create a link in the UI: user menu → **Audience view**.
+2. Open `/present?t=…` in a separate browser window on the second screen and press F11.
+3. Revoke the link afterwards.
+
+## Before a flight
+
+1. Plan in RGCS (**Flight plan**) and save the plan.
+2. Use **Export .waypoints** to simulate the plan in SITL or Mission Planner first. If you edit it
+   there, import the file back: the `.waypoints` round trip is exact.
+3. On the day, let only RGCS talk to the vehicle. **Write to vehicle** reads the mission back and
+   compares it before you arm.
+
+## Trying it without a Pi
+
+`scripts/pi-sim.sh up` runs a Pi equivalent in Docker (systemd, the same paths and the installer).
+`tests/pi/accept-deploy.sh` runs the deployment checks against it.
+
+For development on your own machine, see the [README](../README.md#quick-start-development).

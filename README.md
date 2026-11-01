@@ -110,7 +110,7 @@ tar xzf rgcs-pi-<version>.tar.gz && cd rgcs-pi-<version> && sudo ./install.sh
 ```
 
 The steps, MediaMTX and the audience page are covered in [deploy/README.md](deploy/README.md).
-Settings live in `/etc/rgcs/config.toml`; every key is listed in
+Settings live in `/etc/rgcs/config.toml`; the common keys are explained in
 [deploy/config.toml.example](deploy/config.toml.example).
 
 **Security**: the development login `admin` / `admin` stays active until you create accounts.

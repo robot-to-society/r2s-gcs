@@ -438,6 +438,28 @@ mod tests {
         assert_eq!(c.basemaps()[1].overlay.as_ref().map(Vec::len), Some(2));
     }
 
+    /// Every commented setting in the example is a real key and sits where uncommenting it keeps
+    /// the file valid (top-level keys before the first table). The alternative AI provider at
+    /// the end repeats keys, so it stops there.
+    #[test]
+    fn the_example_file_is_valid_with_every_setting_uncommented() {
+        let text = include_str!("../../../deploy/config.toml.example");
+        let mut out = String::new();
+        for line in text.lines().take_while(|l| !l.starts_with("# A local")) {
+            let body = line.strip_prefix("# ").unwrap_or(line);
+            let setting = body.starts_with('[')
+                || body.split_once(" = ").is_some_and(|(k, _)| {
+                    !k.is_empty() && k.chars().all(|c| c.is_ascii_lowercase() || c == '_')
+                });
+            out.push_str(if setting { body } else { line });
+            out.push('\n');
+        }
+        let c = Config::parse(&out).unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert_eq!(c.basemaps().len(), 3);
+        assert_eq!(c.plugins_dir(), Path::new("/var/lib/rgcs/plugins"));
+        assert_eq!(c.telemetry_interval_ms, 100);
+    }
+
     #[test]
     fn config_basemaps_replace_the_defaults() {
         let c = Config::parse(

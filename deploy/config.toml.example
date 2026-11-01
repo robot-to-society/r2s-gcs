@@ -1,39 +1,59 @@
-# /etc/rgcs/config.toml — rgcs-server の起動設定(それ以外の設定は画面から SQLite に保存)
-# install.sh はこのファイルが無いときだけ作成し、既存のファイルは上書きしません。
+# /etc/rgcs/config.toml: rgcs-server start-up settings. Everything else is set in the UI and stored
+# in SQLite. install.sh creates this file only when it is missing and never overwrites it.
+#
+# TOML order matters: every top-level key comes before the first [table] / [[array]] section.
 
-# 待受アドレス(ブラウザは http://<Pi の IP>:8000)
+# Listen address (open http://<Pi address>:8000 in the browser)
 listen = "0.0.0.0:8000"
 
-# FC との接続: Rpanion-server の配信先(既定)。シリアル直結なら "/dev/ttyAMA0,921600" など
+# Flight controller link. Default: where Rpanion-server forwards MAVLink.
+# Other forms: "tcp:127.0.0.1:5760", "udpin:0.0.0.0:14550", or a serial port "/dev/ttyAMA0,921600".
 mavlink_url = "udpin:127.0.0.1:15555"
 
-# データベース・ロゴ・取り出したログの保存先
+# Database, audience logo, downloaded logs, plugin overlay tiles
 data_dir = "/var/lib/rgcs"
 
 role = "standalone"
 
-# MediaMTX の WHEP(MT11 の RTSP を WebRTC 化したもの)
-# whep_upstream = "http://127.0.0.1:8889/mt11/whep"
+# Telemetry frame interval to the browsers, in milliseconds
+# telemetry_interval_ms = 100
 
-# 地図タイル(現場の契約に合わせて差し替え)
+# A built UI on disk instead of the one embedded in the binary
+# ui_dir = "/opt/rgcs/ui"
+
+# MediaMTX WHEP endpoint (the MT11 RTSP stream as WebRTC)
+# whep_upstream = "http://127.0.0.1:8889/mt11/whep"
+# video_probe_timeout_ms = 2000
+
+# The default base map. Replace it with a provider whose terms fit your use: OpenStreetMap's tile
+# servers are for light use only (https://operations.osmfoundation.org/policies/tiles/).
 # map_tile_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 # map_attribution = "© OpenStreetMap contributors"
 
-# 背景地図の選択肢。[[basemaps]] を 1 つでも書くと既定(map_tile_url の地図・地理院 標準・地理院 写真)を
-# すべて置き換えるので、使うものを全部並べる。TOML の配列表なので、トップレベルの項目より後、[ai] より前に置く。
-# 衛星写真の例(Esri World Imagery + CARTO の地名ラベル)。どちらも利用条件があり、業務利用には
-# 契約やアカウントが要る場合がある。使う前に提供元の規約を確認すること:
+# Terrarium DEM tiles for the 3D map; "" turns 3D off (offline sites)
+# terrain_tiles = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+
+# Plugins (map overlays, links): <plugins_dir>/<id>/plugin.toml, read at start (see PLUGINS.md)
+# plugins_dir = "/var/lib/rgcs/plugins"   # default: <data_dir>/plugins
+
+# DataFlash log download: auto = on for tcp / udp links and serial links at 921600 baud or more
+# log_fetch = "auto"                      # auto | on | off
+
+# Base maps offered in the map-type menu. Any [[basemaps]] entry replaces all the defaults (the
+# map_tile_url map, GSI standard, GSI photo), so list every map you want.
+# Example with satellite imagery (Esri World Imagery with CARTO place labels). Both have terms of
+# use, and business use may need a contract or an account. Read the providers' terms first:
 #   https://www.esri.com/en-us/legal/terms/full-master-agreement / https://carto.com/basemaps
 # [[basemaps]]
 # id = "map"
-# label = "地図"
+# label = "Map"
 # tiles = ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"]
 # attribution = "© OpenStreetMap contributors"
 # max_zoom = 19
 #
 # [[basemaps]]
 # id = "satellite"
-# label = "衛星写真"
+# label = "Satellite"
 # tiles = ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"]
 # attribution = "Esri, Maxar, Earthstar Geographics | © CARTO © OpenStreetMap contributors"
 # max_zoom = 19
@@ -41,28 +61,25 @@ role = "standalone"
 #
 # [[basemaps]]
 # id = "gsi_photo"
-# label = "地理院 写真"
+# label = "GSI photo"
 # tiles = ["https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"]
 # attribution = "地理院タイル"
 # max_zoom = 18
 
-# 3D 地図の標高タイル (Terrarium 形式)。"" で 3D を無効化 (オフライン現場)
-# terrain_tiles = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+# External data (weather, space weather). API keys are never written here: name the environment
+# variables that hold them (e.g. a systemd EnvironmentFile with mode 0600).
+# [env]
+# open_meteo_api_key_env = "OPEN_METEO_API_KEY"   # Open-Meteo's free API is non-commercial only
+# openweathermap_api_key_env = "OWM_API_KEY"
 
-# プラグイン(地図オーバーレイ・リンク)。<plugins_dir>/<id>/plugin.toml を起動時に読む(PLUGINS.md)
-# plugins_dir = "/var/lib/rgcs/plugins"   # 既定は <data_dir>/plugins
-
-# ログ取り出し: auto = tcp/udp と 921600 bps 以上のシリアルで有効
-# log_fetch = "auto"
-
-# AI チャット(提案のみ。送信はオペレーターが「実行」を押したときだけ)。既定は無効
-# キーはファイルに書かず環境変数で渡す(systemd の EnvironmentFile など、0600)
+# AI chat: it only proposes commands; nothing is sent until the operator presses Run. Off by
+# default. The key comes from an environment variable, never from this file.
 # [ai]
 # provider = "anthropic"            # none | anthropic | openai_compat
 # model = "claude-sonnet-5-5"
 # api_key_env = "ANTHROPIC_API_KEY"
-# daily_token_budget = 2000000      # 直近 24 h のトークン上限(0 = 無制限)
-# ローカルの OpenAI 互換サーバー(Ollama など)の例:
+# daily_token_budget = 2000000      # tokens per rolling 24 h (0 = unlimited)
+# A local OpenAI-compatible server (Ollama and the like):
 # provider = "openai_compat"
 # base_url = "http://127.0.0.1:11434/v1"
 # model = "qwen3:8b"
