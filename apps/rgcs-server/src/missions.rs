@@ -15,7 +15,8 @@ use rgcs_mission::{Done, Download, ProtocolError, Upload};
 use tokio::sync::{broadcast, mpsc};
 
 const FRAME_CAPACITY: usize = 256;
-const TICK: Duration = Duration::from_millis(250);
+/// How often the transfer loops check their deadlines (a timeout lands up to one tick late).
+pub const TICK: Duration = Duration::from_millis(250);
 const RESEND_EVERY: Duration = Duration::from_secs(1);
 const LAT_LON_EPS: f64 = 1e-7;
 /// ArduPilot stores altitudes in centimetres.

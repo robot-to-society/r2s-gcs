@@ -11,6 +11,9 @@ use common::*;
 use mavlink::dialects::ardupilotmega::{MissionState, MISSION_CURRENT_DATA, MISSION_ITEM_INT_DATA};
 use rgcs_core::{demo20, Mission, ServerMessage, MAV_CMD_NAV_WAYPOINT};
 use rgcs_mavlink::MissionFrame;
+use rgcs_mission::{ATTEMPTS, STEP_TIMEOUT_MS};
+use rgcs_server::mission_api::FENCE_WAIT_MAX;
+use rgcs_server::missions::TICK;
 use serde_json::{json, Value};
 
 fn stored() -> Arc<Mutex<Vec<MISSION_ITEM_INT_DATA>>> {
@@ -100,10 +103,15 @@ async fn timeout_releases_the_transaction() {
     let (status, body) = put_mission(&app, &cookie, &demo20()).await;
     assert_eq!(status, StatusCode::GATEWAY_TIMEOUT, "{body}");
     assert_eq!(error_code(&body), "mission_timeout");
+    // Every attempt ran, and the request ended right after the last deadline: the fence-parameter
+    // wait (the silent vehicle never answers), the protocol's attempts, then up to two ticks of
+    // the transfer loop, plus slack for a loaded machine.
+    let retries = Duration::from_millis(STEP_TIMEOUT_MS * u64::from(ATTEMPTS));
+    let limit = FENCE_WAIT_MAX + retries + 2 * TICK + Duration::from_millis(750);
+    let took = started.elapsed();
     assert!(
-        started.elapsed() < Duration::from_secs(6),
-        "{:?}",
-        started.elapsed()
+        took >= retries && took < limit,
+        "{took:?} (retries {retries:?}, limit {limit:?})"
     );
     silent.abort();
     // a new link + a normal vehicle: the sysid is not stuck in "busy"

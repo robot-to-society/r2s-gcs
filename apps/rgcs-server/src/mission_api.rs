@@ -21,6 +21,8 @@ use crate::telemetry::FENCE_PARAMS;
 /// How long an upload waits for fence parameters that were requested but not answered yet.
 const FENCE_WAIT: std::time::Duration = std::time::Duration::from_millis(200);
 const FENCE_WAIT_ROUNDS: u32 = 5;
+/// The longest an upload waits for unanswered fence parameters before it starts.
+pub const FENCE_WAIT_MAX: std::time::Duration = FENCE_WAIT.saturating_mul(FENCE_WAIT_ROUNDS);
 
 #[derive(Debug, Deserialize)]
 pub struct UploadSavedBody {
