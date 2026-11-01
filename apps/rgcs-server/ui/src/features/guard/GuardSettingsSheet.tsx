@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { ApiError } from '../../shared/api/client'
 import type { GuardConsent, GuardSettings } from '../../shared/api/types'
 import type { Dict } from '../../shared/i18n'
-import { jstDateTime } from '../../shared/format/time'
+import { dateTimeText } from '../../shared/format/time'
 import { IconCheck, IconClose, IconFlask } from '../../shared/ui/icons'
 import { getGuardSettings, putGuardSettings, type ConsentAnswer, type GuardSettingsPut } from './api'
 import { ConsentDialog } from './ConsentDialog'
@@ -177,7 +177,7 @@ function ConsentSummary(p: { readonly consent: GuardConsent; readonly isAdmin: b
       ))}
       <div className="row guard-consent-foot">
         {consent.by && consent.at_ms !== null && (
-          <span className="t3">{dict.guardConsentBy.replace('{by}', consent.by).replace('{at}', jstDateTime(consent.at_ms))}</span>
+          <span className="t3">{dict.guardConsentBy.replace('{by}', consent.by).replace('{at}', dateTimeText(consent.at_ms))}</span>
         )}
         {isAdmin && (
           <button type="button" className="btn btn-sm btn-ghost" onClick={onReview}>

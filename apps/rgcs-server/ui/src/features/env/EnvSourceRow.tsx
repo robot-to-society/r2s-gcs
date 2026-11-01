@@ -1,10 +1,10 @@
-// One 外的要因 source (spec §5.5): enable switch, interval / timeout, last fetch (JST), 成功 / 失敗 + error,
+// One 外的要因 source (spec §5.5): enable switch, interval / timeout, last fetch (local time), 成功 / 失敗 + error,
 // next due, 今すぐ取得, the terms line and, for keyed sources, only the key's hint. No key input exists.
 import { useState } from 'react'
 import { z } from 'zod'
 import { ApiError } from '../../shared/api/client'
 import type { EnvSourceStatus } from '../../shared/api/types'
-import { jstTime } from '../../shared/format/time'
+import { hhmmss } from '../../shared/format/time'
 import type { Dict } from '../../shared/i18n'
 import { IconRefresh } from '../../shared/ui/icons'
 import { fetchNow, putEnvSource, type EnvSourcePut } from './api'
@@ -31,8 +31,8 @@ export function errorText(code: string, dict: Dict): string {
 }
 
 function statusText(s: EnvSourceStatus, dict: Dict): string {
-  if (s.last_error) return `${dict.envFailed} ${errorText(s.last_error, dict)}${s.last_ok_ms ? ` (${dict.envOk} ${jstTime(s.last_ok_ms)})` : ''}`
-  return s.last_ok_ms ? `${dict.envOk} ${jstTime(s.last_ok_ms)}` : dict.envNever
+  if (s.last_error) return `${dict.envFailed} ${errorText(s.last_error, dict)}${s.last_ok_ms ? ` (${dict.envOk} ${hhmmss(s.last_ok_ms)})` : ''}`
+  return s.last_ok_ms ? `${dict.envOk} ${hhmmss(s.last_ok_ms)}` : dict.envNever
 }
 
 export function EnvSourceRow({ status, isAdmin, dict, onChange }: Props) {
@@ -95,7 +95,7 @@ export function EnvSourceRow({ status, isAdmin, dict, onChange }: Props) {
           {statusText(status, dict)}
         </div>
         <div className="t3 env-src-next" data-testid="env-src-next">
-          {dict.envNext} {status.next_due_ms ? jstTime(status.next_due_ms) : '—'}
+          {dict.envNext} {status.next_due_ms ? hhmmss(status.next_due_ms) : '—'}
         </div>
         {isAdmin && (
           <button type="button" className="btn btn-sm btn-ghost env-fetch" disabled={busy} onClick={() => void run(() => fetchNow(status.id))}>

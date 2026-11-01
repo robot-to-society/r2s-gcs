@@ -1,9 +1,9 @@
 // The 外的要因 summary chip beside the 2D / 3D switch, with a popover of every factor (plan
-// 2026-10-25-ai-guard Task 10, spec §5.4). Values always show source + JST time; stale readings
+// 2026-10-25-ai-guard Task 10, spec §5.4). Values always show source + local time; stale readings
 // are greyed; SWPC notes and station names are untrusted and rendered as plain text only.
 import { useEffect, useRef, useState } from 'react'
 import type { EnvFactor, EnvSummary } from '../../shared/api/types'
-import { jstTime } from '../../shared/format/time'
+import { hhmmss } from '../../shared/format/time'
 import type { Dict } from '../../shared/i18n'
 import { IconCloudSun } from '../../shared/ui/icons'
 import { classLabel, factorShort, kindLabel, lastSeen, readingNote, sourceLabel, valueText, worstFactor } from './envFormat'
@@ -20,7 +20,7 @@ interface Props {
 
 function chipState(s: EnvSummary | null, dict: Dict): { cls: string; text: string } {
   if (s === null) return { cls: 'none', text: dict.envChipNone }
-  if (s.unavailable) return { cls: 'unavailable', text: `${dict.envChipUnavailable} · ${dict.envChipLast.replace('{time}', jstTime(lastSeen(s)))}` }
+  if (s.unavailable) return { cls: 'unavailable', text: `${dict.envChipUnavailable} · ${dict.envChipLast.replace('{time}', hhmmss(lastSeen(s)))}` }
   const worst = worstFactor(s)
   if (worst === null || worst.level === 'ok') return { cls: 'ok', text: dict.envChipOk }
   return { cls: worst.level, text: `${dict.envChip}: ${factorShort(worst, dict)}` }
@@ -43,7 +43,7 @@ function FactorRow({ f, dict }: { readonly f: EnvFactor; readonly dict: Dict }) 
             <span className="env-rsrc">{sourceLabel(r.source, dict)}</span>
             <span className="t3">{classLabel(r, dict)}</span>
             <span className="num">{valueText(f, r, dict)}</span>
-            <span className="num t3">{jstTime(r.at_ms)}</span>
+            <span className="num t3">{hhmmss(r.at_ms)}</span>
             {!r.fresh && <span className="env-stale-tag">{dict.envChipStale}</span>}
             {readingNote(r) && <span className="env-rnote">{readingNote(r)}</span>}
           </li>
@@ -59,7 +59,7 @@ function Popover({ s, dict }: { readonly s: EnvSummary | null; readonly dict: Di
       <div className="row env-pop-h">
         <span className="h2">{dict.envChipTitle}</span>
         <div className="grow" />
-        {s && <span className="num t3">{dict.envChipUpdated.replace('{time}', jstTime(s.ts))}</span>}
+        {s && <span className="num t3">{dict.envChipUpdated.replace('{time}', hhmmss(s.ts))}</span>}
       </div>
       {s?.unavailable && <div className="env-pop-warn">{dict.envChipUnavailable}</div>}
       {s && s.missing.length > 0 && <div className="t3 env-pop-line">{dict.envChipMissing.replace('{list}', s.missing.map((id) => sourceLabel(id, dict)).join(', '))}</div>}

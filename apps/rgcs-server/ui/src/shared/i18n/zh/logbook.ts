@@ -6,6 +6,7 @@ export const logbookZh: Record<keyof typeof logbookJa, string> = {
   lbSubMaintenance: '维护',
   lbSubLogs: '日志',
   lbPeriod: '期间',
+  lbTimesJst: '时间为日本标准时间 (JST，按国土交通省表格)',
   lbExportPdf: '导出 PDF',
   lbExportCsv: '导出 CSV',
   lbResultOk: '合格',

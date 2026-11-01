@@ -6,6 +6,7 @@ export const logbookKo: Record<keyof typeof logbookJa, string> = {
   lbSubMaintenance: '점검 정비 기록',
   lbSubLogs: '로그',
   lbPeriod: '기간',
+  lbTimesJst: '시각은 일본 표준시 (JST, 국토교통성 서식 기준)',
   lbExportPdf: 'PDF 내보내기',
   lbExportCsv: 'CSV 내보내기',
   lbResultOk: '정상',

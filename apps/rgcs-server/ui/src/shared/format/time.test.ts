@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { hhmm, hhmmss, jstDateTime, jstTime } from './time'
+import { dateTimeText, hhmm, hhmmss } from './time'
+import * as time from './time'
 
 describe('clock formats', () => {
   it('pads hours, minutes and seconds in local time', () => {
@@ -9,11 +10,14 @@ describe('clock formats', () => {
   })
 })
 
-describe('JST formats', () => {
-  it('formats unix ms in Asia/Tokyo whatever the browser zone', () => {
-    expect(jstTime(1_761_400_000_000)).toBe('22:46:40')
-    expect(jstDateTime(1_761_400_000_000)).toBe('2025-10-25 22:46')
-    expect(jstTime(Date.UTC(2026, 0, 1, 15, 0, 0))).toBe('00:00:00')
+describe('local date-time', () => {
+  it('formats YYYY-MM-DD HH:MM in the browser zone', () => {
+    expect(dateTimeText(new Date(2025, 9, 25, 22, 46, 40).getTime())).toBe('2025-10-25 22:46')
+    expect(dateTimeText(new Date(2026, 0, 1, 0, 0).getTime())).toBe('2026-01-01 00:00')
+  })
+
+  it('has_no_fixed_time_zone_helpers_left', () => {
+    expect(Object.keys(time).filter((k) => /jst/i.test(k))).toEqual([])
   })
 })
 

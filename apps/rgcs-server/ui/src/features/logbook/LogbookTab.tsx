@@ -70,6 +70,7 @@ export function LogbookTab({ sysid, vehicles, me, dict, draft, logFetch, maintDr
         <input id="lb-from" className="in" type="date" value={period.from} onChange={(e) => setPeriod({ ...period, from: e.target.value })} />
         <label htmlFor="lb-to">〜</label>
         <input id="lb-to" className="in" type="date" value={period.to} onChange={(e) => setPeriod({ ...period, to: e.target.value })} />
+        <span className="t3 lb-tz">{dict.lbTimesJst}</span>
         <div className="seg n4 g-ctl lb-sub">
           <span className="lens" style={{ transform: `translateX(${SUBS.indexOf(sub) * 100}%)` }} />
           {SUBS.map((s) => (

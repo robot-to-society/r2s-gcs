@@ -16,6 +16,7 @@
 .lb-period { gap: 12px; padding: 0 4px; flex-wrap: wrap; position: relative; z-index: 1; }
 .lb-period label { font-size: 13px; color: var(--t2); }
 .lb-period input[type='date'] { height: 34px; padding: 0 8px; font-size: 13px; }
+.lb-tz { font-size: 11px; }
 .lb-period .grow { flex: 1; }
 .lb-sub { height: 40px; flex: none; width: 520px; max-width: 100%; }
 .seg.n4 .lens { width: calc((100% - 6px) / 4); }

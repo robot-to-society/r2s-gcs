@@ -34,6 +34,11 @@ function setup(maintDraft: MaintenanceInput | null = null) {
 describe('LogbookTab', () => {
   afterEach(() => vi.unstubAllGlobals())
 
+  it('says_the_logbook_times_are_jst', async () => {
+    setup()
+    expect(await screen.findByText('時刻は日本標準時 (JST、国土交通省の様式)')).toBeInTheDocument()
+  })
+
   it('period_defaults_to_this_month_and_export_links_follow_the_subtab', async () => {
     setup()
     const { from, to } = monthRange(new Date())
