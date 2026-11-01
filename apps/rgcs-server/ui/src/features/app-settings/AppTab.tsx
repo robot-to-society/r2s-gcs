@@ -1,4 +1,4 @@
-// アプリ設定 tab (spec 10 §7, addendum §5.7): 表示言語, 表示 (theme), 地図表示, 機体台帳, 操縦者, 点検テンプレート, the
+// アプリ設定 tab (spec 10 §7, addendum §5.7): 表示言語, 表示 (theme), 地図表示, プラグイン, 機体台帳, 操縦者, 点検テンプレート, the
 // 実験機能 / 外的要因データ cards (plan 2026-10-25-ai-guard Task 9) and the
 // 観客用画面 card opening the links and logo sheet (UX-53). Card grid after the prototype's app tab.
 import type { Operator, VehicleState } from '../../shared/api/types'
@@ -10,6 +10,7 @@ import { LaunchCard } from './LaunchCard'
 import { MapDisplayCard } from './MapDisplayCard'
 import { MavlinkCard } from './MavlinkCard'
 import { PilotForm } from './PilotForm'
+import { PluginsCard } from './PluginsCard'
 import { RegistryForm } from './RegistryForm'
 import { TemplateEditor } from './TemplateEditor'
 
@@ -40,6 +41,7 @@ export function AppTab({ sysid, vehicle, me, dict, onOpenPresent, onOpenGuard, o
       <DisplayCard dict={dict} />
       <MapDisplayCard dict={dict} />
       <MavlinkCard dict={dict} isAdmin={isAdmin} />
+      <PluginsCard dict={dict} isAdmin={isAdmin} />
       <LaunchCard testId="guard-card" icon={<IconFlask />} title={dict.guardCardTitle} note={dict.guardCardNote} dict={dict} onOpen={onOpenGuard} />
       <LaunchCard testId="env-card" icon={<IconCloudSun />} title={dict.envCardTitle} note={dict.envCardNote} dict={dict} onOpen={onOpenEnv} />
       {sysid !== null && <RegistryForm key={sysid} sysid={sysid} vehicle={vehicle} isAdmin={isAdmin} dict={dict} />}
