@@ -11,7 +11,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(git -C "$HERE" rev-parse --show-toplevel)"
-REQUIRED=(LICENSE README.md README.ja.md PLUGINS.md SECURITY.md)
+REQUIRED=(LICENSE LICENSE-EXCEPTION.md README.md README.ja.md PLUGINS.md SECURITY.md CONTRIBUTING.md CLA.md TRADEMARKS.md)
 
 usage() { sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 

@@ -142,12 +142,18 @@ Plugins can add more sources. Their terms are the plugin author's and user's res
 - Coverage, weather and terrain data are planning aids from third parties. They carry no
   guarantee, especially in the air.
 
+## Contributing
+
+Issues and pull requests are welcome, in English or Japanese. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Code contributions need the [Contributor License Agreement](CLA.md): you keep your copyright, and
+your contribution always stays available under RGCS's open licence.
+
 ## License
 
 RGCS is © 2026 RtoS Co., Ltd. It is licensed under the
-[GNU Affero General Public License v3.0 or later](LICENSE), with the **RGCS Plugin Exception**:
-a plugin that uses RGCS only through the interface documented in [PLUGINS.md](PLUGINS.md) may
-use any license.
+[GNU Affero General Public License v3.0 or later](LICENSE), with the
+[RGCS Plugin Exception](LICENSE-EXCEPTION.md): a plugin that uses RGCS only through the interface
+documented in [PLUGINS.md](PLUGINS.md) may use any license.
 
 If you run a modified RGCS for users over a network, the AGPL requires that you offer them its
 source code.
@@ -157,3 +163,6 @@ Third-party components keep their own licenses:
   Noto Sans JP font for PDF forms (`assets/fonts`, SIL OFL 1.1);
 - ArduPilot parameter metadata (`apps/rgcs-server/ui/public/params`, GPL-3.0);
 - the Rust and npm dependencies listed in `Cargo.lock` and `package-lock.json`.
+
+"RGCS" and its logo are trademarks of RtoS Co., Ltd. Forks and modified versions are welcome under
+another name: see [TRADEMARKS.md](TRADEMARKS.md).

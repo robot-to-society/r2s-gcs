@@ -10,7 +10,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 SRC="$TMP/src"
 mkdir -p "$SRC/scripts/export" "$SRC/docs" "$SRC/design_base" "$SRC/deploy/plugins/x" "$SRC/app"
 cp "$HERE/export-public.sh" "$HERE/exclude.txt" "$HERE/denylist.txt" "$SRC/scripts/export/"
-for f in README.md README.ja.md LICENSE PLUGINS.md SECURITY.md; do echo "$f" > "$SRC/$f"; done
+for f in README.md README.ja.md LICENSE LICENSE-EXCEPTION.md PLUGINS.md SECURITY.md CONTRIBUTING.md CLA.md TRADEMARKS.md; do echo "$f" > "$SRC/$f"; done
 echo internal > "$SRC/docs/spec.md"
 echo internal > "$SRC/design_base/a.html"
 echo internal > "$SRC/CLAUDE.md"
@@ -64,7 +64,7 @@ git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qam unleak
 "$EXPORT" "$TMP/out3" --author 'a <a@example.com>' >/dev/null 2>&1 && fail "overwrote a non-empty destination"
 
 # 5. a required public file missing stops the export
-for f in SECURITY.md PLUGINS.md; do
+for f in SECURITY.md PLUGINS.md CLA.md LICENSE-EXCEPTION.md; do
   git -C "$SRC" rm -q "$f" && git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qm "drop $f"
   "$EXPORT" "$TMP/out5-$f" --author 'a <a@example.com>' >/dev/null 2>&1 && fail "exported without $f"
   echo "$f" > "$SRC/$f" && git -C "$SRC" add "$f" && git -C "$SRC" -c user.name=t -c user.email=t@example.com commit -qm "restore $f"

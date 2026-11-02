@@ -297,4 +297,6 @@ Where the build differs from the text above:
 - **Two extra error codes**: `too_many` and `bad_value` (listed above).
 - **Tests**: `tests/plugin_examples.rs` checks that every `toml` block in `PLUGINS.md`, the
   examples and the deploy plugins load.
-
+- 2026-11-02: `LICENSE` holds only the AGPL text (so GitHub detects it); the copyright notice and
+  the exception live in `LICENSE-EXCEPTION.md`, whose scope also covers contributions under the
+  RGCS CLA (`CLA.md`, Harmony individual licence variant, outbound Option Five).

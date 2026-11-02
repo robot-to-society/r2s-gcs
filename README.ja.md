@@ -122,9 +122,13 @@ RGCS は地図データを同梱しません。既定では、次の取得元に
 - 新しい計画は、まず SITL で飛ばしてください。手動で操縦できる人と、RGCS とは別のフェイルセーフ(送信機、機体側の RTL / 着陸設定)を必ず用意してください。
 - 電波・気象・地形のデータは、第三者が提供する計画用の参考情報です。上空でのことも含め、何も保証しません。
 
+## 貢献
+
+Issue とプルリクエストを歓迎します(英語・日本語どちらでも)。手順は [CONTRIBUTING.md](CONTRIBUTING.md) にあります。コードの貢献には [Contributor License Agreement](CLA.md)(CLA)への同意が必要です。著作権は貢献した人に残り、貢献したコードは常に RGCS のオープンなライセンスでも提供され続けます。
+
 ## ライセンス
 
-RGCS の著作権は RtoS Co., Ltd.(© 2026)にあります。ライセンスは [GNU Affero General Public License v3.0 以降](LICENSE)で、**RGCS Plugin Exception** を加えています。[PLUGINS.md](PLUGINS.md) に定めた方法だけで RGCS を使うプラグインは、どのライセンスでも配布できます。
+RGCS の著作権は RtoS Co., Ltd.(© 2026)にあります。ライセンスは [GNU Affero General Public License v3.0 以降](LICENSE)で、[RGCS Plugin Exception](LICENSE-EXCEPTION.md) を加えています。[PLUGINS.md](PLUGINS.md) に定めた方法だけで RGCS を使うプラグインは、どのライセンスでも配布できます。
 
 RGCS を改変してネットワーク越しに利用者へ提供する場合、AGPL により、その利用者にソースコードを提供する義務があります。
 
@@ -132,3 +136,5 @@ RGCS を改変してネットワーク越しに利用者へ提供する場合、
 - UI フォントの IBM Plex Sans JP と IBM Plex Mono(Fontsource から同梱、SIL OFL 1.1)、PDF 帳票用の Noto Sans JP(`assets/fonts`、SIL OFL 1.1)
 - ArduPilot のパラメータ説明(`apps/rgcs-server/ui/public/params`、GPL-3.0)
 - `Cargo.lock` と `package-lock.json` にある Rust / npm の依存パッケージ
+
+「RGCS」の名称とロゴは RtoS Co., Ltd. の商標です。フォークや改変版は別の名前で歓迎します。詳しくは [TRADEMARKS.md](TRADEMARKS.md) を参照してください。
