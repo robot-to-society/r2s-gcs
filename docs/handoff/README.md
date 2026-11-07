@@ -22,6 +22,12 @@
   `../r2s-gcs-design` は移す必要がありません。
 - 設計書: `docs/spec/`(00〜80)、`docs/plan/implementation-plan.md`、機能ごとの設計と計画は
   `docs/superpowers/specs/`、`docs/superpowers/plans/`。
+- **進め方と公開の方針(2026-11-05 ユーザー決定)**:
+  - Pi 単体版(`rgcs-node` + `rgcs-server` 同梱、クラウドなしで完結)を先行し、Hub は必須にしない(spec 80 §1 の追加決定、§6 の未決事項は決着)。
+  - オープンソース公開は別リポジトリ `../rgcs-public`(公開先は rtos-org/rgcs)。**push はユーザーの合図があるまでしない**。
+  - 公開範囲は CloudHub 以外のすべて。CloudHub は別実装・非公開で、このリポジトリと rgcs-public のどちらにも含めない。
+  - ライセンスは **MPL-2.0**(2026-11-05 に AGPL から変更を決定。rgcs-public 側で付け替え済み)。
+  - バージョンは **Semantic Versioning 2.0.0**。正本はルート `Cargo.toml` の workspace version(運用の詳細は rgcs-public の CONTRIBUTING.md と CHANGELOG.md)。
 
 ## 2. 新しい PC のセットアップ
 
