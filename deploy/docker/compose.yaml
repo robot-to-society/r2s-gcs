@@ -36,3 +36,16 @@ services:
     network_mode: service:pi
     depends_on: [mediamtx]
     restart: unless-stopped
+  # Development preview (x86_64): rgcs-server + built UI, no Pi emulation, no vehicle.
+  preview:
+    build: { context: ../.., dockerfile: deploy/docker/preview.Dockerfile }
+    image: rgcs-preview:latest
+    platform: linux/amd64
+    ports:
+      # Loopback only, same rule as the pi service above: the default login
+      # must not be exposed to the LAN.
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - preview-data:/data
+volumes:
+  preview-data:

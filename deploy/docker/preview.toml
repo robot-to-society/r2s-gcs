@@ -1,0 +1,13 @@
+# Config for the development preview container (preview.Dockerfile).
+# Everything else takes the defaults of apps/rgcs-server/src/config.rs,
+# including the MAVLink input (udpin:127.0.0.1:15555 — no vehicle in preview).
+listen = "0.0.0.0:8000"
+data_dir = "/data"
+role = "standalone"
+ui_dir = "/opt/rgcs/ui"
+telemetry_interval_ms = 100
+
+# AI chat stays off in preview (no LLM calls). Keep [ai] last: TOML keys
+# after it belong to it.
+[ai]
+provider = "none"
