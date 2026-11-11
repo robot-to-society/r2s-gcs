@@ -1,0 +1,6 @@
+# Build contexts must stay small: the preview Dockerfile copies the tree, and
+# local dev state (SITL logs, cargo output) reaches tens of GB.
+.git
+.dev
+target
+**/node_modules
